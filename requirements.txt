@@ -1,0 +1,5 @@
+tensorflow
+gplearn
+sympy
+click
+-e dsr
