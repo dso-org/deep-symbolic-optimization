@@ -5,7 +5,10 @@ import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 
 from dsr import utils as U
+from dsr.controllers import VectorController, MLPController
 from dsr.expression import Expression, Dataset
+
+from program import Program
 
 
 # Sample a pre-order tree traversal from distribution parameters p
@@ -39,27 +42,19 @@ def sample_trav(p):
 
 def main():
 
-    # Parameters of the distribution over expressions
-    # For now, we will train these directly
-    # In the future, these will be outputs of a neural network
-    logits = tf.get_variable("logits",
-                            shape=[U.n_choices],
-                            trainable=True,
-                            initializer=tf.zeros_initializer())
+    # The controller outputs a distribution over expressions
+    # For now, the controller is simply a vector of distribution parameters
+    # In the future, the controller will be an RNN whose outputs are the distribution parameters
+    # controller = VectorController()
+    controller = MLPController()
 
     # Define placeholders for traversal encoding, reward, and baseline
     trav_ph = tf.placeholder(dtype=tf.int32, shape=(None, U.MAX_SEQUENCE_LENGTH))
     r_ph = tf.placeholder(dtype=tf.float32, shape=(None,))
     b_ph = tf.placeholder(dtype=tf.float32, shape=())
 
-    # Compute the log likelihood of a given per-order traversal
-    def traversal_loglikelihood(trav):
-        logp_all = tf.nn.log_softmax(logits)
-        logp_trav = tf.reduce_sum(tf.one_hot(trav, depth=U.n_choices) * logp_all)
-        return logp_trav
-
     # Define loss tensor and training operation
-    logp_trav = traversal_loglikelihood(trav_ph)
+    logp_trav = controller.loglikelihood(trav_ph)
     loss = -tf.reduce_mean(logp_trav * (r_ph - b_ph))
     train_op = tf.train.AdamOptimizer(learning_rate=1e-3).minimize(loss)
 
@@ -79,6 +74,10 @@ def main():
     ground_truth_trav = np.array(U.convert(["Add","sin","Mul","x1","x1","Mul","cos","Mul","x1","x2","sin","Mul","x1","x1"]) + [-1]*1, dtype=int).reshape(1, -1)
     dataset = Dataset(ground_truth)
 
+    # 2*x
+    # ground_truth = parse_expr("Add(x1,x1)")
+    # ground_truth_trav = np.array(U.convert(["Add","x1","x1"]) + [-1]*12, dtype=int).reshape(1, -1)
+    # dataset = Dataset(ground_truth)
 
     # Main training loop
     epochs = 100
@@ -88,15 +87,27 @@ def main():
     alpha = 0.2 # Coefficient used for EWMA
     for epoch in range(epochs):
 
-        p = sess.run(tf.nn.softmax(logits)) # Current parameters
+        # p = sess.run(tf.nn.softmax(controller.logits), feed_dict = {controller.inputs : np.ones(U.n_choices, dtype=np.float32).reshape(1, -1)}) # Current parameters
+        p = sess.run(tf.nn.softmax(controller.logits)) # Current parameters
+
+        # HACK
+        if len(p.shape) > 1:
+            p = p[0,:]
+
         travs = [sample_trav(p.copy()) for _ in range(trav_per_epoch)] # Sample traversals
-        expressions = [Expression(traversal=trav) for trav in travs] # Instantiate expressions
-        mse = np.array([expr.loss(dataset.X, dataset.y) for expr in expressions]) # Compute regression loss
-        r = -mse # Compute reward (negative regression loss)
+
+        programs = [Program(trav) for trav in travs] # Instantiate expressions        
+        r = np.array([p.neg_mse(dataset.X, dataset.y) for p in programs]) # Compute reward
+
+
+        # expressions = [Expression(traversal=trav) for trav in travs] # Instantiate expressions
+        # mse = np.array([expr.loss(dataset.X, dataset.y) for expr in expressions]) # Compute regression loss
+        
+
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b # Compute baseline (EWMA of average reward)
-        print("MSE: {:.3f} +/- {:.3f}".format(np.mean(mse), np.std(mse)))
-        print("MSE Q1/Q2/Q3: {:.3f}/{:.3f}/{:.3f}".format(np.percentile(mse, 25), np.percentile(mse, 50), np.percentile(mse, 75)))
-        print("MSE Low/High: {:.3f}/{:.3f}".format(np.min(mse), np.max(mse)))
+        print("r: {:.3f} +/- {:.3f}".format(np.mean(r), np.std(r)))
+        print("r Q1/Q2/Q3: {:.3f}/{:.3f}/{:.3f}".format(np.percentile(r, 25), np.percentile(r, 50), np.percentile(r, 75)))
+        print("r Low/High: {:.3f}/{:.3f}".format(np.min(r), np.max(r)))
         print("Loglikelihood of correct answer: {:.3f}".format(sess.run(logp_trav, feed_dict={trav_ph : ground_truth_trav})))
         print("Parameter vector: {}".format(p))
 
@@ -104,7 +115,7 @@ def main():
         if max(r) > best:
             index = np.argmax(r)
             best = r[index]
-            print("New best expression: {} (reward = {})".format(expressions[index], best))
+            print("New best expression: {} (reward = {})".format(programs[index], best))
 
         ###
         # logp = tf.log(tf.constant([1,1,2,1e-9,1,2], dtype=tf.float32)/7)
