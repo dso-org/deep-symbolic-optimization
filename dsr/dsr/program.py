@@ -89,7 +89,7 @@ class Program():
         '''Fraction of predicted points within alpha*y of the true value'''
 
         y_hat = self.execute(X)
-        return np.mean(abs(y - y_hat) < alpha*y)
+        return np.mean(abs(y - y_hat) < alpha*abs(y))
 
 
     def __repr__(self):
