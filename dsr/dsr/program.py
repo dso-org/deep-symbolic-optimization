@@ -84,12 +84,24 @@ class Program():
         y_hat = self.execute(X)
         return -np.mean((y - y_hat)**2)
 
-
-    def fraction(self, X, y, alpha=0.25):
-        '''Fraction of predicted points within alpha*y of the true value'''
+    def inverse_mse(self, X, y):
+        '''Inverse mean squared error'''
 
         y_hat = self.execute(X)
-        return np.mean(abs(y - y_hat) < alpha*abs(y))
+        return 1/np.mean((y - y_hat)**2)
+
+
+    def fraction(self, X, y, alpha=0.25, epsilon=0.05):
+        '''Fraction of predicted points within alpha*abs(y) + epsilon of the true value'''
+
+        y_hat = self.execute(X)
+        return np.mean(abs(y - y_hat) < alpha*abs(y) + epsilon)
+
+    def epsilon(self, X, y, epsilon=0.05):
+        '''Fraction of predicted points within epsilon of the true value'''
+
+        y_hat = self.execute(X)
+        return np.mean(abs(y - y_hat) < epsilon)
 
 
     def __repr__(self):
