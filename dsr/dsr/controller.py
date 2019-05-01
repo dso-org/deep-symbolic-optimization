@@ -1,4 +1,5 @@
 from datetime import datetime
+import itertools
 
 import tensorflow as tf
 import numpy as np
@@ -12,7 +13,7 @@ import dsr.utils as U
 tf.random.set_random_seed(0)
 
 class Controller():
-    def __init__(self, sess, num_units, library_size, max_length, learning_rate=0.001, batch_size=1, entropy_weight=0.0):
+    def __init__(self, sess, num_units, library_size, max_length, learning_rate=0.001, entropy_weight=0.0):
 
         self.sess = sess # TensorFlow session
         self.actions = [] # Actions sampled from the controller        
@@ -26,18 +27,20 @@ class Controller():
         entropies = []
 
         # Placeholders, computed after instantiating expressions
+        self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
         self.actions_ph = []
-        self.r = tf.placeholder(dtype=tf.float32, shape=(batch_size,), name="r")
+        self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
-        self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, batch_size), name="actions_mask")
+        self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")        
 
         # Build controller RNN
         with tf.name_scope("controller"):
             
             cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
-            cell_state = cell.zero_state(batch_size=batch_size, dtype=tf.float32)
-            cell_input = tf.constant(1.0, dtype=tf.float32, shape=(batch_size, 1, library_size)) # First input fed to controller
-
+            cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32)
+            input_dims = tf.stack([self.batch_size, 1, library_size])
+            cell_input = tf.fill(input_dims, 1.0) # First input fed to controller
+            
             #####
             # TBD: Create embedding layer
             #####
@@ -55,15 +58,15 @@ class Controller():
                 # Sample from the library
                 action = tf.multinomial(logits, num_samples=1)
                 action = tf.to_int32(action)
-                action = tf.reshape(action, (batch_size,))
+                action = tf.reshape(action, (self.batch_size,))
                 self.actions.append(action)
 
                 # Placeholder for selected actions
-                action_ph = tf.placeholder(dtype=tf.int32, shape=(batch_size,))
+                action_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                 self.actions_ph.append(action_ph)
 
                 # Update LSTM input and state with selected actions
-                cell_input = tf.one_hot(tf.reshape(self.actions_ph[i], (batch_size, 1)), depth=library_size, name="cell_input_{}".format(i))
+                cell_input = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=library_size, name="cell_input_{}".format(i))
                 cell_state = final_state
 
                 # Cross-entropy loss is equivalent to neglogp
@@ -108,12 +111,12 @@ class Controller():
         self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)        
 
 
-    def sample(self):
-        """Samples actions from the controller"""
+    def sample(self, n):
+        """Samples n actions from the controller"""
 
         actions = []
 
-        feed_dict = {}
+        feed_dict = {self.batch_size : n}
         for i in range(self.max_length):
             action = self.sess.run(self.actions[i], feed_dict=feed_dict)
             actions.append(action)
@@ -125,8 +128,9 @@ class Controller():
     def neglogp(self, actions, actions_mask):
         """Returns neglogp of actions"""
 
-        feed_dict = {self.actions_ph[i] : a for i,a in enumerate(actions)}
+        feed_dict = {self.actions_ph[i] : a for i,a in enumerate(actions.T)}
         feed_dict[self.actions_mask] = actions_mask
+        feed_dict[self.batch_size] = actions.shape[0]
 
         return self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
 
@@ -136,10 +140,11 @@ class Controller():
 
         feed_dict = {self.r : r,
                     self.baseline : b,
-                    self.actions_mask : actions_mask}
+                    self.actions_mask : actions_mask,
+                    self.batch_size : actions.shape[0]}
 
-        for i, action in enumerate(actions):
-            feed_dict[self.actions_ph[i]] = np.squeeze(action)
+        for i, action in enumerate(actions.T):
+            feed_dict[self.actions_ph[i]] = action
 
         loss, _, summaries = self.sess.run([self.loss, self.train_op, self.summaries], feed_dict=feed_dict)
         
@@ -169,6 +174,11 @@ if __name__ == "__main__":
     ground_truth_trav = np.array(U.convert(["Add","cos","Mul","x1","x2","sin","Mul","x2","x2"]), dtype=int).reshape(1, -1)
     dataset = Dataset(ground_truth)
 
+    # Create ground-truth expression: x1 + x2 + x3 + x4 + x5
+    ground_truth = parse_expr("Add(Add(Add(Add(x1,x2),x3),x4),x5)")
+    ground_truth_trav = np.array(U.convert(["Add","Add","Add","Add","x1","x2","x3","x4","x5"]), dtype=int).reshape(1, -1)
+    dataset = Dataset(ground_truth)
+
     # ground_truth_program = Program(U.convert(["Add","sin","Mul","x1","x1","Mul","cos","Mul","x1","x2","sin","Mul","x2","x2"]) + [-1]*1)
     # ground_truth_actions = U.convert(["Add","sin","Mul","x1","x1","Mul","cos","Mul","x1","x2","sin","Mul","x2","x2"]) + [0]*(max_length - 14)
     # ground_truth_actions = np.vstack([np.array(ground_truth_actions)]*batch_size) # (batch_size, max_length)
@@ -180,7 +190,7 @@ if __name__ == "__main__":
     with tf.Session() as sess:
 
         # Create the controller
-        controller = Controller(sess, num_units, library_size, max_length, batch_size=batch_size)
+        controller = Controller(sess, num_units, library_size, max_length)
 
         # Create the summary writer
         logdir = "./summary/{}/".format(datetime.now().strftime("%Y-%m-%d-%H%M%S"))
@@ -196,19 +206,28 @@ if __name__ == "__main__":
         alpha = 0.1 # Coefficient used for EWMA
         for step in range(epochs):
 
-            actions = controller.sample() # Sample batch of expressions from controller
+            actions = controller.sample(batch_size) # Sample batch of expressions from controller
+            actions = np.squeeze(np.stack(actions, axis=-1)) # Shape (batch_size, max_length)
 
             # unique_actions, counts = np.unique(np.squeeze(np.stack(actions, axis=-1))[:,:5], axis=0, return_counts=True)
             # print(unique_actions.shape[0])
             
-            programs = [Program(a) for a in np.squeeze(np.stack(actions, axis=-1))] # Instantiate expressions
+            programs = [Program(a) for a in actions] # Instantiate expressions
             r = np.array([p.fraction(dataset.X, dataset.y, alpha=0.25, epsilon=0.0) for p in programs]) # Compute reward
+
+            # Heuristic: Only train on top epsilon percentile of sampled expressions
+            epsilon = 99
+            cutoff = r >= np.percentile(r, epsilon)
+            actions = actions[cutoff, :]
+            programs = list(itertools.compress(programs, cutoff))
+            r = r[cutoff]
+
             b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b # Compute baseline (EWMA of average reward)
 
             # Compute actions mask
-            actions_mask = np.zeros_like(np.stack(np.squeeze(actions)), dtype=np.float32) # Shape: (max_length, batch_size)
-            for i in range(batch_size):
-                length = min(len(programs[i].program), max_length)
+            actions_mask = np.zeros_like(actions.T, dtype=np.float32) # Shape: (max_length, batch_size)
+            for i,p in enumerate(programs):
+                length = min(len(p.program), max_length)
                 actions_mask[:length, i] = 1.0
 
             loss, summaries = controller.train_step(r, b, actions, actions_mask) # Train controller
