@@ -1,0 +1,26 @@
+{
+
+"dataset" : {
+    "name" : "Name-1",
+    "extra_input_var" : 0,
+    "operators" : ["Add", "Mul", "sin", "cos"]
+},
+
+"training" : {
+    "logdir" : ".",
+    "n_epochs" : 1000,
+    "batch_size" : 1000,
+    "reward" : "fraction",
+    "reward_params" : [0.25, 0.0],
+    "alpha" : 0.1,
+    "epsilon" : 0.01
+},
+
+"controller" : {    
+    "num_units" : 35,
+    "max_length" : 30,
+    "learning_rate" : 0.001,
+    "entropy_weight" : 0.0
+}
+
+}
