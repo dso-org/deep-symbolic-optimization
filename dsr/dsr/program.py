@@ -2,26 +2,36 @@ import numpy as np
 
 from gplearn.functions import _function_map, _Function
 
-import utils as U
 
+class Program(): 
 
-class Program():
+    # Static variables
+    library = None          # List of operators/terminals
+    reward_function = None  # Reward function
+
     def __init__(self, program):
-        """Build the program from a list of operators/terminals"""
+        """Build the program from a list of tokens"""
 
-        self.program = []
+        self.program = [] # List of operators/terminals
         count = 1
         for p in program:
-            if count == 0 or p == -1:
+            if count == 0 or p == -1: # TBD: Get rid of -1 case, then move this to end of loop iteration
                 break
-            val = U.library[p] # Value in library
-            if val in U.binary + U.unary:
-                self.program.append(_function_map[val.lower()])
-                if val in U.binary:
-                    count += 1
-            elif U.library[p] in U.leaf:
-                self.program.append(int(val[-1]) - 1)
+            if isinstance(p, np.int32): # Operator or input variable
+                op = Program.library[p]                
+                if isinstance(op, _Function):
+                    self.program.append(op)
+                    count += op.arity - 1
+                else:
+                    self.program.append(int(op[1:]))
+                    count -= 1
+            elif isinstance(p, np.float32): # Constant
+                raise ValueError("Constants not yet supported.")
+                self.program.append(p)
                 count -= 1
+            else:
+                raise ValueError("Unrecognized type")
+
 
         # Complete unfinished programs with x1
         for i in range(count):
@@ -75,33 +85,69 @@ class Program():
         return None
 
 
-    ### Reward functions ###
+    @classmethod
+    def set_reward_function(cls, name, *params):
+
+        if Program.reward_function is not None:
+            raise RuntimeError("Error: Cannot set reward function more than once.")
 
 
-    def neg_mse(self, X, y):
-        '''Negative mean squared error'''
+        all_functions = {
+            # Negative mean squared error
+            "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
+                            0),
 
+            # Inverse mean squared error
+            "inverse_mse" : (lambda y, y_hat : 1/np.mean((y - y_hat)**2),
+                            0),
+
+            # Fraction of predicted points within p0*abs(y) + p1 band of the true value
+            "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
+                            2)
+        }
+
+        assert name in all_functions, "Unrecognized reward function name"
+        assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
+        Program.reward_function = all_functions[name][0]
+
+
+    @classmethod
+    def set_library(cls, operators, n_input_var):
+
+        if Program.library is not None:
+            raise RuntimeError("Error: Cannot set library more than once.")
+
+        Program.library = []
+
+        # Add operators
+        library = [op.lower() for op in operators] # Convert to lower-case
+        for op in library:
+            # Function
+            if op in _function_map:
+                Program.library.append(_function_map[op])
+            # Input variable
+            elif type(op) == int:
+                Program.library.append(op)
+            else:
+                raise ValueError("Operation {} not recognized.".format(op))
+
+        # Add input variables
+        input_vars = ["x{}".format(i) for i in range(n_input_var)] # x0, x1, ..., x{n-1}
+        Program.library.extend(input_vars)
+
+
+    @staticmethod
+    def convert(traversal):
+        """Converts a string traversal to an int traversal"""
+
+        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
+
+
+    # Evaluate the reward of a given dataset    
+    def reward(self, X, y):
         y_hat = self.execute(X)
-        return -np.mean((y - y_hat)**2)
-
-    def inverse_mse(self, X, y):
-        '''Inverse mean squared error'''
-
-        y_hat = self.execute(X)
-        return 1/np.mean((y - y_hat)**2)
-
-
-    def fraction(self, X, y, alpha=0.25, epsilon=0.05):
-        '''Fraction of predicted points within alpha*abs(y) + epsilon of the true value'''
-
-        y_hat = self.execute(X)
-        return np.mean(abs(y - y_hat) < alpha*abs(y) + epsilon)
-
-    def epsilon(self, X, y, epsilon=0.05):
-        '''Fraction of predicted points within epsilon of the true value'''
-
-        y_hat = self.execute(X)
-        return np.mean(abs(y - y_hat) < epsilon)
+        return Program.reward_function(y, y_hat)
 
 
     def __repr__(self):
