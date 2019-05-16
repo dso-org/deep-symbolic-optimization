@@ -1,4 +1,6 @@
 
+import chardet
+import pandas as pd
 import csv
 import copy
 from sympy.parsing.sympy_parser import parse_expr
@@ -16,6 +18,15 @@ class ParseData:
           self.dataset  = self.read()
 
       def read(self):
+          with open(self.fdata, 'rb') as f:
+               result = chardet.detect(f.read())  # or readline if the file is large
+          df = pd.read_csv(self.fdata, encoding=result['encoding'])
+#          df.replace({'\'': '"'}, regex=True) 
+          for index, row in df.iterrows():
+              if row['Dataset'] == self.setid:
+                 return row
+          return {} 
+      #--- old way of reading: NOT used anymore
           with open(self.fdata) as csvfile:
                csvrows = csv.DictReader(csvfile, delimiter=',')
                for row in csvrows:
@@ -49,14 +60,18 @@ class ParseData:
 
       def processdict(self,binexpr): 
           self.dataexpr = {}
-          for k,v in self.dataset.items():
+          for k,v in self.dataset.items():             
+              if isinstance(v, str):
+              #-- these characters cause problems depending on the enconding
+                 v = v.replace(chr(8221),'"')
+                 v = v.replace(chr(8220),'"')
               try:
                   self.dataexpr[k] = eval(v)
               except:
                   self.dataexpr[k] = v
               if k in self.types:
                  self.dataexpr[k] = self.types[k](self.dataexpr[k])
-          self.dataexpr[self.objst] = binexpr
+          self.dataexpr["traverse"] = binexpr
           self.VarList = self.getvarlist() 
           ecode = self.updatedist('Training Set',3) #-- the second parameter is the error code
           if ecode:
@@ -98,7 +113,12 @@ class ParseData:
           return 0
 
       def converttobinarytree(self,ep):
-          return self.converttobinary([],ep)
+          expr = self.converttobinary([],ep)
+          #-- convert to string
+          stexpr = []
+          for e in expr:
+              stexpr.append(str(e))
+          return stexpr
 
       def converttobinary(self,argnewep,ep):
 

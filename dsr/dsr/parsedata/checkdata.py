@@ -1,4 +1,6 @@
 
+import chardet
+import pandas as pd
 import csv
 
 #-- this class can be used to check the data sets, i.e., if they can be parsed correctly 
@@ -16,12 +18,25 @@ class CheckData:
           self.write(Lchecks)
 
       def read(self):
-         
+
+          Ldata = []          
+          with open(self.fdata, 'rb') as f:
+               result = chardet.detect(f.read())  # or readline if the file is large
+          df = pd.read_csv(self.fdata, encoding=result['encoding'])
+          for index, row in df.iterrows():
+              Ldata.append(row) 
+          return Ldata
+
+      #--- old way of reading: NOT used anymore
           Ldata = []
-          with open(self.fdata) as csvfile:
+          with open(self.fdata,encoding=result["encoding"]) as csvfile:
                csvrows = csv.DictReader(csvfile, delimiter=',')
-               for row in csvrows:
-                   Ldata.append(row)
+               try:
+                 for row in csvrows:
+                     Ldata.append(row)
+               except:
+                     print("\n ---- Error reading input file %s! Execution aborted! ---- \n"%self.fdata)
+                     exit(0)
           return Ldata
 
       def write(self,Lchecks):
