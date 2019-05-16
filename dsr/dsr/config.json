@@ -1,7 +1,8 @@
 {
 
 "dataset" : {
-    "name" : "Name-1",
+    "file" : "benchmarks.csv",
+    "name" : "Keijzer-13",
     "extra_input_var" : 0,
     "operators" : ["Add", "Mul", "sin", "cos"]
 },

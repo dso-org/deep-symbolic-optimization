@@ -94,34 +94,35 @@ def main():
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
 
-    # HACK: Overriding values in config_dataset until reading in benchmarks is complete
-    config_dataset.update({
-        "traversal" : ["Add","Add","Add","Add","x1","x2","x3","x4","x5"],
-        # "traversal" : ["Mul","sin","x1","cos","Mul","x1","x2"],
-        "n_input_var" : 10,
-        "train_spec" : {
-            "x1" : {"U" : [-5, 5, 600]},
-            "x2" : {"U" : [-5, 5, 600]},
-            "x3" : {"U" : [-5, 5, 600]},
-            "x4" : {"U" : [-5, 5, 600]},
-            "x5" : {"U" : [-5, 5, 600]},
-            "x6" : {"U" : [-5, 5, 600]},
-            "x7" : {"U" : [-5, 5, 600]},
-            "x8" : {"U" : [-5, 5, 600]},
-            "x9" : {"U" : [-5, 5, 600]},
-            "x10" : {"U" : [-5, 5, 600]},
-        },
-        "test_spec" : None
-    })
 
-    # Define the library
-    Program.set_library(config_dataset["operators"], config_dataset["n_input_var"])
-    
+    # # HACK: Overriding values in config_dataset until reading in benchmarks is complete
+    # config_dataset.update({
+    #     "expression" : ["4*sin(x1) + cos(x2)"],
+    #     # "traversal" : ["Mul","sin","x1","cos","Mul","x1","x2"],
+    #     "n_input_var" : 10,
+    #     "train_spec" : {
+    #         "x1" : {"U" : [-5, 5, 600]},
+    #         "x2" : {"U" : [-5, 5, 600]},
+    #         "x3" : {"U" : [-5, 5, 600]},
+    #         "x4" : {"U" : [-5, 5, 600]},
+    #         "x5" : {"U" : [-5, 5, 600]},
+    #         "x6" : {"U" : [-5, 5, 600]},
+    #         "x7" : {"U" : [-5, 5, 600]},
+    #         "x8" : {"U" : [-5, 5, 600]},
+    #         "x9" : {"U" : [-5, 5, 600]},
+    #         "x10" : {"U" : [-5, 5, 600]},
+    #     },
+    #     "test_spec" : None
+    # })
+
     # Create the dataset
     dataset = Dataset(**config_dataset)
     X, y = dataset.X_train, dataset.y_train
-    n_choices = len(Program.library)
 
+    # Define the library
+    Program.set_library(config_dataset["operators"], X.shape[1])
+    n_choices = len(Program.library)
+    
     with tf.Session() as sess:
 
         # Instantiate the controller
