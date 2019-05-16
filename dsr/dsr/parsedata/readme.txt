@@ -1,4 +1,9 @@
 
+IMPORTANT: sometimes the characte '"' may cause a problem because of the enconding. 
+I tried " encoding='utf-8' " but that did not work. So, I had to manually substitute problematic characters
+
+pandas is being used to read with a package called chardet that can identify the enconding used.
+
 The code implemented in this package reads the data sets from a csv, parses it (using sympy) and loads them in a dictionary.
 The following classes were implemented:
   ParseData: parses the data
