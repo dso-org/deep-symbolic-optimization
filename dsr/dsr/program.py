@@ -1,9 +1,8 @@
 import numpy as np
-
 from gplearn.functions import _function_map, _Function
 
 
-class Program(): 
+class Program():
 
     # Static variables
     library = None          # List of operators/terminals
@@ -18,7 +17,7 @@ class Program():
             if count == 0 or p == -1: # TBD: Get rid of -1 case, then move this to end of loop iteration
                 break
             if isinstance(p, np.int32): # Operator or input variable
-                op = Program.library[p]                
+                op = Program.library[p]
                 if isinstance(op, _Function):
                     self.program.append(op)
                     count += op.arity - 1
@@ -144,7 +143,7 @@ class Program():
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
 
-    # Evaluate the reward of a given dataset    
+    # Evaluate the reward of a given dataset
     def reward(self, X, y):
         y_hat = self.execute(X)
         return Program.reward_function(y, y_hat)

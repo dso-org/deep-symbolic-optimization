@@ -1,6 +1,4 @@
 import tensorflow as tf
-import numpy as np
-from scipy.special import softmax
 
 
 class Controller():

@@ -1,5 +1,4 @@
 import numpy as np
-from sympy.parsing.sympy_parser import parse_expr
 
 from dsr.program import Program
 
@@ -21,7 +20,6 @@ class Dataset():
         self.n_input_var = n_input_var
         self.rng = np.random.RandomState(seed)        
 
-        # self.X_train = self.rng.uniform(low=-5, high=5, size=(600, 10))
         self.X_train = self.make_X(train_spec)
         self.X_test = self.make_X(test_spec) if test_spec is not None else self.X_train.copy()
 
@@ -34,11 +32,11 @@ class Dataset():
         for i in range(1, self.n_input_var + 1):
             input_var = "x{}".format(i)
             assert input_var in spec, "No specification for input variable {}".format(input_var)
-            # U(low, high, n)
+            # Format: U(low, high, n)
             if "U" in spec[input_var]:
                 low, high, n = spec[input_var]["U"]
                 feature = self.rng.uniform(low=low, high=high, size=n)
-            # E(start, stop, step) (inclusive)
+            # Format: E(start, stop, step) (inclusive)
             elif "E" in spec[input_var]:
                 start, stop, step = spec[input_var]["E"]
                 n = int((stop - start)/step)

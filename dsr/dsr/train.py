@@ -97,6 +97,7 @@ def main():
     # HACK: Overriding values in config_dataset until reading in benchmarks is complete
     config_dataset.update({
         "traversal" : ["Add","Add","Add","Add","x1","x2","x3","x4","x5"],
+        # "traversal" : ["Mul","sin","x1","cos","Mul","x1","x2"],
         "n_input_var" : 10,
         "train_spec" : {
             "x1" : {"U" : [-5, 5, 600]},
