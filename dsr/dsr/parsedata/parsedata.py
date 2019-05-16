@@ -71,7 +71,7 @@ class ParseData:
                   self.dataexpr[k] = v
               if k in self.types:
                  self.dataexpr[k] = self.types[k](self.dataexpr[k])
-          self.dataexpr["traverse"] = binexpr
+          self.dataexpr["Traversal"] = binexpr
           self.VarList = self.getvarlist() 
           ecode = self.updatedist('Training Set',3) #-- the second parameter is the error code
           if ecode:

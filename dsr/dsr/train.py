@@ -9,6 +9,7 @@ import numpy as np
 from dsr.controller import Controller
 from dsr.program import Program
 from dsr.dataset import Dataset
+from parsedata import ParseData
 
 
 tf.random.set_random_seed(0)
@@ -93,7 +94,21 @@ def main():
     config_dataset = config["dataset"]          # Problem specification parameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
+ 
+    #-- get the data set
+    pdata = ParseData('benchmarks.csv',config_dataset['name'])
+    ecode = pdata.parse()
+    if ecode>0:
+       print(" Error reading data! Error code: %d"%ecode)
+       exit(0)
 
+    config_dataset.update({
+         "expression"  : pdata()["Objective Function"],
+         "traversal"   : pdata()["Traversal"],
+         "n_input_var" : pdata()["Variables"],
+         "train_spec"  : pdata()["Training Set"],
+         "test_spec"   : pdata()["Testing Set"]
+     })
 
     # # HACK: Overriding values in config_dataset until reading in benchmarks is complete
     # config_dataset.update({
