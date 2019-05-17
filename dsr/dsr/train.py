@@ -1,7 +1,8 @@
 import os
 import json
+from itertools import compress
 from datetime import datetime
-import itertools
+from textwrap import indent
 
 import tensorflow as tf
 import numpy as np
@@ -11,6 +12,11 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 
 
+# Ignore TensorFlow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+tf.logging.set_verbosity(tf.logging.ERROR)
+
+# Set TensorFlow seed
 tf.random.set_random_seed(0)
 
 
@@ -57,7 +63,7 @@ def learn(
         if epsilon is not None and epsilon < 1.0:
             cutoff = r >= np.percentile(r, 100 - int(100*epsilon))
             actions = actions[cutoff, :]
-            programs = list(itertools.compress(programs, cutoff))
+            programs = list(compress(programs, cutoff))
             r = r[cutoff]
 
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b # Compute baseline (EWMA of average reward)
@@ -80,7 +86,10 @@ def learn(
         if max(r) > best:
             index = np.argmax(r)
             best = r[index]
-            print("New best expression: {} (reward = {})".format(programs[index], best))
+            print("\nNew best expression:")
+            print("\treward = {}".format(best))
+            print("\t{}".format(programs[index]))
+            print("{}\n".format(indent(programs[index].pretty(), '\t')))
 
 
 def main():
@@ -97,6 +106,7 @@ def main():
     # Create the dataset
     dataset = Dataset(**config_dataset)
     X, y = dataset.X_train, dataset.y_train
+    print("Ground truth expression:\n{}".format(indent(dataset.pretty(), '\t')))
 
     # Define the library
     Program.set_library(config_dataset["operators"], X.shape[1])

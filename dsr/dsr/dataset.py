@@ -3,7 +3,7 @@ import ast
 import pandas as pd
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
-from sympy import symbols, lambdify
+from sympy import symbols, lambdify, pretty
 
 
 class Dataset():
@@ -69,3 +69,8 @@ class Dataset():
         return X
 
 
+    def pretty(self):
+        return pretty(self.expression)
+
+    def __repr__(self):
+        return pretty(self.expression)
