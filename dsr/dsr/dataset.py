@@ -18,7 +18,7 @@ class Dataset():
         ):
 
         # Read in benchmark dataset information
-        df = pd.read_csv(file, index_col=0)
+        df = pd.read_csv(file, index_col=0, encoding="ISO-8859-1")
         row = df.loc[name]
 
         # Create symbolic expression
