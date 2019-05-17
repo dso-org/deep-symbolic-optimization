@@ -106,7 +106,15 @@ class Program():
 
             # Fraction of predicted points within p0*abs(y) + p1 band of the true value
             "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
-                            2)
+                            2),
+
+            # Pearson correlation coefficient
+            "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
+                            0),
+
+            # Spearman correlation coefficient
+            "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
+                            0)
         }
 
         assert name in all_functions, "Unrecognized reward function name"
