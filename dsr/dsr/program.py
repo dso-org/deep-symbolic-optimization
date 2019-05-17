@@ -159,7 +159,11 @@ class Program():
         # traversal --> tree --> serialized tree --> SymPy expression
     def pretty(self):
         if self.sympy_expr is None:
-            tree = build_tree(self.program.copy())
+            tree = self.program.copy()
+            tree = build_tree(tree)
+            print("Before", tree.__repr__())
+            tree = convert_to_sympy(tree)
+            print("After ", tree.__repr__())
             self.sympy_expr = parse_expr(tree.__repr__()) # SymPy expression
 
         return pretty(self.sympy_expr)
@@ -177,6 +181,7 @@ class Program():
 
 # Possible library elements that SymPy capitalizes
 capital = ["add", "mul", "pow"]
+
 
 """Basic tree class supporting printing"""
 class Node:
@@ -225,3 +230,34 @@ def build_tree(program, order="preorder"):
 
     elif order == "inorder":
         raise NotImplementedError
+
+
+"""Adjusts trees to only use node values supported by SymPy"""
+def convert_to_sympy(node):
+
+    if node.val == "div":
+        node.val = "Mul"
+        new_right = Node("Pow")
+        new_right.children.append(node.children[1])
+        new_right.children.append(Node("-1"))
+        node.children[1] = new_right
+
+    elif node.val == "sub":
+        node.val = "Add"
+        new_right = Node("Mul")
+        new_right.children.append(node.children[1])
+        new_right.children.append(Node("-1"))
+        node.children[1] = new_right
+
+    elif node.val == "inv":
+        node.val = Node("Pow")
+        node.children.append(Node("-1"))
+
+    elif node.val == "neg":
+        node.val = Node("Mul")
+        node.children.append(Node("-1"))
+
+    for child in node.children:
+        convert_to_sympy(child)
+
+    return node
