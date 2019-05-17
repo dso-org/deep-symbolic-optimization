@@ -1,4 +1,5 @@
 import ast
+from textwrap import indent
 
 import pandas as pd
 import numpy as np
@@ -7,6 +8,16 @@ from sympy import symbols, lambdify, pretty
 
 
 class Dataset():
+
+
+    @staticmethod
+    def print_all(file="benchmarks.csv"):
+        df = pd.read_csv(file, encoding="ISO-8859-1")
+        names = df["name"].to_list()
+        expressions = [parse_expr(expression) for expression in df["expression"]]
+        for expression, name in zip(expressions, names):
+            print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
+
 
     def __init__(self,
         file,               # Filename of CSV with expressions
