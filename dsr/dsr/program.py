@@ -19,19 +19,16 @@ class Program():
         for t in tokens:
             if count == 0 or t == -1: # TBD: Get rid of -1 case, then move this to end of loop iteration
                 break
-            if isinstance(t, np.int32): # Operator or input variable
-                op = Program.library[t]
-                if isinstance(op, _Function):
-                    count += op.arity - 1
-                else:
-                    op = int(op[1:])
-                    count -= 1
-            elif isinstance(t, np.float32): # Constant
-                raise ValueError("Constants not yet supported.")
-                op = float(t)
+            op = Program.library[t]
+            if isinstance(op, _Function):
+                count += op.arity - 1
+            elif isinstance(op, str):
+                op = int(op[1:])
+                count -= 1
+            elif isinstance(op, float):
                 count -= 1
             else:
-                raise ValueError("Unrecognized type: {}".format(type(t)))
+                raise ValueError("Unrecognized type: {}".format(type(op)))
             self.program.append(op)
 
         # Complete unfinished programs with x1
@@ -131,13 +128,15 @@ class Program():
         Program.library = []
 
         # Add operators
-        library = [op.lower() for op in operators] # Convert to lower-case
+        library = [op.lower() if isinstance(op, str) else op for op in operators] # Convert to lower-case
         for op in library:
             # Function
             if op in _function_map:
                 Program.library.append(_function_map[op])
             # Input variable
             elif type(op) == int:
+                Program.library.append(op)
+            elif isinstance(op, float):
                 Program.library.append(op)
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
@@ -169,9 +168,7 @@ class Program():
         if self.sympy_expr is None:
             tree = self.program.copy()
             tree = build_tree(tree)
-            print("Before", tree.__repr__())
             tree = convert_to_sympy(tree)
-            print("After ", tree.__repr__())
             self.sympy_expr = parse_expr(tree.__repr__()) # SymPy expression
 
         return pretty(self.sympy_expr)
@@ -179,7 +176,7 @@ class Program():
 
     # Print the program's traversal
     def __repr__(self):
-        return ','.join(["x{}".format(f + 1) if type(f) == int else f.name for f in self.program])
+        return ','.join(["x{}".format(f + 1) if type(f) == int else str(f) if type(f) == float else f.name for f in self.program])
 
 
 ###############################################################################
@@ -220,7 +217,6 @@ def build_tree(program, order="preorder"):
             val = "x{}".format(op + 1)
             n_children = 0
         elif isinstance(op, float):
-            raise ValueError("Constants not yet supported.")
             val = str(op)
             n_children = 0
         else:
