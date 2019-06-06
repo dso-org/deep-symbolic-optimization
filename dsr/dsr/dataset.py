@@ -4,20 +4,10 @@ from textwrap import indent
 import pandas as pd
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
-from sympy import symbols, lambdify, pretty
+from sympy import symbols, lambdify, pretty, srepr
 
 
 class Dataset():
-
-
-    @staticmethod
-    def print_all(file="benchmarks.csv"):
-        df = pd.read_csv(file, encoding="ISO-8859-1")
-        names = df["name"].to_list()
-        expressions = [parse_expr(expression) for expression in df["expression"]]
-        for expression, name in zip(expressions, names):
-            print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
-
 
     def __init__(self,
         file,               # Filename of CSV with expressions
@@ -37,6 +27,10 @@ class Dataset():
         self.expression = parse_expr(row["expression"]) # SymPy expression
         self.input_vars = symbols(' '.join('x{}'.format(i+1) for i in range(self.n_input_var))) # Symbols for input variables
         self.f = lambdify(self.input_vars, self.expression, modules=np) # Vectorized lambda function
+
+        # Characterize the expression
+        self.fp_constant = "Float" in srepr(self.expression)
+        self.int_constant = "Integer" in srepr(self.expression)
 
         # Random number generator used for sampling X values        
         self.rng = np.random.RandomState(seed) 
@@ -83,5 +77,23 @@ class Dataset():
     def pretty(self):
         return pretty(self.expression)
 
+
     def __repr__(self):
         return pretty(self.expression)
+
+
+if __name__ == "__main__":
+
+    file = "benchmarks.csv"
+    exclude_fp_constant = False
+    exclude_int_constant = False
+
+    df = pd.read_csv(file, encoding="ISO-8859-1")
+    names = df["name"].to_list()
+    expressions = [parse_expr(expression) for expression in df["expression"]]
+    for expression, name in zip(expressions, names):
+        if exclude_fp_constant and "Float" in srepr(expression):
+            continue
+        if exclude_int_constant and "Integer" in srepr(expression):
+            continue
+        print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
