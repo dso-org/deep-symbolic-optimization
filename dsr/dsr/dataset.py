@@ -23,8 +23,8 @@ class Dataset():
         row = df.loc[name]
 
         # Create symbolic expression
-        self.n_input_var = row["variables"] + extra_input_var
         self.expression = parse_expr(row["expression"]) # SymPy expression
+        self.n_input_var = max(row["variables"], *[int(str(x)[1:]) for x in self.expression.free_symbols]) + extra_input_var
         self.input_vars = symbols(' '.join('x{}'.format(i+1) for i in range(self.n_input_var))) # Symbols for input variables
         self.f = lambdify(self.input_vars, self.expression, modules=np) # Vectorized lambda function
 
@@ -32,7 +32,7 @@ class Dataset():
         self.fp_constant = "Float" in srepr(self.expression)
         self.int_constant = "Integer" in srepr(self.expression)
 
-        # Random number generator used for sampling X values        
+        # Random number generator used for sampling X values
         self.rng = np.random.RandomState(seed) 
 
         # Create X values
