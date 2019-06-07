@@ -88,10 +88,6 @@ class Program():
     @classmethod
     def set_reward_function(cls, name, *params):
 
-        if Program.reward_function is not None:
-            raise RuntimeError("Error: Cannot set reward function more than once.")
-
-
         all_functions = {
             # Negative mean squared error
             "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
@@ -121,9 +117,6 @@ class Program():
 
     @classmethod
     def set_library(cls, operators, n_input_var):
-
-        if Program.library is not None:
-            raise RuntimeError("Error: Cannot set library more than once.")
 
         Program.library = []
 
@@ -162,16 +155,21 @@ class Program():
         return Program.reward_function(y, y_hat)
 
 
-    # Get pretty printing of the program. This is actually a bit complicated because we have to go:
+    # Get the attribute self.sympy_expr. This is actually a bit complicated because we have to go:
         # traversal --> tree --> serialized tree --> SymPy expression
-    def pretty(self):
+    def get_sympy_expr(self):
         if self.sympy_expr is None:
             tree = self.program.copy()
             tree = build_tree(tree)
             tree = convert_to_sympy(tree)
             self.sympy_expr = parse_expr(tree.__repr__()) # SymPy expression
 
-        return pretty(self.sympy_expr)
+        return self.sympy_expr
+
+
+    # Get pretty printing of the program
+    def pretty(self):
+        return pretty(self.get_sympy_expr())
 
 
     # Print the program's traversal

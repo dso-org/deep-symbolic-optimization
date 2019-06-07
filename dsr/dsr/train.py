@@ -30,7 +30,8 @@ def learn(
     reward="neg_mse",   # Reward function names
     reward_params=None, # Reward function parameters
     alpha=0.1,          # Coefficient of exponentially-weighted moving average of baseline
-    epsilon=0.01):      # Fraction of top expressions used for training    
+    epsilon=0.01,       # Fraction of top expressions used for training    
+    verbose=True):      # Whether to print progress
 
     # Create the summary writer
     logdir = os.path.join("log", logdir)
@@ -46,7 +47,8 @@ def learn(
     sess.run(tf.global_variables_initializer())        
 
     # Main training loop
-    best = -np.inf # Best reward
+    best_r = -np.inf # Best reward
+    best_program = None # Best program
     b = None # Baseline used for control variates
     for step in range(n_epochs):
 
@@ -79,17 +81,25 @@ def learn(
         writer.flush()
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
-        if step > 0 and step % 10 == 0:
+        if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
             # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
 
-        if max(r) > best:
+        if max(r) > best_r:
             index = np.argmax(r)
-            best = r[index]
-            print("\nNew best expression:")
-            print("\treward = {}".format(best))
-            print("\t{}".format(programs[index]))
-            print("{}\n".format(indent(programs[index].pretty(), '\t')))
+            best_r = r[index]
+            best_program = programs[index]
+            if verbose:
+                print("\nNew best expression:")
+                print("\treward = {}".format(best))
+                print("\t{}".format(best_program))
+                print("{}\n".format(indent(best_program.pretty(), '\t')))
+
+    return {
+            "r" : best_r,
+            "expression" : repr(best_program.get_sympy_expr()),
+            "traversal" : repr(best_program)
+            }
 
 
 def main():
