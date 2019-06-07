@@ -45,13 +45,12 @@ def train_benchmark(name, config_dataset, config_controller, config_training):
 
 
 @click.command()
-@click.option('--config_filename', default="config.json", help="Name of config JSON file")
-@click.option('--benchmarks_filename', default="benchmarks.csv", help="Name of benchmarks CSV file")
+@click.argument('config_filename', default="config.json")
 @click.option('--output_filename', default="benchmark_results.csv", help="Filename to write results")
 @click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
 @click.option('--exclude_fp_constants', is_flag=True, help="Exclude benchmark expressions containing floating point constants")
 @click.option('--exclude_int_constants', is_flag=True, help="Exclude benchmark expressions containing integer constants")
-def main(config_filename, benchmarks_filename, output_filename, num_cores, exclude_fp_constants, exclude_int_constants):
+def main(config_filename, output_filename, num_cores, exclude_fp_constants, exclude_int_constants):
     
      # Load the config file
     with open(config_filename, encoding='utf-8') as f:
@@ -62,7 +61,7 @@ def main(config_filename, benchmarks_filename, output_filename, num_cores, exclu
     config_controller = config["controller"]    # Controller hyperparameters
 
     # Load the benchmark names
-    df = pd.read_csv(benchmarks_filename, encoding="ISO-8859-1")
+    df = pd.read_csv(config_dataset["file"], encoding="ISO-8859-1")
     names = df["name"].to_list()
 
     # Filter out expressions

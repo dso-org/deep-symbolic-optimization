@@ -91,9 +91,9 @@ def learn(
             best_program = programs[index]
             if verbose:
                 print("\nNew best expression:")
-                print("\treward = {}".format(best))
-                print("\t{}".format(best_program))
-                print("{}\n".format(indent(best_program.pretty(), '\t')))
+                print("\tReward: {}".format(best_r))
+                print("\tTraversal: {}".format(best_program))
+                print("{}\n".format(indent(best_program.pretty(), '\tExpression: ')))
 
     return {
             "r" : best_r,

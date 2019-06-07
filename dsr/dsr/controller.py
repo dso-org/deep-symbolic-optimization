@@ -101,7 +101,7 @@ class Controller():
 
 
     def sample(self, n):
-        """Samples n actions from the controller"""
+        """Sample batch of n expressions"""
 
         actions = []
 
@@ -115,7 +115,7 @@ class Controller():
 
 
     def neglogp(self, actions, actions_mask):
-        """Returns neglogp of actions"""
+        """Returns neglogp of batch of expressions"""
 
         feed_dict = {self.actions_ph[i] : a for i,a in enumerate(actions.T)}
         feed_dict[self.actions_mask] = actions_mask
