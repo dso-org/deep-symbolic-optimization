@@ -13,6 +13,7 @@ from dsr.dataset import Dataset
 
 
 def train_dsr(name, config_dataset, config_controller, config_training):
+    """Trains DSR and returns dict of reward, expression, and traversal"""
 
     try:
         import tensorflow as tf
@@ -45,6 +46,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
 
 
 def train_gp(name, config_dataset, config_gp):
+    """Trains GP and returns dict of reward, expression, and program"""
 
     # Create the dataset
     X, y = get_dataset(name, config_dataset)
@@ -82,28 +84,13 @@ def train_gp(name, config_dataset, config_gp):
     return result
 
 
-# Creates and returns the dataset
-def get_dataset(name, config_dataset):    
+def get_dataset(name, config_dataset):
+    """Creates and returns the dataset"""
+
     config_dataset["name"] = name
     dataset = Dataset(**config_dataset)
     X, y = dataset.X_train, dataset.y_train
     return X, y
-
-
-# Function wrapper to protect against ValueErrors
-def protect_ValueError(name, function):
-    try:
-        result = function(name)
-    except ValueError:
-        print("Encountered ValueError for benchmark {}".format(name))
-        result = {
-            "name" : name,
-            "r" : "N/A",
-            "expression" : "N/A",
-            "traversal" : "N/A"
-        }
-
-    return result
 
 
 @click.command()
@@ -115,7 +102,9 @@ def protect_ValueError(name, function):
 @click.option('--exclude_int_constants', is_flag=True, help="Exclude benchmark expressions containing integer constants")
 @click.option('--exclude', multiple=True, type=str, help="Exclude benchmark expressions containing these names")
 @click.option('--only', multiple=True, type=str, help="Only include benchmark expressions containing these names (overrides other exclusions)")
-def main(config_filename, method, output_filename, num_cores, exclude_fp_constants, exclude_int_constants, exclude, only):
+def main(config_filename, method, output_filename, num_cores,
+         exclude_fp_constants, exclude_int_constants, exclude, only):
+    """Runs DSR or GP on all benchmarks using multiprocessing."""
 
     if output_filename is None:
         output_filename = "benchmark_{}.csv".format(method)
@@ -158,7 +147,6 @@ def main(config_filename, method, output_filename, num_cores, exclude_fp_constan
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
         work = partial(train_gp, config_dataset=config_dataset, config_gp=config_gp)
-    # work = partial(protect_ValueError, function=work)
 
     # Farm out the work
     pool = multiprocessing.Pool(num_cores)    

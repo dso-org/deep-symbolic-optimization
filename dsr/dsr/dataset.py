@@ -7,16 +7,29 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import symbols, lambdify, pretty, srepr
 
 
-class Dataset():
+class Dataset(object):
+    """
+    Class used to generate X, y data from a named benchmark expression.
 
-    def __init__(self,
-        file,               # Filename of CSV with expressions
-        name,               # Name of expression
-        # operators,          # Library of operators
-        extra_input_var=0,  # Additional input variables
-        seed=0,
-        **kwargs
-        ):
+    Parameters
+    ----------
+    file : str
+        Filename of CSV with expressions.
+
+    name : str
+        Name of expression.
+
+    extra_input_var : int, optional
+        Number of additional input variables.
+
+    seed : int, optional
+        Random number seed used to generate data.
+
+    **kwargs : keyword arguments, optional
+        Unused. Only included to soak up keyword arguments.
+    """
+
+    def __init__(self, file, name, extra_input_var=0, seed=0, **kwargs):
 
         # Read in benchmark dataset information
         df = pd.read_csv(file, index_col=0, encoding="ISO-8859-1")
@@ -45,9 +58,10 @@ class Dataset():
         self.y_train = self.f(*self.X_train.T)
         self.y_test = self.f(*self.X_test.T)
 
-
-    """Creates X values based on specification"""
+    
     def make_X(self, spec):
+        """Creates X values based on specification"""
+
         features = []
         for i in range(1, self.n_input_var + 1):
 
@@ -82,7 +96,8 @@ class Dataset():
         return pretty(self.expression)
 
 
-if __name__ == "__main__":
+def __main__():
+    """Pretty prints all benchmark expressions."""
 
     file = "benchmarks.csv"
     exclude_fp_constant = False
@@ -97,3 +112,7 @@ if __name__ == "__main__":
         if exclude_int_constant and "Integer" in srepr(expression):
             continue
         print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
+
+
+if __name__ == "__main__":
+    main()

@@ -20,20 +20,60 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 tf.random.set_random_seed(0)
 
 
-def learn(
-    sess,               # TensorFlow Session object
-    controller,         # Controller object
-    X, y,               # X and y of dataset
-    logdir=".",         # Name of log directory
-    n_epochs=1000,      # Number of epochs
-    batch_size=1000,    # Number of samples per epoch
-    reward="neg_mse",   # Reward function name
-    reward_params=None, # Reward function parameters (list)
-    const_optimizer="minimize", # Constant optimizer name
-    const_params=None,  # Constant optimizer kwargs (dict)
-    alpha=0.1,          # Coefficient of exponentially-weighted moving average of baseline
-    epsilon=0.01,       # Fraction of top expressions used for training    
-    verbose=True):      # Whether to print progress
+def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
+          reward="neg_mse", reward_params=None, const_optimizer="minimize",
+          const_params=None, alpha=0.1, epsilon=0.01, verbose=True):
+    """
+    Executes the main training loop.
+
+    Parameters
+    ----------
+    sess : tf.Session
+        TenorFlow Session object.
+    
+    controller : Controller
+        Controller object.
+    
+    X, y : np.ndarray
+        Training data used for symbolic regression.
+    
+    logdir : str, optional
+        Name of log directory.
+    
+    n_epochs : int, optional
+        Number of epochs to train.
+    
+    batch_size : int, optional
+        Number of sampled expressions per epoch.
+    
+    reward : str, optional
+        Reward function name.
+    
+    reward_params : list of str, optional
+        List of reward function parameters.
+    
+    const_optimizer : str or None, optional
+        Name of constant optimizer.
+    
+    const_params : dict, optional
+        Dict of constant optimizer kwargs.
+    
+    alpha : float, optional
+        Coefficient of exponentially-weighted moving average of baseline.
+    
+    epsilon : float, optional
+        Fraction of top expressions used for training.
+    
+    verbose : bool, optional
+        Whether to print progress.
+
+    Returns
+    -------
+    result : dict
+        A dict describing the best-fit expression: 'r' is the reward,
+        'traversal' is the serialized Program, and 'expresion' is the pretty-
+        printed sympy-simplified expression
+    """
 
     # Create the summary writer
     logdir = os.path.join("log", logdir)
@@ -103,14 +143,19 @@ def learn(
                 print("\tExpression:")
                 print("{}\n".format(indent(best_program.pretty(), '\t  ')))
 
-    return {
+    result = {
             "r" : best_r,
             "expression" : repr(best_program.get_sympy_expr()),
             "traversal" : repr(best_program)
             }
+    return result
 
 
 def main():
+    """
+    Loads the config file, creates the library and controller, and starts the
+    training loop.
+    """
 
     # Load the config file
     config_filename = 'config.json'

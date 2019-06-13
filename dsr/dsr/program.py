@@ -6,7 +6,34 @@ from sympy import pretty
 from dsr.const import make_const_optimizer
 
 
-class Program():
+class Program(object):
+    """
+    The executable program representing the symbolic expression.
+
+    The program comprises "tokens" that correspond to unary/binary operators,
+    constant placeholder (to-be-optimized), input variables, or hard-coded
+    constants.
+
+    Parameters
+    ----------
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. "Dangling"
+        programs are completed with repeated "x1" until the expression
+        completes.
+
+    Attributes
+    ----------
+    program : list
+        List of operators (type: _Function) and terminals (type: int, float, or
+        str ("const")) encoding the pre-order traversal of the expression tree.
+        
+    const_pos : list of int
+        A list of indicies of constant placeholders along the program.
+
+    sympy_expr : str or None
+        The (lazily calculated) sympy expression corresponding to the program.
+        Used for pretty printing _only_.
+    """
 
     # Static variables
     library = None          # List of operators/terminals
@@ -15,7 +42,7 @@ class Program():
     
 
     def __init__(self, tokens):
-        """Build the program from a list of tokens"""
+        """Builds the program from a list of tokens."""
 
         self.program = []               # List of operators (type: _Function) and terminals (type: int, float, str ("const"))
         self.const_pos = []             # Indices of constant tokens
@@ -42,16 +69,18 @@ class Program():
         for i in range(count):
             self.program.append(0)
 
-        self.sympy_expr = None # Corresponding SymPy expression, only calculated for pretty print
+        self.sympy_expr = None # Corresponding sympy expression, only calculated for pretty print
 
 
     def execute(self, X):
-        """Execute the program according to X.
+        """Executes the program according to X.
+
         Parameters
         ----------
-        X : {array-like}, shape = [n_samples, n_features]
+        X : array-like, shape = [n_samples, n_features]
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
+        
         Returns
         -------
         y_hats : array-like, shape = [n_samples]
@@ -92,9 +121,26 @@ class Program():
         assert False, "Function should never get here!"
         return None
 
-
-    """Optimize the constant tokens against a dataset"""
+    
     def optimize(self, X, y):
+        """
+        Optimizes the constant tokens against a dataset.
+
+        Generates an objective function based on the training dataset, reward
+        function, and constant optimizer. Then optimizes the constants of the
+        program.
+
+        Parameters
+        ----------
+        X, y : np.ndarray
+            Training data used for optimization.
+
+        Returns
+        -------
+
+        self : Program
+            Returns self with optimized constants replaced in self.program.
+        """
 
         # No need to optimize if there are no constants
         if len(self.const_pos) == 0:
@@ -109,22 +155,24 @@ class Program():
 
         # Do the optimization
         x0 = np.ones(len(self.const_pos)) # Initial guess
-        opt_result = Program.const_optimizer(f, x0)
+        x = Program.const_optimizer(f, x0)
 
         # Set the optimized constants
-        self.set_constants(opt_result["x"])        
+        self.set_constants(x)
 
         return self
 
-
-    """Hepler function to set the program's constant values"""
+    
     def set_constants(self, consts):
+        """Sets the program's constant values"""
+
         for i, const in enumerate(consts):
             self.program[self.const_pos[i]] = const
 
 
     @classmethod
     def set_const_optimizer(cls, name, **kwargs):
+        """Sets the class' constant optimizer"""
 
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
@@ -132,6 +180,7 @@ class Program():
 
     @classmethod
     def set_reward_function(cls, name, *params):
+        """Sets the class' reward function"""
 
         all_functions = {
             # Negative mean squared error
@@ -162,6 +211,7 @@ class Program():
 
     @classmethod
     def set_library(cls, operators, n_input_var):
+        """Sets the class library"""
 
         Program.library = []
 
@@ -201,32 +251,39 @@ class Program():
         str_library = [f if isinstance(f, str) else f.name for f in Program.library]
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
-
-    # Evaluate the reward of a given dataset
+    
     def reward(self, X, y):
+        """Evaluates and returns the reward of a given dataset"""
+
         y_hat = self.execute(X)
         return Program.reward_function(y, y_hat)
 
 
-    # Get the attribute self.sympy_expr. This is actually a bit complicated because we have to go:
-        # traversal --> tree --> serialized tree --> SymPy expression
     def get_sympy_expr(self):
+        """
+        Returns the attribute self.sympy_expr.
+
+        This is actually a bit complicated because we have to go: traversal -->
+        tree --> serialized tree --> sympy expression
+        """
+
         if self.sympy_expr is None:
             tree = self.program.copy()
             tree = build_tree(tree)
             tree = convert_to_sympy(tree)
-            self.sympy_expr = parse_expr(tree.__repr__()) # SymPy expression
+            self.sympy_expr = parse_expr(tree.__repr__()) # sympy expression
 
         return self.sympy_expr
 
 
-    # Get pretty printing of the program
     def pretty(self):
+        """Returns pretty printed string of the program"""
+
         return pretty(self.get_sympy_expr())
 
-
-    # Print the program's traversal
+    
     def __repr__(self):
+        """Prints the program's traversal"""
         return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.program])
 
 
@@ -235,12 +292,12 @@ class Program():
 ###############################################################################
 
 
-# Possible library elements that SymPy capitalizes
+# Possible library elements that sympy capitalizes
 capital = ["add", "mul", "pow"]
 
 
-"""Basic tree class supporting printing"""
-class Node:
+class Node(object):
+    """Basic tree class supporting printing"""
 
     def __init__(self, val):
         self.val = val
@@ -253,8 +310,8 @@ class Node:
         return "{}({})".format(self.val, children_repr)
 
 
-"""Recursively builds tree from pre-order traversal"""
 def build_tree(program, order="preorder"):
+    """Recursively builds tree from pre-order traversal"""
 
     if order == "preorder":
         op = program.pop(0)
@@ -287,8 +344,8 @@ def build_tree(program, order="preorder"):
         raise NotImplementedError
 
 
-"""Adjusts trees to only use node values supported by SymPy"""
 def convert_to_sympy(node):
+    """Adjusts trees to only use node values supported by sympy"""
 
     if node.val == "div":
         node.val = "Mul"

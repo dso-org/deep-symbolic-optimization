@@ -1,10 +1,38 @@
 import tensorflow as tf
 
 
-class Controller():
-    def __init__(self, sess, num_units, n_choices, max_length, learning_rate=0.001, entropy_weight=0.0):
+class Controller(object):
+    """
+    Recurrent neural network (RNN) controller used to generate expressions.
 
-        self.sess = sess # TensorFlow session
+    Specifically, the RNN outputs a distribution over pre-order traversals of
+    symbolic expression trees. It is trained using REINFORCE with baseline.
+
+    Parameters
+    ----------
+    sess : tf.Session
+        TenorFlow Session object.
+
+    num_units : int
+        Number of LSTM units in the RNN's single layer.
+
+    n_choices : int
+        Size of library of operators/terminals.
+
+    max_length : int
+        Maximum length of a sampled traversal.
+
+    learning_rate : float
+        Learning rate for optimizer.
+
+    entropy_weight : float
+        Coefficient for entropy bonus.
+    """
+
+    def __init__(self, sess, num_units, n_choices, max_length,
+                 learning_rate=0.001, entropy_weight=0.0):
+
+        self.sess = sess
         self.actions = [] # Actions sampled from the controller
         self.logits = []
 
