@@ -27,8 +27,10 @@ def learn(
     logdir=".",         # Name of log directory
     n_epochs=1000,      # Number of epochs
     batch_size=1000,    # Number of samples per epoch
-    reward="neg_mse",   # Reward function names
-    reward_params=None, # Reward function parameters
+    reward="neg_mse",   # Reward function name
+    reward_params=None, # Reward function parameters (list)
+    const_optimizer="minimize", # Constant optimizer name
+    const_params=None,  # Constant optimizer kwargs (dict)
     alpha=0.1,          # Coefficient of exponentially-weighted moving average of baseline
     epsilon=0.01,       # Fraction of top expressions used for training    
     verbose=True):      # Whether to print progress
@@ -42,6 +44,10 @@ def learn(
     # Set the reward function
     reward_params = reward_params if reward_params is not None else []
     Program.set_reward_function(reward, *reward_params)
+
+    # Set the constant optimizer
+    const_params = const_params if const_params is not None else {}
+    Program.set_const_optimizer(const_optimizer, **const_params)
 
     # Initialize compute graph
     sess.run(tf.global_variables_initializer())        
@@ -58,8 +64,9 @@ def learn(
         # unique_actions, counts = np.unique(np.squeeze(np.stack(actions, axis=-1))[:,:5], axis=0, return_counts=True)
         # print(unique_actions.shape[0])
         
-        programs = [Program(a) for a in actions] # Instantiate expressions
-        r = np.array([p.reward(X, y) for p in programs]) # Compute reward
+        programs = [Program(a) for a in actions]            # Instantiate expressions
+        programs = [p.optimize(X, y) for p in programs]     # Optimize constants
+        r = np.array([p.reward(X, y) for p in programs])    # Compute rewards
 
         # Heuristic: Only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -93,7 +100,8 @@ def learn(
                 print("\nNew best expression:")
                 print("\tReward: {}".format(best_r))
                 print("\tTraversal: {}".format(best_program))
-                print("{}\n".format(indent(best_program.pretty(), '\tExpression: ')))
+                print("\tExpression:")
+                print("{}\n".format(indent(best_program.pretty(), '\t  ')))
 
     return {
             "r" : best_r,
@@ -109,7 +117,7 @@ def main():
     with open(config_filename, encoding='utf-8') as f:
         config = json.load(f)
 
-    config_dataset = config["dataset"]          # Problem specification parameters
+    config_dataset = config["dataset"]          # Problem specification hyperparameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
 

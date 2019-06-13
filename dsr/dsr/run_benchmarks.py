@@ -29,8 +29,8 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     Program.set_library(config_dataset["operators"], X.shape[1])
     n_choices = len(Program.library)
 
-    # Turn off printing
-    config_training["verbose"] = False    
+    # # Turn off printing
+    # config_training["verbose"] = False    
 
     tf.reset_default_graph()
     with tf.Session() as sess:        
@@ -52,7 +52,7 @@ def train_gp(name, config_dataset, config_gp):
     # Configure parameters
     if "init_depth" in config_gp:
         config_gp["init_depth"] = tuple(config_gp["init_depth"])
-    config_gp["verbose"] = 0 # Turn off printing
+    # config_gp["verbose"] = 0 # Turn off printing
 
     # Create the GP
     gp = SymbolicRegressor(**config_gp)
@@ -95,7 +95,7 @@ def protect_ValueError(name, function):
     try:
         result = function(name)
     except ValueError:
-        print("Encounted ValueError for benchmark {}".format(name))
+        print("Encountered ValueError for benchmark {}".format(name))
         result = {
             "name" : name,
             "r" : "N/A",
@@ -146,7 +146,10 @@ def main(config_filename, method, output_filename, num_cores, exclude_fp_constan
     else:
         keep = [False]*len(expressions)
         for included_name in only:
-            keep = [True if included_name in n else k for k,n in zip(keep, names)]
+            if '-' in included_name: # If the whole name is specified (otherwise, e.g., only=Name-1 will also apply Name-10, Name-11, etc.)
+                keep = [True if included_name == n else k for k,n in zip(keep, names)]
+            else:
+                keep = [True if included_name in n else k for k,n in zip(keep, names)]
 
     names = [n for k,n in zip(keep, names) if k]
 
@@ -155,7 +158,7 @@ def main(config_filename, method, output_filename, num_cores, exclude_fp_constan
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
         work = partial(train_gp, config_dataset=config_dataset, config_gp=config_gp)
-    work = partial(protect_ValueError, function=work)
+    # work = partial(protect_ValueError, function=work)
 
     # Farm out the work
     pool = multiprocessing.Pool(num_cores)    

@@ -3,25 +3,32 @@ from gplearn.functions import _function_map, _Function
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
+from dsr.const import make_const_optimizer
+
 
 class Program():
 
     # Static variables
     library = None          # List of operators/terminals
     reward_function = None  # Reward function
+    const_optimizer = None  # Function to optimize constants
     
 
     def __init__(self, tokens):
         """Build the program from a list of tokens"""
 
-        self.program = [] # List of operators (type: _Function) and terminals (type: int, float)
+        self.program = []               # List of operators (type: _Function) and terminals (type: int, float, str ("const"))
+        self.const_pos = []             # Indices of constant tokens
         count = 1
-        for t in tokens:
+        for i, t in enumerate(tokens):
             if count == 0 or t == -1: # TBD: Get rid of -1 case, then move this to end of loop iteration
                 break
             op = Program.library[t]
             if isinstance(op, _Function):
                 count += op.arity - 1
+            elif op == "const":
+                count -= 1
+                self.const_pos.append(i)
             elif isinstance(op, str):
                 op = int(op[1:])
                 count -= 1
@@ -35,7 +42,7 @@ class Program():
         for i in range(count):
             self.program.append(0)
 
-        self.sympy_expr = None  # Corresponding SymPy expression, only calculated for pretty print
+        self.sympy_expr = None # Corresponding SymPy expression, only calculated for pretty print
 
 
     def execute(self, X):
@@ -50,6 +57,7 @@ class Program():
         y_hats : array-like, shape = [n_samples]
             The result of executing the program on X.
         """
+
         # Check for single-node programs
         node = self.program[0]
         if isinstance(node, float):
@@ -83,6 +91,43 @@ class Program():
         # We should never get here
         assert False, "Function should never get here!"
         return None
+
+
+    """Optimize the constant tokens against a dataset"""
+    def optimize(self, X, y):
+
+        # No need to optimize if there are no constants
+        if len(self.const_pos) == 0:
+            return self
+
+        # Create the objective function, which is a function of the constants being optimized
+        def f(consts):
+            self.set_constants(consts)                  # Set the constants
+            y_hat = self.execute(X)                     # Compute predicted values
+            obj = -1*Program.reward_function(y, y_hat)  # Compute the objective
+            return obj
+
+        # Do the optimization
+        x0 = np.ones(len(self.const_pos)) # Initial guess
+        opt_result = Program.const_optimizer(f, x0)
+
+        # Set the optimized constants
+        self.set_constants(opt_result["x"])        
+
+        return self
+
+
+    """Hepler function to set the program's constant values"""
+    def set_constants(self, consts):
+        for i, const in enumerate(consts):
+            self.program[self.const_pos[i]] = const
+
+
+    @classmethod
+    def set_const_optimizer(cls, name, **kwargs):
+
+        const_optimizer = make_const_optimizer(name, **kwargs)
+        Program.const_optimizer = const_optimizer
 
 
     @classmethod
@@ -121,16 +166,24 @@ class Program():
         Program.library = []
 
         # Add operators
-        library = [op.lower() if isinstance(op, str) else op for op in operators] # Convert to lower-case
-        for op in library:
+        operators = [op.lower() if isinstance(op, str) else op for op in operators] # Convert strings to lower-case
+        for op in operators:
             # Function
             if op in _function_map:
                 Program.library.append(_function_map[op])
+
             # Input variable
             elif type(op) == int:
                 Program.library.append(op)
+
+            # Hard-coded floating-point constant
             elif isinstance(op, float):
                 Program.library.append(op)
+
+            # Constant placeholder (to-be-optimized)
+            elif op == "const":
+                Program.library.append(op)
+
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
 
@@ -174,7 +227,7 @@ class Program():
 
     # Print the program's traversal
     def __repr__(self):
-        return ','.join(["x{}".format(f + 1) if type(f) == int else str(f) if type(f) == float else f.name for f in self.program])
+        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.program])
 
 
 ###############################################################################

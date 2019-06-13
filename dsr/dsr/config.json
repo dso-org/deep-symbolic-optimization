@@ -4,7 +4,7 @@
     "file" : "benchmarks.csv",
     "name" : "Vladislavleva-6",
     "extra_input_var" : 0,
-    "operators" : ["add", "mul", "sin", "cos"]
+    "operators" : ["add", "mul", "sin", "cos", "const"]
 },
 
 "training" : {
@@ -13,6 +13,8 @@
     "batch_size" : 1000,
     "reward" : "neg_mse",
     "reward_params" : [],
+    "const_optimizer" : "scipy",
+    "const_params" : {},
     "alpha" : 0.1,
     "epsilon" : 0.1,
     "verbose" : true
