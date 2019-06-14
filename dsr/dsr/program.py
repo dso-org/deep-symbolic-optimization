@@ -33,6 +33,10 @@ class Program(object):
     sympy_expr : str or None
         The (lazily calculated) sympy expression corresponding to the program.
         Used for pretty printing _only_.
+
+    base_r : float or None
+        The (lazily calculated) base reward (reward without penalty) of the
+        program.
     """
 
     # Static variables
@@ -70,6 +74,7 @@ class Program(object):
             self.program.append(0)
 
         self.sympy_expr = None # Corresponding sympy expression, only calculated for pretty print
+        self.base_r = None
 
 
     def execute(self, X):
@@ -126,9 +131,12 @@ class Program(object):
         """
         Optimizes the constant tokens against a dataset.
 
-        Generates an objective function based on the training dataset, reward
-        function, and constant optimizer. Then optimizes the constants of the
-        program.
+        This function generates an objective function based on the training
+        dataset, reward function, and constant optimizer. It ignores penalties
+        because the Program structure is fixed, thus penalties are all the same.
+        It then optimizes the constants of the program. Since reward for the
+        optimized constants is already computed, this function also sets
+        self.base_r.
 
         Parameters
         ----------
@@ -142,27 +150,30 @@ class Program(object):
             Returns self with optimized constants replaced in self.program.
         """
 
-        # No need to optimize if there are no constants
-        if len(self.const_pos) == 0:
-            return self
-
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)                  # Set the constants
             y_hat = self.execute(X)                     # Compute predicted values
             obj = -1*Program.reward_function(y, y_hat)  # Compute the objective
             return obj
+        
+        if len(self.const_pos) > 0:
+            # Do the optimization
+            x0 = np.ones(len(self.const_pos)) # Initial guess
+            x, base_r = Program.const_optimizer(f, x0)
 
-        # Do the optimization
-        x0 = np.ones(len(self.const_pos)) # Initial guess
-        x = Program.const_optimizer(f, x0)
+            # Set the optimized constants
+            self.set_constants(x)            
 
-        # Set the optimized constants
-        self.set_constants(x)
+        else:
+            # No need to optimize if there are no constants
+            base_r = -f([])
+
+        self.base_r = base_r
 
         return self
 
-    
+
     def set_constants(self, consts):
         """Sets the program's constant values"""
 

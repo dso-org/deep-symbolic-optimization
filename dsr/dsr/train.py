@@ -105,8 +105,8 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
         # print(unique_actions.shape[0])
         
         programs = [Program(a) for a in actions]            # Instantiate expressions
-        programs = [p.optimize(X, y) for p in programs]     # Optimize constants
-        r = np.array([p.reward(X, y) for p in programs])    # Compute rewards
+        programs = [p.optimize(X, y) for p in programs]     # Optimize constants (and compute optimized base reward)
+        r = np.array([p.base_r for p in programs])          # Retrieve base rewards (rewards without penalties)
 
         # Heuristic: Only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:

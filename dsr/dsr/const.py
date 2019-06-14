@@ -27,18 +27,26 @@ class ConstOptimizer(object):
         """
         Optimizes an objective function from an initial guess.
 
+        The objective function is the negative of the base reward (reward
+        without penalty) used for training. Optimization excludes any penalties
+        because they are constant w.r.t. to the constants being optimized.
+
         Parameters
         ----------
         f : function mapping np.ndarray to float
-            Objective function.
+            Objective function (negative base reward).
 
         x0 : np.ndarray
-            Initial guess.
+            Initial guess for constant placeholders.
 
         Returns
         -------
         x : np.ndarray
             Vector of optimized constants.
+
+        r : float
+            Base reward (negative objective function) evaluated at optimized
+            constants.
         """
         raise NotImplementedError
 
@@ -51,7 +59,9 @@ class Dummy(ConstOptimizer):
 
     
     def __call__(self, f, x0):
-        return x0
+        x = x0
+        r = -f(x)
+        return x, r
         
 
 class ScipyMinimize(ConstOptimizer):
@@ -63,4 +73,6 @@ class ScipyMinimize(ConstOptimizer):
     
     def __call__(self, f, x0):
         opt_result = partial(minimize, **self.kwargs)(f, x0)
-        return opt_result['x']
+        x = opt_result['x']
+        r = -opt_result['fun']
+        return x, r
