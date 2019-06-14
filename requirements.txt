@@ -1,5 +1,4 @@
 tensorflow
-gplearn
 sympy
 pandas
 click
