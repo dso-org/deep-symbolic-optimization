@@ -4,6 +4,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
 from dsr.const import make_const_optimizer
+from dsr.utils import cached_property
 
 
 class Program(object):
@@ -36,7 +37,10 @@ class Program(object):
 
     base_r : float or None
         The (lazily calculated) base reward (reward without penalty) of the
-        program.
+        program on the training data.
+
+    complexity : float
+        The (lazily calcualted) complexity of the program.
     """
 
     # Static variables
@@ -221,6 +225,26 @@ class Program(object):
 
 
     @classmethod
+    def set_complexity_penalty(cls, name, weight):
+        """Sets the class' complexity penalty"""
+
+        all_functions = {
+            # No penalty
+            None : lambda p : 0.0,
+
+            # Length of tree
+            "length" : lambda p : len(p)
+        }
+
+        assert name in all_functions, "Unrecognzied complexity penalty name"
+        
+        if weight == 0:
+            Program.complexity_penalty = lambda p : 0.0
+        else:
+            Program.complexity_penalty = lambda p : weight * all_functions[name](p)
+
+
+    @classmethod
     def set_library(cls, operators, n_input_var):
         """Sets the class library"""
 
@@ -268,6 +292,13 @@ class Program(object):
 
         y_hat = self.execute(X)
         return Program.reward_function(y, y_hat)
+
+
+    @cached_property
+    def complexity(self):
+        """Evaluates and returns the complexity of the program"""
+
+        return Program.complexity_penalty(self.program)
 
 
     def get_sympy_expr(self):

@@ -13,6 +13,8 @@
     "batch_size" : 1000,
     "reward" : "neg_mse",
     "reward_params" : [],
+    "complexity" : "length",
+    "complexity_weight" : 0.001,
     "const_optimizer" : "scipy",
     "const_params" : {},
     "alpha" : 0.1,

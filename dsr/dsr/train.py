@@ -21,7 +21,8 @@ tf.random.set_random_seed(0)
 
 
 def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
-          reward="neg_mse", reward_params=None, const_optimizer="minimize",
+          reward="neg_mse", reward_params=None, complexity="length",
+          complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, verbose=True):
     """
     Executes the main training loop.
@@ -52,6 +53,12 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
     reward_params : list of str, optional
         List of reward function parameters.
     
+    complexity : str, optional
+        Complexity penalty name.
+
+    complexity_weight : float, optional
+        Coefficient for complexity penalty.
+
     const_optimizer : str or None, optional
         Name of constant optimizer.
     
@@ -81,9 +88,10 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
     logdir = "./summary/{}/".format(datetime.now().strftime("%Y-%m-%d-%H%M%S"))
     writer = tf.summary.FileWriter(logdir, sess.graph)
 
-    # Set the reward function
+    # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
     Program.set_reward_function(reward, *reward_params)
+    Program.set_complexity_penalty(complexity, complexity_weight)
 
     # Set the constant optimizer
     const_params = const_params if const_params is not None else {}
@@ -104,9 +112,13 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
         # unique_actions, counts = np.unique(np.squeeze(np.stack(actions, axis=-1))[:,:5], axis=0, return_counts=True)
         # print(unique_actions.shape[0])
         
-        programs = [Program(a) for a in actions]            # Instantiate expressions
-        programs = [p.optimize(X, y) for p in programs]     # Optimize constants (and compute optimized base reward)
-        r = np.array([p.base_r for p in programs])          # Retrieve base rewards (rewards without penalties)
+        # TBD: Parallelize
+        # Instantiate, optimize, and evaluate expressions
+        programs = [Program(a) for a in actions]
+        programs = [p.optimize(X, y) for p in programs]
+        base_r = np.array([p.base_r for p in programs])
+        complexity = np.array([p.complexity for p in programs])
+        r = base_r - complexity # Reward = base reward - complexity penalty
 
         # Heuristic: Only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
