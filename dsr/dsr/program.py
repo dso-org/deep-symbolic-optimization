@@ -24,12 +24,12 @@ class Program(object):
 
     Attributes
     ----------
-    program : list
+    traversal : list
         List of operators (type: _Function) and terminals (type: int, float, or
         str ("const")) encoding the pre-order traversal of the expression tree.
         
     const_pos : list of int
-        A list of indicies of constant placeholders along the program.
+        A list of indicies of constant placeholders along the traversal.
 
     sympy_expr : str or None
         The (lazily calculated) sympy expression corresponding to the program.
@@ -52,7 +52,7 @@ class Program(object):
     def __init__(self, tokens):
         """Builds the program from a list of tokens."""
 
-        self.program = []               # List of operators (type: _Function) and terminals (type: int, float, str ("const"))
+        self.traversal = []               # List of operators (type: _Function) and terminals (type: int, float, str ("const"))
         self.const_pos = []             # Indices of constant tokens
         count = 1
         for i, t in enumerate(tokens):
@@ -71,11 +71,11 @@ class Program(object):
                 count -= 1
             else:
                 raise ValueError("Unrecognized type: {}".format(type(op)))
-            self.program.append(op)
+            self.traversal.append(op)
 
-        # Complete unfinished programs with x1
+        # Complete unfinished traversals with x1
         for i in range(count):
-            self.program.append(0)
+            self.traversal.append(0)
 
         self.sympy_expr = None # Corresponding sympy expression, only calculated for pretty print
         self.base_r = None
@@ -97,7 +97,7 @@ class Program(object):
         """
 
         # Check for single-node programs
-        node = self.program[0]
+        node = self.traversal[0]
         if isinstance(node, float):
             return np.repeat(node, X.shape[0])
         if isinstance(node, int):
@@ -105,7 +105,7 @@ class Program(object):
 
         apply_stack = []
 
-        for node in self.program:
+        for node in self.traversal:
 
             if isinstance(node, _Function):
                 apply_stack.append([node])
@@ -151,7 +151,7 @@ class Program(object):
         -------
 
         self : Program
-            Returns self with optimized constants replaced in self.program.
+            Returns self with optimized constants replaced in self.traversal.
         """
 
         # Create the objective function, which is a function of the constants being optimized
@@ -182,7 +182,7 @@ class Program(object):
         """Sets the program's constant values"""
 
         for i, const in enumerate(consts):
-            self.program[self.const_pos[i]] = const
+            self.traversal[self.const_pos[i]] = const
 
 
     @classmethod
@@ -298,7 +298,7 @@ class Program(object):
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
 
-        return Program.complexity_penalty(self.program)
+        return Program.complexity_penalty(self.traversal)
 
 
     def get_sympy_expr(self):
@@ -310,7 +310,7 @@ class Program(object):
         """
 
         if self.sympy_expr is None:
-            tree = self.program.copy()
+            tree = self.traversal.copy()
             tree = build_tree(tree)
             tree = convert_to_sympy(tree)
             self.sympy_expr = parse_expr(tree.__repr__()) # sympy expression
@@ -326,7 +326,7 @@ class Program(object):
     
     def __repr__(self):
         """Prints the program's traversal"""
-        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.program])
+        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.traversal])
 
 
 ###############################################################################
@@ -352,11 +352,11 @@ class Node(object):
         return "{}({})".format(self.val, children_repr)
 
 
-def build_tree(program, order="preorder"):
+def build_tree(traversal, order="preorder"):
     """Recursively builds tree from pre-order traversal"""
 
     if order == "preorder":
-        op = program.pop(0)
+        op = traversal.pop(0)
 
         if isinstance(op, _Function):
             val = op.name
@@ -375,7 +375,7 @@ def build_tree(program, order="preorder"):
         node = Node(val)
 
         for _ in range(n_children):
-            node.children.append(build_tree(program))
+            node.children.append(build_tree(traversal))
 
         return node
 

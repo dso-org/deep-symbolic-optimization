@@ -132,7 +132,7 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
         # Compute actions mask
         actions_mask = np.zeros_like(actions.T, dtype=np.float32) # Shape: (max_length, batch_size)
         for i,p in enumerate(programs):
-            length = min(len(p.program), controller.max_length)
+            length = min(len(p.traversal), controller.max_length)
             actions_mask[:length, i] = 1.0
 
         loss, summaries = controller.train_step(r, b, actions, actions_mask) # Train controller
