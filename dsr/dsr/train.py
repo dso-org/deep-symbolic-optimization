@@ -8,7 +8,7 @@ import tensorflow as tf
 import numpy as np
 
 from dsr.controller import Controller
-from dsr.program import Program
+from dsr.program import Program, from_tokens
 from dsr.dataset import Dataset
 
 
@@ -20,7 +20,7 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 tf.random.set_random_seed(0)
 
 
-def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
+def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, verbose=True):
@@ -34,9 +34,6 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
     
     controller : Controller
         Controller object.
-    
-    X, y : np.ndarray
-        Training data used for symbolic regression.
     
     logdir : str, optional
         Name of log directory.
@@ -114,8 +111,7 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
         
         # TBD: Parallelize
         # Instantiate, optimize, and evaluate expressions
-        programs = [Program(a) for a in actions]
-        programs = [p.optimize(X, y) for p in programs]
+        programs = [from_tokens(a) for a in actions]
         base_r = np.array([p.base_r for p in programs])
         complexity = np.array([p.complexity for p in programs])
         r = base_r - complexity # Reward = base reward - complexity penalty
@@ -157,7 +153,7 @@ def learn(sess, controller, X, y, logdir=".", n_epochs=1000, batch_size=1000,
 
     result = {
             "r" : best_r,
-            "expression" : repr(best_program.get_sympy_expr()),
+            "expression" : repr(best_program.sympy_expr),
             "traversal" : repr(best_program)
             }
     return result
@@ -181,6 +177,7 @@ def main():
     # Create the dataset
     dataset = Dataset(**config_dataset)
     X, y = dataset.X_train, dataset.y_train
+    Program.set_training_data(X, y)
     print("Ground truth expression:\n{}".format(indent(dataset.pretty(), '\t')))
 
     # Define the library
@@ -192,7 +189,7 @@ def main():
         # Instantiate the controller
         controller = Controller(sess, n_choices=n_choices, **config_controller)
 
-        learn(sess, controller, X, y, **config_training)
+        learn(sess, controller, **config_training)
 
 
 if __name__ == "__main__":

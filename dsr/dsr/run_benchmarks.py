@@ -25,6 +25,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
 
     # Create the dataset
     X, y = get_dataset(name, config_dataset)
+    Program.set_training_data(X, y)
 
     # Define the library
     Program.set_library(config_dataset["operators"], X.shape[1])
@@ -40,7 +41,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
         controller = Controller(sess, n_choices=n_choices, **config_controller)
 
         # Train the controller
-        result = learn(sess, controller, X, y, **config_training) # Reward, expression, traversal
+        result = learn(sess, controller, **config_training) # Reward, expression, traversal
         result["name"] = name
         return result
 
