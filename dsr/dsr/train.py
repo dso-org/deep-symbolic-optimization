@@ -182,12 +182,11 @@ def main():
 
     # Define the library
     Program.set_library(config_dataset["operators"], X.shape[1])
-    n_choices = len(Program.library)
     
     with tf.Session() as sess:
 
         # Instantiate the controller
-        controller = Controller(sess, n_choices=n_choices, **config_controller)
+        controller = Controller(sess, **config_controller)
 
         learn(sess, controller, **config_training)
 

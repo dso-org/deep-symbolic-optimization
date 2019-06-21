@@ -29,7 +29,6 @@ def train_dsr(name, config_dataset, config_controller, config_training):
 
     # Define the library
     Program.set_library(config_dataset["operators"], X.shape[1])
-    n_choices = len(Program.library)
 
     # # Turn off printing
     # config_training["verbose"] = False    
@@ -38,7 +37,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     with tf.Session() as sess:        
 
         # Instantiate the controller
-        controller = Controller(sess, n_choices=n_choices, **config_controller)
+        controller = Controller(sess, **config_controller)
 
         # Train the controller
         result = learn(sess, controller, **config_training) # Reward, expression, traversal
