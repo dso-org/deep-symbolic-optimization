@@ -98,23 +98,29 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     sess.run(tf.global_variables_initializer())        
 
     # Main training loop
-    best_r = -np.inf # Best reward
-    best_program = None # Best program
+    max_count = 1
+    max_r = -np.inf # Best reward
+    best = None # Best program
     b = None # Baseline used for control variates
     for step in range(n_epochs):
 
-        actions = controller.sample(batch_size) # Sample batch of expressions from controller
+        # Sample batch of expressions from controller
+        actions = controller.sample(batch_size)
         actions = np.squeeze(np.stack(actions, axis=-1)) # Shape (batch_size, max_length)
 
-        # unique_actions, counts = np.unique(np.squeeze(np.stack(actions, axis=-1))[:,:5], axis=0, return_counts=True)
-        # print(unique_actions.shape[0])
-        
-        # TBD: Parallelize
         # Instantiate, optimize, and evaluate expressions
         programs = [from_tokens(a) for a in actions]
-        base_r = np.array([p.base_r for p in programs])
-        complexity = np.array([p.complexity for p in programs])
-        r = base_r - complexity # Reward = base reward - complexity penalty
+        r = np.array([p.r for p in programs])
+
+        # # Show new commonest expression
+        # # Note: This should go before epsilon heuristic
+        # counts = np.array([p.count for p in programs])
+        # if max(counts) > max_count:
+        #     max_count = max(counts)
+        #     commonest = programs[np.argmax(counts)]            
+        #     if verbose:                
+        #         print("\nNew commonest expression")
+        #         commonest.print_stats()
 
         # Heuristic: Only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -123,7 +129,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             programs = list(compress(programs, cutoff))
             r = r[cutoff]
 
-        b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b # Compute baseline (EWMA of average reward)
+        # Compute baseline (EWMA of average reward)
+        b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
 
         # Compute actions mask
         actions_mask = np.zeros_like(actions.T, dtype=np.float32) # Shape: (max_length, batch_size)
@@ -131,30 +138,28 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             length = min(len(p.traversal), controller.max_length)
             actions_mask[:length, i] = 1.0
 
-        loss, summaries = controller.train_step(r, b, actions, actions_mask) # Train controller
+        # Train the controller
+        loss, summaries = controller.train_step(r, b, actions, actions_mask)
         writer.add_summary(summaries, step)
         writer.flush()
+
+        # Show new best expression
+        if max(r) > max_r:            
+            max_r = max(r)
+            best = programs[np.argmax(r)]
+            if verbose:
+                print("\nNew best expression")
+                best.print_stats()
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
             # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
 
-        if max(r) > best_r:
-            index = np.argmax(r)
-            best_r = r[index]
-            best_program = programs[index]
-            if verbose:
-                print("\nNew best expression:")
-                print("\tReward: {}".format(best_r))
-                print("\tTraversal: {}".format(best_program))
-                print("\tExpression:")
-                print("{}\n".format(indent(best_program.pretty(), '\t  ')))
-
     result = {
-            "r" : best_r,
-            "expression" : repr(best_program.sympy_expr),
-            "traversal" : repr(best_program)
+            "r" : best.r,
+            "expression" : repr(best.sympy_expr),
+            "traversal" : repr(best)
             }
     return result
 

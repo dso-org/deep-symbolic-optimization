@@ -1,3 +1,5 @@
+from textwrap import indent
+
 import numpy as np
 from gplearn.functions import _function_map, _Function
 from sympy.parsing.sympy_parser import parse_expr
@@ -31,26 +33,22 @@ def from_tokens(tokens):
 
     # Truncate expressions that complete early; extend ones that don't complete
     arities = np.array([Program.arities[t] for t in tokens])
-    count = 1 + np.cumsum(arities - 1) # Number of dangling nodes
-    if 0 in count:
-        expr_length = 1 + np.argmax(count == 0)
+    dangling = 1 + np.cumsum(arities - 1) # Number of dangling nodes
+    if 0 in dangling:
+        expr_length = 1 + np.argmax(dangling == 0)
         tokens = tokens[:expr_length]
     else:
-        tokens = np.append(tokens, [0]*count[-1]) # Extend with x1's
+        tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
 
     # If the Program is in the cache, return it; otherwise, create a new one
     key = tokens.tostring()
     if key in Program.cache:
-        entry = Program.cache[key]
-        entry["count"] += 1
-        return Program.cache[key]["program"]
+        p = Program.cache[key]
+        p.count += 1
+        return p
     else:
         p = Program(tokens)
-        entry = {
-            "program" : p,
-            "count" : 1
-        }
-        Program.cache[key] = entry
+        Program.cache[key] = p
         return p
 
 
@@ -80,16 +78,22 @@ class Program(object):
     const_pos : list of int
         A list of indicies of constant placeholders along the traversal.
 
-    sympy_expr : str or None
+    sympy_expr : str
         The (lazily calculated) SymPy expression corresponding to the program.
         Used for pretty printing _only_.
 
-    base_r : float or None
+    base_r : float
         The base reward (reward without penalty) of the program on the training
-        data. Computed as part of self.optimize().
+        data.
 
     complexity : float
         The (lazily calcualted) complexity of the program.
+
+    r : float
+        The (lazily calculated) reward of the program on the training data.
+
+    count : int
+        The number of times this Program has been sampled.
     """
 
     # Static variables
@@ -112,6 +116,7 @@ class Program(object):
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
         self.base_r = self.optimize()
+        self.count = 1
 
 
     def execute(self, X):
@@ -309,7 +314,7 @@ class Program(object):
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
 
-        print("Library:\n\t{}".format(', '.join(["x" + str(i) for i in range(n_input_var)] + operators)))
+        print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
 
 
     @staticmethod
@@ -321,7 +326,7 @@ class Program(object):
 
     
     def reward(self, X, y):
-        """Evaluates and returns the reward of a given dataset"""
+        """Evaluates and returns the base reward under a given dataset"""
 
         y_hat = self.execute(X)
         return Program.reward_function(y, y_hat)
@@ -332,6 +337,14 @@ class Program(object):
         """Evaluates and returns the complexity of the program"""
 
         return Program.complexity_penalty(self.traversal)
+
+
+    @cached_property
+    def r(self):
+        """Evaluates and returns the reward of the program"""
+
+        return self.base_r - self.complexity
+
 
     @cached_property
     def sympy_expr(self):
@@ -354,6 +367,17 @@ class Program(object):
         """Returns pretty printed string of the program"""
 
         return pretty(self.sympy_expr)
+
+
+    def print_stats(self):
+        """Prints the statistics of the program"""
+
+        print("\tReward: {}".format(self.r))
+        print("\tBase reward: {}".format(self.base_r))
+        print("\tCount: {}".format(self.count))
+        print("\tTraversal: {}".format(self))
+        print("\tExpression:")
+        print("{}\n".format(indent(self.pretty(), '\t  ')))
 
     
     def __repr__(self):
