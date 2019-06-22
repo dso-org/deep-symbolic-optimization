@@ -19,6 +19,7 @@
     "const_params" : {},
     "alpha" : 0.1,
     "epsilon" : 0.1,
+    "num_cores" : -1,
     "verbose" : true
 },
 

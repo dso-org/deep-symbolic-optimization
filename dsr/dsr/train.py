@@ -1,5 +1,6 @@
 import os
 import json
+import multiprocessing
 from itertools import compress
 from datetime import datetime
 from textwrap import indent
@@ -19,11 +20,16 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 # Set TensorFlow seed
 tf.random.set_random_seed(0)
 
+# Work for multiprocessing pool
+def work(p):
+    return p.optimize()
+
 
 def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
-          const_params=None, alpha=0.1, epsilon=0.01, verbose=True):
+          const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
+          verbose=True):
     """
     Executes the main training loop.
 
@@ -67,6 +73,10 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     
     epsilon : float, optional
         Fraction of top expressions used for training.
+
+    num_cores : int, optional
+        Number of cores to use for optimizing programs. If -1, uses
+        multiprocessing.cpu_count().
     
     verbose : bool, optional
         Whether to print progress.
@@ -95,7 +105,15 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     Program.set_const_optimizer(const_optimizer, **const_params)
 
     # Initialize compute graph
-    sess.run(tf.global_variables_initializer())        
+    sess.run(tf.global_variables_initializer())
+
+    # Create the pool of workers    
+    if num_cores == -1:
+        num_cores = multiprocessing.cpu_count()
+    if num_cores > 1:
+        pool = multiprocessing.Pool(num_cores)
+    else:
+        pool = None
 
     # Main training loop
     max_count = 1
@@ -109,7 +127,23 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         actions = np.squeeze(np.stack(actions, axis=-1)) # Shape (batch_size, max_length)
 
         # Instantiate, optimize, and evaluate expressions
-        programs = [from_tokens(a) for a in actions]
+        if pool is None:
+            programs = [from_tokens(a, optimize=True) for a in actions]
+        else:
+            # To prevent interfering with the cache, un-optimized programs are
+            # first generated serially. The resulting set is optimized in
+            # parallel. Since multiprocessing operates on copies of programs,
+            # we manually set the optimized constants and base reward after the
+            # pool joins.
+            programs = [from_tokens(a, optimize=False) for a in actions]
+            programs_to_optimize = list(set([p for p in programs if p.base_r is None]))
+            results = pool.map(work, programs_to_optimize)
+            for pair, p in zip(results, programs_to_optimize):
+                optimized_constants, base_r = pair
+                p.set_constants(optimized_constants)
+                p.base_r = base_r                
+        
+        # Retrieve the rewards
         r = np.array([p.r for p in programs])
 
         # # Show new commonest expression
@@ -155,6 +189,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
             # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
+
+    if pool is not None:
+        pool.close()
 
     result = {
             "r" : best.r,

@@ -9,7 +9,7 @@ from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 
 
-def from_tokens(tokens):
+def from_tokens(tokens, optimize):
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -23,6 +23,9 @@ def from_tokens(tokens):
         A list of integers corresponding to tokens in the library. The list
         defines an expression's pre-order traversal. "Dangling" programs are
         completed with repeated "x1" until the expression completes.
+
+    optimize : bool
+        Whether to optimize the program before returning it.
 
     Returns
     _______
@@ -47,7 +50,7 @@ def from_tokens(tokens):
         p.count += 1
         return p
     else:
-        p = Program(tokens)
+        p = Program(tokens, optimize=optimize)
         Program.cache[key] = p
         return p
 
@@ -65,6 +68,9 @@ class Program(object):
         A list of integers corresponding to tokens in the library. "Dangling"
         programs are completed with repeated "x1" until the expression
         completes.
+
+    optimize : bool
+        Whether to optimize the program upon initializing it.
 
     Attributes
     ----------
@@ -107,7 +113,7 @@ class Program(object):
     cache = {}
 
 
-    def __init__(self, tokens):
+    def __init__(self, tokens, optimize):
         """
         Builds the program from a list of tokens, optimizes the constants
         against training data, and evalutes the reward.
@@ -115,7 +121,10 @@ class Program(object):
 
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
-        self.base_r = self.optimize()
+        if optimize:
+            _, self.base_r = self.optimize()
+        else:
+            self.base_r = None
         self.count = 1
 
 
@@ -172,16 +181,19 @@ class Program(object):
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
-        optimize based reward.
+        optimized constants and base reward.
 
         This function generates an objective function based on the training
         dataset, reward function, and constant optimizer. It ignores penalties
         because the Program structure is fixed, thus penalties are all the same.
-        It then optimizes the constants of the program and returns the base
-        reward (reward without penalty).
+        It then optimizes the constants of the program and returns the optimized
+        constants and base reward (reward without penalty).
 
         Returns
         _______
+        optimized_constants : vector
+            Array of optimized constants.
+
         base_r : float
             The base reward (reward without penalty) of the optimized program.
         """
@@ -196,14 +208,15 @@ class Program(object):
         if len(self.const_pos) > 0:
             # Do the optimization
             x0 = np.ones(len(self.const_pos)) # Initial guess
-            x, base_r = Program.const_optimizer(f, x0)
-            self.set_constants(x)            
+            optimized_constants, base_r = Program.const_optimizer(f, x0)
+            self.set_constants(optimized_constants)
 
         else:
             # No need to optimize if there are no constants
+            optimized_constants = []
             base_r = -f([])
 
-        return base_r
+        return optimized_constants, base_r
 
 
     def set_constants(self, consts):
@@ -382,6 +395,7 @@ class Program(object):
     
     def __repr__(self):
         """Prints the program's traversal"""
+
         return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.traversal])
 
 

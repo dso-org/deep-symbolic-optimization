@@ -30,9 +30,6 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     # Define the library
     Program.set_library(config_dataset["operators"], X.shape[1])
 
-    # # Turn off printing
-    # config_training["verbose"] = False    
-
     tf.reset_default_graph()
     with tf.Session() as sess:        
 
@@ -142,6 +139,16 @@ def main(config_filename, method, output_filename, num_cores,
 
     names = [n for k,n in zip(keep, names) if k]
 
+    if num_cores > len(names):
+        print("Setting 'num_cores' to {} for batch because there are only {} expressions.".format(len(names), len(names)))
+        num_cores = len(names)
+    if config_training["verbose"] and num_cores > 1:
+        print("Setting 'verbose' to False for parallelized run.")
+        config_training["verbose"] = False
+    if config_training["num_cores"] != 1 and num_cores > 1:
+        print("Setting 'num_cores' to 1 for training (i.e. constant optimization) to avoid nested child processes.")
+        config_training["num_cores"] = 1
+
     # Define the work
     if method == "dsr":
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
@@ -149,11 +156,16 @@ def main(config_filename, method, output_filename, num_cores,
         work = partial(train_gp, config_dataset=config_dataset, config_gp=config_gp)
 
     # Farm out the work
-    pool = multiprocessing.Pool(num_cores)    
     columns = ["name", "r", "expression", "traversal"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
-    for result in pool.imap_unordered(work, names):
-        pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+    if num_cores > 1:
+        pool = multiprocessing.Pool(num_cores)    
+        for result in pool.imap_unordered(work, names):
+            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+    else:
+        for name in names:
+            result = work(name)
+            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
 
 
 if __name__ == "__main__":
