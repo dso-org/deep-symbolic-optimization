@@ -1,4 +1,7 @@
 import tensorflow as tf
+import numpy as np
+
+from dsr.program import Program
 
 
 class Controller(object):
@@ -16,9 +19,6 @@ class Controller(object):
     num_units : int
         Number of LSTM units in the RNN's single layer.
 
-    n_choices : int
-        Size of library of operators/terminals.
-
     max_length : int
         Maximum length of a sampled traversal.
 
@@ -29,8 +29,8 @@ class Controller(object):
         Coefficient for entropy bonus.
     """
 
-    def __init__(self, sess, num_units, n_choices, max_length,
-                 learning_rate=0.001, entropy_weight=0.0):
+    def __init__(self, sess, num_units, max_length, learning_rate=0.001,
+                 entropy_weight=0.0):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -42,6 +42,8 @@ class Controller(object):
 
         neglogps = []
         entropies = []
+
+        n_choices = len(Program.arities)
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -70,6 +72,13 @@ class Controller(object):
 
                 # Outputs correspond to logits of library
                 logits = tf.layers.dense(ouputs[:, -1, :], units=n_choices)
+                if i == 0:
+                    # First node must be nonterminal, so set logits to -inf
+                    arities = np.array([Program.arities[i] for i in range(n_choices)])
+                    adjustment = np.zeros(len(arities), dtype=np.float32)
+                    adjustment[arities == 0] = -np.inf
+                    adjustment = tf.constant(adjustment, dtype=tf.float32)
+                    logits = logits + adjustment
                 self.logits.append(logits)
 
                 # Sample from the library
@@ -114,7 +123,7 @@ class Controller(object):
 
             self.loss = policy_gradient_loss + entropy_loss # May add additional terms later
 
-        # Create summaries        
+        # Create summaries
         tf.summary.scalar("policy_gradient_loss", policy_gradient_loss)
         tf.summary.scalar("entropy_loss", entropy_loss)
         tf.summary.scalar("total_loss", self.loss)

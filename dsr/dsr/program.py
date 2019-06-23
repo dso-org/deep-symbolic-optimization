@@ -1,3 +1,5 @@
+from textwrap import indent
+
 import numpy as np
 from gplearn.functions import _function_map, _Function
 from sympy.parsing.sympy_parser import parse_expr
@@ -7,13 +9,58 @@ from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 
 
+def from_tokens(tokens, optimize):
+    """
+    Memoized function to generate a Program from a list of tokens.
+
+    Since some tokens are nonfunctional, this first computes the corresponding
+    traversal. If that traversal exists in the cache, the corresponding Program
+    is returned. Otherwise, a new Program is returned.
+
+    Parameters
+    ----------
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. "Dangling" programs are
+        completed with repeated "x1" until the expression completes.
+
+    optimize : bool
+        Whether to optimize the program before returning it.
+
+    Returns
+    _______
+    program : Program
+        The Program corresponding to the tokens, either pulled from memoization
+        or generated from scratch.
+    """
+
+    # Truncate expressions that complete early; extend ones that don't complete
+    arities = np.array([Program.arities[t] for t in tokens])
+    dangling = 1 + np.cumsum(arities - 1) # Number of dangling nodes
+    if 0 in dangling:
+        expr_length = 1 + np.argmax(dangling == 0)
+        tokens = tokens[:expr_length]
+    else:
+        tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
+
+    # If the Program is in the cache, return it; otherwise, create a new one
+    key = tokens.tostring()
+    if key in Program.cache:
+        p = Program.cache[key]
+        p.count += 1
+        return p
+    else:
+        p = Program(tokens, optimize=optimize)
+        Program.cache[key] = p
+        return p
+
+
 class Program(object):
     """
     The executable program representing the symbolic expression.
 
-    The program comprises "tokens" that correspond to unary/binary operators,
-    constant placeholder (to-be-optimized), input variables, or hard-coded
-    constants.
+    The program comprises unary/binary operators, constant placeholders
+    (to-be-optimized), input variables, and hard-coded constants.
 
     Parameters
     ----------
@@ -22,63 +69,63 @@ class Program(object):
         programs are completed with repeated "x1" until the expression
         completes.
 
+    optimize : bool
+        Whether to optimize the program upon initializing it.
+
     Attributes
     ----------
-    program : list
+    traversal : list
         List of operators (type: _Function) and terminals (type: int, float, or
         str ("const")) encoding the pre-order traversal of the expression tree.
+
+    tokens : np.ndarry (dtype: int)
+        Array of integers whose values correspond to indices 
         
     const_pos : list of int
-        A list of indicies of constant placeholders along the program.
+        A list of indicies of constant placeholders along the traversal.
 
-    sympy_expr : str or None
-        The (lazily calculated) sympy expression corresponding to the program.
+    sympy_expr : str
+        The (lazily calculated) SymPy expression corresponding to the program.
         Used for pretty printing _only_.
 
-    base_r : float or None
-        The (lazily calculated) base reward (reward without penalty) of the
-        program on the training data.
+    base_r : float
+        The base reward (reward without penalty) of the program on the training
+        data.
 
     complexity : float
         The (lazily calcualted) complexity of the program.
+
+    r : float
+        The (lazily calculated) reward of the program on the training data.
+
+    count : int
+        The number of times this Program has been sampled.
     """
 
     # Static variables
-    library = None          # List of operators/terminals
+    library = None          # Dict of operators/terminals for each token
+    arities = None          # Dict of arities for each token
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
-    
+    const_token = None      # Token corresponding to constant
+    X_train = None
+    y_train = None
+    cache = {}
 
-    def __init__(self, tokens):
-        """Builds the program from a list of tokens."""
 
-        self.program = []               # List of operators (type: _Function) and terminals (type: int, float, str ("const"))
-        self.const_pos = []             # Indices of constant tokens
-        count = 1
-        for i, t in enumerate(tokens):
-            if count == 0 or t == -1: # TBD: Get rid of -1 case, then move this to end of loop iteration
-                break
-            op = Program.library[t]
-            if isinstance(op, _Function):
-                count += op.arity - 1
-            elif op == "const":
-                count -= 1
-                self.const_pos.append(i)
-            elif isinstance(op, str):
-                op = int(op[1:])
-                count -= 1
-            elif isinstance(op, float):
-                count -= 1
-            else:
-                raise ValueError("Unrecognized type: {}".format(type(op)))
-            self.program.append(op)
+    def __init__(self, tokens, optimize):
+        """
+        Builds the program from a list of tokens, optimizes the constants
+        against training data, and evalutes the reward.
+        """
 
-        # Complete unfinished programs with x1
-        for i in range(count):
-            self.program.append(0)
-
-        self.sympy_expr = None # Corresponding sympy expression, only calculated for pretty print
-        self.base_r = None
+        self.traversal = [Program.library[t] for t in tokens]
+        self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
+        if optimize:
+            _, self.base_r = self.optimize()
+        else:
+            self.base_r = None
+        self.count = 1
 
 
     def execute(self, X):
@@ -97,7 +144,7 @@ class Program(object):
         """
 
         # Check for single-node programs
-        node = self.program[0]
+        node = self.traversal[0]
         if isinstance(node, float):
             return np.repeat(node, X.shape[0])
         if isinstance(node, int):
@@ -105,7 +152,7 @@ class Program(object):
 
         apply_stack = []
 
-        for node in self.program:
+        for node in self.traversal:
 
             if isinstance(node, _Function):
                 apply_stack.append([node])
@@ -131,58 +178,60 @@ class Program(object):
         return None
 
     
-    def optimize(self, X, y):
+    def optimize(self):
         """
-        Optimizes the constant tokens against a dataset.
+        Optimizes the constant tokens against the training data and returns the
+        optimized constants and base reward.
 
         This function generates an objective function based on the training
         dataset, reward function, and constant optimizer. It ignores penalties
         because the Program structure is fixed, thus penalties are all the same.
-        It then optimizes the constants of the program. Since reward for the
-        optimized constants is already computed, this function also sets
-        self.base_r.
-
-        Parameters
-        ----------
-        X, y : np.ndarray
-            Training data used for optimization.
+        It then optimizes the constants of the program and returns the optimized
+        constants and base reward (reward without penalty).
 
         Returns
-        -------
+        _______
+        optimized_constants : vector
+            Array of optimized constants.
 
-        self : Program
-            Returns self with optimized constants replaced in self.program.
+        base_r : float
+            The base reward (reward without penalty) of the optimized program.
         """
 
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
-            self.set_constants(consts)                  # Set the constants
-            y_hat = self.execute(X)                     # Compute predicted values
-            obj = -1*Program.reward_function(y, y_hat)  # Compute the objective
+            self.set_constants(consts)
+            y_hat = self.execute(Program.X_train)
+            obj = -1*Program.reward_function(Program.y_train, y_hat)
             return obj
         
         if len(self.const_pos) > 0:
             # Do the optimization
             x0 = np.ones(len(self.const_pos)) # Initial guess
-            x, base_r = Program.const_optimizer(f, x0)
-
-            # Set the optimized constants
-            self.set_constants(x)            
+            optimized_constants, base_r = Program.const_optimizer(f, x0)
+            self.set_constants(optimized_constants)
 
         else:
             # No need to optimize if there are no constants
+            optimized_constants = []
             base_r = -f([])
 
-        self.base_r = base_r
-
-        return self
+        return optimized_constants, base_r
 
 
     def set_constants(self, consts):
-        """Sets the program's constant values"""
+        """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            self.program[self.const_pos[i]] = const
+            self.traversal[self.const_pos[i]] = const
+
+
+    @classmethod
+    def set_training_data(cls, X_train, y_train):
+        """Sets the class' training data"""
+
+        cls.X_train = X_train
+        cls.y_train = y_train
 
 
     @classmethod
@@ -246,37 +295,39 @@ class Program(object):
 
     @classmethod
     def set_library(cls, operators, n_input_var):
-        """Sets the class library"""
+        """Sets the class library and arities"""
 
-        Program.library = []
+        # Add input variables
+        Program.library = {i : i for i in range(n_input_var)}
+        Program.arities = {i : 0 for i in range(n_input_var)}
 
         # Add operators
-        operators = [op.lower() if isinstance(op, str) else op for op in operators] # Convert strings to lower-case
-        for op in operators:
+        operators = [op.lower() if isinstance(op, str) else op for op in operators]
+        for i, op in enumerate(operators):
+
+            key = i + n_input_var
+
             # Function
             if op in _function_map:
-                Program.library.append(_function_map[op])
-
-            # Input variable
-            elif type(op) == int:
-                Program.library.append(op)
+                op = _function_map[op]
+                Program.library[key] = op
+                Program.arities[key] = op.arity
 
             # Hard-coded floating-point constant
             elif isinstance(op, float):
-                Program.library.append(op)
+                Program.library[key] = op
+                Program.arities[key] = 0
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
-                Program.library.append(op)
+                Program.library[key] = op
+                Program.arities[key] = 0
+                Program.const_token = key
 
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
 
-        # Add input variables
-        input_vars = ["x{}".format(i) for i in range(n_input_var)] # x0, x1, ..., x{n-1}
-        Program.library.extend(input_vars)
-
-        print("Library:\n\t{}".format([x.name if isinstance(x, _Function) else str(x) for x in Program.library]))
+        print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
 
 
     @staticmethod
@@ -288,7 +339,7 @@ class Program(object):
 
     
     def reward(self, X, y):
-        """Evaluates and returns the reward of a given dataset"""
+        """Evaluates and returns the base reward under a given dataset"""
 
         y_hat = self.execute(X)
         return Program.reward_function(y, y_hat)
@@ -298,35 +349,54 @@ class Program(object):
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
 
-        return Program.complexity_penalty(self.program)
+        return Program.complexity_penalty(self.traversal)
 
 
-    def get_sympy_expr(self):
+    @cached_property
+    def r(self):
+        """Evaluates and returns the reward of the program"""
+
+        return self.base_r - self.complexity
+
+
+    @cached_property
+    def sympy_expr(self):
         """
         Returns the attribute self.sympy_expr.
 
         This is actually a bit complicated because we have to go: traversal -->
-        tree --> serialized tree --> sympy expression
+        tree --> serialized tree --> SymPy expression
         """
 
-        if self.sympy_expr is None:
-            tree = self.program.copy()
-            tree = build_tree(tree)
-            tree = convert_to_sympy(tree)
-            self.sympy_expr = parse_expr(tree.__repr__()) # sympy expression
+        tree = self.traversal.copy()
+        tree = build_tree(tree)
+        tree = convert_to_sympy(tree)
+        expr = parse_expr(tree.__repr__()) # SymPy expression
 
-        return self.sympy_expr
+        return expr
 
 
     def pretty(self):
         """Returns pretty printed string of the program"""
 
-        return pretty(self.get_sympy_expr())
+        return pretty(self.sympy_expr)
+
+
+    def print_stats(self):
+        """Prints the statistics of the program"""
+
+        print("\tReward: {}".format(self.r))
+        print("\tBase reward: {}".format(self.base_r))
+        print("\tCount: {}".format(self.count))
+        print("\tTraversal: {}".format(self))
+        print("\tExpression:")
+        print("{}\n".format(indent(self.pretty(), '\t  ')))
 
     
     def __repr__(self):
         """Prints the program's traversal"""
-        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.program])
+
+        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.traversal])
 
 
 ###############################################################################
@@ -352,11 +422,11 @@ class Node(object):
         return "{}({})".format(self.val, children_repr)
 
 
-def build_tree(program, order="preorder"):
+def build_tree(traversal, order="preorder"):
     """Recursively builds tree from pre-order traversal"""
 
     if order == "preorder":
-        op = program.pop(0)
+        op = traversal.pop(0)
 
         if isinstance(op, _Function):
             val = op.name
@@ -375,7 +445,7 @@ def build_tree(program, order="preorder"):
         node = Node(val)
 
         for _ in range(n_children):
-            node.children.append(build_tree(program))
+            node.children.append(build_tree(traversal))
 
         return node
 
