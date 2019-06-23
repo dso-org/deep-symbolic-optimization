@@ -8,8 +8,8 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
 from gplearn.genetic import SymbolicRegressor
 
-from dsr.program import Program
-from dsr.dataset import Dataset
+from dsr_parent_sibling.program import Program
+from dsr_parent_sibling.dataset import Dataset
 
 
 def train_dsr(name, config_dataset, config_controller, config_training):
@@ -17,8 +17,8 @@ def train_dsr(name, config_dataset, config_controller, config_training):
 
     try:
         import tensorflow as tf
-        from dsr.controller import Controller
-        from dsr.train import learn
+        from dsr_parent_sibling.controller import Controller
+        from dsr_parent_sibling.train import learn
 
     except:
         pass
@@ -37,7 +37,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     with tf.Session() as sess:        
 
         # Instantiate the controller
-        controller = Controller(sess, n_choices=n_choices, **config_controller)
+        controller = Controller(sess, library = Program.library_out, n_choices=n_choices, **config_controller)
 
         # Train the controller
         result = learn(sess, controller, X, y, **config_training) # Reward, expression, traversal
