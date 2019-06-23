@@ -3,8 +3,8 @@ from gplearn.functions import _function_map, _Function
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
-from dsr.const import make_const_optimizer
-from dsr.utils import cached_property
+from dsr_parent_sibling.const import make_const_optimizer
+from dsr_parent_sibling.utils import cached_property
 
 
 class Program(object):

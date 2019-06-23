@@ -7,9 +7,9 @@ from textwrap import indent
 import tensorflow as tf
 import numpy as np
 
-from dsr.controller import Controller
-from dsr.program import Program
-from dsr.dataset import Dataset
+from dsr_parent_sibling.controller import Controller
+from dsr_parent_sibling.program import Program
+from dsr_parent_sibling.dataset import Dataset
 
 
 # Ignore TensorFlow warnings
