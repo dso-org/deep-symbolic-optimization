@@ -228,8 +228,8 @@ def main():
     with tf.Session() as sess:
 
         # Instantiate the controller
-        controller = Controller(sess, **config_controller)
-
+        # Soo: Inside of Program class, defined library_out to temporally save operator library to pass it to controller
+        controller = Controller(sess, library = Program.library_out, **config_controller)
         learn(sess, controller, **config_training)
 
 

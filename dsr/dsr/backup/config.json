@@ -1,0 +1,58 @@
+{
+
+"dataset" : {
+    "file" : "benchmarks.csv",
+    "name" : "Vladislavleva-6",
+    "extra_input_var" : 0,
+    "operators" : ["add", "mul", "sin", "cos", "const"]
+},
+
+"training" : {
+    "logdir" : ".",
+    "n_epochs" : 1000,
+    "batch_size" : 1000,
+    "reward" : "neg_mse",
+    "reward_params" : [],
+    "complexity" : "length",
+    "complexity_weight" : 0.001,
+    "const_optimizer" : "scipy",
+    "const_params" : {},
+    "alpha" : 0.1,
+    "epsilon" : 0.1,
+    "num_cores" : -1,
+    "verbose" : true
+},
+
+"controller" : {    
+    "num_units" : 35,
+    "max_length" : 30,
+    "learning_rate" : 0.001,
+    "entropy_weight" : 0.0
+},
+
+"gp" : {
+    "population_size" : 1000,
+    "generations" : 1000,
+    "tournament_size": 20,
+    "stopping_criteria" : 0.0,
+    "const_range" : null,
+    "init_depth" : [2,6],
+    "init_method" : "half and half",
+    "function_set" : ["add", "mul", "sin", "cos"],
+    "metric" : "mse",
+    "parsimony_coefficient" : 0.001,
+    "p_crossover" : 0.9,
+    "p_subtree_mutation" : 0.01,
+    "p_hoist_mutation" : 0.01,
+    "p_point_mutation" : 0.01,
+    "p_point_replace" : 0.05,
+    "max_samples" : 1.0,
+    "feature_names" : null,
+    "warm_start" : false,
+    "low_memory" : false,
+    "n_jobs" : 1,
+    "verbose" : 1,
+    "random_state" : 0
+}
+
+}

@@ -328,6 +328,7 @@ class Program(object):
                 raise ValueError("Operation {} not recognized.".format(op))
 
         print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
+        Program.library_out = [x.name if isinstance(x, _Function) else str(x) for x in Program.library]
 
 
     @staticmethod
