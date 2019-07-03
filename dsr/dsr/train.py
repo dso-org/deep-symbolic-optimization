@@ -226,10 +226,8 @@ def main():
     Program.set_library(config_dataset["operators"], X.shape[1])
     
     with tf.Session() as sess:
-
         # Instantiate the controller
-        # Soo: Inside of Program class, defined library_out to temporally save operator library to pass it to controller
-        controller = Controller(sess, library = Program.library_out, **config_controller)
+        controller = Controller(sess, **config_controller)
         learn(sess, controller, **config_training)
 
 

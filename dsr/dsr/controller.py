@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from numba import jit, prange
 
 from dsr.program import Program
 
@@ -29,7 +30,7 @@ class Controller(object):
         Coefficient for entropy bonus.
     """
 
-    def __init__(self, sess, library, num_units, max_length, learning_rate=0.001,
+    def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, parent_sibling=1):
 
         self.sess = sess
@@ -50,7 +51,6 @@ class Controller(object):
         self.actions_ph = []
         self.parents_ph = []
         self.siblings_ph = []
-        self.library = library
 
         self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
@@ -61,15 +61,10 @@ class Controller(object):
             
             cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
             cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32)
-            if self.parent_sibling == 1:
-                print("Input of RNN is [action, parent, sibling]\n")
+            if self.parent_sibling:
                 input_dims = tf.stack([self.batch_size, 1, n_choices*3])
-            elif self.parent_sibling == 0:
-                print("Input of RNN is [action] (without parent-sibling)\n")
-                input_dims = tf.stack([self.batch_size, 1, n_choices])
             else:
-                print(" Incorrect parent_sibling parameter! Please put either 0(no) or 1(yes \n Stop program")
-                sys.exit()
+                input_dims = tf.stack([self.batch_size, 1, n_choices])
 
             cell_input = tf.fill(input_dims, 1.0) # First input fed to controller
             
@@ -104,32 +99,27 @@ class Controller(object):
                 action_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                 self.actions_ph.append(action_ph)
 
-                if self.parent_sibling == 1:
+                # Update LSTM input
+                # Must be three dimensions: [batch_size, sequence_length, n_input_nodes]
+                if self.parent_sibling:
                     parent_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.parents_ph.append(parent_ph)
                     sibling_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.siblings_ph.append(sibling_ph)
 
-                    # Update LSTM input and state with selected actions
-                    # output shape of cell_input[1-3] = [batch_size, 1, n_choices] = shape=(?, 1, 7)
-                    cell_input1 = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i)) #action
-                    cell_input2 = tf.one_hot(tf.reshape(self.parents_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i)) #parent
-                    cell_input3 = tf.one_hot(tf.reshape(self.siblings_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i)) #sibling
-
-                    #Soo: concatenate to cell_input
-                    #Somehow, the size of input dim of RNN is fixed to 3 [batch_size, time, size_of_input]
-                    cell_input = tf.concat([cell_input1, cell_input2, cell_input3], 2) #(?,1,21)
-                elif self.parent_sibling == 0:
-                    cell_input = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
+                    cell_input1 = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
+                    cell_input2 = tf.one_hot(tf.reshape(self.parents_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
+                    cell_input3 = tf.one_hot(tf.reshape(self.siblings_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
+                    cell_input = tf.concat([cell_input1, cell_input2, cell_input3], 2) # Shape: (?, 1, 3*n_choices)
                 else:
-                    print(" Incorrect parent_sibling parameter! Please put either 0(no) or 1(yes \n Stop program")
-                    sys.exit()
+                    cell_input = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
 
+                # Update LSTM state
                 cell_state = final_state
 
                 # Cross-entropy loss is equivalent to neglogp
                 neglogp = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits[i],
-                                                                        labels=action_ph)
+                                                                         labels=action_ph)
                 neglogps.append(neglogp)
 
                 # Entropy = neglogp * p = neglogp * exp(-neglogp)
@@ -169,29 +159,22 @@ class Controller(object):
         self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
 
 
-    # [Soo]: We calculate parent and sibling here simultaneously when we sample the action.
-    # Our RNN is trained with in-situ fasion as we sample out action and feed them together with parent-sibling pair
     def sample(self, n):
-        """Sample batch of n expressions
-           actions:  [self.max_length,self.batch_size] """
+        """Sample batch of n expressions"""
 
         actions = []
         feed_dict = {self.batch_size : n}
         for i in range(self.max_length):
-            action = self.sess.run(self.actions[i], feed_dict=feed_dict) #(1000,)
-            actions.append(action) #(length, 1000)
-            feed_dict[self.actions_ph[i]] = action #feed_forward
+            action = self.sess.run(self.actions[i], feed_dict=feed_dict) # Shape: (n,)
+            actions.append(action)
+            feed_dict[self.actions_ph[i]] = action
 
-            if self.parent_sibling == 1: #[Soo]
-                parents = np.empty(np.shape(action))
-                siblings = np.empty(np.shape(action))
-                for j in range(n):
-                    action_list_so_far = np.asarray(actions)[:,j]
-                    parent, sibling = self.get_parent_sibling(action_list_so_far, self.library)
-                    parents[j]=parent
-                    siblings[j]= sibling
-                feed_dict[self.parents_ph[i]] = parents
-                feed_dict[self.siblings_ph[i]] = siblings
+            if self.parent_sibling:
+                all_actions = np.stack(actions) # Shape: (i, n)
+                parents, siblings = parents_siblings(all_actions, Program.arities_numba)
+                feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
+                feed_dict[self.siblings_ph[i]] = siblings # Shape: (n,)
+
         return actions
 
 
@@ -206,71 +189,82 @@ class Controller(object):
         return self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
 
 
-    def get_parent_sibling(self, array_of_sequence, library):
-        """
-          input: array_of_sequence: index of sampled actions
-                                   shape: (length_of_sampled_sequence)
-                                   ex: [1,2,3]
-                 library: ['add', 'mul', 'sin', 'cos', 'const', 'x0', 'x1'] --> can be different (defined in config.json) 
-          output: parent:index of parent 
-                         shape: (1)   
-                  sibling:index of sibling
-                         shape: (1)
-        """
-        uniary=["sin","cos","tan"]
-        binary=["add","mul"]
-        operand=["x0","x1","x2","const"]
-
-        #Default if len(array_of_sequence) <1:
-        parent = 0
-        sibling = 0
-        if library[array_of_sequence[-1]] in uniary:
-            parent = array_of_sequence[-1]
-            sibling = 0
-        elif  library[array_of_sequence[-1]] in binary:
-            parent = array_of_sequence[-1]
-            sibling = 0
-        elif library[array_of_sequence[-1]] in operand:
-            sum_of_operand = 0
-            for i in range(len(array_of_sequence)):
-                if library[array_of_sequence[len(array_of_sequence)-i-1]] in operand: #read from backward
-                    sum_of_operand += 1
-                elif library[array_of_sequence[len(array_of_sequence)-i-1]] in binary:
-                    sum_of_operand -= 1
-                if sum_of_operand == 0:
-                    parent = array_of_sequence[len(array_of_sequence)-i-1]
-                    sibling= array_of_sequence[len(array_of_sequence)-i]
-                    break
-        return parent, sibling
-
-
     def train_step(self, r, b, actions, actions_mask):
-        """Computes loss, applies gradients, and computes summaries
-           [Soo]: This is the train_step function when we want to feed [parent-sibling] pair together with action in training stage.
-           I don't know why do we need to feed_dict for parent and sibling when we train (as parent and sibling is not making effect to loss)
-           parent-sibling pair are alredy feeded to the network at sample funciton above."""
+        """Computes loss, applies gradients, and computes summaries."""
+
         feed_dict = {self.r : r,
                     self.baseline : b,
                     self.actions_mask : actions_mask,
                     self.batch_size : actions.shape[0]}
-        #Soo: feeding parent and sibling index as the additional inputs
-        actions_sofar=[]
-        for i, action in enumerate(actions.T):
-            feed_dict[self.actions_ph[i]] = action  #(100,)
 
-            if self.parent_sibling == 1:
-                actions_sofar.append(action)
-                parents = np.empty(np.shape(action))
-                siblings = np.empty(np.shape(action))
-                for j in range(len(action)):
-                    action_list_so_far = np.asarray(actions_sofar)[:,j]
-                    parent, sibling = self.get_parent_sibling(action_list_so_far, self.library)
-                    parents[j]=parent
-                    siblings[j]= sibling
+        all_actions = []
+        for i, action in enumerate(actions.T):
+            feed_dict[self.actions_ph[i]] = action
+            all_actions.append(action)
+
+            # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
+            if self.parent_sibling:
+                tokens = np.stack(all_actions)
+                parents, siblings = parents_siblings(tokens, Program.arities_numba)
                 feed_dict[self.parents_ph[i]] = parents
                 feed_dict[self.siblings_ph[i]] = siblings
+
         loss, _, summaries = self.sess.run([self.loss, self.train_op, self.summaries], feed_dict=feed_dict)
         return loss, summaries
 
 
+@jit(nopython=True, parallel=True)
+def parents_siblings(tokens, arities):
+    """
+    Given a batch of action sequences, computes and returns the parents and
+    siblings of the last element of the sequence.
+
+    The batch has shape (L, N), where L is the length of each sequence and N is
+    the number of sequences (i.e. batch size). In some cases, expressions may
+    already be complete; in these cases, this function will see no expression at
+    all (parent = -1, sibling = -1, or the start of a new expressions, which may
+    have any parent/sibling combination. However, the return value for these
+    elements doesn't matter because they will be masked in all loss calculations
+    anyway.
+
+    Parameters
+    __________
+
+    tokens : np.ndarray, shape=(L, N), dtype=np.int32
+        Batch of action sequences. Values correspond to library indices.
+
+    arities : numba.typed.Dict
+        Dictionary from library index to arity.
+
+    Returns
+    _______
+
+    parents : np.ndarray, shape=(N,), dtype=np.int32
+        Parents of the last element of each action sequence.
+
+    siblings : np.ndarray, shape=(N,), dtype=np.int32
+        Siblings of the last element of each action sequence.
+
+    """
+
+    L, N = tokens.shape
+    parents = np.full(shape=(N,), fill_value=-1, dtype=np.int32)
+    siblings = np.full(shape=(N,), fill_value=-1, dtype=np.int32)
+    # Parallelized loop over action sequences
+    for c in prange(N):
+        arity = arities[tokens[-1, c]]
+        if arity > 0: # Parent is the previous element; no sibling
+            parents[c] = tokens[-1, c]
+            continue
+        dangling = 0
+        # Loop over elements in an action sequence
+        for r in range(L):
+            arity = arities[tokens[L - r - 1, c]]
+            dangling += arity - 1
+            if dangling == 0: # Parent is L-r-1, sibling is the next
+                parents[c] = tokens[L - r - 1, c]
+                siblings[c] = tokens[L - r, c]
+                break
+
+    return parents, siblings
 

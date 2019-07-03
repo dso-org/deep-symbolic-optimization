@@ -19,7 +19,8 @@
     "const_params" : {},
     "alpha" : 0.1,
     "epsilon" : 0.1,
-    "verbose" : true
+    "verbose" : true,
+    "num_cores" : 1
 },
 
 "controller" : {    
@@ -27,7 +28,7 @@
     "max_length" : 30,
     "learning_rate" : 0.001,
     "entropy_weight" : 0.0,
-    "parent_sibling" : 0
+    "parent_sibling" : true
 },
 
 "gp" : {

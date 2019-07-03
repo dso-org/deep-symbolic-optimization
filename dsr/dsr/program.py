@@ -1,6 +1,8 @@
 from textwrap import indent
 
 import numpy as np
+from numba.typed import Dict
+from numba import types
 from gplearn.functions import _function_map, _Function
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
@@ -300,6 +302,10 @@ class Program(object):
         # Add input variables
         Program.library = {i : i for i in range(n_input_var)}
         Program.arities = {i : 0 for i in range(n_input_var)}
+        Program.arities_numba = Dict.empty(key_type=types.int8,
+                                           value_type=types.int8)
+        for i in range(n_input_var):
+            Program.arities_numba[i] = 0
 
         # Add operators
         operators = [op.lower() if isinstance(op, str) else op for op in operators]
@@ -312,16 +318,19 @@ class Program(object):
                 op = _function_map[op]
                 Program.library[key] = op
                 Program.arities[key] = op.arity
+                Program.arities_numba[key] = op.arity
 
             # Hard-coded floating-point constant
             elif isinstance(op, float):
                 Program.library[key] = op
                 Program.arities[key] = 0
+                Program.arities_numba[key] = 0
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
                 Program.library[key] = op
                 Program.arities[key] = 0
+                Program.arities_numba[key] = 0
                 Program.const_token = key
 
             else:

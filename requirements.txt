@@ -1,4 +1,5 @@
 tensorflow
+numba
 sympy
 pandas
 click
