@@ -28,10 +28,20 @@ class Controller(object):
 
     entropy_weight : float
         Coefficient for entropy bonus.
+
+    observe_action : bool
+        Observe previous action token?
+
+    observe_parent : bool
+        Observe parent token?
+
+    observe_sibling : bool
+        Observe sibling token?
     """
 
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
-                 entropy_weight=0.0, parent_sibling=1):
+                 entropy_weight=0.0, observe_action=True, observe_parent=True,
+                 observe_sibling=True):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -40,7 +50,8 @@ class Controller(object):
         # Hyperparameters
         self.entropy_weight = entropy_weight
         self.max_length = max_length
-        self.parent_sibling = parent_sibling #0: without parent-sibling, 1: with parent-sibling
+        self.observe_parent = observe_parent
+        self.observe_sibling = observe_sibling
         neglogps = []
         entropies = []
 
@@ -52,20 +63,21 @@ class Controller(object):
         self.parents_ph = []
         self.siblings_ph = []
 
+        assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
+
         self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
         self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")
 
         # Build controller RNN
         with tf.name_scope("controller"):
-            
+
             cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
             cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32)
-            if self.parent_sibling:
-                input_dims = tf.stack([self.batch_size, 1, n_choices*3])
-            else:
-                input_dims = tf.stack([self.batch_size, 1, n_choices])
+            n_observations = observe_action + observe_parent + observe_sibling
+            input_dims = tf.stack([self.batch_size, 1, n_observations*n_choices])
 
+            # TBD: Should probably be -1 encoding since that's the no-parent and no-sibling token
             cell_input = tf.fill(input_dims, 1.0) # First input fed to controller
             
             #####
@@ -100,19 +112,23 @@ class Controller(object):
                 self.actions_ph.append(action_ph)
 
                 # Update LSTM input
-                # Must be three dimensions: [batch_size, sequence_length, n_input_nodes]
-                if self.parent_sibling:
+                # Must be three dimensions: [batch_size, sequence_length, n_observations*n_choices]
+                observations = [] # Each observation has shape : (?, 1, n_choices)
+                if observe_action:
+                    new_obs = tf.one_hot(tf.reshape(action_ph, (self.batch_size, 1)), depth=n_choices)
+                    observations.append(new_obs)
+                if observe_parent:
                     parent_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.parents_ph.append(parent_ph)
+                    new_obs = tf.one_hot(tf.reshape(parent_ph, (self.batch_size, 1)), depth=n_choices)
+                    observations.append(new_obs)
+                if observe_sibling:
                     sibling_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.siblings_ph.append(sibling_ph)
+                    new_obs = tf.one_hot(tf.reshape(sibling_ph, (self.batch_size, 1)), depth=n_choices)
+                    observations.append(new_obs)
 
-                    cell_input1 = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
-                    cell_input2 = tf.one_hot(tf.reshape(self.parents_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
-                    cell_input3 = tf.one_hot(tf.reshape(self.siblings_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
-                    cell_input = tf.concat([cell_input1, cell_input2, cell_input3], 2) # Shape: (?, 1, 3*n_choices)
-                else:
-                    cell_input = tf.one_hot(tf.reshape(self.actions_ph[i], (self.batch_size, 1)), depth=n_choices, name="cell_input_{}".format(i))
+                cell_input = tf.concat(observations, 2, name="cell_input_{}".format(i)) # Shape: (?, 1, n_observations*n_choices)
 
                 # Update LSTM state
                 cell_state = final_state
@@ -169,11 +185,13 @@ class Controller(object):
             actions.append(action)
             feed_dict[self.actions_ph[i]] = action
 
-            if self.parent_sibling:
+            if self.observe_parent or self.observe_sibling:
                 all_actions = np.stack(actions) # Shape: (i, n)
                 parents, siblings = parents_siblings(all_actions, Program.arities_numba)
-                feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
-                feed_dict[self.siblings_ph[i]] = siblings # Shape: (n,)
+                if self.observe_parent:
+                    feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
+                if self.observe_sibling:
+                    feed_dict[self.siblings_ph[i]] = siblings # Shape: (n,)
 
         return actions
 
@@ -203,11 +221,13 @@ class Controller(object):
             all_actions.append(action)
 
             # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
-            if self.parent_sibling:
+            if self.observe_parent or self.observe_sibling:
                 tokens = np.stack(all_actions)
                 parents, siblings = parents_siblings(tokens, Program.arities_numba)
-                feed_dict[self.parents_ph[i]] = parents
-                feed_dict[self.siblings_ph[i]] = siblings
+                if self.observe_parent:
+                    feed_dict[self.parents_ph[i]] = parents
+                if self.observe_sibling:
+                    feed_dict[self.siblings_ph[i]] = siblings
 
         loss, _, summaries = self.sess.run([self.loss, self.train_op, self.summaries], feed_dict=feed_dict)
         return loss, summaries

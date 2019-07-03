@@ -28,7 +28,9 @@
     "max_length" : 30,
     "learning_rate" : 0.001,
     "entropy_weight" : 0.0,
-    "parent_sibling" : true
+    "observe_action" : true,
+    "observe_parent" : true,
+    "observe_sibling" : true
 },
 
 "gp" : {
