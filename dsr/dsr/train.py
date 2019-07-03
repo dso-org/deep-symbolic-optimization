@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import multiprocessing
 from itertools import compress
@@ -232,4 +233,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    
+    if len(sys.argv) > 1 and int(sys.argv[1]) == 1:
+        import cProfile
+        cProfile.run('main()', sort='cumtime')
+    else:
+        main()
