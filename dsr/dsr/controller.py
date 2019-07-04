@@ -41,11 +41,12 @@ class Controller(object):
 
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
-                 observe_sibling=True):
+                 observe_sibling=True, summary=True):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
         self.logits = []
+        self.summary = summary
 
         # Hyperparameters
         self.entropy_weight = entropy_weight
@@ -162,14 +163,15 @@ class Controller(object):
             self.loss = policy_gradient_loss + entropy_loss # May add additional terms later
 
         # Create summaries
-        tf.summary.scalar("policy_gradient_loss", policy_gradient_loss)
-        tf.summary.scalar("entropy_loss", entropy_loss)
-        tf.summary.scalar("total_loss", self.loss)
-        tf.summary.scalar("reward", tf.reduce_mean(self.r))
-        tf.summary.scalar("baseline", self.baseline)
-        tf.summary.histogram("reward", self.r)
-        tf.summary.histogram("length", tf.reduce_sum(self.actions_mask, axis=0))
-        self.summaries = tf.summary.merge_all()
+        if self.summary:
+            tf.summary.scalar("policy_gradient_loss", policy_gradient_loss)
+            tf.summary.scalar("entropy_loss", entropy_loss)
+            tf.summary.scalar("total_loss", self.loss)
+            tf.summary.scalar("reward", tf.reduce_mean(self.r))
+            tf.summary.scalar("baseline", self.baseline)
+            tf.summary.histogram("reward", self.r)
+            tf.summary.histogram("length", tf.reduce_sum(self.actions_mask, axis=0))
+            self.summaries = tf.summary.merge_all()
 
         # Create training op
         self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
@@ -186,15 +188,15 @@ class Controller(object):
             feed_dict[self.actions_ph[i]] = action
 
             if self.observe_parent or self.observe_sibling:
-                all_actions = np.stack(actions) # Shape: (i, n)
-                parents, siblings = parents_siblings(all_actions, Program.arities_numba)
+                tokens = np.stack(actions) # Shape: (i, n)
+                parents, siblings = parents_siblings(tokens, Program.arities_numba)
                 if self.observe_parent:
                     feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
                 if self.observe_sibling:
                     feed_dict[self.siblings_ph[i]] = siblings # Shape: (n,)
 
+        actions = np.stack(actions).T # Shape: (n, max_length)
         return actions
-
 
 
     def neglogp(self, actions, actions_mask):
@@ -211,14 +213,14 @@ class Controller(object):
         """Computes loss, applies gradients, and computes summaries."""
 
         feed_dict = {self.r : r,
-                    self.baseline : b,
-                    self.actions_mask : actions_mask,
-                    self.batch_size : actions.shape[0]}
+                     self.baseline : b,
+                     self.actions_mask : actions_mask,
+                     self.batch_size : actions.shape[0]}
 
         all_actions = []
         for i, action in enumerate(actions.T):
             feed_dict[self.actions_ph[i]] = action
-            all_actions.append(action)
+            all_actions.append(action)            
 
             # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
             if self.observe_parent or self.observe_sibling:
@@ -229,8 +231,13 @@ class Controller(object):
                 if self.observe_sibling:
                     feed_dict[self.siblings_ph[i]] = siblings
 
-        loss, _, summaries = self.sess.run([self.loss, self.train_op, self.summaries], feed_dict=feed_dict)
-        return loss, summaries
+        ops = [self.loss, self.train_op]
+        if self.summary:
+            loss, _, summaries = self.sess.run(ops + [self.summaries], feed_dict=feed_dict)
+            return loss, summaries
+        else:
+            loss, _ = self.sess.run(ops, feed_dict=feed_dict)
+            return loss, None
 
 
 @jit(nopython=True, parallel=True)

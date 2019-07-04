@@ -30,7 +30,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
-          verbose=True):
+          verbose=True, summary=True):
     """
     Executes the main training loop.
 
@@ -82,6 +82,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     verbose : bool, optional
         Whether to print progress.
 
+    summary : bool, optional
+        Whether to write TensorFlow summaries.
+
     Returns
     -------
     result : dict
@@ -91,10 +94,11 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     """
 
     # Create the summary writer
-    logdir = os.path.join("log", logdir)
-    os.makedirs(logdir, exist_ok=True)
-    logdir = "./summary/{}/".format(datetime.now().strftime("%Y-%m-%d-%H%M%S"))
-    writer = tf.summary.FileWriter(logdir, sess.graph)
+    if summary:
+        logdir = os.path.join("log", logdir)
+        os.makedirs(logdir, exist_ok=True)
+        logdir = "./summary/{}/".format(datetime.now().strftime("%Y-%m-%d-%H%M%S"))
+        writer = tf.summary.FileWriter(logdir, sess.graph)
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -124,8 +128,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     for step in range(n_epochs):
 
         # Sample batch of expressions from controller
-        actions = controller.sample(batch_size)
-        actions = np.squeeze(np.stack(actions, axis=-1)) # Shape (batch_size, max_length)
+        actions = controller.sample(batch_size) # Shape: (batch_size, max_length)
 
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
@@ -175,8 +178,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
 
         # Train the controller
         loss, summaries = controller.train_step(r, b, actions, actions_mask)
-        writer.add_summary(summaries, step)
-        writer.flush()
+        if summary:
+            writer.add_summary(summaries, step)
+            writer.flush()
 
         # Show new best expression
         if max(r) > max_r:            
@@ -228,7 +232,7 @@ def main():
     
     with tf.Session() as sess:
         # Instantiate the controller
-        controller = Controller(sess, **config_controller)
+        controller = Controller(sess, summary=config_training["summary"], **config_controller)
         learn(sess, controller, **config_training)
 
 
