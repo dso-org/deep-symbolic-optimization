@@ -31,7 +31,9 @@
     "entropy_weight" : 0.0,
     "observe_action" : true,
     "observe_parent" : true,
-    "observe_sibling" : true
+    "observe_sibling" : true,
+    "constrain_const" : true,
+    "constrain_trig" : true
 },
 
 "gp" : {

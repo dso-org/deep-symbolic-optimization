@@ -109,10 +109,17 @@ class Program(object):
     arities = None          # Dict of arities for each token
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
-    const_token = None      # Token corresponding to constant
     X_train = None
     y_train = None
     cache = {}
+
+    # Additional derived static variables
+    L = None                # Length of library
+    arities_numba = None    # Numba Dict of arities for each token
+    unary_tokens = None     # Tokens corresponding to unary operators
+    binary_tokens = None    # Tokens corresponding to binary operators
+    trig_tokens = None      # Tokens corresponding to trig functions
+    const_token = None      # Token corresponding to constant
 
 
     def __init__(self, tokens, optimize):
@@ -302,10 +309,6 @@ class Program(object):
         # Add input variables
         Program.library = {i : i for i in range(n_input_var)}
         Program.arities = {i : 0 for i in range(n_input_var)}
-        Program.arities_numba = Dict.empty(key_type=types.int8,
-                                           value_type=types.int8)
-        for i in range(n_input_var):
-            Program.arities_numba[i] = 0
 
         # Add operators
         operators = [op.lower() if isinstance(op, str) else op for op in operators]
@@ -318,26 +321,34 @@ class Program(object):
                 op = _function_map[op]
                 Program.library[key] = op
                 Program.arities[key] = op.arity
-                Program.arities_numba[key] = op.arity
 
             # Hard-coded floating-point constant
             elif isinstance(op, float):
                 Program.library[key] = op
                 Program.arities[key] = 0
-                Program.arities_numba[key] = 0
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
                 Program.library[key] = op
                 Program.arities[key] = 0
-                Program.arities_numba[key] = 0
                 Program.const_token = key
 
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
 
+        # Create Numba Dict
+        Program.arities_numba = Dict.empty(key_type=types.int8, value_type=types.int8)
+        for i in range(len(Program.arities)):
+            Program.arities_numba[i] = Program.arities[i]
+
+        Program.L = len(Program.library)
+        trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
+        trig_names += ["arc" + name for name in trig_names]
+        Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
+        Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
+        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], _Function) and Program.library[t].name in trig_names], dtype=np.int32)
+
         print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
-        Program.library_out = [x.name if isinstance(x, _Function) else str(x) for x in Program.library]
 
 
     @staticmethod

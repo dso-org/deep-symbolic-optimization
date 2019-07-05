@@ -41,7 +41,8 @@ class Controller(object):
 
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
-                 observe_sibling=True, summary=True):
+                 observe_sibling=True, summary=True, constrain_const=True,
+                 constrain_trig=True):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -53,18 +54,26 @@ class Controller(object):
         self.max_length = max_length
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
+        self.constrain_const = constrain_const
+        self.constrain_trig = constrain_trig
         neglogps = []
         entropies = []
 
-        n_choices = len(Program.arities)
+        n_choices = Program.L
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
         self.actions_ph = []
         self.parents_ph = []
         self.siblings_ph = []
+        self.priors_ph = []
 
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
+        self.compute_parents_siblings = any([self.observe_parent,
+                                             self.observe_sibling,
+                                             self.constrain_const])
+        self.compute_prior = any([self.constrain_const,
+                                  self.constrain_trig])
 
         self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
@@ -80,10 +89,17 @@ class Controller(object):
 
             # TBD: Should probably be -1 encoding since that's the no-parent and no-sibling token
             cell_input = tf.fill(input_dims, 1.0) # First input fed to controller
-            
+
             #####
             # TBD: Create embedding layer
             #####
+
+            # Define prior on logits; currently only used to apply hard constraints
+            # First node must be nonterminal
+            arities = np.array([Program.arities[i] for i in range(n_choices)])
+            prior = np.zeros(len(arities), dtype=np.float32)
+            prior[arities == 0] = -np.inf
+            prior = tf.constant(prior, dtype=tf.float32)
 
             for i in range(max_length):
                 ouputs, final_state = tf.nn.dynamic_rnn(cell,
@@ -93,13 +109,7 @@ class Controller(object):
 
                 # Outputs correspond to logits of library
                 logits = tf.layers.dense(ouputs[:, -1, :], units=n_choices)
-                if i == 0:
-                    # First node must be nonterminal, so set logits to -inf
-                    arities = np.array([Program.arities[i] for i in range(n_choices)])
-                    adjustment = np.zeros(len(arities), dtype=np.float32)
-                    adjustment[arities == 0] = -np.inf
-                    adjustment = tf.constant(adjustment, dtype=tf.float32)
-                    logits = logits + adjustment
+                logits = logits + prior
                 self.logits.append(logits)
 
                 # Sample from the library
@@ -128,11 +138,18 @@ class Controller(object):
                     self.siblings_ph.append(sibling_ph)
                     new_obs = tf.one_hot(tf.reshape(sibling_ph, (self.batch_size, 1)), depth=n_choices)
                     observations.append(new_obs)
-
                 cell_input = tf.concat(observations, 2, name="cell_input_{}".format(i)) # Shape: (?, 1, n_observations*n_choices)
 
                 # Update LSTM state
                 cell_state = final_state
+
+                # Update prior
+                if self.compute_prior:
+                    prior_ph = tf.placeholder(dtype=tf.float32, shape=(None, n_choices))
+                    self.priors_ph.append(prior_ph)
+                    prior = prior_ph
+                else:
+                    prior = tf.zeros_like(prior)
 
                 # Cross-entropy loss is equivalent to neglogp
                 neglogp = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits[i],
@@ -187,13 +204,29 @@ class Controller(object):
             actions.append(action)
             feed_dict[self.actions_ph[i]] = action
 
-            if self.observe_parent or self.observe_sibling:
+            if self.compute_parents_siblings or self.constrain_trig:
+                tokens = np.stack(actions).T
+
+            # Compute parents and siblings
+            if self.compute_parents_siblings:
                 tokens = np.stack(actions).T # Shape: (n, i)
                 parents, siblings = parents_siblings(tokens, Program.arities_numba)
                 if self.observe_parent:
                     feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
                 if self.observe_sibling:
                     feed_dict[self.siblings_ph[i]] = siblings # Shape: (n,)
+
+            # Compute prior
+            if self.compute_prior:
+                prior = np.zeros((n, Program.L), dtype=np.float32)
+                if self.constrain_const:
+                    constraints = np.isin(parents, Program.unary_tokens) # Unary parent (or unary action)
+                    constraints += siblings == Program.const_token # Constant sibling
+                    prior += make_prior(constraints, [Program.const_token], Program.L)
+                if self.constrain_trig:
+                    constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
+                    prior += make_prior(constraints, Program.trig_tokens, Program.L)
+                feed_dict[self.priors_ph[i]] = prior
 
         actions = np.stack(actions).T # Shape: (n, max_length)
         return actions
@@ -220,16 +253,30 @@ class Controller(object):
         all_actions = []
         for i, action in enumerate(actions.T):
             feed_dict[self.actions_ph[i]] = action
-            all_actions.append(action)            
+            all_actions.append(action)       
+
+            if self.compute_parents_siblings or self.constrain_trig:
+                tokens = np.stack(all_actions).T
 
             # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
-            if self.observe_parent or self.observe_sibling:
-                tokens = np.stack(all_actions).T
+            if self.compute_parents_siblings:
                 parents, siblings = parents_siblings(tokens, Program.arities_numba)
                 if self.observe_parent:
                     feed_dict[self.parents_ph[i]] = parents
                 if self.observe_sibling:
                     feed_dict[self.siblings_ph[i]] = siblings
+
+                # Compute prior
+            if self.compute_prior:
+                prior = np.zeros((len(r), Program.L), dtype=np.float32)
+                if self.constrain_const:                    
+                    constraints = np.isin(parents, Program.unary_tokens) # Unary parent (or unary action)
+                    constraints += siblings == Program.const_token # Constant sibling
+                    prior += make_prior(constraints, [Program.const_token], Program.L)
+                if self.constrain_trig:
+                    constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
+                    prior += make_prior(constraints, Program.trig_tokens, Program.L)
+                feed_dict[self.priors_ph[i]] = prior
 
         ops = [self.loss, self.train_op]
         if self.summary:
@@ -240,6 +287,78 @@ class Controller(object):
             return loss, None
 
 
+def make_prior(constraints, constraint_tokens, library_length):
+    """
+    Given a batch of constraints and the corresponding tokens to be constrained,
+    returns a prior that is added to the logits when sampling the next action.
+
+    For example, given library_length=5 and constraint_tokens=[1,2], a
+    constrained row of the prior will be: [0.0, -np.inf, -np.inf, 0.0, 0.0].
+    """
+
+    prior = np.zeros((constraints.shape[0], library_length), dtype=np.float32)
+    for t in constraint_tokens:
+        prior[constraints == True, t] = -np.inf
+    return prior
+
+
+@jit(nopython=True, parallel=True)
+def trig_ancestors(tokens, arities, trig_tokens):
+    """
+    Given a batch of action sequences, determines whether the next element of
+    the sequence has an ancestor that is a trigonometric function.
+    
+    The batch has shape (N, L), where N is the number of sequences (i.e. batch
+    size) and L is the length of each sequence. In some cases, expressions may
+    already be complete; in these cases, this function sees the start of a new
+    expression, even though the return value for these elements won't matter
+    because they will be masked in loss calculations.
+
+    Parameters
+    __________
+
+    tokens : np.ndarray, shape=(N, L), dtype=np.int32
+        Batch of action sequences. Values correspond to library indices.
+
+    arities : numba.typed.Dict
+        Dictionary from library index to arity.
+
+    trig_tokens : np.ndarray, dtype=np.int32
+        Array of tokens corresponding to trig functions.
+
+    Returns
+    _______
+
+    ancestors : np.ndarray, shape=(N,), dtype=np.bool_
+        Whether the next element of each sequence has a trig function ancestor.
+    """
+
+    N, L = tokens.shape
+    ancestors = np.zeros(shape=(N,), dtype=np.bool_)
+    # Parallelized loop over action sequences
+    for r in prange(N):
+        dangling = 0
+        threshold = None # If None, current branch does not have trig ancestor
+        for c in range(L):
+            arity = arities[tokens[r, c]]
+            dangling += arity - 1
+            # Turn "on" if a trig function is found
+            # Remain "on" until branch completes
+            if threshold is None:
+                for trig_token in trig_tokens:
+                    if tokens[r, c] == trig_token:
+                        threshold = dangling - 1
+                        break
+            # Turn "off" once the branch completes
+            else:                
+                if dangling == threshold:
+                    threshold = None
+        # If the sequences ended "on", then there is a trig ancestor
+        if threshold is not None:
+            ancestors[r] = True
+    return ancestors
+
+
 @jit(nopython=True, parallel=True)
 def parents_siblings(tokens, arities):
     """
@@ -247,12 +366,10 @@ def parents_siblings(tokens, arities):
     siblings of the next element of the sequence.
 
     The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence and . In some cases, expressions
-    may already be complete; in these cases, this function will see no
-    expression at all (parent = -1, sibling = -1, or the start of a new
-    expressions, which may have any parent/sibling combination. However, the
-    return value for these elements doesn't matter because they will be masked
-    in all loss calculations anyway.
+    size) and L is the length of each sequence. In some cases, expressions may
+    already be complete; in these cases, this function sees the start of a new
+    expression, even though the return value for these elements won't matter
+    because they will be masked in loss calculations.
 
     Parameters
     __________
@@ -267,10 +384,10 @@ def parents_siblings(tokens, arities):
     _______
 
     parents : np.ndarray, shape=(N,), dtype=np.int32
-        Parents of the last element of each action sequence.
+        Parents of the next element of each action sequence.
 
     siblings : np.ndarray, shape=(N,), dtype=np.int32
-        Siblings of the last element of each action sequence.
+        Siblings of the next element of each action sequence.
 
     """
 
