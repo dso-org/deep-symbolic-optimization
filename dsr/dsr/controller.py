@@ -188,7 +188,7 @@ class Controller(object):
             feed_dict[self.actions_ph[i]] = action
 
             if self.observe_parent or self.observe_sibling:
-                tokens = np.stack(actions) # Shape: (i, n)
+                tokens = np.stack(actions).T # Shape: (n, i)
                 parents, siblings = parents_siblings(tokens, Program.arities_numba)
                 if self.observe_parent:
                     feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
@@ -224,7 +224,7 @@ class Controller(object):
 
             # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
             if self.observe_parent or self.observe_sibling:
-                tokens = np.stack(all_actions)
+                tokens = np.stack(all_actions).T
                 parents, siblings = parents_siblings(tokens, Program.arities_numba)
                 if self.observe_parent:
                     feed_dict[self.parents_ph[i]] = parents
@@ -244,20 +244,20 @@ class Controller(object):
 def parents_siblings(tokens, arities):
     """
     Given a batch of action sequences, computes and returns the parents and
-    siblings of the last element of the sequence.
+    siblings of the next element of the sequence.
 
-    The batch has shape (L, N), where L is the length of each sequence and N is
-    the number of sequences (i.e. batch size). In some cases, expressions may
-    already be complete; in these cases, this function will see no expression at
-    all (parent = -1, sibling = -1, or the start of a new expressions, which may
-    have any parent/sibling combination. However, the return value for these
-    elements doesn't matter because they will be masked in all loss calculations
-    anyway.
+    The batch has shape (N, L), where N is the number of sequences (i.e. batch
+    size) and L is the length of each sequence and . In some cases, expressions
+    may already be complete; in these cases, this function will see no
+    expression at all (parent = -1, sibling = -1, or the start of a new
+    expressions, which may have any parent/sibling combination. However, the
+    return value for these elements doesn't matter because they will be masked
+    in all loss calculations anyway.
 
     Parameters
     __________
 
-    tokens : np.ndarray, shape=(L, N), dtype=np.int32
+    tokens : np.ndarray, shape=(N, L), dtype=np.int32
         Batch of action sequences. Values correspond to library indices.
 
     arities : numba.typed.Dict
@@ -274,24 +274,23 @@ def parents_siblings(tokens, arities):
 
     """
 
-    L, N = tokens.shape
+    N, L = tokens.shape
     parents = np.full(shape=(N,), fill_value=-1, dtype=np.int32)
     siblings = np.full(shape=(N,), fill_value=-1, dtype=np.int32)
     # Parallelized loop over action sequences
-    for c in prange(N):
-        arity = arities[tokens[-1, c]]
+    for r in prange(N):
+        arity = arities[tokens[r, -1]]
         if arity > 0: # Parent is the previous element; no sibling
-            parents[c] = tokens[-1, c]
+            parents[r] = tokens[r, -1]
             continue
         dangling = 0
         # Loop over elements in an action sequence
-        for r in range(L):
-            arity = arities[tokens[L - r - 1, c]]
+        for c in range(L):
+            arity = arities[tokens[r, L - c - 1]]
             dangling += arity - 1
-            if dangling == 0: # Parent is L-r-1, sibling is the next
-                parents[c] = tokens[L - r - 1, c]
-                siblings[c] = tokens[L - r, c]
+            if dangling == 0: # Parent is L-c-1, sibling is the next
+                parents[r] = tokens[r, L - c - 1]
+                siblings[r] = tokens[r, L - c]
                 break
-
     return parents, siblings
 
