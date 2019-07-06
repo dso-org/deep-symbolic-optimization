@@ -37,6 +37,12 @@ class Controller(object):
 
     observe_sibling : bool
         Observe sibling token?
+    
+    constrain_const : bool
+        Prevent constants with unary parents or constant siblings?
+
+    constrain_trig : bool
+        Prevent trig functions with trig function ancestors?
     """
 
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
@@ -294,6 +300,25 @@ def make_prior(constraints, constraint_tokens, library_length):
 
     For example, given library_length=5 and constraint_tokens=[1,2], a
     constrained row of the prior will be: [0.0, -np.inf, -np.inf, 0.0, 0.0].
+
+    Parameters
+    __________
+
+    constraints : np.ndarray, shape=(batch_size,), dtype=np.bool_
+        Batch of constraints.
+
+    constraint_tokens : np.ndarray, dtype=np.int32
+        Array of which tokens to constrain.
+
+    library_length : int
+        Length of library.
+
+    Returns
+    _______
+
+    prior : np.ndarray, shape=(batch_size, library_length), dtype=np.float32
+        Prior adjustment to logits given constraints. Since these are hard
+        constraints, ach element is either 0.0 or -np.inf.
     """
 
     prior = np.zeros((constraints.shape[0], library_length), dtype=np.float32)

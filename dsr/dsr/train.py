@@ -112,7 +112,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     # Initialize compute graph
     sess.run(tf.global_variables_initializer())
 
-    # Create the pool of workers    
+    # Create the pool of workers
     if num_cores == -1:
         num_cores = multiprocessing.cpu_count()
     if num_cores > 1:
@@ -145,7 +145,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             for pair, p in zip(results, programs_to_optimize):
                 optimized_constants, base_r = pair
                 p.set_constants(optimized_constants)
-                p.base_r = base_r                
+                p.base_r = base_r
         
         # Retrieve the rewards
         r = np.array([p.r for p in programs])
@@ -183,7 +183,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             writer.flush()
 
         # Show new best expression
-        if max(r) > max_r:            
+        if max(r) > max_r:
             max_r = max(r)
             best = programs[np.argmax(r)]
             if verbose:
