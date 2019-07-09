@@ -182,14 +182,18 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             writer.add_summary(summaries, step)
             writer.flush()
 
+        updated=0
         # Show new best expression
         if max(r) > max_r:
+            updated=1
             max_r = max(r)
             best = programs[np.argmax(r)]
             if verbose:
                 print("\nNew best expression")
                 best.print_stats()
 
+#--- as an argument, it is needed to pass aditional fields that one wishes to print that are not fields of the controller class
+        controller.savestepinfo({"step":step,"traversal":programs[np.argmax(r)],"reward":r,"updated":updated})
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))

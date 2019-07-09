@@ -1,8 +1,10 @@
+import os
 import tensorflow as tf
 import numpy as np
 from numba import jit, prange
 
 from dsr.program import Program
+from dsr.fileio import FileIO
 
 
 class Controller(object):
@@ -45,10 +47,10 @@ class Controller(object):
         Prevent trig functions with trig function ancestors?
     """
 
-    def __init__(self, sess, num_units, max_length, learning_rate=0.001,
+    def __init__(self, name, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
                  observe_sibling=True, summary=True, constrain_const=True,
-                 constrain_trig=True):
+                 constrain_trig=True,output={}):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -84,6 +86,15 @@ class Controller(object):
         self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
         self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")
+
+#--- save run output
+        self.output = None
+        if len(output)>0:     
+           outname = name+'_dsr.csv'
+           if "file" in output:
+              outname = output["file"]
+           outname = os.path.join(output["dir"],outname)
+           self.output = FileIO(outname,output["fields"])
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -240,7 +251,13 @@ class Controller(object):
 
     def neglogp(self, actions, actions_mask):
         """Returns neglogp of batch of expressions"""
-
+        self.output = None
+        if len(output)>0:     
+           outname = name+'_dsr.csv'
+           if "file" in output:
+              outname = output["file"]
+           outname = os.path.join(output["dir"],outname)
+           self.output = FileIO(outname,output["fields"])
         feed_dict = {self.actions_ph[i] : a for i,a in enumerate(actions.T)}
         feed_dict[self.actions_mask] = actions_mask
         feed_dict[self.batch_size] = actions.shape[0]
@@ -284,13 +301,28 @@ class Controller(object):
                     prior += make_prior(constraints, Program.trig_tokens, Program.L)
                 feed_dict[self.priors_ph[i]] = prior
 
+#--- changed loss to self.calc_loss because the output is configured by nameing the fields, which must have unique names 
         ops = [self.loss, self.train_op]
         if self.summary:
-            loss, _, summaries = self.sess.run(ops + [self.summaries], feed_dict=feed_dict)
-            return loss, summaries
+            self.calc_loss, _, summaries = self.sess.run(ops + [self.summaries], feed_dict=feed_dict)
+            return self.calc_loss, summaries
         else:
-            loss, _ = self.sess.run(ops, feed_dict=feed_dict)
-            return loss, None
+            self.calc_loss, _ = self.sess.run(ops, feed_dict=feed_dict)
+            return self.calc_loss, None
+
+    def savestepinfo(self, sinfo):
+
+        if self.output is None:
+           return
+        dt = {}
+        for p in self.output.header:
+            if p in sinfo:
+               dt[p] = sinfo[p]
+            else:
+               dt[p] = getattr(self,p)
+        
+        self.output.update(dt)
+
 
 
 def make_prior(constraints, constraint_tokens, library_length):
@@ -382,7 +414,6 @@ def trig_ancestors(tokens, arities, trig_tokens):
         if threshold is not None:
             ancestors[r] = True
     return ancestors
-
 
 @jit(nopython=True, parallel=True)
 def parents_siblings(tokens, arities):
