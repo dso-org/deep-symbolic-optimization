@@ -1,0 +1,12 @@
+#!/bin/tcsh
+##### These lines are for Moab
+#MSUB -l nodes=1
+#MSUB -l procs=36
+#MSUB -l walltime=wtimelim
+#MSUB -q pbatch
+#MSUB -o filename.out
+#MSUB -A bank
+
+##### Launch parallel job using srun
+cd optdir
+cmd
