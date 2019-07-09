@@ -1,0 +1,6 @@
+{
+"config":{"basepath":"/home/admin/LLNL/Experiments","label":"dsrbatch","wtimelim":"48:00:00","bank":"asccasc","pythonexec":"python3-3.6.4"},
+"comb": {"training":{"n_epochs":[10,20],"batch_size":{"beg":23,"end":35,"step":3}},
+         "controller":{"entropy_weight":[0.0,0.2]}},
+"basedata":"config.json"
+}
