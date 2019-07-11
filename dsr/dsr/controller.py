@@ -189,6 +189,7 @@ class Controller(object):
         with tf.name_scope("losses"):
             
             # Policy gradient loss is neglogp(actions) scaled by reward
+            #[SOO: to do: change as ppo]
             policy_gradient_loss = tf.reduce_mean((self.r - self.baseline) * self.sample_neglogp, name="policy_gradient_loss")
 
             # Entropy loss is negative entropy, since entropy provides a bonus

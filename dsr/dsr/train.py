@@ -168,6 +168,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             r = r[cutoff]
 
         # Compute baseline (EWMA of average reward)
+        # SOO: TO DO
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
 
         # Compute actions mask
@@ -236,7 +237,7 @@ def main():
     
     with tf.Session() as sess:
         # Instantiate the controller
-        controller = Controller(sess, summary=config_training["summary"], **config_controller)
+        controller = Controller("soo", sess, summary=config_training["summary"], **config_controller)
         learn(sess, controller, **config_training)
 
 
