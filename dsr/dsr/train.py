@@ -237,7 +237,7 @@ def main():
     
     with tf.Session() as sess:
         # Instantiate the controller
-        controller = Controller(name, sess, summary=config_training["summary"], **config_controller)
+        controller = Controller("name", sess, summary=config_training["summary"], **config_controller)
         learn(sess, controller, **config_training)
 
 
