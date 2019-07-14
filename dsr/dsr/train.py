@@ -168,7 +168,6 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             r = r[cutoff]
 
         # Compute baseline (EWMA of average reward)
-        # SOO: TO DO
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
 
         # Compute actions mask
@@ -177,11 +176,18 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             length = min(len(p.traversal), controller.max_length)
             actions_mask[:length, i] = 1.0
 
-        # Train the controller
-        loss, summaries = controller.train_step(r, b, actions, actions_mask)
-        if summary:
-            writer.add_summary(summaries, step)
-            writer.flush()
+        # Soo: PPO 
+        # (1) if first step, reset ppo buffer and save logp in buffer
+        if step < 1:
+            controller.PPOBuffer_reset()
+            controller.save_logp_to_ppobuffer(r, b, actions, actions_mask)
+        # (2) else, train by sampling out old-logp from PPObuffer and save current logp in PPObuffer
+        else:
+            # Train the controller
+            loss, summaries = controller.train_step(r, b, actions, actions_mask)
+            if summary:
+                writer.add_summary(summaries, step)
+                writer.flush()
 
         updated=0
         # Show new best expression
@@ -194,11 +200,11 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
                 best.print_stats()
 
 #--- as an argument, it is needed to pass aditional fields that one wishes to print that are not fields of the controller class
-        controller.savestepinfo({"step":step,"traversal":programs[np.argmax(r)],"reward":r,"updated":updated})
-        # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
-        if verbose and step > 0 and step % 10 == 0:
-            print("Completed {} steps".format(step))
-            # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
+            controller.savestepinfo({"step":step,"traversal":programs[np.argmax(r)],"reward":r,"updated":updated})
+            # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
+            if verbose and step > 0 and step % 10 == 0:
+                print("Completed {} steps".format(step))
+                # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
 
     if pool is not None:
         pool.close()
@@ -237,7 +243,7 @@ def main():
     
     with tf.Session() as sess:
         # Instantiate the controller
-        controller = Controller("name", sess, summary=config_training["summary"], **config_controller)
+        controller = Controller("soo", sess, summary=config_training["summary"], **config_controller)
         learn(sess, controller, **config_training)
 
 
