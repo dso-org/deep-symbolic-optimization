@@ -1,4 +1,3 @@
-import os
 import json
 import multiprocessing
 from functools import partial
@@ -115,13 +114,6 @@ def main(config_filename, method, output_filename, num_cores,
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
     config_gp = config["gp"]                    # GP hyperparameters
-
-    #--- the path of the benchmark file must be the same as this current python file: this is used for the LC runs
-    config_dataset["file"] = os.path.join(os.path.dirname(os.path.realpath(__file__)),config_dataset["file"])
-    if "output" not in config_controller:
-       config_controller["output"] = {}
-    else:
-       config_controller["output"]["dir"] = os.path.dirname(os.path.realpath(config_filename))
 
     # Load the benchmark names
     df = pd.read_csv(config_dataset["file"], encoding="ISO-8859-1")

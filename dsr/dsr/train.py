@@ -183,10 +183,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             writer.add_summary(summaries, step)
             writer.flush()
 
-        updated=0
         # Show new best expression
         if max(r) > max_r:
-            updated=1
             max_r = max(r)
             best = programs[np.argmax(r)]
             if verbose:
