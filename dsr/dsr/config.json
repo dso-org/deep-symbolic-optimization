@@ -36,7 +36,9 @@
     "constrain_trig" : true,
     "ppo" : false,
     "ppo_clip_ratio" : 0.2,
-    "ppo_n_iters" : 10
+    "ppo_n_iters" : 10,
+    "embedding" : false,
+    "embedding_size" : 4
 },
 
 "gp" : {

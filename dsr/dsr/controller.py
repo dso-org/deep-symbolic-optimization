@@ -53,13 +53,19 @@ class Controller(object):
 
     ppo_n_iters : int
         Number of optimization iterations for PPO.
+
+    embedding : bool
+        Embed each observation?
+
+    embedding_size : int
+        Size of embedding for each observation if embedding=True.
     """
 
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
                  observe_sibling=True, summary=True, constrain_const=True,
                  constrain_trig=True, ppo=False, ppo_clip_ratio=0.2,
-                 ppo_n_iters=10):
+                 ppo_n_iters=10, embedding=False, embedding_size=4):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -109,20 +115,45 @@ class Controller(object):
         with tf.name_scope("controller"):
 
             cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
-            cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32)
+            cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)
             n_observations = observe_action + observe_parent + observe_sibling
-            input_dims = tf.stack([self.batch_size, 1, n_observations * (n_choices + 1)])
+            if embedding:
+                n_inputs = n_observations * embedding_size
+            else:
+                n_inputs = n_observations * (n_choices + 1)
+            input_dims = tf.stack([self.batch_size, 1, n_inputs])
+
+            # Create embeddings
+            if embedding:
+                if observe_action:
+                    action_embeddings = tf.get_variable("action_embeddings", [n_choices + 1, embedding_size])
+                if observe_parent:
+                    parent_embeddings = tf.get_variable("parent_embeddings", [n_choices + 1, embedding_size])
+                if observe_sibling:
+                    sibling_embeddings = tf.get_variable("sibling_embeddings", [n_choices + 1, embedding_size])
 
             # First input is all empty tokens
-            cell_input = np.zeros(n_choices + 1, dtype=np.float32)
-            cell_input[n_choices] = 1
-            cell_input = np.tile(cell_input, n_observations)
-            cell_input = tf.constant(cell_input)
-            cell_input = tf.broadcast_to(cell_input, input_dims)
-
-            #####
-            # TBD: Create embedding layer
-            #####
+            observations = [] # Each observation has shape (?, 1, n_choices + 1) or (?, 1, embedding_size)
+            if embedding:
+                empty_obs = n_choices
+                empty_obs = tf.constant(n_choices, dtype=tf.int32)
+                empty_obs = tf.broadcast_to(empty_obs, tf.stack([self.batch_size, 1]))
+                if observe_action:
+                    obs = tf.nn.embedding_lookup(action_embeddings, empty_obs)
+                    observations.append(obs)
+                if observe_parent:
+                    obs = tf.nn.embedding_lookup(parent_embeddings, empty_obs)
+                    observations.append(obs)
+                if observe_sibling:
+                    obs = tf.nn.embedding_lookup(sibling_embeddings, empty_obs)
+                    observations.append(obs)
+                cell_input = tf.concat(observations, 2) # Shape (?, 1, n_inputs)
+            else:
+                empty_obs = np.zeros(n_choices + 1, dtype=np.float32)
+                empty_obs[n_choices] = 1
+                obs = np.tile(empty_obs, n_observations)
+                cell_input = tf.constant(obs)
+                cell_input = tf.broadcast_to(cell_input, input_dims) # Shape (?, 1, n_inputs)
 
             # Define prior on logits; currently only used to apply hard constraints
             # First node must be nonterminal
@@ -132,13 +163,13 @@ class Controller(object):
             prior = tf.constant(prior, dtype=tf.float32)
 
             for i in range(max_length):
-                ouputs, final_state = tf.nn.dynamic_rnn(cell,
+                outputs, final_state = tf.nn.dynamic_rnn(cell,
                                                         cell_input,
                                                         initial_state=cell_state,
                                                         dtype=tf.float32)
 
                 # Outputs correspond to logits of library
-                logits = tf.layers.dense(ouputs[:, -1, :], units=n_choices)
+                logits = tf.layers.dense(outputs[:, -1, :], units=n_choices)
                 logits = logits + prior
                 self.logits.append(logits)
 
@@ -153,22 +184,34 @@ class Controller(object):
                 self.actions_ph.append(action_ph)
 
                 # Update LSTM input
-                # Must be three dimensions: [batch_size, sequence_length, n_observations * (n_choices + 1)]
-                observations = [] # Each observation has shape : (?, 1, n_choices)
+                # Must be three dimensions: [batch_size, sequence_length, n_inputs]
+                observations = [] # Each observation has shape (?, 1, n_choices + 1) or (?, 1, embedding_size)
                 if observe_action:
-                    new_obs = tf.one_hot(tf.reshape(action_ph, (self.batch_size, 1)), depth=n_choices + 1)
-                    observations.append(new_obs)
+                    ph = tf.reshape(action_ph, (self.batch_size, 1))
+                    if embedding:
+                        obs = tf.nn.embedding_lookup(action_embeddings, ph)                        
+                    else:
+                        obs = tf.one_hot(ph, depth=n_choices + 1)
+                    observations.append(obs)
                 if observe_parent:
                     parent_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.parents_ph.append(parent_ph)
-                    new_obs = tf.one_hot(tf.reshape(parent_ph, (self.batch_size, 1)), depth=n_choices + 1)
-                    observations.append(new_obs)
+                    ph = tf.reshape(parent_ph, (self.batch_size, 1))
+                    if embedding:
+                        obs = tf.nn.embedding_lookup(parent_embeddings, ph)
+                    else:
+                        obs = tf.one_hot(ph, depth=n_choices + 1)
+                    observations.append(obs)
                 if observe_sibling:
                     sibling_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.siblings_ph.append(sibling_ph)
-                    new_obs = tf.one_hot(tf.reshape(sibling_ph, (self.batch_size, 1)), depth=n_choices + 1)
-                    observations.append(new_obs)
-                cell_input = tf.concat(observations, 2, name="cell_input_{}".format(i)) # Shape: (?, 1, n_observations*n_choices)
+                    ph = tf.reshape(sibling_ph, (self.batch_size, 1))
+                    if embedding:
+                        obs = tf.nn.embedding_lookup(sibling_embeddings, ph)
+                    else:
+                        obs = tf.one_hot(ph, depth=n_choices + 1)
+                    observations.append(obs)
+                cell_input = tf.concat(observations, 2, name="cell_input_{}".format(i)) # Shape: (?, 1, n_inputs)
 
                 # Update LSTM state
                 cell_state = final_state
