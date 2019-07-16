@@ -1,11 +1,10 @@
-import os
 import tensorflow as tf
 import numpy as np
 from scipy import signal
 from numba import jit, prange
 
 from dsr.program import Program
-from dsr.fileio import FileIO
+
 
 class Controller(object):
     """
@@ -45,12 +44,22 @@ class Controller(object):
 
     constrain_trig : bool
         Prevent trig functions with trig function ancestors?
+
+    ppo : bool
+        Use proximal policy optimization (instead of vanilla policy gradient)?
+
+    ppo_clip_ratio : float
+        Clip ratio to use for PPO.
+
+    ppo_n_iters : int
+        Number of optimization iterations for PPO.
     """
 
-    def __init__(self, name, sess, num_units, max_length, learning_rate=0.001,
+    def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
                  observe_sibling=True, summary=True, constrain_const=True,
-                 constrain_trig=True,output={}):
+                 constrain_trig=True, ppo=False, ppo_clip_ratio=0.2,
+                 ppo_n_iters=10):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -64,9 +73,16 @@ class Controller(object):
         self.observe_sibling = observe_sibling
         self.constrain_const = constrain_const
         self.constrain_trig = constrain_trig
+        self.ppo = ppo
+        self.ppo_n_iters = ppo_n_iters
+
+        # Buffers from previous batch
+        self.prev_parents = []
+        self.prev_siblings = []
+        self.prev_priors = []
+
         neglogps = []
         entropies = []
-
         n_choices = Program.L
 
         # Placeholders, computed after instantiating expressions
@@ -76,8 +92,9 @@ class Controller(object):
         self.siblings_ph = []
         self.priors_ph = []
 
-
+        # Parameter assertions
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
+
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
                                              self.constrain_const])
@@ -87,15 +104,6 @@ class Controller(object):
         self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
         self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")
-        
-#--- save run output
-        self.output = None
-        if len(output)>0:     
-           outname = name+'_dsr.csv'
-           if "file" in output:
-              outname = output["file"]
-           outname = os.path.join(output["dir"],outname)
-           self.output = FileIO(outname,output["fields"])
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -182,39 +190,42 @@ class Controller(object):
             neglogps = tf.stack(neglogps) * self.actions_mask # Shape: (max_length, batch_size)
             self.sample_neglogp = tf.reduce_sum(neglogps, axis=0)
 
-
             # Reduce entropies
             entropies = tf.stack(entropies) * self.actions_mask # Shape: (max_length, batch_size)
             self.sample_entropy = tf.reduce_sum(entropies, axis=0)
 
         # Setup losses
         with tf.name_scope("losses"):
-            
-            # [Soo]PPO loss: https://stackoverflow.com/questions/50627861/implement-simple-ppo-agent-in-tensorflow
-            advantages = self.r - self.baseline
-            clip_ratio = 0.2 #fix as 0.2 (same value as paper)
-            #[Soo: self.sample_logp.get_shape() != self.old_neglog_probs, what should we do?: for example [104] vs [100]]
-            #[Trick: upsample the size of logp and old_logp, and advantage to [100]]
-            self.old_neglogp_probs = tf.placeholder(dtype=tf.float32, shape=(100,), name="old_logp")
-            self.new_neglogp_probs = tf.placeholder(dtype=tf.float32, shape=(100,), name="new_logp")
-            self.advantages_ph = tf.placeholder(dtype=tf.float32, shape=(100,), name="advantages")
-
-            prob_ratio = tf.exp(self.old_neglogp_probs - self.new_neglogp_probs) 
-            clip_prob = tf.clip_by_value(prob_ratio, 1.-clip_ratio, 1.+clip_ratio)
-            ppo_loss = -tf.reduce_mean(tf.minimum(tf.multiply(prob_ratio, self.advantages_ph), tf.multiply(clip_prob, self.advantages_ph)))            
-
-            policy_gradient_loss = tf.reduce_mean((self.r - self.baseline) * self.sample_neglogp, name="policy_gradient_loss")
 
             # Entropy loss is negative entropy, since entropy provides a bonus
             entropy_loss = -self.entropy_weight*tf.reduce_mean(self.sample_entropy, name="entropy_loss")
 
-            #self.loss = policy_gradient_loss + entropy_loss # May add additional terms later
-            self.loss = ppo_loss + entropy_loss 
+            if ppo:
+
+                # Define PPO loss
+                self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
+                ratio = tf.exp(self.old_neglogp_ph - self.sample_neglogp)
+                clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
+                ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (self.r - self.baseline), clipped_ratio * (self.r - self.baseline)))
+                self.loss = ppo_loss + entropy_loss
+
+                # Define PPO diagnostics
+                clipped = tf.logical_or(ratio < (1. - ppo_clip_ratio), ratio > 1. + ppo_clip_ratio)
+                self.clip_fraction = tf.reduce_mean(tf.cast(clipped, tf.float32))
+                self.sample_kl = tf.reduce_mean(self.sample_neglogp - self.old_neglogp_ph)
+
+            else:
+
+                # Define VPG loss
+                policy_gradient_loss = tf.reduce_mean((self.r - self.baseline) * self.sample_neglogp, name="policy_gradient_loss")
+                self.loss = policy_gradient_loss + entropy_loss
 
         # Create summaries
         if self.summary:
-            tf.summary.scalar("policy_gradient_loss", policy_gradient_loss)
-            tf.summary.scalar("ppo_loss", ppo_loss)
+            if ppo:
+                tf.summary.scalar("ppo_loss", ppo_loss)
+            else:
+                tf.summary.scalar("policy_gradient_loss", policy_gradient_loss)
             tf.summary.scalar("entropy_loss", entropy_loss)
             tf.summary.scalar("total_loss", self.loss)
             tf.summary.scalar("reward", tf.reduce_mean(self.r))
@@ -230,6 +241,9 @@ class Controller(object):
         """Sample batch of n expressions"""
 
         actions = []
+        parents = []
+        siblings = []
+        priors = []
         feed_dict = {self.batch_size : n}
         for i in range(self.max_length):
             action = self.sess.run(self.actions[i], feed_dict=feed_dict) # Shape: (n,)
@@ -242,162 +256,89 @@ class Controller(object):
             # Compute parents and siblings
             if self.compute_parents_siblings:
                 tokens = np.stack(actions).T # Shape: (n, i)
-                parents, siblings = parents_siblings(tokens, Program.arities_numba)
+                parent, sibling = parents_siblings(tokens, Program.arities_numba)
+                parents.append(parent)
+                siblings.append(sibling)
                 if self.observe_parent:
-                    feed_dict[self.parents_ph[i]] = parents # Shape: (n,)
+                    feed_dict[self.parents_ph[i]] = parent # Shape: (n,)
                 if self.observe_sibling:
-                    feed_dict[self.siblings_ph[i]] = siblings # Shape: (n,)
+                    feed_dict[self.siblings_ph[i]] = sibling # Shape: (n,)
 
             # Compute prior
             if self.compute_prior:
                 prior = np.zeros((n, Program.L), dtype=np.float32)
                 if self.constrain_const:
-                    constraints = np.isin(parents, Program.unary_tokens) # Unary parent (or unary action)
-                    constraints += siblings == Program.const_token # Constant sibling
+                    constraints = np.isin(parent, Program.unary_tokens) # Unary parent (or unary action)
+                    constraints += sibling == Program.const_token # Constant sibling
                     prior += make_prior(constraints, [Program.const_token], Program.L)
                 if self.constrain_trig:
                     constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
                     prior += make_prior(constraints, Program.trig_tokens, Program.L)
                 feed_dict[self.priors_ph[i]] = prior
+                priors.append(prior)
 
+        # Record previous parents, siblings and priors
+        # Note the first axis is along length, since they are used in zip to feed placeholders
+        if self.compute_parents_siblings:
+            self.prev_parents = np.stack(parents) # Shape: (max_length, n)
+            self.prev_siblings = np.stack(siblings) # Shape: (max_length, n)
+        if self.compute_prior:
+            self.prev_priors = np.stack(priors) # Shape: (max_length, n, Program.L)
+        
         actions = np.stack(actions).T # Shape: (n, max_length)
+
         return actions
 
 
-    def neglogp(self, actions, actions_mask):
-        """Returns neglogp of batch of expressions"""
-        self.output = None
-        if len(output)>0:     
-           outname = name+'_dsr.csv'
-           if "file" in output:
-              outname = output["file"]
-           outname = os.path.join(output["dir"],outname)
-           self.output = FileIO(outname,output["fields"])
-        feed_dict = {self.actions_ph[i] : a for i,a in enumerate(actions.T)}
-        feed_dict[self.actions_mask] = actions_mask
-        feed_dict[self.batch_size] = actions.shape[0]
+    # ANTIQUATED
+    # def neglogp(self, actions, actions_mask):
+    #     """Returns neglogp of batch of expressions"""
 
-        return self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
+    #     feed_dict = {self.actions_ph[i] : a for i,a in enumerate(actions.T)}
+    #     feed_dict[self.actions_mask] = actions_mask
+    #     feed_dict[self.batch_size] = actions.shape[0]
 
-    #[Soo: save all logp in ppobuffer]
-    def PPOBuffer_store(self, logp):
-        self.logp_buf.append(logp)
-
-    #[Soo: get logp from ppobuffer]
-    def PPOBuffer_get(self):
-        return self.logp_buf[-1]
-
-    #[Soo: reset ppobuffer at the start of the train]
-    def PPOBuffer_reset(self):
-        self.logp_buf = []
-
-    #[Soo]
-    def save_logp_to_ppobuffer(self, r, b, actions, actions_mask):
-        """Computes logp and save it to PPOBuffer."""
-        feed_dict = {self.r : r,
-                     self.baseline : b,
-                     self.actions_mask : actions_mask,
-                     self.batch_size : actions.shape[0]}
-        all_actions = []
-        for i, action in enumerate(actions.T):
-            feed_dict[self.actions_ph[i]] = action
-            all_actions.append(action)
-
-            if self.compute_parents_siblings or self.constrain_trig:
-                tokens = np.stack(all_actions).T
-
-            # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
-            if self.compute_parents_siblings:
-                parents, siblings = parents_siblings(tokens, Program.arities_numba)
-                if self.observe_parent:
-                    feed_dict[self.parents_ph[i]] = parents
-                if self.observe_sibling:
-                    feed_dict[self.siblings_ph[i]] = siblings
-
-                # Compute prior
-            if self.compute_prior:
-                prior = np.zeros((len(r), Program.L), dtype=np.float32)
-                if self.constrain_const:
-                    constraints = np.isin(parents, Program.unary_tokens) # Unary parent (or unary action)
-                    constraints += siblings == Program.const_token # Constant sibling
-                    prior += make_prior(constraints, [Program.const_token], Program.L)
-                if self.constrain_trig:
-                    constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
-                    prior += make_prior(constraints, Program.trig_tokens, Program.L)
-                feed_dict[self.priors_ph[i]] = prior
-        logp = self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
-        self.PPOBuffer_store(logp)
+    #     return self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
 
 
-    def train_step(self, r, b, actions, actions_mask):
-        """Computes loss, applies gradients, and computes summaries."""
+    def train_step(self, r, b, actions, actions_mask, indices):
+        """Computes loss, trains model, and returns summaries."""
+
         feed_dict = {self.r : r,
                      self.baseline : b,
                      self.actions_mask : actions_mask,
                      self.batch_size : actions.shape[0]}
 
-        all_actions = []
-        for i, action in enumerate(actions.T):
-            feed_dict[self.actions_ph[i]] = action
-            all_actions.append(action)       
-
-            if self.compute_parents_siblings or self.constrain_trig:
-                tokens = np.stack(all_actions).T
-
-            # TBD: Why does parents_siblings() have to be recalculated? It's not a function of the loss...
+        # Select the corresponding subsets for parents, siblings, and priors
+        if indices is not None:
             if self.compute_parents_siblings:
-                parents, siblings = parents_siblings(tokens, Program.arities_numba)
-                if self.observe_parent:
-                    feed_dict[self.parents_ph[i]] = parents
-                if self.observe_sibling:
-                    feed_dict[self.siblings_ph[i]] = siblings
-
-                # Compute prior
+                self.prev_parents = self.prev_parents[:, indices]
+                self.prev_siblings = self.prev_siblings[:, indices]
             if self.compute_prior:
-                prior = np.zeros((len(r), Program.L), dtype=np.float32)
-                if self.constrain_const:                    
-                    constraints = np.isin(parents, Program.unary_tokens) # Unary parent (or unary action)
-                    constraints += siblings == Program.const_token # Constant sibling
-                    prior += make_prior(constraints, [Program.const_token], Program.L)
-                if self.constrain_trig:
-                    constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
-                    prior += make_prior(constraints, Program.trig_tokens, Program.L)
-                feed_dict[self.priors_ph[i]] = prior
-
-        #[Soo: feeding old_log_probs and log_negprob with fixed shape as 100]
-        old_logp = self.PPOBuffer_get() # get old logp from buffer
-        old_logp = np.asarray(signal.resample(old_logp, 100)) #downsample old_logp to size [100]
-        feed_dict[self.old_neglogp_probs] = old_logp
-        new_logp = self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
-        new_logp = np.asarray(signal.resample(new_logp, 100)) #downsample new_logp to size [100]
-        feed_dict[self.new_neglogp_probs] = new_logp
-        self.PPOBuffer_store(new_logp) #store for next use as old_logp
-        print(np.shape(r-b))
-        advantages = np.asarray(signal.resample((r-b), 100)) #downsample advantages to size [100]
-        feed_dict[self.advantages_ph] = advantages
-
-#--- changed loss to self.calc_loss because the output is configured by nameing the fields, which must have unique names 
-        ops = [self.loss, self.train_op]
-        if self.summary:
-            self.calc_loss, _, summaries = self.sess.run(ops + [self.summaries], feed_dict=feed_dict)
-            return self.calc_loss, summaries
-        else:
-            self.calc_loss, _ = self.sess.run(ops, feed_dict=feed_dict)
-            return self.calc_loss, None
-
-    def savestepinfo(self, sinfo):
-
-        if self.output is None:
-           return
-        dt = {}
-        for p in self.output.header:
-            if p in sinfo:
-               dt[p] = sinfo[p]
-            else:
-               dt[p] = getattr(self,p)
+                self.prev_priors = self.prev_priors[:, indices, :]
         
-        self.output.update(dt)
+        # Zip along trajectory axis
+        feed_dict.update(zip(self.actions_ph, actions.T))
+        feed_dict.update(zip(self.parents_ph, self.prev_parents))
+        feed_dict.update(zip(self.siblings_ph, self.prev_siblings))
+        feed_dict.update(zip(self.priors_ph, self.prev_priors))
 
+        if self.ppo:
+            # Compute old_neglogp to be used for training
+            old_neglogp = self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
+            feed_dict[self.old_neglogp_ph] = old_neglogp
+            for i in range(self.ppo_n_iters):
+                _ = self.sess.run([self.train_op], feed_dict=feed_dict)
+                # kl, cf, _ = self.sess.run([self.sample_kl, self.clip_fraction, self.train_op], feed_dict=feed_dict)
+                # print("i", i, "KL", kl, "CF", cf)
+
+        # Return summaries
+        if self.summary:
+            summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
+        else:
+            summaries = None
+        
+        return summaries
 
 
 def make_prior(constraints, constraint_tokens, library_length):

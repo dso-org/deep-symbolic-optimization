@@ -2,7 +2,7 @@
 
 "dataset" : {
     "file" : "benchmarks.csv",
-    "name" : "Vladislavleva-6",
+    "name" : "Burks",
     "extra_input_var" : 0,
     "operators" : ["add", "mul", "sin", "cos", "const"]
 },
@@ -27,13 +27,16 @@
 "controller" : {    
     "num_units" : 35,
     "max_length" : 30,
-    "learning_rate" : 0.001,
+    "learning_rate" : 1e-3,
     "entropy_weight" : 0.0,
-    "observe_action" : true,
+    "observe_action" : false,
     "observe_parent" : true,
     "observe_sibling" : true,
     "constrain_const" : true,
-    "constrain_trig" : true
+    "constrain_trig" : true,
+    "ppo" : false,
+    "ppo_clip_ratio" : 0.2,
+    "ppo_n_iters" : 10
 },
 
 "gp" : {
