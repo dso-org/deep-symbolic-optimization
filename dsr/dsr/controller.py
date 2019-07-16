@@ -111,10 +111,14 @@ class Controller(object):
             cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
             cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32)
             n_observations = observe_action + observe_parent + observe_sibling
-            input_dims = tf.stack([self.batch_size, 1, n_observations*n_choices])
+            input_dims = tf.stack([self.batch_size, 1, n_observations * (n_choices + 1)])
 
-            # TBD: Should probably be -1 encoding since that's the no-parent and no-sibling token
-            cell_input = tf.fill(input_dims, 1.0) # First input fed to controller
+            # First input is all empty tokens
+            cell_input = np.zeros(n_choices + 1, dtype=np.float32)
+            cell_input[n_choices] = 1
+            cell_input = np.tile(cell_input, n_observations)
+            cell_input = tf.constant(cell_input)
+            cell_input = tf.broadcast_to(cell_input, input_dims)
 
             #####
             # TBD: Create embedding layer
@@ -149,20 +153,20 @@ class Controller(object):
                 self.actions_ph.append(action_ph)
 
                 # Update LSTM input
-                # Must be three dimensions: [batch_size, sequence_length, n_observations*n_choices]
+                # Must be three dimensions: [batch_size, sequence_length, n_observations * (n_choices + 1)]
                 observations = [] # Each observation has shape : (?, 1, n_choices)
                 if observe_action:
-                    new_obs = tf.one_hot(tf.reshape(action_ph, (self.batch_size, 1)), depth=n_choices)
+                    new_obs = tf.one_hot(tf.reshape(action_ph, (self.batch_size, 1)), depth=n_choices + 1)
                     observations.append(new_obs)
                 if observe_parent:
                     parent_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.parents_ph.append(parent_ph)
-                    new_obs = tf.one_hot(tf.reshape(parent_ph, (self.batch_size, 1)), depth=n_choices)
+                    new_obs = tf.one_hot(tf.reshape(parent_ph, (self.batch_size, 1)), depth=n_choices + 1)
                     observations.append(new_obs)
                 if observe_sibling:
                     sibling_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
                     self.siblings_ph.append(sibling_ph)
-                    new_obs = tf.one_hot(tf.reshape(sibling_ph, (self.batch_size, 1)), depth=n_choices)
+                    new_obs = tf.one_hot(tf.reshape(sibling_ph, (self.batch_size, 1)), depth=n_choices + 1)
                     observations.append(new_obs)
                 cell_input = tf.concat(observations, 2, name="cell_input_{}".format(i)) # Shape: (?, 1, n_observations*n_choices)
 
@@ -464,8 +468,9 @@ def parents_siblings(tokens, arities):
     """
 
     N, L = tokens.shape
-    parents = np.full(shape=(N,), fill_value=-1, dtype=np.int32)
-    siblings = np.full(shape=(N,), fill_value=-1, dtype=np.int32)
+    empty_token = len(arities) # Empty token is after all non-empty tokens
+    parents = np.full(shape=(N,), fill_value=empty_token, dtype=np.int32)
+    siblings = np.full(shape=(N,), fill_value=empty_token, dtype=np.int32)
     # Parallelized loop over action sequences
     for r in prange(N):
         arity = arities[tokens[r, -1]]
