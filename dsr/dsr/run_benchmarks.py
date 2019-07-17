@@ -1,4 +1,6 @@
+import os
 import json
+import time
 import multiprocessing
 from functools import partial
 
@@ -23,6 +25,11 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     except:
         pass
 
+    start = time.time()
+
+    # Rename the output file
+    config_training["output_file"] = name + ".csv"
+
     # Create the dataset
     X, y = get_dataset(name, config_dataset)
     Program.set_training_data(X, y)
@@ -34,16 +41,19 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     with tf.Session() as sess:        
 
         # Instantiate the controller
-        controller = Controller(name, sess, **config_controller)
+        controller = Controller(sess, **config_controller)
 
         # Train the controller
         result = learn(sess, controller, **config_training) # Reward, expression, traversal
         result["name"] = name
+        result["t"] = time.time() - start
         return result
 
 
 def train_gp(name, config_dataset, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
+
+    start = time.time()
 
     # Create the dataset
     X, y = get_dataset(name, config_dataset)
@@ -76,7 +86,8 @@ def train_gp(name, config_dataset, config_gp):
             "name" : name,
             "r" : r,            
             "expression" : expression,
-            "traversal" : program
+            "traversal" : program,
+            "t" : time.time() - start
     }
     return result
 
@@ -91,7 +102,7 @@ def get_dataset(name, config_dataset):
 
 
 @click.command()
-@click.argument('config_filename', default="config.json")
+@click.argument('config_template', default="config.json")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
@@ -99,21 +110,25 @@ def get_dataset(name, config_dataset):
 @click.option('--exclude_int_constants', is_flag=True, help="Exclude benchmark expressions containing integer constants")
 @click.option('--exclude', multiple=True, type=str, help="Exclude benchmark expressions containing these names")
 @click.option('--only', multiple=True, type=str, help="Only include benchmark expressions containing these names (overrides other exclusions)")
-def main(config_filename, method, output_filename, num_cores,
+def main(config_template, method, output_filename, num_cores,
          exclude_fp_constants, exclude_int_constants, exclude, only):
-    """Runs DSR or GP on all benchmarks using multiprocessing."""
-
-    if output_filename is None:
-        output_filename = "benchmark_{}.csv".format(method)
+    """Runs DSR or GP on multiple benchmarks using multiprocessing."""
     
      # Load the config file
-    with open(config_filename, encoding='utf-8') as f:
+    with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
     config_dataset = config["dataset"]          # Problem specification parameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
     config_gp = config["gp"]                    # GP hyperparameters
+
+    # Create output directories
+    if output_filename is None:
+        output_filename = "benchmark_{}.csv".format(method)
+    logdir = os.path.join("log", config_training["logdir"])
+    os.makedirs(logdir, exist_ok=True)
+    output_filename = os.path.join(logdir, output_filename)
 
     # Load the benchmark names
     df = pd.read_csv(config_dataset["file"], encoding="ISO-8859-1")
@@ -148,6 +163,7 @@ def main(config_filename, method, output_filename, num_cores,
     if config_training["num_cores"] != 1 and num_cores > 1:
         print("Setting 'num_cores' to 1 for training (i.e. constant optimization) to avoid nested child processes.")
         config_training["num_cores"] = 1
+    print("Running {} on benchmarks {}".format(method, names))
 
     # Define the work
     if method == "dsr":
@@ -156,12 +172,13 @@ def main(config_filename, method, output_filename, num_cores,
         work = partial(train_gp, config_dataset=config_dataset, config_gp=config_gp)
 
     # Farm out the work
-    columns = ["name", "r", "expression", "traversal"]
+    columns = ["name", "t", "r", "expression", "traversal"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)    
         for result in pool.imap_unordered(work, names):
             pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            print("Completed {} in {:.0f} s".format(result["name"], result["t"]))
     else:
         for name in names:
             result = work(name)

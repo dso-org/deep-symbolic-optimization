@@ -21,7 +21,8 @@
     "epsilon" : 0.1,
     "verbose" : true,
     "num_cores" : 1,
-    "summary" : true
+    "summary" : false,
+    "output_file" : "output.csv"
 },
 
 "controller" : {    

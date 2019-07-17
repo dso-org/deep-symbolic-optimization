@@ -7,6 +7,7 @@ from datetime import datetime
 from textwrap import indent
 
 import tensorflow as tf
+import pandas as pd
 import numpy as np
 
 from dsr.controller import Controller
@@ -30,7 +31,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
-          verbose=True, summary=True):
+          verbose=True, summary=True, output_file=None):
     """
     Executes the main training loop.
 
@@ -95,10 +96,22 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
 
     # Create the summary writer
     if summary:
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        summary_dir = os.path.join("summary", timestamp)
+        writer = tf.summary.FileWriter(summary_dir, sess.graph)
+
+    # Create log file
+    if output_file is not None:
         logdir = os.path.join("log", logdir)
         os.makedirs(logdir, exist_ok=True)
-        logdir = "./summary/{}/".format(datetime.now().strftime("%Y-%m-%d-%H%M%S"))
-        writer = tf.summary.FileWriter(logdir, sess.graph)
+        output_file = os.path.join(logdir, output_file)
+        with open(output_file, 'w') as f:
+            # r_best : Maximum across all iterations so far
+            # r_max : Maximum across this iteration's batch
+            # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
+            # r_avg_sub : Average across this iteration's epsilon-subset batch
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,baseline\n")
+        output_file = open(output_file, 'ab')        
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -121,9 +134,11 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         pool = None
 
     # Main training loop
-    max_count = 1
-    max_r = -np.inf # Best reward
-    best = None # Best program
+    # max_count = 1    
+    r_best = -np.inf
+    prev_r_best = -np.inf
+    base_r_best = -np.inf
+    prev_base_r_best = -np.inf
     b = None # Baseline used for control variates
     for step in range(n_epochs):
 
@@ -149,6 +164,15 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         
         # Retrieve the rewards
         r = np.array([p.r for p in programs])
+        base_r = np.array([p.base_r for p in programs])
+
+        # Collect full-batch statistics
+        base_r_max = np.max(base_r)
+        base_r_best = max(base_r_max, base_r_best)
+        base_r_avg_full = np.mean(base_r)
+        r_max = np.max(r)
+        r_best = max(r_max, r_best)
+        r_avg_full = np.mean(r)
 
         # # Show new commonest expression
         # # Note: This should go before epsilon heuristic
@@ -167,9 +191,25 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             actions = actions[cutoff, :]
             programs = list(compress(programs, cutoff))
             r = r[cutoff]
+            base_r = base_r[cutoff]
 
         # Compute baseline (EWMA of average reward)
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
+
+        # Collect sub-batch statistics and write output
+        if output_file is not None:            
+            base_r_avg_sub = np.mean(base_r)
+            r_avg_sub = np.mean(r)
+            stats = np.array([[base_r_best,
+                             base_r_max,
+                             base_r_avg_full,
+                             base_r_avg_sub,
+                             r_best,
+                             r_max,
+                             r_avg_full,
+                             r_avg_sub,
+                             b]], dtype=np.float32)
+            np.savetxt(output_file, stats, delimiter=',')
 
         # Compute actions mask
         actions_mask = np.zeros_like(actions.T, dtype=np.float32) # Shape: (max_length, batch_size)
@@ -183,13 +223,35 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             writer.add_summary(summaries, step)
             writer.flush()
 
-        # Show new best expression
-        if max(r) > max_r:
-            max_r = max(r)
-            best = programs[np.argmax(r)]
-            if verbose:
-                print("\nNew best expression")
-                best.print_stats()
+        # Update new best expression
+        new_r_best = False
+        new_base_r_best = False
+        if r_max > prev_r_best:
+            new_r_best = True
+            p_r_best = programs[np.argmax(r)]
+        if base_r_max > prev_base_r_best:
+            new_base_r_best = True
+            p_base_r_best = programs[np.argmax(base_r)]
+        prev_r_best = r_best
+        prev_base_r_best = base_r_best
+
+        # Print new best expression
+        if verbose:
+            if new_r_best and new_base_r_best:
+                if p_r_best == p_base_r_best:
+                    print("\nNew best overall")
+                    p_r_best.print_stats()
+                else:
+                    print("\nNew best reward")
+                    p_r_best.print_stats()
+                    print("...and new best base reward")
+                    p_base_r_best.print_stats()
+            elif new_r_best:
+                print("\nNew best reward")
+                p_r_best.print_stats()
+            elif new_base_r_best:
+                print("\nNew best base reward")
+                p_base_r_best.print_stats()
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
@@ -199,10 +261,13 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     if pool is not None:
         pool.close()
 
+    if output_file is not None:
+        output_file.close()
+
     result = {
-            "r" : best.r,
-            "expression" : repr(best.sympy_expr),
-            "traversal" : repr(best)
+            "r" : p_r_best.r,
+            "expression" : repr(p_r_best.sympy_expr),
+            "traversal" : repr(p_r_best)
             }
     return result
 
