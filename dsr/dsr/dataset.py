@@ -77,7 +77,10 @@ class Dataset(object):
                 feature = self.rng.uniform(low=low, high=high, size=n)
             elif "E" in spec[input_var]:
                 start, stop, step = spec[input_var]["E"]
-                n = int((stop - start)/step)
+                if step > stop - start:
+                    n = step
+                else:
+                    n = int((stop - start)/step)
                 feature = np.linspace(start=start, stop=stop, num=n, endpoint=True)
             else:
                 raise ValueError("Did not recognize specification for {}: {}.".format(input_var, spec[input_var]))
