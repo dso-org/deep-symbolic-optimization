@@ -169,7 +169,7 @@ class Controller(object):
                                                         dtype=tf.float32)
 
                 # Outputs correspond to logits of library
-                logits = tf.layers.dense(outputs[:, -1, :], units=n_choices)
+                logits = tf.layers.dense(outputs[:, -1, :], units=n_choices, reuse=tf.AUTO_REUSE)
                 logits = logits + prior
                 self.logits.append(logits)
 
