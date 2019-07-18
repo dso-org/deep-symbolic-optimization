@@ -126,12 +126,12 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     sess.run(tf.global_variables_initializer())
 
     # Create the pool of workers
-    if num_cores == -1:
-        num_cores = multiprocessing.cpu_count()
-    if num_cores > 1:
-        pool = multiprocessing.Pool(num_cores)
-    else:
-        pool = None
+    pool = None
+    if "const" in Program.library:
+        if num_cores == -1:
+            num_cores = multiprocessing.cpu_count()
+        if num_cores > 1:
+            pool = multiprocessing.Pool(num_cores)
 
     # Main training loop
     # max_count = 1    
