@@ -1,0 +1,16 @@
+name,variables,expression,train_spec,test_spec,source,comments,info
+Koza-2,1,(x1**5)-2*(x1**3)+x1,"{""all"":{""U"":[-1,1,20]}}",None,[22],,{“Training Set”:”open”}
+Koza-3,1,(x1**6)-2*(x1**4)+(x1**2),"{""all"":{""U"":[-1,1,20]}}",None,"[10,22]",,{“Training Set”:”open”}
+Nguyen-1,1,(x1**3)+(x1**2)+x1,"{""all"":{""U"":[-1,1,20]}}",None,"[7,31,38]",,{“Training Set”:”open”}
+Nguyen-2,1,(x1**4)+(x1**3)+(x1**2)+x1,"{""all"":{""U"":[-1,1,20]}}",None,"[7,10,17,21,31,35,38]",,{“Training Set”:”open”}
+Nguyen-3,1,(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"{""all"":{""U"":[-1,1,20]}}",None,"[7,12,16,31,37,38]",,{“Training Set”:”open”}
+Nguyen-4,1,(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"{""all"":{""U"":[-1,1,20]}}",None,"[7,12,16,31,37,38]",,{“Training Set”:”open”}
+Nguyen-5,1,sin(x1**2)*cos(x1)-1,"{""all"":{""U"":[-1,1,20]}}",None,"[7,12,16,31,37,38]",,{“Training Set”:”open”}
+Nguyen-6,1,sin(x1)+sin(x1+(x1**2)),"{""all"":{""U"":[-1,1,20]}}",None,"[7,12,16,31,37,38]",,{“Training Set”:”open”}
+Nguyen-7,1,ln(x1+1)+ln((x1**2)+1),"{""all"":{""U"":[0,2,20]}}",None,"[7,10,12,13,14,16,37,38]",,
+Nguyen-8,1,sqrt(x1),"{""all"":{""U"":[0,4,20]}}",None,"[7,16,37,38]",,
+Nguyen-9,2,sin(x1)*sin(x2**2),"{""all"":{""U"":[0,1,20]}}",None,"[7,12,16,37,38]",,{“Training Set”:”open”}
+Nguyen-10,2,2*sin(x1)*cos(x2),"{""all"":{""U"":[0,1,20]}}",None,"[7,12,37,38]",,{“Training Set”:”open”}
+Nguyen-11,2,x1**x2,"{""all"":{""U"":[0,1,20]}}",None,,,
+Nguyen-12,2,(x1**4)-(x1**3)+(x2**2)/2-x2,"{""all"":{""U"":[0,1,20]}}",None,,,
+Pagie-1,2,(1/(1+(x1**(-4))))+(1/(1+(x2**(-4)))),"{""all"":{""E"":[-5,5,0.4]}}",None,"[14,16,19]",,

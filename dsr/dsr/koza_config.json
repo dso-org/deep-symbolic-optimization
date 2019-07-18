@@ -1,0 +1,70 @@
+{
+
+"dataset" : {
+    "file" : "koza_benchmarks.csv",
+    "name" : "Pagie-1",
+    "extra_input_var" : 0,
+    "operators" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
+},
+
+"training" : {
+    "logdir" : "koza",
+    "n_epochs" : 1000,
+    "batch_size" : 1000,
+    "reward" : "neg_mse",
+    "reward_params" : [],
+    "complexity" : "length",
+    "complexity_weight" : 0.001,
+    "const_optimizer" : null,
+    "const_params" : {},
+    "alpha" : 0.1,
+    "epsilon" : 0.1,
+    "num_cores" : 1,
+    "verbose" : true,    
+    "summary" : false,
+    "output_file" : "output.csv"
+},
+
+"controller" : {
+    "num_units" : 35,
+    "max_length" : 30,
+    "learning_rate" : 1e-3,
+    "entropy_weight" : 0.0,
+    "observe_action" : false,
+    "observe_parent" : true,
+    "observe_sibling" : true,
+    "constrain_const" : true,
+    "constrain_trig" : true,
+    "ppo" : true,
+    "ppo_clip_ratio" : 0.2,
+    "ppo_n_iters" : 10,
+    "embedding" : true,
+    "embedding_size" : 4
+},
+
+"gp" : {
+    "population_size" : 1000,
+    "generations" : 1000,
+    "tournament_size": 20,
+    "stopping_criteria" : 0.0,
+    "const_range" : null,
+    "init_depth" : [2,6],
+    "init_method" : "half and half",
+    "function_set" : ["add", "mul", "sin", "cos"],
+    "metric" : "mse",
+    "parsimony_coefficient" : 0.001,
+    "p_crossover" : 0.9,
+    "p_subtree_mutation" : 0.01,
+    "p_hoist_mutation" : 0.01,
+    "p_point_mutation" : 0.01,
+    "p_point_replace" : 0.05,
+    "max_samples" : 1.0,
+    "feature_names" : null,
+    "warm_start" : false,
+    "low_memory" : false,
+    "n_jobs" : 1,
+    "verbose" : 1,
+    "random_state" : 0
+}
+
+}
