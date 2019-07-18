@@ -110,8 +110,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,baseline\n")
-        output_file = open(output_file, 'ab')        
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,baseline\n")        
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -209,7 +208,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
                              r_avg_full,
                              r_avg_sub,
                              b]], dtype=np.float32)
-            np.savetxt(output_file, stats, delimiter=',')
+            with open(output_file, 'ab') as f:
+                np.savetxt(f, stats, delimiter=',')
 
         # Compute actions mask
         actions_mask = np.zeros_like(actions.T, dtype=np.float32) # Shape: (max_length, batch_size)
@@ -260,9 +260,6 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
 
     if pool is not None:
         pool.close()
-
-    if output_file is not None:
-        output_file.close()
 
     result = {
             "r" : p_r_best.r,
