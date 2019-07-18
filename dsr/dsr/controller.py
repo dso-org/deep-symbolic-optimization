@@ -77,7 +77,7 @@ class Controller(object):
         self.max_length = max_length
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.constrain_const = constrain_const
+        self.constrain_const = constrain_const and Program.const_token is not None
         self.constrain_trig = constrain_trig
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
