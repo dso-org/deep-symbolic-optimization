@@ -1,4 +1,5 @@
 import ast
+import itertools
 from textwrap import indent
 
 import pandas as pd
@@ -87,7 +88,12 @@ class Dataset(object):
             
             features.append(feature)
 
-        X = np.column_stack(features)
+        # Do multivariable combinations
+        if "E" in spec[input_var] and self.n_input_var > 1:
+            X = np.array(list(itertools.product(*features)))
+        else:
+            X = np.column_stack(features)
+
         return X
 
 
