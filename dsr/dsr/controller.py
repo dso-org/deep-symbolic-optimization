@@ -114,45 +114,68 @@ class Controller(object):
         # Build controller RNN
         with tf.name_scope("controller"):
 
+            # Create LSTM cell
             cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
             cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)
-            n_observations = observe_action + observe_parent + observe_sibling
+
+            # Define input dimensions
+            n_action_inputs = n_choices + 1 # Library tokens + empty token
+            n_parent_inputs = n_choices + 1 - len(Program.terminal_tokens) # Parent sub-library tokens + empty token
+            n_sibling_inputs = n_choices + 1 # Library tokens + empty tokens
             if embedding:
-                n_inputs = n_observations * embedding_size
+                n_inputs = observe_action * embedding_size + \
+                           observe_parent * embedding_size + \
+                           observe_sibling * embedding_size
             else:
-                n_inputs = n_observations * (n_choices + 1)
+                n_inputs = observe_action * n_action_inputs + \
+                           observe_parent * n_parent_inputs + \
+                           observe_sibling * n_sibling_inputs
             input_dims = tf.stack([self.batch_size, 1, n_inputs])
 
             # Create embeddings
             if embedding:
                 if observe_action:
-                    action_embeddings = tf.get_variable("action_embeddings", [n_choices + 1, embedding_size])
+                    action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size])
                 if observe_parent:
-                    parent_embeddings = tf.get_variable("parent_embeddings", [n_choices + 1, embedding_size])
+                    parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size])
                 if observe_sibling:
-                    sibling_embeddings = tf.get_variable("sibling_embeddings", [n_choices + 1, embedding_size])
+                    sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
 
             # First input is all empty tokens
             observations = [] # Each observation has shape (?, 1, n_choices + 1) or (?, 1, embedding_size)
-            if embedding:
-                empty_obs = n_choices
-                empty_obs = tf.constant(n_choices, dtype=tf.int32)
-                empty_obs = tf.broadcast_to(empty_obs, tf.stack([self.batch_size, 1]))
+            if embedding:                
                 if observe_action:
-                    obs = tf.nn.embedding_lookup(action_embeddings, empty_obs)
+                    obs = tf.constant(n_action_inputs - 1, dtype=tf.int32)
+                    obs = tf.broadcast_to(obs, tf.stack([self.batch_size, 1]))
+                    obs = tf.nn.embedding_lookup(action_embeddings, obs)
                     observations.append(obs)
                 if observe_parent:
-                    obs = tf.nn.embedding_lookup(parent_embeddings, empty_obs)
+                    obs = tf.constant(n_parent_inputs - 1, dtype=tf.int32)
+                    obs = tf.broadcast_to(obs, tf.stack([self.batch_size, 1]))
+                    obs = tf.nn.embedding_lookup(parent_embeddings, obs)
                     observations.append(obs)
                 if observe_sibling:
-                    obs = tf.nn.embedding_lookup(sibling_embeddings, empty_obs)
+                    obs = tf.constant(n_sibling_inputs - 1, dtype=tf.int32)
+                    obs = tf.broadcast_to(obs, tf.stack([self.batch_size, 1]))
+                    obs = tf.nn.embedding_lookup(sibling_embeddings, obs)
                     observations.append(obs)
                 cell_input = tf.concat(observations, 2) # Shape (?, 1, n_inputs)
             else:
-                empty_obs = np.zeros(n_choices + 1, dtype=np.float32)
-                empty_obs[n_choices] = 1
-                obs = np.tile(empty_obs, n_observations)
-                cell_input = tf.constant(obs)
+                observations = []
+                if observe_action:
+                    obs = [0]*(n_action_inputs)
+                    obs[n_action_inputs - 1] = 1
+                    observations += obs
+                if observe_parent:
+                    obs = [0]*(n_parent_inputs)
+                    obs[n_parent_inputs - 1] = 1
+                    observations += obs
+                if observe_sibling:
+                    obs = [0]*(n_sibling_inputs)
+                    obs[n_sibling_inputs - 1] = 1
+                    observations += obs
+                observations = np.array(observations, dtype=np.float32)
+                cell_input = tf.constant(observations)
                 cell_input = tf.broadcast_to(cell_input, input_dims) # Shape (?, 1, n_inputs)
 
             # Define prior on logits; currently only used to apply hard constraints
@@ -191,7 +214,7 @@ class Controller(object):
                     if embedding:
                         obs = tf.nn.embedding_lookup(action_embeddings, ph)                        
                     else:
-                        obs = tf.one_hot(ph, depth=n_choices + 1)
+                        obs = tf.one_hot(ph, depth=n_action_inputs)
                     observations.append(obs)
                 if observe_parent:
                     parent_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
@@ -200,7 +223,7 @@ class Controller(object):
                     if embedding:
                         obs = tf.nn.embedding_lookup(parent_embeddings, ph)
                     else:
-                        obs = tf.one_hot(ph, depth=n_choices + 1)
+                        obs = tf.one_hot(ph, depth=n_parent_inputs)
                     observations.append(obs)
                 if observe_sibling:
                     sibling_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
@@ -209,7 +232,7 @@ class Controller(object):
                     if embedding:
                         obs = tf.nn.embedding_lookup(sibling_embeddings, ph)
                     else:
-                        obs = tf.one_hot(ph, depth=n_choices + 1)
+                        obs = tf.one_hot(ph, depth=n_sibling_inputs)
                     observations.append(obs)
                 cell_input = tf.concat(observations, 2, name="cell_input_{}".format(i)) # Shape: (?, 1, n_inputs)
 
@@ -303,7 +326,7 @@ class Controller(object):
             # Compute parents and siblings
             if self.compute_parents_siblings:
                 tokens = np.stack(actions).T # Shape: (n, i)
-                parent, sibling = parents_siblings(tokens, Program.arities_numba)
+                parent, sibling = parents_siblings(tokens, Program.arities_numba, Program.parent_adjust)
                 parents.append(parent)
                 siblings.append(sibling)
                 if self.observe_parent:
@@ -482,7 +505,7 @@ def trig_ancestors(tokens, arities, trig_tokens):
     return ancestors
 
 @jit(nopython=True, parallel=True)
-def parents_siblings(tokens, arities):
+def parents_siblings(tokens, arities, parent_adjust):
     """
     Given a batch of action sequences, computes and returns the parents and
     siblings of the next element of the sequence.
@@ -502,6 +525,9 @@ def parents_siblings(tokens, arities):
     arities : numba.typed.Dict
         Dictionary from library index to arity.
 
+    parent_adjust : numba.typed.Dict
+        Dictionary from library index to parent sub-library index.
+
     Returns
     _______
 
@@ -514,14 +540,15 @@ def parents_siblings(tokens, arities):
     """
 
     N, L = tokens.shape
-    empty_token = len(arities) # Empty token is after all non-empty tokens
-    parents = np.full(shape=(N,), fill_value=empty_token, dtype=np.int32)
-    siblings = np.full(shape=(N,), fill_value=empty_token, dtype=np.int32)
+    empty_parent = len(parent_adjust) # Empty token is after all non-empty tokens
+    empty_sibling = len(arities) # Empty token is after all non-empty tokens
+    parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
+    siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)
     # Parallelized loop over action sequences
     for r in prange(N):
         arity = arities[tokens[r, -1]]
         if arity > 0: # Parent is the previous element; no sibling
-            parents[r] = tokens[r, -1]
+            parents[r] = parent_adjust[tokens[r, -1]]
             continue
         dangling = 0
         # Loop over elements in an action sequence
@@ -529,7 +556,7 @@ def parents_siblings(tokens, arities):
             arity = arities[tokens[r, L - c - 1]]
             dangling += arity - 1
             if dangling == 0: # Parent is L-c-1, sibling is the next
-                parents[r] = tokens[r, L - c - 1]
+                parents[r] = parent_adjust[tokens[r, L - c - 1]]
                 siblings[r] = tokens[r, L - c]
                 break
     return parents, siblings

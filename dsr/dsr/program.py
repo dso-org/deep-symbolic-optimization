@@ -123,12 +123,14 @@ class Program(object):
     cache = {}
 
     # Additional derived static variables
-    L = None                # Length of library
-    arities_numba = None    # Numba Dict of arities for each token
+    L = None                # Length of library    
+    terminal_tokens = None  # Tokens corresponding to terminals
     unary_tokens = None     # Tokens corresponding to unary operators
     binary_tokens = None    # Tokens corresponding to binary operators
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
+    arities_numba = None    # Numba Dict of arities for each token
+    parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
 
 
     def __init__(self, tokens, optimize):
@@ -345,14 +347,22 @@ class Program(object):
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
 
-        # Create Numba Dict
+        # Create Numba Dicts
         Program.arities_numba = Dict.empty(key_type=types.int8, value_type=types.int8)
         for i in range(len(Program.arities)):
             Program.arities_numba[i] = Program.arities[i]
 
+        Program.parent_adjust = Dict.empty(key_type=types.int8, value_type=types.int8)
+        j = 0
+        for i in range(len(Program.arities)):
+            if Program.arities[i] > 0:
+                Program.parent_adjust[i] = j
+                j += 1
+
         Program.L = len(Program.library)
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
+        Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
         Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
         Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
         Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], _Function) and Program.library[t].name in trig_names], dtype=np.int32)
