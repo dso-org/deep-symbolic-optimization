@@ -70,7 +70,8 @@ def train_gp(name, config_dataset, config_gp):
     gp.fit(X, y)
 
     # Retrieve best results
-    r = gp._program.raw_fitness_
+    r = gp._program.fitness_
+    base_r = gp._program.raw_fitness_
     
     # Currently outputting seralized program in place of its corresponding traversal
     program = str(gp._program)
@@ -84,7 +85,8 @@ def train_gp(name, config_dataset, config_gp):
 
     result = {
             "name" : name,
-            "r" : r,            
+            "r" : r,
+            "base_r" : base_r,
             "expression" : expression,
             "traversal" : program,
             "t" : time.time() - start
@@ -172,7 +174,7 @@ def main(config_template, method, output_filename, num_cores,
         work = partial(train_gp, config_dataset=config_dataset, config_gp=config_gp)
 
     # Farm out the work
-    columns = ["name", "t", "r", "expression", "traversal"]
+    columns = ["name", "t", "base_r", "r", "expression", "traversal"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)    
