@@ -13,7 +13,7 @@ from dsr.utils import cached_property
 
 def _protected_exponent(x1):
     with np.errstate(over='ignore'):
-        return np.where(np.abs(x1) < 100, np.exp(x1), 0.)
+        return np.where(np.abs(x1) < 10, np.exp(x1), 0.)
 
 
 exp1 = _Function(function=_protected_exponent, name='exp', arity=1)

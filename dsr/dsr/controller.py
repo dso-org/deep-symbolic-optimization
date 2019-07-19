@@ -379,6 +379,9 @@ class Controller(object):
                 # kl, cf, _ = self.sess.run([self.sample_kl, self.clip_fraction, self.train_op], feed_dict=feed_dict)
                 # print("i", i, "KL", kl, "CF", cf)
 
+        else:
+            _ = self.sess.run([self.train_op], feed_dict=feed_dict)
+
         # Return summaries
         if self.summary:
             summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
