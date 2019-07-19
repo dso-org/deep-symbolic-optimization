@@ -261,10 +261,20 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     if pool is not None:
         pool.close()
 
+    p = p_r_best
     result = {
-            "r" : p_r_best.r,
-            "expression" : repr(p_r_best.sympy_expr),
-            "traversal" : repr(p_r_best)
+            # "p_r_best.r" : p_r_best.r,
+            # "p_r_best.base_r" : p_r_best.base_r
+            # "p_r_best_expression" : repr(p_r_best.sympy_expr),
+            # "p_r_best_traversal" : repr(p_r_best),
+            # "p_base_r_best.r" : p_base_r_best.r,
+            # "p_base_r_best.base_r" : p_base_r_best.base_r
+            # "p_base_r_best_expression" : repr(p_base_r_best.sympy_expr),
+            # "p_base_r_best_traversal" : repr(p_base_r_best),
+            "r" : p.r,
+            "base_r" : p.base_r,
+            "expression" : repr(p.sympy_expr),
+            "traversal" : repr(p)
             }
     return result
 
