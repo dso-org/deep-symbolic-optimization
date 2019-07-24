@@ -5,6 +5,7 @@ import multiprocessing
 from functools import partial
 
 import click
+import numpy as np
 import pandas as pd
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
@@ -50,7 +51,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
         return result
 
 
-def train_gp(name, config_dataset, config_gp):
+def train_gp(name, logdir, config_dataset, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
 
     start = time.time()
@@ -69,17 +70,35 @@ def train_gp(name, config_dataset, config_gp):
     # Fit the GP
     gp.fit(X, y)
 
-    # Retrieve best results
-    r = gp._program.fitness_
-    base_r = gp._program.raw_fitness_
+    # NOTE: gp._program contains the best program (in terms of raw reward) in
+    # the final generation, not necessarily the best overal
+    
+    # Save run details
+    df = pd.DataFrame(data=gp.run_details_)
+    rename = {"best_fitness" : "base_r_max",
+              "average_fitness" : "base_r_avg",
+              "generation_time" : "t"
+              }
+    df = df.rename(columns=rename)
+    df["base_r_best"] = df["base_r_max"].cummin()
+    df.to_csv(os.path.join(logdir, name + "_gp.csv"))
+
+    # Retrieve best program
+    # gplearn does not store the best overall program, so the best may be N/A
+    base_r = df["base_r_best"].min()
+    index_of_best = np.argmin(df["base_r_best"].values)
+    for p in gp._programs[index_of_best]:
+        if p is not None and p.raw_fitness_ == base_r:
+            break
+    r = p.fitness_ if p is not None else "N/A"
     
     # Currently outputting seralized program in place of its corresponding traversal
-    program = str(gp._program)
+    str_p = str(p) if p is not None else "N/A"
 
     # Many failure cases right now for converting to SymPy expression...not high priority to fix
-        # To do: serialized program --> tree --> SymPy-compatible tree --> traversal --> SymPy expression
+    # To do: serialized program --> tree --> SymPy-compatible tree --> traversal --> SymPy expression
     try:
-        expression = repr(parse_expr(str(gp._program).replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
+        expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
     except:
         expression = "N/A"
 
@@ -88,7 +107,7 @@ def train_gp(name, config_dataset, config_gp):
             "r" : r,
             "base_r" : base_r,
             "expression" : expression,
-            "traversal" : program,
+            "traversal" : str_p,
             "t" : time.time() - start
     }
     return result
@@ -171,7 +190,7 @@ def main(config_template, method, output_filename, num_cores,
     if method == "dsr":
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, config_dataset=config_dataset, config_gp=config_gp)
+        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
 
     # Farm out the work
     columns = ["name", "t", "base_r", "r", "expression", "traversal"]
