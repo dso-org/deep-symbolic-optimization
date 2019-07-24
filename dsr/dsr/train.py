@@ -295,15 +295,12 @@ def main():
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
 
-    # Create the dataset
+    # Define the dataset and library
     dataset = Dataset(**config_dataset)
-    X, y = dataset.X_train, dataset.y_train
-    Program.set_training_data(X, y)
+    Program.set_training_data(dataset.X_train, dataset.y_train)
+    Program.set_library(dataset.function_set, dataset.n_input_var)
     print("Ground truth expression:\n{}".format(indent(dataset.pretty(), '\t')))
 
-    # Define the library
-    Program.set_library(config_dataset["operators"], X.shape[1])
-    
     with tf.Session() as sess:
         # Instantiate the controller
         controller = Controller(sess, summary=config_training["summary"], **config_controller)

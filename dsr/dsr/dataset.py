@@ -1,3 +1,4 @@
+import os
 import ast
 import itertools
 from textwrap import indent
@@ -58,6 +59,11 @@ class Dataset(object):
         # Compute y values
         self.y_train = self.f(*self.X_train.T)
         self.y_test = self.f(*self.X_test.T)
+
+        # Create the function set (list of str)
+        function_set_path = os.path.join(os.path.dirname(file), "function_sets.csv")
+        df = pd.read_csv(function_set_path, index_col=0)
+        self.function_set = df.loc[row["function_set"]].tolist()[0].strip().split(',')
 
     
     def make_X(self, spec):

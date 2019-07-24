@@ -31,12 +31,10 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     # Rename the output file
     config_training["output_file"] = name + ".csv"
 
-    # Create the dataset
-    X, y = get_dataset(name, config_dataset)
-    Program.set_training_data(X, y)
-
-    # Define the library
-    Program.set_library(config_dataset["operators"], X.shape[1])
+    # Define the dataset and library
+    dataset = get_dataset(name, config_dataset)
+    Program.set_training_data(dataset.X_train, dataset.y_train)
+    Program.set_library(dataset.function_set, dataset.n_input_var)
 
     tf.reset_default_graph()
     with tf.Session() as sess:        
@@ -57,23 +55,32 @@ def train_gp(name, logdir, config_dataset, config_gp):
     start = time.time()
 
     # Create the dataset
-    X, y = get_dataset(name, config_dataset)
+    dataset = get_dataset(name, config_dataset)
 
     # Configure parameters
-    if "init_depth" in config_gp:
-        config_gp["init_depth"] = tuple(config_gp["init_depth"])
+    for to_be_tuple in ["init_depth", "const_range"]:
+        if to_be_tuple in config_gp:
+            config_gp[to_be_tuple] = tuple(config_gp[to_be_tuple])
+    config_gp["function_set"] = dataset.function_set.copy()
+    if "const" in config_gp["function_set"]:
+        config_gp["function_set"].remove("const")
     # config_gp["verbose"] = 0 # Turn off printing
-
-    # Create the GP
-    gp = SymbolicRegressor(**config_gp)
+    
+    # Parameter assertions
+    assert "const_range" in config_gp, "Constant range must be specified (or None if not using constants)."
+    if config_gp["const_range"] is None:
+        assert "const" not in dataset.function_set, "Constant range not provided but constants are in dataset."
+    elif "const" not in dataset.function_set:
+        print("Constant range provided but constant not in function set for benchmark {}. Overriding constant range to None.".format(name))
+        config_gp["const_range"] = None    
 
     # Fit the GP
-    gp.fit(X, y)
+    gp = SymbolicRegressor(**config_gp)
+    gp.fit(dataset.X_train, dataset.y_train)
 
-    # NOTE: gp._program contains the best program (in terms of raw reward) in
-    # the final generation, not necessarily the best overal
-    
     # Save run details
+    # NOTE: gp._program contains the best program (in terms of raw reward) in
+    # the final generation, not necessarily the best overall.
     df = pd.DataFrame(data=gp.run_details_)
     rename = {"best_fitness" : "base_r_max",
               "average_fitness" : "base_r_avg",
@@ -118,8 +125,7 @@ def get_dataset(name, config_dataset):
 
     config_dataset["name"] = name
     dataset = Dataset(**config_dataset)
-    X, y = dataset.X_train, dataset.y_train
-    return X, y
+    return dataset
 
 
 @click.command()
@@ -178,12 +184,20 @@ def main(config_template, method, output_filename, num_cores,
     if num_cores > len(names):
         print("Setting 'num_cores' to {} for batch because there are only {} expressions.".format(len(names), len(names)))
         num_cores = len(names)
-    if config_training["verbose"] and num_cores > 1:
-        print("Setting 'verbose' to False for parallelized run.")
-        config_training["verbose"] = False
-    if config_training["num_cores"] != 1 and num_cores > 1:
-        print("Setting 'num_cores' to 1 for training (i.e. constant optimization) to avoid nested child processes.")
-        config_training["num_cores"] = 1
+    if method == "dsr":
+        if config_training["verbose"] and num_cores > 1:
+            print("Setting 'verbose' to False for parallelized run.")
+            config_training["verbose"] = False
+        if config_training["num_cores"] != 1 and num_cores > 1:
+            print("Setting 'num_cores' to 1 for training (i.e. constant optimization) to avoid nested child processes.")
+            config_training["num_cores"] = 1
+    elif method == "gp":
+        if config_gp["verbose"] and num_cores > 1:
+            print("Setting 'verbose' to False for parallelized run.")
+            config_gp["verbose"] = False
+        if config_gp["n_jobs"] != 1 and num_cores > 1:
+            print("Setting 'n_jobs' to 1 for training to avoid nested child processes.")
+            config_gp["n_jobs"] = 1
     print("Running {} on benchmarks {}".format(method, names))
 
     # Define the work
