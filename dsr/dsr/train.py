@@ -86,12 +86,13 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     summary : bool, optional
         Whether to write TensorFlow summaries.
 
+    output_file : str, optional
+        Filename to write results for each iteration.
+
     Returns
     -------
     result : dict
-        A dict describing the best-fit expression: 'r' is the reward,
-        'traversal' is the serialized Program, and 'expresion' is the pretty-
-        printed sympy-simplified expression
+        A dict describing the best-fit expression (determined by base_r).
     """
 
     # Create the summary writer
@@ -110,7 +111,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,baseline\n")        
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,baseline\n")
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -261,7 +262,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     if pool is not None:
         pool.close()
 
-    p = p_r_best
+    p = p_base_r_best
     result = {
             # "p_r_best.r" : p_r_best.r,
             # "p_r_best.base_r" : p_r_best.base_r
