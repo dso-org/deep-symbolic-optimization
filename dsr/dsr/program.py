@@ -3,21 +3,12 @@ from textwrap import indent
 import numpy as np
 from numba.typed import Dict
 from numba import types
-from gplearn.functions import _function_map, _Function
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
+from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-
-
-def _protected_exponent(x1):
-    with np.errstate(over='ignore'):
-        return np.where(np.abs(x1) < 100, np.exp(x1), 0.)
-
-
-exp1 = _Function(function=_protected_exponent, name='exp', arity=1)
-_function_map['exp'] = exp1
 
 
 def from_tokens(tokens, optimize):
