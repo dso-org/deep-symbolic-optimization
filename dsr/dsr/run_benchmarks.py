@@ -204,7 +204,7 @@ def main(config_template, method, output_filename, num_cores,
     if method == "dsr":
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
+        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp.copy())
 
     # Farm out the work
     columns = ["name", "t", "base_r", "r", "expression", "traversal"]
