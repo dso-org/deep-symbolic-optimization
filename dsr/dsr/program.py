@@ -268,22 +268,27 @@ class Program(object):
 
         all_functions = {
             # Negative mean squared error
+            # Range: [-inf, 0]
             "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
                             0),
 
-            # Inverse mean squared error
-            "inverse_mse" : (lambda y, y_hat : 1/np.mean((y - y_hat)**2),
+            # (Protected) inverse mean squared error
+            # Range: [0, 1]
+            "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
                             0),
 
             # Fraction of predicted points within p0*abs(y) + p1 band of the true value
+            # Range: [0, 1]
             "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
                             2),
 
             # Pearson correlation coefficient
+            # Range: [0, 1]
             "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
                             0),
 
             # Spearman correlation coefficient
+            # Range: [0, 1]
             "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
                             0)
         }
