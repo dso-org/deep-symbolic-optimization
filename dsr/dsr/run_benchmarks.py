@@ -33,6 +33,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
 
     # Define the dataset and library
     dataset = get_dataset(name, config_dataset)
+    Program.clear_cache()
     Program.set_training_data(dataset.X_train, dataset.y_train)
     Program.set_library(dataset.function_set, dataset.n_input_var)
 

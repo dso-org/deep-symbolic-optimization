@@ -232,6 +232,13 @@ class Program(object):
 
 
     @classmethod
+    def clear_cache(cls):
+        """Clears the class' cache"""
+
+        cls.cache = {}
+
+
+    @classmethod
     def set_training_data(cls, X_train, y_train):
         """Sets the class' training data"""
 
