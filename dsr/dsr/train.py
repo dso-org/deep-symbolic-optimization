@@ -161,11 +161,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             programs = [from_tokens(a, optimize=False) for a in actions]
             programs_to_optimize = list(set([p for p in programs if p.base_r is None]))
             results = pool.map(work, programs_to_optimize)
-            for pair, p in zip(results, programs_to_optimize):
-                optimized_constants, base_r = pair
+            for optimized_constants, p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
-                p.base_r = base_r
-        
+
         # Retrieve the rewards
         r = np.array([p.r for p in programs])
         base_r = np.array([p.base_r for p in programs])

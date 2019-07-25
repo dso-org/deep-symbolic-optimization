@@ -43,10 +43,6 @@ class ConstOptimizer(object):
         -------
         x : np.ndarray
             Vector of optimized constants.
-
-        r : float
-            Base reward (negative objective function) evaluated at optimized
-            constants.
         """
         raise NotImplementedError
 
@@ -59,9 +55,7 @@ class Dummy(ConstOptimizer):
 
     
     def __call__(self, f, x0):
-        x = x0
-        r = -f(x)
-        return x, r
+        return x0
         
 
 class ScipyMinimize(ConstOptimizer):
@@ -75,5 +69,4 @@ class ScipyMinimize(ConstOptimizer):
         with np.errstate(divide='ignore'):
             opt_result = partial(minimize, **self.kwargs)(f, x0)
         x = opt_result['x']
-        r = -opt_result['fun']
-        return x, r
+        return x

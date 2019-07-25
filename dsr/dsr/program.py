@@ -142,9 +142,7 @@ class Program(object):
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
         if optimize:
-            _, self.base_r = self.optimize()
-        else:
-            self.base_r = None
+            _ = self.optimize()
         self.count = 1
 
 
@@ -201,42 +199,38 @@ class Program(object):
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
-        optimized constants and base reward.
+        optimized constants.
 
         This function generates an objective function based on the training
         dataset, reward function, and constant optimizer. It ignores penalties
         because the Program structure is fixed, thus penalties are all the same.
         It then optimizes the constants of the program and returns the optimized
-        constants and base reward (reward without penalty).
+        constants.
 
         Returns
         _______
         optimized_constants : vector
             Array of optimized constants.
-
-        base_r : float
-            The base reward (reward without penalty) of the optimized program.
         """
 
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)
             y_hat = self.execute(Program.X_train)
-            obj = -1*Program.reward_function(Program.y_train, y_hat)
+            obj = np.mean((Program.y_train - y_hat))
             return obj
         
         if len(self.const_pos) > 0:
             # Do the optimization
             x0 = np.ones(len(self.const_pos)) # Initial guess
-            optimized_constants, base_r = Program.const_optimizer(f, x0)
+            optimized_constants = Program.const_optimizer(f, x0)
             self.set_constants(optimized_constants)
 
         else:
             # No need to optimize if there are no constants
             optimized_constants = []
-            base_r = -f([])
 
-        return optimized_constants, base_r
+        return optimized_constants
 
 
     def set_constants(self, consts):
@@ -382,19 +376,20 @@ class Program(object):
         str_library = [f if isinstance(f, str) else f.name for f in Program.library]
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
-    
-    def reward(self, X, y):
-        """Evaluates and returns the base reward under a given dataset"""
-
-        y_hat = self.execute(X)
-        return Program.reward_function(y, y_hat)
-
 
     @cached_property
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
 
         return Program.complexity_penalty(self.traversal)
+
+
+    @cached_property
+    def base_r(self):
+        """Evaluates and returns the base reward of the program"""
+
+        y_hat = self.execute(Program.X_train)
+        return Program.reward_function(Program.y_train, y_hat)
 
 
     @cached_property
