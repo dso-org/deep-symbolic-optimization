@@ -31,7 +31,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
-          verbose=True, summary=True, output_file=None):
+          verbose=True, summary=True, output_file=None, b_jumpstart=True):
     """
     Executes the main training loop.
 
@@ -89,6 +89,10 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     output_file : str, optional
         Filename to write results for each iteration.
 
+    b_jumpstart : bool, optional
+        Whether baseline start at average reward for the first iteration. If
+        False, it starts at 0.0.
+
     Returns
     -------
     result : dict
@@ -139,7 +143,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     prev_r_best = -np.inf
     base_r_best = -np.inf
     prev_base_r_best = -np.inf
-    b = None # Baseline used for control variates
+    b = None if b_jumpstart else 0.0 # Baseline used for control variates
     for step in range(n_epochs):
 
         # Sample batch of expressions from controller

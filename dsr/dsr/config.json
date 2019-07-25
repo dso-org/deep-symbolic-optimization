@@ -19,6 +19,7 @@
     "alpha" : 0.1,
     "epsilon" : 0.1,
     "verbose" : true,
+    "b_jumpstart" : true,
     "num_cores" : 1,
     "summary" : false,
     "output_file" : "output.csv"

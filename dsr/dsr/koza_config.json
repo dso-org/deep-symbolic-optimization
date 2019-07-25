@@ -18,6 +18,7 @@
     "const_params" : {},
     "alpha" : 0.1,
     "epsilon" : 0.1,
+    "b_jumpstart" : true,
     "num_cores" : 1,
     "verbose" : true,    
     "summary" : false,
