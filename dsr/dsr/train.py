@@ -140,9 +140,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     # Main training loop
     # max_count = 1    
     r_best = -np.inf
-    prev_r_best = -np.inf
     base_r_best = -np.inf
-    prev_base_r_best = -np.inf
+    prev_r_best = None
+    prev_base_r_best = None
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
     for step in range(n_epochs):
 
@@ -233,10 +233,10 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         # Update new best expression
         new_r_best = False
         new_base_r_best = False
-        if r_max > prev_r_best:
+        if prev_r_best is None or r_max > prev_r_best:
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
-        if base_r_max > prev_base_r_best:
+        if prev_base_r_best is None or base_r_max > prev_base_r_best:
             new_base_r_best = True
             p_base_r_best = programs[np.argmax(base_r)]
         prev_r_best = r_best
