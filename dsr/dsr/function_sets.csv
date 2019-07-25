@@ -1,6 +1,6 @@
 name,function_set
 Koza,"add,sub,mul,div,sin,cos,exp,log"
-Korns,"add,sub,mul,div,sin,cos,exp,log,n3,n4,sqrt,tan,tanh,const"
+Korns,"add,sub,mul,div,sin,cos,exp,log,n2,n3,sqrt,tan,tanh,const"
 Keijzer,"add,mul,inv,neg,sqrt,const"
 Vladislavleva-A,"add,sub,mul,div,n2,const"
 Vladislavleva-B,"add,sub,mul,div,n2,exp,expneg,const"
