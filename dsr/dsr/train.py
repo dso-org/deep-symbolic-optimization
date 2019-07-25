@@ -196,7 +196,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             base_r = base_r[cutoff]
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
-        r = np.clip(r, -1e3, np.inf)
+        if reward == "neg_mse":
+            r = np.clip(r, -1e6, np.inf)
 
         # Compute baseline (EWMA of average reward)
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
