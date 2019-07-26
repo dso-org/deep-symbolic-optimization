@@ -54,6 +54,9 @@ class Controller(object):
     ppo_n_iters : int
         Number of optimization iterations for PPO.
 
+    ppo_n_mb : int
+        Number of minibatches per optimization iteration for PPO.
+
     embedding : bool
         Embed each observation?
 
@@ -65,12 +68,13 @@ class Controller(object):
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
                  observe_sibling=True, summary=True, constrain_const=True,
                  constrain_trig=True, ppo=False, ppo_clip_ratio=0.2,
-                 ppo_n_iters=10, embedding=False, embedding_size=4):
+                 ppo_n_iters=10, ppo_n_mb=4, embedding=False, embedding_size=4):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
         self.logits = []
         self.summary = summary
+        self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
         # Hyperparameters
         self.entropy_weight = entropy_weight
@@ -81,6 +85,7 @@ class Controller(object):
         self.constrain_trig = constrain_trig
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
+        self.ppo_n_mb = ppo_n_mb
 
         # Buffers from previous batch
         self.prev_parents = []
@@ -97,6 +102,9 @@ class Controller(object):
         self.parents_ph = []
         self.siblings_ph = []
         self.priors_ph = []
+        self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
+        self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
+        self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")
 
         # Parameter assertions
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
@@ -106,10 +114,6 @@ class Controller(object):
                                              self.constrain_const])
         self.compute_prior = any([self.constrain_const,
                                   self.constrain_trig])
-
-        self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
-        self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
-        self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -371,7 +375,7 @@ class Controller(object):
     #     return self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
 
 
-    def train_step(self, r, b, actions, actions_mask, indices):
+    def train_step(self, r, b, actions, actions_mask, i_mask):
         """Computes loss, trains model, and returns summaries."""
 
         feed_dict = {self.r : r,
@@ -380,12 +384,12 @@ class Controller(object):
                      self.batch_size : actions.shape[0]}
 
         # Select the corresponding subsets for parents, siblings, and priors
-        if indices is not None:
+        if i_mask is not None:
             if self.compute_parents_siblings:
-                self.prev_parents = self.prev_parents[:, indices]
-                self.prev_siblings = self.prev_siblings[:, indices]
+                self.prev_parents = self.prev_parents[:, i_mask]
+                self.prev_siblings = self.prev_siblings[:, i_mask]
             if self.compute_prior:
-                self.prev_priors = self.prev_priors[:, indices, :]
+                self.prev_priors = self.prev_priors[:, i_mask, :]
         
         # Zip along trajectory axis
         feed_dict.update(zip(self.actions_ph, actions.T))
@@ -396,11 +400,26 @@ class Controller(object):
         if self.ppo:
             # Compute old_neglogp to be used for training
             old_neglogp = self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
+
+            # Perform multiple epochs of minibatch training
             feed_dict[self.old_neglogp_ph] = old_neglogp
-            for i in range(self.ppo_n_iters):
-                _ = self.sess.run([self.train_op], feed_dict=feed_dict)
-                # kl, cf, _ = self.sess.run([self.sample_kl, self.clip_fraction, self.train_op], feed_dict=feed_dict)
-                # print("i", i, "KL", kl, "CF", cf)
+            indices = np.arange(len(r))
+            for epoch in range(self.ppo_n_iters):
+                self.rng.shuffle(indices)
+                minibatches = np.array_split(indices, self.ppo_n_mb)
+                for i, mb in enumerate(minibatches):
+                    mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size, self.actions_mask]}
+                    mb_feed_dict.update({
+                        self.baseline : b,
+                        self.actions_mask : actions_mask[:, mb],
+                        self.batch_size : len(mb)
+                        })
+
+                    _ = self.sess.run([self.train_op], feed_dict=mb_feed_dict)
+
+                    # Diagnostics
+                    # kl, cf, _ = self.sess.run([self.sample_kl, self.clip_fraction, self.train_op], feed_dict=mb_feed_dict)
+                    # print("epoch", epoch, "i", i, "KL", kl, "CF", cf)
 
         else:
             _ = self.sess.run([self.train_op], feed_dict=feed_dict)

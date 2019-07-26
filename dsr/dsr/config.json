@@ -38,6 +38,7 @@
     "ppo" : false,
     "ppo_clip_ratio" : 0.2,
     "ppo_n_iters" : 10,
+    "ppo_n_mb" : 4,
     "embedding" : false,
     "embedding_size" : 4
 },
