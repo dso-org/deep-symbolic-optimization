@@ -87,7 +87,7 @@ class Dataset(object):
                 if step > stop - start:
                     n = step
                 else:
-                    n = int((stop - start)/step)
+                    n = int((stop - start)/step) + 1
                 feature = np.linspace(start=start, stop=stop, num=n, endpoint=True)
             else:
                 raise ValueError("Did not recognize specification for {}: {}.".format(input_var, spec[input_var]))
