@@ -120,7 +120,8 @@ class Program(object):
     binary_tokens = None    # Tokens corresponding to binary operators
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
-    arities_numba = None    # Numba Dict of arities for each token
+    inverse_tokens = None   # Dict of token to inverse tokens
+    arities_numba = None    # Numba Dict of token to arity
     parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
 
 
@@ -363,6 +364,17 @@ class Program(object):
         Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
         Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
         Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], _Function) and Program.library[t].name in trig_names], dtype=np.int32)
+
+        inverse_tokens = {
+            "inv" : "inv",
+            "neg" : "neg",
+            "exp" : "log",
+            "log" : "exp",
+            "sqrt" : "n2",
+            "n2" : "sqrt"
+        }
+        token_from_name = {v.name : k for k,v in Program.library.items() if isinstance(v, _Function)}
+        Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name}
 
         print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
 

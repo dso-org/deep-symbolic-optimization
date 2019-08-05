@@ -45,6 +45,9 @@ class Controller(object):
     constrain_trig : bool
         Prevent trig functions with trig function ancestors?
 
+    constrain_inv : bool
+        Prevent unary function with inverse unary function parent?
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -67,8 +70,9 @@ class Controller(object):
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
                  observe_sibling=True, summary=True, constrain_const=True,
-                 constrain_trig=True, ppo=False, ppo_clip_ratio=0.2,
-                 ppo_n_iters=10, ppo_n_mb=4, embedding=False, embedding_size=4):
+                 constrain_trig=True, constrain_inv=True, embedding=False,
+                 embedding_size=4, ppo=False, ppo_clip_ratio=0.2,
+                 ppo_n_iters=10, ppo_n_mb=4):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -83,6 +87,7 @@ class Controller(object):
         self.observe_sibling = observe_sibling
         self.constrain_const = constrain_const and "const" in Program.library
         self.constrain_trig = constrain_trig
+        self.constrain_inv = constrain_inv
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -348,6 +353,12 @@ class Controller(object):
                 if self.constrain_trig:
                     constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
                     prior += make_prior(constraints, Program.trig_tokens, Program.L)
+                if self.constrain_inv:
+                    for p, c in Program.inverse_tokens.items():
+                        # No need to compute parents because only unary operators are constrained
+                        # by their inverse, and action == parent for all unary operators
+                        constraints = action == p
+                        prior += make_prior(constraints, [c], Program.L)
                 feed_dict[self.priors_ph[i]] = prior
                 priors.append(prior)
 
