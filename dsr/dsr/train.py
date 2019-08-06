@@ -280,6 +280,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             # "p_base_r_best_traversal" : repr(p_base_r_best),
             "r" : p.r,
             "base_r" : p.base_r,
+            "r_test" : p.r_test,
+            "base_r_test" : p.base_r_test,
             "expression" : repr(p.sympy_expr),
             "traversal" : repr(p)
             }
@@ -302,8 +304,7 @@ def main():
     config_controller = config["controller"]    # Controller hyperparameters
 
     # Define the dataset and library
-    dataset = Dataset(**config_dataset)
-    Program.set_training_data(dataset.X_train, dataset.y_train)
+    Program.set_training_data(dataset.X_train, dataset.y_train, dataset.X_test, dataset.y_test)
     Program.set_library(dataset.function_set, dataset.n_input_var)
     print("Ground truth expression:\n{}".format(indent(dataset.pretty(), '\t')))
 

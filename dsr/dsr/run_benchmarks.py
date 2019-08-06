@@ -34,7 +34,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     # Define the dataset and library
     dataset = get_dataset(name, config_dataset)
     Program.clear_cache()
-    Program.set_training_data(dataset.X_train, dataset.y_train)
+    Program.set_training_data(dataset.X_train, dataset.y_train, dataset.X_test, dataset.y_test)
     Program.set_library(dataset.function_set, dataset.n_input_var)
 
     tf.reset_default_graph()
@@ -44,9 +44,10 @@ def train_dsr(name, config_dataset, config_controller, config_training):
         controller = Controller(sess, summary=config_training["summary"], **config_controller)
 
         # Train the controller
-        result = learn(sess, controller, **config_training) # Reward, expression, traversal
+        result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
         result["name"] = name
         result["t"] = time.time() - start
+
         return result
 
 
@@ -110,10 +111,21 @@ def train_gp(name, logdir, config_dataset, config_gp):
     except:
         expression = "N/A"
 
+    # Compute r and base_r on test set
+    if p is not None:
+        p.raw_fitness_ = p.raw_fitness(X=dataset.X_test, y=dataset.y_test, sample_weight=None) # Must override p.raw_fitness_ because p.fitness() uses it in its calculation
+        base_r_test = p.raw_fitness_
+        r_test = p.fitness(parsimony_coefficient=gp.parsimony_coefficient)
+    else:
+        base_r_test = "N/A"
+        r_test = "N/A"
+
     result = {
             "name" : name,
             "r" : r,
             "base_r" : base_r,
+            "r_test" : r_test,
+            "base_r_test" : base_r_test,
             "expression" : expression,
             "traversal" : str_p,
             "t" : time.time() - start
@@ -208,7 +220,7 @@ def main(config_template, method, output_filename, num_cores,
         work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp.copy())
 
     # Farm out the work
-    columns = ["name", "t", "base_r", "r", "expression", "traversal"]
+    columns = ["name", "t", "base_r", "r", "base_r_test", "r_test", "expression", "traversal"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)    

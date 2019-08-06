@@ -240,11 +240,13 @@ class Program(object):
 
 
     @classmethod
-    def set_training_data(cls, X_train, y_train):
-        """Sets the class' training data"""
+    def set_training_data(cls, X_train, y_train, X_test, y_test):
+        """Sets the class' training and testing data"""
 
         cls.X_train = X_train
         cls.y_train = y_train
+        cls.X_test = X_test
+        cls.y_test = y_test
 
 
     @classmethod
@@ -396,17 +398,35 @@ class Program(object):
 
     @cached_property
     def base_r(self):
-        """Evaluates and returns the base reward of the program"""
+        """Evaluates and returns the base reward of the program on the training
+        set"""
 
         y_hat = self.execute(Program.X_train)
         return Program.reward_function(Program.y_train, y_hat)
 
 
     @cached_property
+    def base_r_test(self):
+        """Evaluates and returns the base reward of the program on the test
+        set"""
+
+        y_hat = self.execute(Program.X_test)
+        return Program.reward_function(Program.y_test, y_hat)
+
+
+    @cached_property
     def r(self):
-        """Evaluates and returns the reward of the program"""
+        """Evaluates and returns the reward of the program on the training
+        set"""
 
         return self.base_r - self.complexity
+
+
+    @cached_property
+    def r_test(self):
+        """Evaluates and returns the reward of the program on the test set"""
+
+        return self.base_r_test - self.complexity
 
 
     @cached_property
