@@ -374,7 +374,7 @@ class Program(object):
             "n2" : "sqrt"
         }
         token_from_name = {v.name : k for k,v in Program.library.items() if isinstance(v, _Function)}
-        Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name}
+        Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
         print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
 
