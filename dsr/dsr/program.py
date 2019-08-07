@@ -261,15 +261,33 @@ class Program(object):
     def set_reward_function(cls, name, *params):
         """Sets the class' reward function"""
 
+        if "nmse" in name:
+            var_y = np.var(Program.y_train)
+            print("Variance in y_train:", var_y)
+
         all_functions = {
             # Negative mean squared error
             # Range: [-inf, 0]
+            # Value = -var(y) when y_hat == mean(y)
             "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
+                            0),
+
+            # Negative normalized mean squared error
+            # Range: [-inf, 0]
+            # Value = -1 when y_hat == mean(y)
+            "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
                             0),
 
             # (Protected) inverse mean squared error
             # Range: [0, 1]
+            # Value = 1/(1 + var(y)) when y_hat == mean(y)
             "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
+                            0),
+
+            # (Protected) inverse normalized mean squared error
+            # Range: [0, 1]
+            # Value = 0.5 when y_hat == mean(y)
+            "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
                             0),
 
             # Fraction of predicted points within p0*abs(y) + p1 band of the true value
