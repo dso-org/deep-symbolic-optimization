@@ -305,6 +305,7 @@ def main():
     config_controller = config["controller"]    # Controller hyperparameters
 
     # Define the dataset and library
+    dataset = Dataset(**config_dataset)
     Program.set_training_data(dataset.X_train, dataset.y_train, dataset.X_test, dataset.y_test)
     Program.set_library(dataset.function_set, dataset.n_input_var)
     print("Ground truth expression:\n{}".format(indent(dataset.pretty(), '\t')))
