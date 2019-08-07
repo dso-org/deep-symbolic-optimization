@@ -31,7 +31,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     start = time.time()
 
     # Rename the output file
-    config_training["output_file"] = name + ".csv"
+    config_training["output_file"] = "dsr_{}_{}}.csv".format(name, seed)
 
     # Define the dataset and library
     dataset = get_dataset(name, config_dataset)
@@ -98,7 +98,7 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
               }
     df = df.rename(columns=rename)
     df["base_r_best"] = df["base_r_max"].cummin()
-    df.to_csv(os.path.join(logdir, name + "_gp.csv"))
+    df.to_csv(os.path.join(logdir, "gp_{}_{}.csv".format(name, seed)))
 
     # Retrieve best program
     # gplearn does not store the best overall program, so the best may be N/A
