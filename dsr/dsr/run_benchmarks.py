@@ -131,11 +131,11 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     else:
         base_r_test = "N/A"
         r_test = "N/A"
-        nmse_test = "N/A"
+        nmse = "N/A"
 
     result = {
             "name" : name,
-            "nmse_test" : nmse,
+            "nmse" : nmse,
             "r" : r,
             "base_r" : base_r,
             "r_test" : r_test,
