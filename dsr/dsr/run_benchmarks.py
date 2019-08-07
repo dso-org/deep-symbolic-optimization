@@ -15,8 +15,10 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 
 
-def train_dsr(name, config_dataset, config_controller, config_training):
+def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
+
+    name, seed = name_and_seed
 
     try:
         import tensorflow as tf
@@ -38,6 +40,7 @@ def train_dsr(name, config_dataset, config_controller, config_training):
     Program.set_library(dataset.function_set, dataset.n_input_var)
 
     tf.reset_default_graph()
+    tf.set_random_seed(seed)
     with tf.Session() as sess:        
 
         # Instantiate the controller
@@ -48,11 +51,15 @@ def train_dsr(name, config_dataset, config_controller, config_training):
         result["name"] = name
         result["t"] = time.time() - start
 
+        result["seed"] = seed
+
         return result
 
 
-def train_gp(name, logdir, config_dataset, config_gp):
+def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
+
+    name, seed = name_and_seed
 
     start = time.time()
 
@@ -66,6 +73,7 @@ def train_gp(name, logdir, config_dataset, config_gp):
     config_gp["function_set"] = dataset.function_set.copy()
     if "const" in config_gp["function_set"]:
         config_gp["function_set"].remove("const")
+    config_gp["random_state"] = seed
     # config_gp["verbose"] = 0 # Turn off printing
     
     # Parameter assertions
@@ -127,14 +135,15 @@ def train_gp(name, logdir, config_dataset, config_gp):
 
     result = {
             "name" : name,
-            "nmse_test" : nrmse,
+            "nmse_test" : nmse,
             "r" : r,
             "base_r" : base_r,
             "r_test" : r_test,
             "base_r_test" : base_r_test,
             "expression" : expression,
             "traversal" : str_p,
-            "t" : time.time() - start
+            "t" : time.time() - start,
+            "seed" : seed
     }
     return result
 
@@ -150,13 +159,15 @@ def get_dataset(name, config_dataset):
 @click.command()
 @click.argument('config_template', default="config.json")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
+@click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
+@click.option('--seed_shift', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
 @click.option('--exclude_fp_constants', is_flag=True, help="Exclude benchmark expressions containing floating point constants")
 @click.option('--exclude_int_constants', is_flag=True, help="Exclude benchmark expressions containing integer constants")
 @click.option('--exclude', multiple=True, type=str, help="Exclude benchmark expressions containing these names")
 @click.option('--only', multiple=True, type=str, help="Only include benchmark expressions containing these names (overrides other exclusions)")
-def main(config_template, method, output_filename, num_cores,
+def main(config_template, method, mc, output_filename, num_cores, seed_shift,
          exclude_fp_constants, exclude_int_constants, exclude, only):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
     
@@ -199,6 +210,10 @@ def main(config_template, method, output_filename, num_cores,
                 keep = [True if included_name in n else k for k,n in zip(keep, names)]
 
     names = [n for k,n in zip(keep, names) if k]
+    unique_names = names.copy()
+    names *= mc
+    seeds = (np.arange(mc) + seed_shift).repeat(len(unique_names)).tolist()
+    names_and_seeds = list(zip(names, seeds)) # E.g. [("Koza-1", 0), ("Nguyen-1", 0), ("Koza-2", 1), ("Nguyen-1", 1)]
 
     if num_cores > len(names):
         print("Setting 'num_cores' to {} for batch because there are only {} expressions.".format(len(names), len(names)))
@@ -217,7 +232,7 @@ def main(config_template, method, output_filename, num_cores,
         if config_gp["n_jobs"] != 1 and num_cores > 1:
             print("Setting 'n_jobs' to 1 for training to avoid nested child processes.")
             config_gp["n_jobs"] = 1
-    print("Running {} on benchmarks {}".format(method, names))
+    print("Running {} for n={} on benchmarks {}".format(method, mc, unique_names))
 
     # Define the work
     if method == "dsr":
@@ -226,16 +241,16 @@ def main(config_template, method, output_filename, num_cores,
         work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp.copy())
 
     # Farm out the work
-    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "expression", "traversal", "t"]
+    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "expression", "traversal", "t", "seed"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)    
-        for result in pool.imap_unordered(work, names):
+        for result in pool.imap_unordered(work, names_and_seeds):
             pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
-            print("Completed {} in {:.0f} s".format(result["name"], result["t"]))
+            print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
     else:
-        for name in names:
-            result = work(name)
+        for name_and_seed in names_and_seeds:
+            result = work(name_and_seed)
             pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
 
 

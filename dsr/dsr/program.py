@@ -263,7 +263,6 @@ class Program(object):
 
         if "nmse" in name:
             var_y = np.var(Program.y_train)
-            print("Variance in y_train:", var_y)
 
         all_functions = {
             # Negative mean squared error
