@@ -278,6 +278,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             # "p_base_r_best.base_r" : p_base_r_best.base_r
             # "p_base_r_best_expression" : repr(p_base_r_best.sympy_expr),
             # "p_base_r_best_traversal" : repr(p_base_r_best),
+            "nmse" : p.nmse, # Final performance metric
             "r" : p.r,
             "base_r" : p.base_r,
             "r_test" : p.r_test,

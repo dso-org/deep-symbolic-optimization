@@ -116,12 +116,18 @@ def train_gp(name, logdir, config_dataset, config_gp):
         p.raw_fitness_ = p.raw_fitness(X=dataset.X_test, y=dataset.y_test, sample_weight=None) # Must override p.raw_fitness_ because p.fitness() uses it in its calculation
         base_r_test = p.raw_fitness_
         r_test = p.fitness(parsimony_coefficient=gp.parsimony_coefficient)
+
+        y_hat_test = p.execute(dataset.X_test)
+        var_y = np.var(dataset.y_train) # Always normalize using training data
+        nmse = np.mean((dataset.y_test - y_hat_test)**2) / var_y
     else:
         base_r_test = "N/A"
         r_test = "N/A"
+        nmse_test = "N/A"
 
     result = {
             "name" : name,
+            "nmse_test" : nrmse,
             "r" : r,
             "base_r" : base_r,
             "r_test" : r_test,
@@ -220,7 +226,7 @@ def main(config_template, method, output_filename, num_cores,
         work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp.copy())
 
     # Farm out the work
-    columns = ["name", "t", "base_r", "r", "base_r_test", "r_test", "expression", "traversal"]
+    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "expression", "traversal", "t"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)    

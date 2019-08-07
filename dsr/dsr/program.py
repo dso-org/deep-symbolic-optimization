@@ -448,6 +448,16 @@ class Program(object):
 
 
     @cached_property
+    def nmse(self):
+        """Evaluates and returns the normalized mean squared error of the
+        program on the test set (used as final performance metric)"""
+
+        y_hat = self.execute(Program.X_test)
+        var_y = np.var(Program.y_train) # Always use training data for variance
+        return np.mean((Program.y_test - y_hat)**2) / var_y
+
+
+    @cached_property
     def sympy_expr(self):
         """
         Returns the attribute self.sympy_expr.
