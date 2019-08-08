@@ -85,7 +85,7 @@ class Controller(object):
         self.max_length = max_length
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.constrain_const = constrain_const and "const" in Program.library
+        self.constrain_const = constrain_const and "const" in Program.library.values()
         self.constrain_trig = constrain_trig
         self.constrain_inv = constrain_inv
         self.ppo = ppo
