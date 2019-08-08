@@ -209,7 +209,7 @@ class Program(object):
         def f(consts):
             self.set_constants(consts)
             y_hat = self.execute(Program.X_train)
-            obj = np.mean((Program.y_train - y_hat))
+            obj = np.mean((Program.y_train - y_hat)**2)
             return obj
         
         if len(self.const_pos) > 0:

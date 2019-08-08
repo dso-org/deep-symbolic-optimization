@@ -31,7 +31,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     start = time.time()
 
     # Rename the output file
-    config_training["output_file"] = "dsr_{}_{}}.csv".format(name, seed)
+    config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
 
     # Define the dataset and library
     dataset = get_dataset(name, config_dataset)
