@@ -36,6 +36,7 @@
     "constrain_const" : true,
     "constrain_trig" : true,
     "constrain_inv" : true,
+    "constrain_max_len" : true,
     "ppo" : false,
     "ppo_clip_ratio" : 0.2,
     "ppo_n_iters" : 10,

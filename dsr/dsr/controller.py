@@ -48,6 +48,11 @@ class Controller(object):
     constrain_inv : bool
         Prevent unary function with inverse unary function parent?
 
+    constrain_max_len : bool
+        Prevent unary/binary functions that would cause exceeding max_length? If
+        False, sampling ends after max_length and danling nodes are filled in
+        with x1.
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -70,9 +75,10 @@ class Controller(object):
     def __init__(self, sess, num_units, max_length, learning_rate=0.001,
                  entropy_weight=0.0, observe_action=True, observe_parent=True,
                  observe_sibling=True, summary=True, constrain_const=True,
-                 constrain_trig=True, constrain_inv=True, embedding=False,
-                 embedding_size=4, ppo=False, ppo_clip_ratio=0.2,
-                 ppo_n_iters=10, ppo_n_mb=4):
+                 constrain_trig=True, constrain_inv=True,
+                 constrain_max_len=True,
+                 embedding=False, embedding_size=4,
+                 ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4):
 
         self.sess = sess
         self.actions = [] # Actions sampled from the controller
@@ -88,6 +94,7 @@ class Controller(object):
         self.constrain_const = constrain_const and "const" in Program.library.values()
         self.constrain_trig = constrain_trig
         self.constrain_inv = constrain_inv
+        self.constrain_max_len = constrain_max_len
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -113,12 +120,15 @@ class Controller(object):
 
         # Parameter assertions
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
+        assert max_length >= 3, "Must have max length at least 3."
 
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
                                              self.constrain_const])
         self.compute_prior = any([self.constrain_const,
-                                  self.constrain_trig])
+                                  self.constrain_trig,
+                                  self.constrain_inv,
+                                  self.constrain_max_len])
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -323,8 +333,11 @@ class Controller(object):
         parents = []
         siblings = []
         priors = []
+        if self.constrain_max_len:
+            dangling = np.ones(shape=(n,), dtype=np.int32)
         feed_dict = {self.batch_size : n}
         for i in range(self.max_length):
+
             action = self.sess.run(self.actions[i], feed_dict=feed_dict) # Shape: (n,)
             actions.append(action)
             feed_dict[self.actions_ph[i]] = action
@@ -359,6 +372,21 @@ class Controller(object):
                         # by their inverse, and action == parent for all unary operators
                         constraints = action == p
                         prior += make_prior(constraints, [c], Program.L)
+
+                if self.constrain_max_len:
+                    # Fast dictionary lookup of arities for each element in action
+                    unique, inv = np.unique(action, return_inverse=True)
+                    dangling += np.array([Program.arities[t] - 1 for t in unique])[inv]
+                    remaining = self.max_length - (i+1)
+                    assert sum(dangling > remaining) == 0
+
+                    # Never need to constrain max length for first half of expression
+                    if (i + 2) >= self.max_length // 2:
+                        constraints = dangling >= remaining - 1 # Constrain binary
+                        prior += make_prior(constraints, Program.binary_tokens, Program.L)
+                        constraints = dangling == remaining # Constrain unary
+                        prior += make_prior(constraints, Program.unary_tokens, Program.L)
+
                 feed_dict[self.priors_ph[i]] = prior
                 priors.append(prior)
 
