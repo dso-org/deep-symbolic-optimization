@@ -97,7 +97,8 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     df = pd.DataFrame(data=gp.run_details_)
     rename = {"best_fitness" : "base_r_max",
               "average_fitness" : "base_r_avg",
-              "generation_time" : "t"
+              "generation_time" : "t",
+              "average_length" : "l_avg"
               }
     df = df.rename(columns=rename)
     df["base_r_best"] = df["base_r_max"].cummin()

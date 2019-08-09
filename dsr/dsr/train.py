@@ -115,7 +115,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,baseline\n")
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,baseline\n")
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -167,6 +167,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         # Retrieve the rewards
         r = np.array([p.r for p in programs])
         base_r = np.array([p.base_r for p in programs])
+        l = np.array([len(p.traversal) for p in programs])
+        print(np.min(l), np.mean(l), np.max(l))
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
@@ -175,6 +177,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         r_max = np.max(r)
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
+        l_avg_full = np.mean(l)
 
         # # Show new commonest expression
         # # Note: This should go before epsilon heuristic
@@ -193,6 +196,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             actions = actions[cutoff, :]
             programs = list(compress(programs, cutoff))
             r = r[cutoff]
+            l = l[cutoff]
             base_r = base_r[cutoff]
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
@@ -206,6 +210,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         if output_file is not None:            
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
+            l_avg_sub = np.mean(l)
             stats = np.array([[base_r_best,
                              base_r_max,
                              base_r_avg_full,
@@ -214,6 +219,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
                              r_max,
                              r_avg_full,
                              r_avg_sub,
+                             l_avg_full,
+                             l_avg_sub,
                              b]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
