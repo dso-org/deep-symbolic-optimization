@@ -2,6 +2,7 @@ import os
 import json
 import time
 import multiprocessing
+from copy import deepcopy
 from functools import partial
 
 import click
@@ -58,6 +59,8 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
 
 def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
+
+    config_gp = deepcopy(config_gp) # Create a copy since it might be edited
 
     name, seed = name_and_seed
 
@@ -238,7 +241,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     if method == "dsr":
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp.copy())
+        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
 
     # Farm out the work
     columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "expression", "traversal", "t", "seed"]
