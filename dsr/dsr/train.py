@@ -168,7 +168,6 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         r = np.array([p.r for p in programs])
         base_r = np.array([p.base_r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
-        print(np.min(l), np.mean(l), np.max(l))
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)

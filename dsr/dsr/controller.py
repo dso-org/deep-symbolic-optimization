@@ -21,7 +21,11 @@ class Controller(object):
     num_units : int
         Number of LSTM units in the RNN's single layer.
 
-    max_length : int
+    min_length : int (>= 1) or None
+        Minimum length of a sampled traversal when constrain_min_len=True. If
+        None or constrain_min_len=False, expressions have no minimum length.
+
+    max_length : int (>= 3)
         Maximum length of a sampled traversal.
 
     learning_rate : float
@@ -48,10 +52,14 @@ class Controller(object):
     constrain_inv : bool
         Prevent unary function with inverse unary function parent?
 
+    constrain_min_len : bool
+        Prevent terminals that would cause the expression to be shorter than
+        min_length? If False, only trivial expressions (length 1) are prevented.
+
     constrain_max_len : bool
-        Prevent unary/binary functions that would cause exceeding max_length? If
-        False, sampling ends after max_length and danling nodes are filled in
-        with x1.
+        Prevent unary/binary functions that would cause the expression to exceed
+        max_length? If False, sampling ends after max_length and dangling nodes
+        are filled in with x1's.
 
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
@@ -72,12 +80,12 @@ class Controller(object):
         Size of embedding for each observation if embedding=True.
     """
 
-    def __init__(self, sess, num_units, max_length, learning_rate=0.001,
-                 entropy_weight=0.0, observe_action=True, observe_parent=True,
-                 observe_sibling=True, summary=True, constrain_const=True,
-                 constrain_trig=True, constrain_inv=True,
-                 constrain_max_len=True,
-                 embedding=False, embedding_size=4,
+    def __init__(self, sess, num_units=32, min_length=2, max_length=30,
+                 learning_rate=0.001, entropy_weight=0.0,
+                 observe_action=True, observe_parent=True, observe_sibling=True,
+                 constrain_const=True, constrain_trig=True, constrain_inv=True,
+                 constrain_min_len=True, constrain_max_len=True,
+                 embedding=False, embedding_size=4, summary=True,
                  ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4):
 
         self.sess = sess
@@ -88,12 +96,14 @@ class Controller(object):
 
         # Hyperparameters
         self.entropy_weight = entropy_weight
+        self.min_length = min_length
         self.max_length = max_length
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.constrain_const = constrain_const and "const" in Program.library.values()
         self.constrain_trig = constrain_trig
         self.constrain_inv = constrain_inv
+        self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -118,9 +128,18 @@ class Controller(object):
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
         self.actions_mask = tf.placeholder(dtype=tf.float32, shape=(max_length, None), name="actions_mask")
 
-        # Parameter assertions
+        # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
         assert max_length >= 3, "Must have max length at least 3."
+
+        if min_length is None:
+            assert not constrain_min_len, "Cannot constrain min length when min_length=None"
+        else:
+            assert min_length >= 1, "Must have min length at least 1."
+            assert max_length >= min_length, "Min length cannot exceed max length."
+            if not constrain_min_len:
+                print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
+                self.min_length = None
 
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
@@ -128,6 +147,7 @@ class Controller(object):
         self.compute_prior = any([self.constrain_const,
                                   self.constrain_trig,
                                   self.constrain_inv,
+                                  self.constrain_min_len,
                                   self.constrain_max_len])
 
         # Build controller RNN
@@ -198,10 +218,10 @@ class Controller(object):
                 cell_input = tf.broadcast_to(cell_input, input_dims) # Shape (?, 1, n_inputs)
 
             # Define prior on logits; currently only used to apply hard constraints
-            # First node must be nonterminal
             arities = np.array([Program.arities[i] for i in range(n_choices)])
             prior = np.zeros(len(arities), dtype=np.float32)
-            prior[arities == 0] = -np.inf
+            if self.min_length is not None and self.min_length > 1:
+                prior[arities == 0] = -np.inf
             prior = tf.constant(prior, dtype=tf.float32)
 
             for i in range(max_length):
@@ -333,8 +353,10 @@ class Controller(object):
         parents = []
         siblings = []
         priors = []
-        if self.constrain_max_len:
+        if self.constrain_max_len or (self.constrain_min_len and self.min_length > 1):
             dangling = np.ones(shape=(n,), dtype=np.int32)
+        else:
+            dangling = None
         feed_dict = {self.batch_size : n}
         for i in range(self.max_length):
 
@@ -373,19 +395,27 @@ class Controller(object):
                         constraints = action == p
                         prior += make_prior(constraints, [c], Program.L)
 
-                if self.constrain_max_len:
+                if dangling is not None:
                     # Fast dictionary lookup of arities for each element in action
                     unique, inv = np.unique(action, return_inverse=True)
                     dangling += np.array([Program.arities[t] - 1 for t in unique])[inv]
-                    remaining = self.max_length - (i+1)
-                    assert sum(dangling > remaining) == 0
 
-                    # Never need to constrain max length for first half of expression
-                    if (i + 2) >= self.max_length // 2:
-                        constraints = dangling >= remaining - 1 # Constrain binary
-                        prior += make_prior(constraints, Program.binary_tokens, Program.L)
-                        constraints = dangling == remaining # Constrain unary
-                        prior += make_prior(constraints, Program.unary_tokens, Program.L)
+                # Never need to constrain max length for first half of expression
+                if self.constrain_max_len and (i + 2) >= self.max_length // 2:
+                    remaining = self.max_length - (i + 1)
+                    if sum(dangling > remaining) != 0:
+                        print(i, np.max(dangling), remaining)
+                        exit()
+                    assert sum(dangling > remaining) == 0, print(dangling, remaining)
+                    constraints = dangling >= remaining - 1 # Constrain binary
+                    prior += make_prior(constraints, Program.binary_tokens, Program.L)
+                    constraints = dangling == remaining # Constrain unary
+                    prior += make_prior(constraints, Program.unary_tokens, Program.L)
+
+                # To constrain min length, check if dangling == 1 until selecting the (min_length)th token
+                if self.constrain_min_len and (i + 2) < self.min_length:
+                    constraints = dangling == 1 # Constrain terminals
+                    prior += make_prior(constraints, Program.terminal_tokens, Program.L)
 
                 feed_dict[self.priors_ph[i]] = prior
                 priors.append(prior)
