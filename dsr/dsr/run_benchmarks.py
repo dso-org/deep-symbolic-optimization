@@ -183,7 +183,7 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
         r_test = p.fitness(parsimony_coefficient=gp.parsimony_coefficient)
 
         y_hat_test = p.execute(dataset.X_test)
-        var_y = np.var(dataset.y_train) # Always normalize using training data
+        var_y = np.var(dataset.y_test)
         nmse = np.mean((dataset.y_test - y_hat_test)**2) / var_y
     else:
         base_r_test = "N/A"

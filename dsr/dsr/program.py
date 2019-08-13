@@ -452,7 +452,7 @@ class Program(object):
         program on the test set (used as final performance metric)"""
 
         y_hat = self.execute(Program.X_test)
-        var_y = np.var(Program.y_train) # Always use training data for variance
+        var_y = np.var(Program.y_test)
         return np.mean((Program.y_test - y_hat)**2) / var_y
 
 
