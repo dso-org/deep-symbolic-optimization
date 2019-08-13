@@ -3,4 +3,5 @@ numba
 sympy
 pandas
 click
+deap
 -e dsr

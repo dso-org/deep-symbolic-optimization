@@ -14,6 +14,7 @@ from gplearn.genetic import SymbolicRegressor
 
 from dsr.program import Program
 from dsr.dataset import Dataset
+from dsr.baselines import deap
 
 
 def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
@@ -55,6 +56,58 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
         result["seed"] = seed
 
         return result
+
+
+def train_deap(name_and_seed, logdir, config_dataset, config_deap):
+
+    name, seed = name_and_seed
+
+    start = time.time()
+
+    # Load the dataset
+    dataset = get_dataset(name, config_dataset)
+
+    # Fit the GP
+    gp = deap.GP(dataset=dataset, **config_deap)
+    p, logbook = gp.train()
+
+    # Retrieve results
+    r = base_r = p.fitness.values[0]
+    r_test = base_r_test = gp.eval_test(p)[0]
+    str_p = str(p)
+    nmse = gp.nrmse(p)
+
+    # Many failure cases right now for converting to SymPy expression...not high priority to fix
+    # To do: serialized program --> tree --> SymPy-compatible tree --> traversal --> SymPy expression
+    try:
+        expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
+    except:
+        expression = "N/A"
+
+    # Save run details
+    drop = ["gen", "nevals"]
+    df_fitness = pd.DataFrame(logbook.chapters["fitness"]).drop(drop, axis=1)
+    df_fitness = df_fitness.rename({"avg" : "fit_avg", "min" : "fit_min"}, axis=1)
+    df_fitness["fit_best"] = df_fitness["fit_min"].cummin()
+    df_len = pd.DataFrame(logbook.chapters["size"]).drop(drop, axis=1)
+    df_len = df_len.rename({"avg" : "l_avg"}, axis=1)
+    df = pd.concat([df_fitness, df_len], axis=1, sort=False)
+    df.to_csv(os.path.join(logdir, "deap_{}_{}.csv".format(name, seed)), index=False)
+
+    result = {
+        "name" : name,
+        "nmse" : nmse,
+        "r" : r,
+        "base_r" : base_r,
+        "r_test" : r_test,
+        "base_r_test" : base_r_test,
+        "expression" : expression,
+        "traversal" : str_p,
+        "t" : time.time() - start,
+        "seed" : seed
+    }
+
+    return result
 
 
 def train_gp(name_and_seed, logdir, config_dataset, config_gp):
@@ -102,7 +155,7 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
               }
     df = df.rename(columns=rename)
     df["base_r_best"] = df["base_r_max"].cummin()
-    df.to_csv(os.path.join(logdir, "gp_{}_{}.csv".format(name, seed)))
+    df.to_csv(os.path.join(logdir, "gp_{}_{}.csv".format(name, seed)), index=False)
 
     # Retrieve best program
     # gplearn does not store the best overall program, so the best may be N/A
@@ -162,7 +215,7 @@ def get_dataset(name, config_dataset):
 
 @click.command()
 @click.argument('config_template', default="config.json")
-@click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
+@click.option('--method', default="dsr", type=click.Choice(["dsr", "gp", "deap"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
@@ -182,7 +235,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     config_dataset = config["dataset"]          # Problem specification parameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
-    config_gp = config["gp"]                    # GP hyperparameters
+    config_gp = config["gp"]                    # gplearn GP hyperparameters
+    config_deap = config["deap"]                # deap GP hyperparameters
 
     # Create output directories
     if output_filename is None:
@@ -243,6 +297,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
+    elif method == "deap":
+        work = partial(train_deap, logdir=logdir, config_dataset=config_dataset, config_deap=config_deap)
 
     # Farm out the work
     columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "expression", "traversal", "t", "seed"]
