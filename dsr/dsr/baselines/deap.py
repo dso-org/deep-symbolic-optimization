@@ -98,15 +98,12 @@ class GP():
         pop = self.toolbox.population(n=self.population_size)
         hof = tools.HallOfFame(maxsize=1)
 
-        if self.verbose:
-            stats_fit = tools.Statistics(lambda p : p.fitness.values)
-            stats_fit.register("avg", np.mean)
-            stats_fit.register("min", np.min)
-            stats_size = tools.Statistics(len)
-            stats_size.register("avg", np.mean)
-            mstats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
-        else:
-            mstats = None
+        stats_fit = tools.Statistics(lambda p : p.fitness.values)
+        stats_fit.register("avg", np.mean)
+        stats_fit.register("min", np.min)
+        stats_size = tools.Statistics(len)
+        stats_size.register("avg", np.mean)
+        mstats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
         
         pop, logbook = self.algorithm(population=pop,
                                       toolbox=self.toolbox,
