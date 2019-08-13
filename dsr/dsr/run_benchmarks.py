@@ -61,6 +61,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
 def train_deap(name_and_seed, logdir, config_dataset, config_deap):
 
     name, seed = name_and_seed
+    config_deap["seed"] = seed
 
     start = time.time()
 
