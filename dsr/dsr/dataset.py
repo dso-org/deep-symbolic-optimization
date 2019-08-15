@@ -53,8 +53,10 @@ class Dataset(object):
         # Create X values
         train_spec = ast.literal_eval(row["train_spec"])
         test_spec = ast.literal_eval(row["test_spec"])
+        if test_spec is None:
+            test_spec = train_spec
         self.X_train = self.make_X(train_spec)
-        self.X_test = self.make_X(test_spec) if test_spec is not None else self.X_train.copy()
+        self.X_test = self.make_X(test_spec)
 
         # Compute y values
         self.y_train = self.numpy_expr(self.X_train)
