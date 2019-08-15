@@ -4,6 +4,7 @@ import time
 import multiprocessing
 from copy import deepcopy
 from functools import partial
+from pkg_resources import resource_filename
 
 import click
 import numpy as np
@@ -233,8 +234,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
-    config_dataset = config["dataset"]          # Problem specification parameters
-    config_training = config["training"]        # Training hyperparameters
+    config_dataset = config["dataset"]              # Problem specification parameters
+    config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
     if "gp" in config:
@@ -250,7 +251,9 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     output_filename = os.path.join(logdir, output_filename)
 
     # Load the benchmark names
-    df = pd.read_csv(config_dataset["file"], encoding="ISO-8859-1")
+    data_path = resource_filename("dsr", "data/")
+    benchmark_path = os.path.join(data_path, config_dataset["file"])
+    df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
 
     # Filter out expressions

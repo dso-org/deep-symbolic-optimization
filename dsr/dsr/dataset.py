@@ -2,6 +2,7 @@ import os
 import ast
 import itertools
 from textwrap import indent
+from pkg_resources import resource_filename
 
 import pandas as pd
 import numpy as np
@@ -22,7 +23,7 @@ class Dataset(object):
     Parameters
     ----------
     file : str
-        Filename of CSV with expressions.
+        Filename of CSV with benchmark expressions, contained in dsr/data.
 
     name : str
         Name of expression.
@@ -37,7 +38,9 @@ class Dataset(object):
     def __init__(self, file, name, seed=0, **kwargs):
 
         # Read in benchmark dataset information
-        df = pd.read_csv(file, index_col=0, encoding="ISO-8859-1")
+        data_path = resource_filename("dsr", "data/")
+        benchmark_path = os.path.join(data_path, file)
+        df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
         row = df.loc[name]
         self.n_input_var = row["variables"]
 
@@ -63,7 +66,7 @@ class Dataset(object):
         self.y_test = self.numpy_expr(self.X_test)
 
         # Create the function set (list of str)
-        function_set_path = os.path.join(os.path.dirname(file), "function_sets.csv")
+        function_set_path = os.path.join(data_path, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
         self.function_set = df.loc[row["function_set"]].tolist()[0].strip().split(',')
 
