@@ -235,9 +235,12 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
 
     config_dataset = config["dataset"]          # Problem specification parameters
     config_training = config["training"]        # Training hyperparameters
-    config_controller = config["controller"]    # Controller hyperparameters
-    config_gp = config["gp"]                    # gplearn GP hyperparameters
-    config_deap = config["deap"]                # deap GP hyperparameters
+    if "controller" in config:
+        config_controller = config["controller"]    # Controller hyperparameters
+    if "gp" in config:
+        config_gp = config["gp"]                    # gplearn GP hyperparameters
+    if "deap" in config:
+        config_deap = config["deap"]                # deap GP hyperparameters
 
     # Create output directories
     if output_filename is None:
@@ -251,7 +254,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     names = df["name"].to_list()
 
     # Filter out expressions
-    expressions = [parse_expr(e) for e in df["expression"]]    
+    expressions = [parse_expr(e) for e in df["sympy"]]
     if len(only) == 0:
         keep = [True]*len(expressions)
         if exclude_fp_constants:

@@ -8,10 +8,16 @@ import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import symbols, lambdify, pretty, srepr
 
+from dsr.functions import _function_map
+
 
 class Dataset(object):
     """
     Class used to generate X, y data from a named benchmark expression.
+
+    The numpy expression is used to evaluate the expression using any custom/
+    protected functions in _function_map. The sympy expression is only used for
+    printing, not function evaluation.
 
     Parameters
     ----------
@@ -21,9 +27,6 @@ class Dataset(object):
     name : str
         Name of expression.
 
-    extra_input_var : int, optional
-        Number of additional input variables.
-
     seed : int, optional
         Random number seed used to generate data.
 
@@ -31,21 +34,18 @@ class Dataset(object):
         Unused. Only included to soak up keyword arguments.
     """
 
-    def __init__(self, file, name, extra_input_var=0, seed=0, **kwargs):
+    def __init__(self, file, name, seed=0, **kwargs):
 
         # Read in benchmark dataset information
         df = pd.read_csv(file, index_col=0, encoding="ISO-8859-1")
         row = df.loc[name]
+        self.n_input_var = row["variables"]
 
-        # Create symbolic expression
-        self.expression = parse_expr(row["expression"]) # SymPy expression
-        self.n_input_var = max(row["variables"], *[int(str(x)[1:]) for x in self.expression.free_symbols]) + extra_input_var
-        self.input_vars = symbols(' '.join('x{}'.format(i+1) for i in range(self.n_input_var))) # Symbols for input variables
-        self.f = lambdify(self.input_vars, self.expression, modules=np) # Vectorized lambda function
-
-        # Characterize the expression
-        self.fp_constant = "Float" in srepr(self.expression)
-        self.int_constant = "Integer" in srepr(self.expression)
+        # Create symbolic expression        
+        self.sympy_expr = parse_expr(row["sympy"])
+        self.numpy_expr = self.make_numpy_expr(row["numpy"])
+        self.fp_constant = "Float" in srepr(self.sympy_expr)
+        self.int_constant = "Integer" in srepr(self.sympy_expr)        
 
         # Random number generator used for sampling X values
         self.rng = np.random.RandomState(seed) 
@@ -57,8 +57,8 @@ class Dataset(object):
         self.X_test = self.make_X(test_spec) if test_spec is not None else self.X_train.copy()
 
         # Compute y values
-        self.y_train = self.f(*self.X_train.T)
-        self.y_test = self.f(*self.X_test.T)
+        self.y_train = self.numpy_expr(self.X_train)
+        self.y_test = self.numpy_expr(self.X_test)
 
         # Create the function set (list of str)
         function_set_path = os.path.join(os.path.dirname(file), "function_sets.csv")
@@ -72,7 +72,7 @@ class Dataset(object):
         features = []
         for i in range(1, self.n_input_var + 1):
 
-            # Hierarchy: "all" --> "x{}".format(i) --> "x1" (i.e. when extra_input_var > 0)
+            # Hierarchy: "all" --> "x{}".format(i)
             input_var = "x{}".format(i)
             if "all" in spec:
                 input_var = "all"
@@ -103,12 +103,43 @@ class Dataset(object):
         return X
 
 
+    def make_numpy_expr(self, s):
+
+        # This isn't pretty, but unlike sympy's lambdify, this ensures we use
+        # our protected functions. Otherwise, some expressions may have large
+        # error even if the functional form is correct due to the training set
+        # not using protected functions.
+
+        # # Set protected functions
+        # for k in _function_map.keys():
+        #     exec("{} = _function_map['{}']".format(k, k))
+        # pi = np.pi
+        # ln = _function_map["log"]
+
+        # Replace function names
+        s = s.replace("ln(", "log(")
+        s = s.replace("pi", "np.pi")
+        s = s.replace("pow", "np.power")
+        for k in _function_map.keys():
+            s = s.replace(k + '(', "_function_map['{}'].function(".format(k))
+
+        # Replace variable names
+        for i in reversed(range(self.n_input_var)):
+            old = "x{}".format(i+1)
+            new = "x[:, {}]".format(i)
+            s = s.replace(old, new)
+
+        numpy_expr = lambda x : eval(s)
+
+        return numpy_expr
+
+
     def pretty(self):
-        return pretty(self.expression)
+        return pretty(self.sympy_expr)
 
 
     def __repr__(self):
-        return pretty(self.expression)
+        return pretty(self.sympy_expr)
 
 
 def __main__():
