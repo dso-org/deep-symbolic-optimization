@@ -261,7 +261,7 @@ class Program(object):
     def set_reward_function(cls, name, *params):
         """Sets the class' reward function"""
 
-        if "nmse" in name:
+        if "nmse" in name or "nrmse" in name:
             var_y = np.var(Program.y_train)
 
         all_functions = {
