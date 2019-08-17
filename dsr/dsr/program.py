@@ -277,6 +277,12 @@ class Program(object):
             "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
                             0),
 
+            # Negative normalized root mean squared error
+            # Range: [-inf, 0]
+            # Value = -1 when y_hat == mean(y)
+            "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
+                            0),
+
             # (Protected) inverse mean squared error
             # Range: [0, 1]
             # Value = 1/(1 + var(y)) when y_hat == mean(y)
@@ -287,6 +293,12 @@ class Program(object):
             # Range: [0, 1]
             # Value = 0.5 when y_hat == mean(y)
             "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
+                            0),
+
+            # (Protected) inverse normalized root mean squared error
+            # Range: [0, 1]
+            # Value = 0.5 when y_hat == mean(y)
+            "inv_rnmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
                             0),
 
             # Fraction of predicted points within p0*abs(y) + p1 band of the true value
