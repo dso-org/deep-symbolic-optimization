@@ -96,7 +96,6 @@ ablations = {
     },
 
     "other" : {
-        "full" : {},
         "vanilla_no_constraints_no_hierarchical" : {
             # Vanilla
             "controller:entropy_weight" : 0.0,
@@ -130,7 +129,8 @@ ablations = {
             "controller:min_length" : 1,
             "controller:constrain_min_len" : False,
             "controller:constrain_max_len" : False
-        }
+        },
+        "full" : {}
     }    
 }
 
@@ -172,7 +172,7 @@ def main():
 
             # Add the experiment to the study's run file
             with open(run_file, 'a') as f:
-                f.write("time python run_benchmarks.py ./{}/config.json --only=Nguyen --mc=10 --num_cores=16\n".format(path))
+                f.write("time python -m dsr.run_benchmarks ./{}/config.json --only=Nguyen --only=Burks --only=Meier --mc=10 --num_cores=16\n".format(path))
 
 
 if __name__ == "__main__":
