@@ -28,24 +28,30 @@ ablations = {
 
     "improvements" : {
         "vanilla_no_hierarchical" : {
+            # Vanilla
             "controller:entropy_weight" : 0.0,
-            "training:alpha" : 0.0,
-            "training:epsilon" : 1.0,
-            "training:complexity_weight" : 0.0
-        },
-        "vanilla_with_hierarchical" : {
-            "controller:entropy_weight" : 0.0,
+            "training:b_jumpstart" : False,
             "training:alpha" : 0.0,
             "training:epsilon" : 1.0,
             "training:complexity_weight" : 0.0,
+            # No hierarchical            
             "controller:observe_action" : True,
             "controller:observe_parent" : False,
             "controller:observe_sibling" : False
+        },
+        "vanilla_with_hierarchical" : {
+            # Vanilla
+            "controller:entropy_weight" : 0.0,
+            "training:b_jumpstart" : False,
+            "training:alpha" : 0.0,
+            "training:epsilon" : 1.0,
+            "training:complexity_weight" : 0.0
         },
         "no_entropy" : {
             "controller:entropy_weight" : 0.0
         },
         "no_baseline" : {
+            "training:b_jumpstart" : False,
             "training:alpha" : 0.0
         },
         "no_risk" : {
@@ -54,16 +60,6 @@ ablations = {
         "with_complexity" : {
             "training:complexity" : "length",
             "training:complexity_weight" : 0.00001
-        },
-        "no_hierarchical" : {
-            "controller:observe_action" : True,
-            "controller:observe_parent" : False,
-            "controller:observe_sibling" : False
-        },
-        "obs_all_three" : {
-            "controller:observe_action" : True,
-            "controller:observe_parent" : True,
-            "controller:observe_sibling" : True
         }
     },
 
@@ -97,7 +93,45 @@ ablations = {
             "controller:constrain_min_len" : False,
             "controller:constrain_max_len" : False,
         }
-    }
+    },
+
+    "other" : {
+        "full" : {},
+        "vanilla_no_constraints_no_hierarchical" : {
+            # Vanilla
+            "controller:entropy_weight" : 0.0,
+            "training:b_jumpstart" : False,
+            "training:alpha" : 0.0,
+            "training:epsilon" : 1.0,
+            "training:complexity_weight" : 0.0,
+            # No constraints
+            "controller:constrain_const" : False,
+            "controller:constrain_trig" : False,
+            "controller:constrain_inv" : False,
+            "controller:min_length" : 1,
+            "controller:constrain_min_len" : False,
+            "controller:constrain_max_len" : False,
+            # No hierarchical
+            "controller:observe_action" : True,
+            "controller:observe_parent" : False,
+            "controller:observe_sibling" : False
+        },
+        "vanilla_no_constraints_with_hierarchical" : {
+            # Vanilla
+            "controller:entropy_weight" : 0.0,
+            "training:b_jumpstart" : False,
+            "training:alpha" : 0.0,
+            "training:epsilon" : 1.0,
+            "training:complexity_weight" : 0.0,
+            # No constraints
+            "controller:constrain_const" : False,
+            "controller:constrain_trig" : False,
+            "controller:constrain_inv" : False,
+            "controller:min_length" : 1,
+            "controller:constrain_min_len" : False,
+            "controller:constrain_max_len" : False
+        }
+    }    
 }
 
 
