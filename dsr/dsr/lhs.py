@@ -30,14 +30,22 @@ abbrev_key = {
     "constrain_trig" : "ctrig",
     "constrain_const" : "cconst",
     "constrain_inv" : "cinv",
-    "observe_action" : "ac"
+    "observe_action" : "ac",
+    "constrain_min_len" : "cmin",
+    "constrain_max_len" : "cmax",
+    "min_length" : "min"
 }
 
 abbrev_val = {
     True : "T",
     False : "F",
     "neg_mse" : "Neg",
-    "inv_mse" : "Inv"
+    "inv_mse" : "Inv",
+    "inv_mse" : "Inv",
+    "neg_nmse" : "NNeg",
+    "inv_nmse" : "NInv",
+    "neg_nrmse" : "NRNeg",
+    "inv_nrmse" : "NRInv"
 }
 
 def abbrev(k, v):
@@ -90,39 +98,72 @@ def generate_configs_lhs(default, sweep, n):
 
     # Generate LHS config dictionaries
     configs = [deepcopy(blank) for _ in range(n)]
-    lh = lhs(len(params), samples=n, criterion="center")
+    lh = lhs(len(params), samples=n, criterion="center") # Values in [0, 1]
     logdirs = {}
     for col, (k, v) in enumerate(params.items()):
 
-        # Continuous value between low and high
-        if isinstance(v, dict) and "low" in v.keys():
-            v = np.linspace(start=v["low"],
-                            stop=v["high"],
-                            num=n+1,
-                            endpoint=True)
+        lh_col = lh[:, col] # LH-sampled values for this column, in [0, 1]
+        options = None
+        points = None
 
-        # Evenly spaced interval
-        elif isinstance(v, dict) and "start" in v and "stop" in v:
+        ### Discrete options ###
+        
+        # Discrete set of hard-coded options
+        if isinstance(v, list):
+            options = np.array(v)
+
+        # Discrete set in evenly spaced interval
+        elif "start" in v and "stop" in v:
             if "n" in v:
                 num = v["n"]
             elif "step" in v:
                 num = round((v["stop"] - v["start"])/v["step"]) + 1
-            v = np.linspace(start=v["start"],
-                            stop=v["stop"],
-                            num=num,
-                            endpoint=True)
+            options = np.linspace(start=v["start"],
+                                  stop=v["stop"],
+                                  num=num,
+                                  endpoint=True)
 
-        # Discrete set of hard-coded values
-        elif isinstance(v, list):
-            v = np.array(v)
+        ### Continuous options ###
+
+        # Continuous value between low and high
+        elif "low" in v and "high" in v:
+            points = lh_col*(v["high"] - v["low"])
+
+        # Continuous value between center/base and center*base, in log_b space
+        elif "center" in v and "base" in v:
+            if "bounds" in v:
+                bounds = v["bounds"]
+            else:
+                bounds = None
+
+            exponents = 2*(lh_col - 0.5) # Rescale to [-1, 1]
+            c = v["center"] # Center point of interval. Half the values should be below; half above
+            b = v["base"] # Logarithmic base
+
+            if bounds is None:
+                points = c*b**exponents
+
+            else:
+                lb = bounds[0]
+                ub = bounds[1]
+                points = np.zeros_like(exponents)
+                neg_exponents = exponents[exponents < 0]
+                pos_exponents = exponents[exponents > 0]
+                points[exponents < 0] = lb + (c - lb)*b**neg_exponents
+                points[exponents > 0] = ub - (ub - c)/(b**pos_exponents)
 
         else:
             raise ValueError("Unrecognized parameter specification.")
 
-        v = np.array(v)
-        n = len(v)
-        indices = (n*lh[:, col]).astype(int)
-        points = v[indices].tolist()
+        if points is None:
+            # Values in lh determine which indices of options to select
+            assert options is not None
+            n_options = len(options)
+            indices = (n_options*lh_col).astype(int)
+            points = options[indices].tolist()
+        else:
+            points = points.tolist()
+            # print(points[0])
 
         for i, p in enumerate(points):
             configs[i][k[0]][k[1]] = p
@@ -134,14 +175,15 @@ def generate_configs_lhs(default, sweep, n):
             logdirs[logdir] += 1
         else:
             logdirs[logdir] = 0
-        logdir += '_' + str(logdirs[logdir]) # Counter for possibly repeated hyperparameter combinations
+        count = logdirs[logdir] # Counter for possibly repeated hyperparameter combinations
+        logdir += '_' + str(count)
         config["training"]["logdir"] = os.path.join(expdir, logdir)
         path = os.path.join("log", expdir, logdir)
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "config.json"), 'w') as f:
             json.dump(config, f, indent=3)
         with open(run_file, 'a') as f:
-            f.write("time python run_benchmarks.py ./{}/config.json\n".format(path))
+            f.write("time python run_benchmarks.py ./{}/config.json --only=Nguyen --seed_shift={}\n".format(path, count))
     
     # Make the run file executable
     st = os.stat(run_file)
