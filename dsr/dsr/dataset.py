@@ -4,6 +4,7 @@ import itertools
 from textwrap import indent
 from pkg_resources import resource_filename
 
+import click
 import pandas as pd
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
@@ -147,21 +148,17 @@ class Dataset(object):
         return pretty(self.sympy_expr)
 
 
-def __main__():
+@click.command()
+@click.argument("file", default="benchmarks.csv")
+def main(file):
     """Pretty prints all benchmark expressions."""
 
-    file = "benchmarks.csv"
-    exclude_fp_constant = False
-    exclude_int_constant = False
-
-    df = pd.read_csv(file, encoding="ISO-8859-1")
+    data_path = resource_filename("dsr", "data/")
+    benchmark_path = os.path.join(data_path, file)
+    df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
-    expressions = [parse_expr(expression) for expression in df["expression"]]
+    expressions = [parse_expr(expression) for expression in df["sympy"]]
     for expression, name in zip(expressions, names):
-        if exclude_fp_constant and "Float" in srepr(expression):
-            continue
-        if exclude_int_constant and "Integer" in srepr(expression):
-            continue
         print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
 
 
