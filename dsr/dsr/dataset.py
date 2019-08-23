@@ -3,6 +3,7 @@ import ast
 import itertools
 from textwrap import indent
 from pkg_resources import resource_filename
+import zlib
 
 import click
 import pandas as pd
@@ -30,7 +31,8 @@ class Dataset(object):
         Name of expression.
 
     seed : int, optional
-        Random number seed used to generate data.
+        Random number seed used to generate data. Checksum on name is added to
+        seed.
 
     **kwargs : keyword arguments, optional
         Unused. Only included to soak up keyword arguments.
@@ -52,6 +54,7 @@ class Dataset(object):
         self.int_constant = "Integer" in srepr(self.sympy_expr)        
 
         # Random number generator used for sampling X values
+        seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
         self.rng = np.random.RandomState(seed) 
 
         # Create X values

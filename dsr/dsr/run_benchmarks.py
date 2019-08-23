@@ -5,6 +5,7 @@ import multiprocessing
 from copy import deepcopy
 from functools import partial
 from pkg_resources import resource_filename
+import zlib
 
 import click
 import numpy as np
@@ -43,7 +44,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     Program.set_library(dataset.function_set, dataset.n_input_var)
 
     tf.reset_default_graph()
-    tf.set_random_seed(seed)
+    tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8"))) # Actual seed is shifted by checksum to ensure it's different across different benchmarks
     with tf.Session() as sess:        
 
         # Instantiate the controller
@@ -62,7 +63,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
 def train_deap(name_and_seed, logdir, config_dataset, config_deap):
 
     name, seed = name_and_seed
-    config_deap["seed"] = seed
+    config_deap["seed"] = seed + zlib.adler32(name.encode("utf-8"))
 
     start = time.time()
 
@@ -131,7 +132,7 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     config_gp["function_set"] = dataset.function_set.copy()
     if "const" in config_gp["function_set"]:
         config_gp["function_set"].remove("const")
-    config_gp["random_state"] = seed
+    config_gp["random_state"] = seed + zlib.adler32(name.encode("utf-8"))
     # config_gp["verbose"] = 0 # Turn off printing
     
     # Parameter assertions
@@ -277,6 +278,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     names = [n for k,n in zip(keep, names) if k]
     unique_names = names.copy()
     names *= mc
+    # When passed to RNGs, these seeds will actually be added to checksums on the name
     seeds = (np.arange(mc) + seed_shift).repeat(len(unique_names)).tolist()
     names_and_seeds = list(zip(names, seeds)) # E.g. [("Koza-1", 0), ("Nguyen-1", 0), ("Koza-2", 1), ("Nguyen-1", 1)]
 
