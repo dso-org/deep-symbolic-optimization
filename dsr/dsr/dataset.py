@@ -72,6 +72,8 @@ class Dataset(object):
         # Compute y values
         self.y_train = self.numpy_expr(self.X_train)
         self.y_test = self.numpy_expr(self.X_test)
+        self.y_train_noiseless = self.y_train.copy()
+        self.y_test_noiseless = self.y_test.copy()
 
         # Add Gaussian noise
         if noise is not None:

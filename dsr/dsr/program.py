@@ -240,13 +240,15 @@ class Program(object):
 
 
     @classmethod
-    def set_training_data(cls, X_train, y_train, X_test, y_test):
+    def set_training_data(cls, dataset):
         """Sets the class' training and testing data"""
 
-        cls.X_train = X_train
-        cls.y_train = y_train
-        cls.X_test = X_test
-        cls.y_test = y_test
+        cls.X_train = dataset.X_train
+        cls.y_train = dataset.y_train
+        cls.X_test = dataset.X_test
+        cls.y_test = dataset.y_test
+        cls.y_train_noiseless = dataset.y_train_noiseless
+        cls.y_test_noiseless = dataset.y_test_noiseless
 
 
     @classmethod
@@ -444,6 +446,24 @@ class Program(object):
 
 
     @cached_property
+    def base_r_noiseless(self):
+        """Evaluates and returns the base reward of the program on the noiseless
+        training set"""
+
+        y_hat = self.execute(Program.X_train)
+        return Program.reward_function(Program.y_train_noiseless, y_hat)
+
+
+    @cached_property
+    def base_r_test_noiseless(self):
+        """Evaluates and returns the base reward of the program on the noiseless
+        test set"""
+
+        y_hat = self.execute(Program.X_test)
+        return Program.reward_function(Program.y_test_noiseless, y_hat)
+
+
+    @cached_property
     def r(self):
         """Evaluates and returns the reward of the program on the training
         set"""
@@ -456,6 +476,22 @@ class Program(object):
         """Evaluates and returns the reward of the program on the test set"""
 
         return self.base_r_test - self.complexity
+
+
+    @cached_property
+    def r_noiseless(self):
+        """Evaluates and returns the reward of the program on the noiseless
+        training set"""
+
+        return self.base_r_noiseless - self.complexity
+
+
+    @cached_property
+    def r_test_noiseless(self):
+        """Evaluates and returns the reward of the program on the noiseless
+        test set"""
+
+        return self.base_r_test_noiseless - self.complexity
 
 
     @cached_property

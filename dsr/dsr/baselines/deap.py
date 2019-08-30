@@ -34,8 +34,12 @@ class GP():
         fitness = self.make_fitness(metric) 
         fitness_train = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train)) # Function of y_hat
         fitness_test = partial(fitness, y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
+        fitness_train_noiseless = partial(fitness, y=dataset.y_train_noiseless, var_y=np.var(dataset.y_train)) # Function of y_hat
+        fitness_test_noiseless = partial(fitness, y=dataset.y_test_noiseless, var_y=np.var(dataset.y_test)) # Function of y_hat
         self.eval_train = partial(self.evaluate, fitness=fitness_train, X=dataset.X_train.T) # Function of individual
         self.eval_test = partial(self.evaluate, fitness=fitness_test, X=dataset.X_test.T) # Function of individual
+        self.eval_train_noiseless = partial(self.evaluate, fitness=fitness_train_noiseless, X=dataset.X_train.T) # Function of individual
+        self.eval_test_noiseless = partial(self.evaluate, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
         nrmse = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
         self.nrmse = partial(self.evaluate, fitness=nrmse, X=dataset.X_test.T) # Function of individual
 

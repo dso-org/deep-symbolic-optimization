@@ -40,7 +40,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     # Define the dataset and library
     dataset = get_dataset(name, config_dataset)
     Program.clear_cache()
-    Program.set_training_data(dataset.X_train, dataset.y_train, dataset.X_test, dataset.y_test)
+    Program.set_training_data(dataset)
     Program.set_library(dataset.function_set, dataset.n_input_var)
 
     tf.reset_default_graph()
@@ -79,6 +79,8 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
     r_test = base_r_test = gp.eval_test(p)[0]
     str_p = str(p)
     nmse = gp.nrmse(p)
+    r_noiseless = base_r_noiseless = gp.eval_train_noiseless(p)[0]
+    r_test_noiseless = base_r_test_noiseless = gp.eval_test_noiseless(p)[0]
 
     # Many failure cases right now for converting to SymPy expression...not high priority to fix
     # To do: serialized program --> tree --> SymPy-compatible tree --> traversal --> SymPy expression
@@ -104,6 +106,10 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
         "base_r" : base_r,
         "r_test" : r_test,
         "base_r_test" : base_r_test,
+        "r_noiseless" : r_noiseless,
+        "base_r_noiseless" : base_r_noiseless,
+        "r_test_noiseless" : r_test_noiseless,
+        "base_r_test_noiseless" : base_r_test_noiseless,
         "expression" : expression,
         "traversal" : str_p,
         "t" : time.time() - start,
@@ -310,7 +316,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
         work = partial(train_deap, logdir=logdir, config_dataset=config_dataset, config_deap=config_deap)
 
     # Farm out the work
-    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "expression", "traversal", "t", "seed"]
+    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)    
