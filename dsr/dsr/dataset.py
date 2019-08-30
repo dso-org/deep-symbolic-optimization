@@ -34,11 +34,15 @@ class Dataset(object):
         Random number seed used to generate data. Checksum on name is added to
         seed.
 
+    noise : float, optional
+        If not None, Gaussian noise is added to the y values with standard
+        deviation = noise * RMS of the noiseless y training values.
+
     **kwargs : keyword arguments, optional
         Unused. Only included to soak up keyword arguments.
     """
 
-    def __init__(self, file, name, seed=0, **kwargs):
+    def __init__(self, file, name, noise=None, seed=0, **kwargs):
 
         # Read in benchmark dataset information
         data_path = resource_filename("dsr", "data/")
@@ -68,6 +72,23 @@ class Dataset(object):
         # Compute y values
         self.y_train = self.numpy_expr(self.X_train)
         self.y_test = self.numpy_expr(self.X_test)
+
+        from matplotlib import pyplot as plt
+
+        plt.scatter(self.X_train.flatten(), self.y_train)
+        plt.scatter(self.X_test.flatten(), self.y_test)
+
+        # Add Gaussian noise
+        if noise is not None:
+            assert noise >= 0, "Noise must be non-negative."
+            y_rms = np.sqrt(np.mean(self.y_train**2))
+            scale = noise * y_rms
+            self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
+            self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
+
+        plt.scatter(self.X_train.flatten(), self.y_train)
+        plt.scatter(self.X_test.flatten(), self.y_test)
+        plt.show()
 
         # Create the function set (list of str)
         function_set_path = os.path.join(data_path, "function_sets.csv")
