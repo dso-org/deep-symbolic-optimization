@@ -28,6 +28,11 @@ class Controller(object):
     max_length : int (>= 3)
         Maximum length of a sampled traversal.
 
+    max_const : int (>= 1) or None
+        Maximum number of constants of a sampled traversal when constrain_const=
+        True. If None or constrain_const=False, expressions may have any number
+        of constants.
+
     learning_rate : float
         Learning rate for optimizer.
 
@@ -61,6 +66,9 @@ class Controller(object):
         max_length? If False, sampling ends after max_length and dangling nodes
         are filled in with x1's.
 
+    constrain_num_const : bool
+        Prevent constants that would exceed max_const?
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -81,10 +89,11 @@ class Controller(object):
     """
 
     def __init__(self, sess, num_units=32, min_length=2, max_length=30,
-                 learning_rate=0.001, entropy_weight=0.0,
+                 max_const=None, learning_rate=0.001, entropy_weight=0.0,
                  observe_action=True, observe_parent=True, observe_sibling=True,
                  constrain_const=True, constrain_trig=True, constrain_inv=True,
                  constrain_min_len=True, constrain_max_len=True,
+                 constrain_num_const=False,
                  embedding=False, embedding_size=4, summary=True,
                  ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4):
 
@@ -98,6 +107,7 @@ class Controller(object):
         self.entropy_weight = entropy_weight
         self.min_length = min_length
         self.max_length = max_length
+        self.max_const = max_const
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.constrain_const = constrain_const and "const" in Program.library.values()
@@ -105,6 +115,7 @@ class Controller(object):
         self.constrain_inv = constrain_inv
         self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
+        self.constrain_num_const = constrain_num_const
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -141,6 +152,18 @@ class Controller(object):
                 print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
                 self.min_length = None
 
+        if max_const is None:
+            assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
+        else:
+            assert max_const >= 1, "Must have max num const at least 1."
+            if Program.const_token is None:
+                print("Warning: max_const={} will have no effect because there is no constant token.".format(max_const))
+                self.constrain_num_const = False
+                self.max_const = None
+            elif not constrain_num_const:
+                print("Warning: max_const={} will not be repsected because constrain_num_const=False. Overriding to None.".format(max_const))
+                self.max_const = None
+
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
                                              self.constrain_const])
@@ -148,7 +171,8 @@ class Controller(object):
                                   self.constrain_trig,
                                   self.constrain_inv,
                                   self.constrain_min_len,
-                                  self.constrain_max_len])
+                                  self.constrain_max_len,
+                                  self.constrain_num_const])
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -364,8 +388,8 @@ class Controller(object):
             actions.append(action)
             feed_dict[self.actions_ph[i]] = action
 
-            if self.compute_parents_siblings or self.constrain_trig:
-                tokens = np.stack(actions).T
+            if self.compute_parents_siblings or self.constrain_trig or self.constrain_num_const:
+                tokens = np.stack(actions).T # Shape: (n, i)
 
             # Compute parents and siblings
             if self.compute_parents_siblings:
@@ -394,6 +418,9 @@ class Controller(object):
                         # by their inverse, and action == parent for all unary operators
                         constraints = action == p
                         prior += make_prior(constraints, [c], Program.L)
+                if self.constrain_num_const:
+                    constraints = np.sum(tokens == Program.const_token, axis=1) == self.max_const
+                    prior += make_prior(constraints, [Program.const_token], Program.L)
 
                 if dangling is not None:
                     # Fast dictionary lookup of arities for each element in action
