@@ -62,7 +62,7 @@ class Dataset(object):
 
             dataset_path = os.path.join(root, name + ".csv")
             data = pd.read_csv(dataset_path)
-            data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle all rows in place
+            data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle all rows in place
             data = data.values
             
             self.n_input_var = data.shape[1] - 1
