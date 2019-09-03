@@ -16,7 +16,8 @@ from dsr.functions import _function_map
 
 class Dataset(object):
     """
-    Class used to generate X, y data from a named benchmark expression.
+    Class used to generate X, y data from a named benchmark expression or raw
+    dataset.
 
     The numpy expression is used to evaluate the expression using any custom/
     protected functions in _function_map. The sympy expression is only used for
@@ -28,7 +29,7 @@ class Dataset(object):
         Filename of CSV with benchmark expressions, contained in dsr/data.
 
     name : str
-        Name of expression.
+        Name of expression or raw dataset.
 
     seed : int, optional
         Random number seed used to generate data. Checksum on name is added to
@@ -45,48 +46,86 @@ class Dataset(object):
     def __init__(self, file, name, noise=None, seed=0, **kwargs):
 
         # Read in benchmark dataset information
-        data_path = resource_filename("dsr", "data/")
-        benchmark_path = os.path.join(data_path, file)
+        root = resource_filename("dsr", "data/")
+        benchmark_path = os.path.join(root, file)
         df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
-        row = df.loc[name]
-        self.n_input_var = row["variables"]
-
-        # Create symbolic expression        
-        self.sympy_expr = parse_expr(row["sympy"])
-        self.numpy_expr = self.make_numpy_expr(row["numpy"])
-        self.fp_constant = "Float" in srepr(self.sympy_expr)
-        self.int_constant = "Integer" in srepr(self.sympy_expr)        
 
         # Random number generator used for sampling X values
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
-        self.rng = np.random.RandomState(seed) 
+        self.rng = np.random.RandomState(seed)
 
-        # Create X values
-        train_spec = ast.literal_eval(row["train_spec"])
-        test_spec = ast.literal_eval(row["test_spec"])
-        if test_spec is None:
-            test_spec = train_spec
-        self.X_train = self.make_X(train_spec)
-        self.X_test = self.make_X(test_spec)
+        # Raw dataset
+        if name not in df.index:
 
-        # Compute y values
-        self.y_train = self.numpy_expr(self.X_train)
-        self.y_test = self.numpy_expr(self.X_test)
-        self.y_train_noiseless = self.y_train.copy()
-        self.y_test_noiseless = self.y_test.copy()
+            if noise is not None and noise != 0:
+                print("Warning: Noise will not be applied to real-world dataset.")
 
-        # Add Gaussian noise
-        if noise is not None:
-            assert noise >= 0, "Noise must be non-negative."
-            y_rms = np.sqrt(np.mean(self.y_train**2))
-            scale = noise * y_rms
-            self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
-            self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
+            dataset_path = os.path.join(root, name + ".csv")
+            data = pd.read_csv(dataset_path)
+            data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle all rows in place
+            data = data.values
+            
+            self.n_input_var = data.shape[1] - 1
+
+            n_train = int(0.8 * data.shape[0]) # 80-20 train-test split
+
+            self.X_train = data[:n_train, :-1]
+            self.y_train = data[:n_train, -1]
+            self.X_test = data[n_train:, :-1]
+            self.y_test = data[n_train:, -1]
+
+            self.y_train_noiseless = self.y_train.copy()
+            self.y_test_noiseless = self.y_test.copy()
+
+            self.sympy_expr = None
+            self.numpy_expr = None
+            self.fp_constant = None
+            self.int_constant = None
+            self.train_spec = None
+            self.test_spec = None
+
+            function_set = "Real" # HACK: Currently hardcoded
+
+        # Expression dataset
+        else:
+            row = df.loc[name]
+            function_set = row["function_set"]
+            self.n_input_var = row["variables"]
+
+            # Create symbolic expression        
+            self.sympy_expr = parse_expr(row["sympy"])
+            self.numpy_expr = self.make_numpy_expr(row["numpy"])
+            self.fp_constant = "Float" in srepr(self.sympy_expr)
+            self.int_constant = "Integer" in srepr(self.sympy_expr)        
+
+            # Create X values
+            train_spec = ast.literal_eval(row["train_spec"])
+            test_spec = ast.literal_eval(row["test_spec"])
+            if test_spec is None:
+                test_spec = train_spec
+            self.X_train = self.make_X(train_spec)
+            self.X_test = self.make_X(test_spec)
+            self.train_spec = train_spec
+            self.test_spec = test_spec
+
+            # Compute y values
+            self.y_train = self.numpy_expr(self.X_train)
+            self.y_test = self.numpy_expr(self.X_test)
+            self.y_train_noiseless = self.y_train.copy()
+            self.y_test_noiseless = self.y_test.copy()
+
+            # Add Gaussian noise
+            if noise is not None:
+                assert noise >= 0, "Noise must be non-negative."
+                y_rms = np.sqrt(np.mean(self.y_train**2))
+                scale = noise * y_rms
+                self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
+                self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
 
         # Create the function set (list of str)
-        function_set_path = os.path.join(data_path, "function_sets.csv")
+        function_set_path = os.path.join(root, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
-        self.function_set = df.loc[row["function_set"]].tolist()[0].strip().split(',')
+        self.function_set = df.loc[function_set].tolist()[0].strip().split(',')
 
     
     def make_X(self, spec):
@@ -167,8 +206,11 @@ class Dataset(object):
 
 @click.command()
 @click.argument("file", default="benchmarks.csv")
-def main(file):
-    """Pretty prints all benchmark expressions."""
+@click.option("--noise", default=None, type=float)
+def main(file, noise):
+    """Pretty prints and plots all benchmark expressions."""
+
+    from matplotlib import pyplot as plt
 
     data_path = resource_filename("dsr", "data/")
     benchmark_path = os.path.join(data_path, file)
@@ -177,6 +219,22 @@ def main(file):
     expressions = [parse_expr(expression) for expression in df["sympy"]]
     for expression, name in zip(expressions, names):
         print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
+
+        if "Nguyen" not in name:
+            continue
+
+        d = Dataset(file, name, noise=noise)
+        if d.X_train.shape[1] == 1:
+
+            # Draw ground truth expression
+            bounds = list(list(d.train_spec.values())[0].values())[0][:2]
+            x = np.linspace(bounds[0], bounds[1], endpoint=True, num=100)
+            y = d.numpy_expr(x[:, None])
+            plt.plot(x, y)
+
+            # Draw the actual points
+            plt.scatter(d.X_train, d.y_train)
+            plt.show()
 
 
 if __name__ == "__main__":

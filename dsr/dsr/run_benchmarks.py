@@ -263,6 +263,12 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
 
+    # Load raw dataset names
+    # HACK: Exclude "benchmark" names
+    for f in os.listdir(data_path):
+        if f.endswith(".csv") and "benchmarks" not in f and "function_sets" not in f:
+            names.append(f.split('.')[0])
+
     # Filter out expressions
     expressions = [parse_expr(e) for e in df["sympy"]]
     if len(only) == 0:
@@ -274,7 +280,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
         for excluded_name in exclude:
             keep = [False if excluded_name in n else k for k,n in zip(keep, names)]
     else:
-        keep = [False]*len(expressions)
+        keep = [False]*len(names)
         for included_name in only:
             if '-' in included_name: # If the whole name is specified (otherwise, e.g., only=Name-1 will also apply Name-10, Name-11, etc.)
                 keep = [True if included_name == n else k for k,n in zip(keep, names)]
