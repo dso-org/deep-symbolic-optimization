@@ -80,7 +80,7 @@ class Dataset(object):
                 min_ = min(data[:, -1])
                 max_ = max(data[:, -1])
                 data[:, -1] = (data[:, -1] - min_) / (max_ - min_)
-            elif preprocess = "rescale_all":
+            elif preprocess == "rescale_all":
                 min_ = np.min(data, axis=0)
                 max_ = np.max(data, axis=0)
                 data = (data - min_) / (max_ - min_)
