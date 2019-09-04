@@ -7,6 +7,7 @@ from deap import base, gp, creator, tools, algorithms
 from deap.gp import *
 
 from dsr.functions import _function_map
+from dsr.const import make_const_optimizer
 
 
 class GP():
@@ -15,7 +16,8 @@ class GP():
     def __init__(self, dataset, metric="nmse", population_size=1000,
                  generations=1000, tournament_size=3, p_crossover=0.5,
                  p_mutate=0.1, max_depth=17, max_len=None, const_range=[-1, 1],
-                 seed=0, verbose=True):
+                 const_optimizer="scipy", const_params=None, seed=0,
+                 verbose=True):
 
         self.dataset = dataset
         self.fitted = False
@@ -36,10 +38,10 @@ class GP():
         fitness_test = partial(fitness, y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
         fitness_train_noiseless = partial(fitness, y=dataset.y_train_noiseless, var_y=np.var(dataset.y_train)) # Function of y_hat
         fitness_test_noiseless = partial(fitness, y=dataset.y_test_noiseless, var_y=np.var(dataset.y_test)) # Function of y_hat
-        self.eval_train = partial(self.evaluate, fitness=fitness_train, X=dataset.X_train.T) # Function of individual
-        self.eval_test = partial(self.evaluate, fitness=fitness_test, X=dataset.X_test.T) # Function of individual
-        self.eval_train_noiseless = partial(self.evaluate, fitness=fitness_train_noiseless, X=dataset.X_train.T) # Function of individual
-        self.eval_test_noiseless = partial(self.evaluate, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
+        self.eval_train = partial(self.evaluate, optimize=True, fitness=fitness_train, X=dataset.X_train.T) # Function of individual
+        self.eval_test = partial(self.evaluate, optimize=False, fitness=fitness_test, X=dataset.X_test.T) # Function of individual
+        self.eval_train_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_train_noiseless, X=dataset.X_train.T) # Function of individual
+        self.eval_test_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
         nrmse = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
         self.nrmse = partial(self.evaluate, fitness=nrmse, X=dataset.X_test.T) # Function of individual
 
@@ -55,9 +57,16 @@ class GP():
             if k in dataset.function_set:
                 pset.addPrimitive(v.function, v.arity, name=v.name)        
 
+        # # Add constant
+        # if "const" in dataset.function_set:
+        #     pset.addEphemeralConstant("const", lambda : random.uniform(const_range[0], const_range[1]))
+
         # Add constant
-        if "const" in dataset.function_set:
-            pset.addEphemeralConstant("const", lambda : random.uniform(const_range[0], const_range[1]))
+        const = "const" in dataset.function_set
+        if const:
+            const_params = const_params if const_params is not None else {}
+            self.const_opt = make_const_optimizer(const_optimizer, **const_params)
+            pset.addTerminal(1.0, name="const")
 
         # Create custom fitness and individual classes
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -83,9 +92,31 @@ class GP():
         
         # Create the training function
         self.algorithm = algorithms.eaSimple
+    
 
+    def evaluate(self, individual, fitness, X, optimize=False):
 
-    def evaluate(self, individual, fitness, X):
+        if optimize:
+            # Retrieve symbolic constants
+            const_idxs = [i for i, node in enumerate(individual) if node.name == "const"]
+
+        if optimize and len(const_idxs) > 0:
+
+            # Objective function for evaluating constants
+            def obj(consts):                
+                for i, const in zip(const_idxs, consts):
+                    individual[i] = Terminal(const, False, object)
+                f = self.toolbox.compile(expr=individual)
+                y_hat = f(*X)
+                y = self.dataset.y_train
+                return np.mean((y - y_hat)**2)
+
+            # Do the optimization and set the optimized constants
+            x0 = np.ones(len(const_idxs))
+            optimized_consts = self.const_opt(obj, x0)
+            for i, const in zip(const_idxs, optimized_consts):
+                individual[i] = Terminal(const, False, object)
+
         f = self.toolbox.compile(expr=individual)
         y_hat = f(*X)
         return (fitness(y_hat=y_hat),)
@@ -123,7 +154,7 @@ class GP():
         # Delte custom classes
         del creator.FitnessMin
         del creator.Individual
-        if "const" in self.dataset.function_set:
+        if "const" in dir(gp):
             del gp.const
 
         return hof[0], logbook
