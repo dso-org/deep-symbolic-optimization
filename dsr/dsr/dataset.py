@@ -43,7 +43,8 @@ class Dataset(object):
         Unused. Only included to soak up keyword arguments.
     """
 
-    def __init__(self, file, name, noise=None, seed=0, **kwargs):
+    def __init__(self, file, name, noise=None, seed=0, preprocess=None,
+                 **kwargs):
 
         # Read in benchmark dataset information
         root = resource_filename("dsr", "data/")
@@ -62,8 +63,27 @@ class Dataset(object):
 
             dataset_path = os.path.join(root, name + ".csv")
             data = pd.read_csv(dataset_path)
-            data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle all rows in place
+            data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle rows
             data = data.values
+            if preprocess == "standardize_y":
+                mean = np.mean(data[:, -1])
+                std = np.std(data[:, -1])
+                data[:, -1] = (data[:, -1] - mean) / std
+            elif preprocess == "standardize_all":
+                data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+            elif preprocess == "shift_y":
+                mean = np.mean(data[:, -1])
+                data[:, -1] = data[:, -1] - mean
+            elif preprocess == "shift_all":
+                data = data - np.mean(data, axis=0)
+            elif preprocess == "rescale_y":
+                min_ = min(data[:, -1])
+                max_ = max(data[:, -1])
+                data[:, -1] = (data[:, -1] - min_) / (max_ - min_)
+            elif preprocess = "rescale_all":
+                min_ = np.min(data, axis=0)
+                max_ = np.max(data, axis=0)
+                data = (data - min_) / (max_ - min_)
             
             self.n_input_var = data.shape[1] - 1
 
