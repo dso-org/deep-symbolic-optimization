@@ -31,7 +31,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
-          verbose=True, summary=True, output_file=None, b_jumpstart=True):
+          verbose=True, summary=True, output_file=None, b_jumpstart=True,
+          early_stopping=False, threshold=1e-12):
     """
     Executes the main training loop.
 
@@ -92,6 +93,12 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     b_jumpstart : bool, optional
         Whether baseline start at average reward for the first iteration. If
         False, it starts at 0.0.
+
+    early_stopping : bool, optional
+        Whether to stop early if a threshold is reached.
+
+    threshold : float, optional
+        NMSE threshold to stop early if a threshold is reached.
 
     Returns
     -------
@@ -265,6 +272,11 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             elif new_base_r_best:
                 print("\nNew best base reward")
                 p_base_r_best.print_stats()
+
+        # Early stopping
+        if early_stopping and p_base_r_best.nmse < threshold:
+            print("Fitness exceeded threshold; breaking early.")
+            break
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
