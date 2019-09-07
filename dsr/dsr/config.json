@@ -87,6 +87,7 @@
     "p_mutate" : 0.1,
     "max_depth" : 17,
     "max_len" : null,
+    "max_const" : null,
     "seed" : 0,
     "early_stopping" : false,
     "threshold" : 1e-12,

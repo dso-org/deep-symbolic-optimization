@@ -15,9 +15,10 @@ class GP():
 
     def __init__(self, dataset, metric="nmse", population_size=1000,
                  generations=1000, tournament_size=3, p_crossover=0.5,
-                 p_mutate=0.1, max_depth=17, max_len=None, const_range=[-1, 1],
-                 const_optimizer="scipy", const_params=None, seed=0,
-                 early_stopping=False, threshold=1e-12, verbose=True):
+                 p_mutate=0.1, max_depth=17, max_len=None, max_const=None,
+                 const_range=[-1, 1], const_optimizer="scipy",
+                 const_params=None, seed=0, early_stopping=False,
+                 threshold=1e-12, verbose=True):
 
         self.dataset = dataset
         self.fitted = False
@@ -91,7 +92,11 @@ class GP():
         if max_len is not None:
             self.toolbox.decorate("mate", gp.staticLimit(key=len, max_value=max_len))
             self.toolbox.decorate("mutate", gp.staticLimit(key=len, max_value=max_len))
-        
+        if const and max_const is not None:
+            num_const = lambda ind : len([node for node in ind if node.name == "const"])
+            self.toolbox.decorate("mate", gp.staticLimit(key=num_const, max_value=max_const))
+            self.toolbox.decorate("mutate", gp.staticLimit(key=num_const, max_value=max_const))
+
         # Create the training function
         self.algorithm = algorithms.eaSimple
     
@@ -160,7 +165,7 @@ class GP():
 
         self.fitted = True
 
-        # Delte custom classes
+        # Delete custom classes
         del creator.FitnessMin
         del creator.Individual
         if "const" in dir(gp):
