@@ -78,7 +78,7 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
     r = base_r = p.fitness.values[0]
     r_test = base_r_test = gp.eval_test(p)[0]
     str_p = str(p)
-    nmse = gp.nrmse(p)
+    nmse = gp.nmse(p)
     r_noiseless = base_r_noiseless = gp.eval_train_noiseless(p)[0]
     r_test_noiseless = base_r_test_noiseless = gp.eval_test_noiseless(p)[0]
 
