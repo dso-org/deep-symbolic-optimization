@@ -17,7 +17,7 @@ class GP():
                  generations=1000, tournament_size=3, p_crossover=0.5,
                  p_mutate=0.1, max_depth=17, max_len=None, const_range=[-1, 1],
                  const_optimizer="scipy", const_params=None, seed=0,
-                 verbose=True):
+                 early_stopping=False, threshold=1e-12, verbose=True):
 
         self.dataset = dataset
         self.fitted = False
@@ -30,6 +30,8 @@ class GP():
         self.p_crossover = p_crossover
         self.max_depth = max_depth
         self.seed = seed
+        self.early_stopping = early_stopping
+        self.threshold = threshold
         self.verbose = verbose
 
         # Making train/test fitness functions
@@ -43,7 +45,7 @@ class GP():
         self.eval_train_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_train_noiseless, X=dataset.X_train.T) # Function of individual
         self.eval_test_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
         nmse = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
-        self.nmse = partial(self.evaluate, fitness=nmse, X=dataset.X_test.T) # Function of individual
+        self.nmse = partial(self.evaluate, optimize=False, fitness=nmse, X=dataset.X_test.T) # Function of individual
 
         # Create the primitive set
         pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
@@ -100,6 +102,11 @@ class GP():
             # Retrieve symbolic constants
             const_idxs = [i for i, node in enumerate(individual) if node.name == "const"]
 
+            # HACK: If early stopping threshold has been reached, don't do training optimization
+            # Check if best individual has NMSE below threshold on test set
+            if self.early_stopping and len(self.hof) > 0 and self.nmse(self.hof[0])[0] < self.threshold:
+                return (1.0,)
+
         if optimize and len(const_idxs) > 0:
 
             # Objective function for evaluating constants
@@ -133,7 +140,7 @@ class GP():
         random.seed(self.seed)
 
         pop = self.toolbox.population(n=self.population_size)
-        hof = tools.HallOfFame(maxsize=1)
+        self.hof = tools.HallOfFame(maxsize=1)
 
         stats_fit = tools.Statistics(lambda p : p.fitness.values)
         stats_fit.register("avg", np.mean)
@@ -148,7 +155,7 @@ class GP():
                                       mutpb=self.p_mutate,
                                       ngen=self.generations,
                                       stats=mstats,
-                                      halloffame=hof,
+                                      halloffame=self.hof,
                                       verbose=self.verbose)
 
         self.fitted = True
@@ -159,7 +166,7 @@ class GP():
         if "const" in dir(gp):
             del gp.const
 
-        return hof[0], logbook
+        return self.hof[0], logbook
 
 
     def make_fitness(self, metric):

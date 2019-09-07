@@ -88,6 +88,8 @@
     "max_depth" : 17,
     "max_len" : null,
     "seed" : 0,
+    "early_stopping" : false,
+    "threshold" : 1e-12,
     "verbose" : true
 }
 
