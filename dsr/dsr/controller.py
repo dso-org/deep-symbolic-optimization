@@ -29,9 +29,9 @@ class Controller(object):
         Maximum length of a sampled traversal.
 
     max_const : int (>= 1) or None
-        Maximum number of constants of a sampled traversal when constrain_const=
-        True. If None or constrain_const=False, expressions may have any number
-        of constants.
+        Maximum number of constants of a sampled traversal when
+        constrain_num_const=True. If None or constrain_num_const=False,
+        expressions may have any number of constants.
 
     learning_rate : float
         Learning rate for optimizer.
@@ -374,7 +374,7 @@ class Controller(object):
         """Sample batch of n expressions"""
 
         actions = []
-        parents = []
+        parents = [] # _Adjusted_ parents
         siblings = []
         priors = []
         if self.constrain_max_len or (self.constrain_min_len and self.min_length > 1):
@@ -406,9 +406,12 @@ class Controller(object):
             if self.compute_prior:
                 prior = np.zeros((n, Program.L), dtype=np.float32)
                 if self.constrain_const:
-                    constraints = np.isin(parent, Program.unary_tokens) # Unary parent (or unary action)
+                    # Use action isntead of parent here because it's really adj_parent
+                    constraints = np.isin(action, Program.unary_tokens) # Unary action (or unary parent)
                     constraints += sibling == Program.const_token # Constant sibling
                     prior += make_prior(constraints, [Program.const_token], Program.L)
+                    # print("Prior:", prior)
+                    # print("Parents:", parents)
                 if self.constrain_trig:
                     constraints = trig_ancestors(tokens, Program.arities_numba, Program.trig_tokens)
                     prior += make_prior(constraints, Program.trig_tokens, Program.L)
@@ -646,8 +649,8 @@ def parents_siblings(tokens, arities, parent_adjust):
     Returns
     _______
 
-    parents : np.ndarray, shape=(N,), dtype=np.int32
-        Parents of the next element of each action sequence.
+    adj_parents : np.ndarray, shape=(N,), dtype=np.int32
+        Adjusted parents of the next element of each action sequence.
 
     siblings : np.ndarray, shape=(N,), dtype=np.int32
         Siblings of the next element of each action sequence.
@@ -657,13 +660,13 @@ def parents_siblings(tokens, arities, parent_adjust):
     N, L = tokens.shape
     empty_parent = len(parent_adjust) # Empty token is after all non-empty tokens
     empty_sibling = len(arities) # Empty token is after all non-empty tokens
-    parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
+    adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
     siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)
     # Parallelized loop over action sequences
     for r in prange(N):
         arity = arities[tokens[r, -1]]
         if arity > 0: # Parent is the previous element; no sibling
-            parents[r] = parent_adjust[tokens[r, -1]]
+            adj_parents[r] = parent_adjust[tokens[r, -1]]
             continue
         dangling = 0
         # Loop over elements in an action sequence
@@ -671,8 +674,8 @@ def parents_siblings(tokens, arities, parent_adjust):
             arity = arities[tokens[r, L - c - 1]]
             dangling += arity - 1
             if dangling == 0: # Parent is L-c-1, sibling is the next
-                parents[r] = parent_adjust[tokens[r, L - c - 1]]
+                adj_parents[r] = parent_adjust[tokens[r, L - c - 1]]
                 siblings[r] = tokens[r, L - c]
                 break
-    return parents, siblings
+    return adj_parents, siblings
 
