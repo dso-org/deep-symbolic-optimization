@@ -183,7 +183,7 @@ def generate_configs_lhs(default, sweep, n):
         with open(os.path.join(path, "config.json"), 'w') as f:
             json.dump(config, f, indent=3)
         with open(run_file, 'a') as f:
-            f.write("time python run_benchmarks.py ./{}/config.json --only=Nguyen --seed_shift={}\n".format(path, count))
+            f.write("time python run.py ./{}/config.json --only=Nguyen --seed_shift={}\n".format(path, count))
     
     # Make the run file executable
     st = os.stat(run_file)

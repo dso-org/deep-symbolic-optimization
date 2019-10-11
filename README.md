@@ -10,9 +10,9 @@ https://myconfluence.llnl.gov/display/HYPOTHESIS/Hypothesis+testing+via+AI%3A+Ge
 
 ## Package overview
 
-The package `dsr` contains the code for deep symbolic regression (DSR), including a single-point launch script (`train.py`) and parallalized batch-mode launch script (`run_benchmarks.py`).
+The package `dsr` contains the code for deep symbolic regression (DSR), including a single-point, parallelizable launch script (`run.py`).
 
-The main dependencies are `tensorflow`, which is used for the RNN controller, `gplearn`, which is used to compare against genetic programming (GP) methods, and `sympy`, which is _only_ used for pretty printing and parsing string representations of expressions, not as a fully-functional computer algebra system.
+The main dependencies are `tensorflow`, which is used for the RNN controller, `gplearn` and `deap`, which are used to compare against genetic programming (GP) methods, and `sympy`, which is _only_ used for pretty printing and parsing string representations of expressions, not as a fully-functional computer algebra system.
 
 # Installation
 
@@ -40,44 +40,58 @@ Top-level key "training" specifies the training hyperparameters for DSR. See doc
 
 Top-level key "controller" specifies the RNN controller hyperparameters for DSR. See docs for in `controller.py` for details.
 
-Top-level key "gp" specifies the hyperparameters for GP. See docs for `gplearn.genetic.SymbolicRegressor` for details.
+Top-level key "gp" specifies the hyperparameters for GP using `gplearn`. See docs for `gplearn.genetic.SymbolicRegressor` for details.
+
+Top-level key "deap" specifies the hyperparameters for GP using `deap`. See docs for `dsr.baselines.deap.GP` for details.
 
 ## Launching runs
 
 After configuring a run, launching it is trivial:
 
 ```
-python run_benchmarks.py [PATH_TO_CONFIG] [--OTHER_FLAGS]
+python -m dsr.run [PATH_TO_CONFIG] [--OTHER_FLAGS]
 ```
 
 ## Examples
 
-### Train DSR on one benchmark
+### Show command-line help and quit
 
 ```
-python train.py config.json
+python -m dsr.run --help
 ```
 
-### Train DSR on all benchmarks
+### Train DSR on Korns-1
 
 ```
-python run_benchmarks.py config.json
+python -m dsr.run config.json --only=Korns-1
 ```
 
-### Train GP on all benchmarks
+### Train DSR on all benchmarks (not recommended)
 
 ```
-python run_benchmarks.py config.json --method=gp
+python dsr.run config.json
 ```
 
-### Train DSR on benchamrks Korns-1 and Nguyen-4
+### Train GP (using `gplearn`) on Korns-1
 
 ```
-python run_benchmarks.py config.json --only=Korns-1 --only=Nguyen-4
+python dsr.run config.json --method=gp --only=Korns-1
+```
+
+### Train GP (using `deap`) on Korns-1
+
+```
+python -m dsr.run config.json --method=gp --only=Korns-1
+```
+
+### Train DSR on Korns-1 and Nguyen-4
+
+```
+python dsr.run config.json --only=Korns-1 --only=Nguyen-4
 ```
 
 ### Train DSR on all benchamrks except those beginning with Korns (i.e. Korns-1, Korns-2, etc.)
 
 ```
-python run_benchmarks.py config.json --exclude=Korns
+python -m dsr.run config.json --exclude=Korns
 ```
