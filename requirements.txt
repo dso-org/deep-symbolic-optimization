@@ -1,4 +1,5 @@
-tensorflow
+tensorflow==1.14
+gplearn
 numba
 sympy
 pandas
