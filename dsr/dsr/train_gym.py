@@ -130,7 +130,7 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
-    Program.set_reward_function(reward, *reward_params)
+#    Program.set_reward_function(reward, *reward_params)
     Program.set_complexity_penalty(complexity, complexity_weight)
 
     # Set the constant optimizer
@@ -156,7 +156,8 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
     prev_base_r_best = None
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
     gym_states =  env.reset()
-    for step in range(n_epochs):
+    for iteration in range(10000): #episodes
+      for step in range(n_epochs):
         env.render()
         # Sample batch of expressions from controller
         actions = controller.sample(batch_size) # Shape: (batch_size, max_length)
@@ -171,7 +172,7 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
             # we manually set the optimized constants and base reward after the
             # pool joins.
             programs = [from_tokens(a, optimize=False) for a in actions]
-            programs_to_optimize = list(set([p for p in programs if p.base_r is None]))
+            programs_to_optimize = list(set([p for p in programs if base_r is None]))
             results = pool.map(work, programs_to_optimize)
             for optimized_constants, p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
@@ -197,29 +198,6 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
 
-        # # Show new commonest expression
-        # # Note: This should go before epsilon heuristic
-        # counts = np.array([p.count for p in programs])
-        # if max(counts) > max_count:
-        #     max_count = max(counts)
-        #     commonest = programs[np.argmax(counts)]            
-        #     if verbose:                
-        #         print("\nNew commonest expression")
-        #         commonest.print_stats()
-
-        # Heuristic: Only train on top epsilon fraction of sampled expressions
-#        cutoff = None
-#        if epsilon is not None and epsilon < 1.0:
-#            cutoff = r >= np.percentile(r, 100 - int(100*epsilon))
-#            print(actions, cutoff, type(actions), type(cutoff))
-#            actions = actions[cutoff, :]
-#            programs = list(compress(programs, cutoff))
-#            r = r[cutoff]
-#            l = l[cutoff]
-#            base_r = base_r[cutoff]
-        # Soo: Here, as we sample only one batch, no cutoff
-
-        # Clip lower bound of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, np.inf)
 
         # Compute baseline (EWMA of average reward)
@@ -278,7 +256,7 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
                     p_r_best.print_stats_gym(r,base_r)
                 else:
                     print("\nNew best reward")
-                    p_r_best.print_stats()
+                    p_r_best.print_stats_gym(r, base_r)
                     print("...and new best base reward")
                     p_base_r_best.print_stats_gym(r, base_r)
             elif new_r_best:
@@ -287,16 +265,33 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
             elif new_base_r_best:
                 print("\nNew best base reward")
                 p_base_r_best.print_stats_gym(r, base_r)
+
         
 
         # Early stopping
-        if early_stopping and base_r > 0.999:
-            print("base reward is 0.999; breaking early.")
+        if early_stopping and base_r > 90:
+            print("base reward is "+str(base_r)+ " which is above 90; breaking early.")
+            #Test result: play episode with learned best equation#
+            print("\n Test result!! \n")
+            gym_states =  env.reset()
+            for t in range(100):
+                 print("\ntest step "+str(t))
+                 gym_action = p_r_best.execute(np.asarray([gym_states])) #state-(equ)->action
+                 gym_states, base_reward, done, info =  env.step(gym_action) #action-(gym)->reward
+                 # Retrieve the rewards
+                 base_r_test =  np.array([base_reward])
+                 r_test = np.array([base_r_test[0] - p_r_best.complexity])
+                 p_r_best.print_stats_gym(r_test, base_r_test)
+            print("\n Finish testing !! \n")
+            #restart episode for training
+            gym_states =  env.reset()
             break
 
+
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
-        if verbose and step > 0 and step % 10 == 0:
+        if verbose and step > 0 and step % 100 == 0:
             print("Completed {} steps".format(step))
+            print(" state "+ str(gym_states)+ " reward "+str( base_reward))
             # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
 
     if pool is not None:
