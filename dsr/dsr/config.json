@@ -9,8 +9,8 @@
 
 "training" : {
     "logdir" : "test",
-    "n_epochs" : 1000,
-    "batch_size" : 1000,
+    "n_epochs" : 100000000,
+    "batch_size" : 1,
     "reward" : "neg_mse",
     "reward_params" : [],
     "complexity" : "length",

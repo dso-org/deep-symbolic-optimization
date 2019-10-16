@@ -537,6 +537,19 @@ class Program(object):
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
 
+
+
+    def print_stats_gym(self,  r, base_r):
+        """Prints the statistics of the program"""
+
+        print("\tReward: {}".format(r))
+        print("\tBase reward: {}".format(base_r))
+        print("\tCount: {}".format(self.count))
+        print("\tTraversal: {}".format(self))
+        print("\tExpression:")
+        print("{}\n".format(indent(self.pretty(), '\t  ')))
+
+
     
     def __repr__(self):
         """Prints the program's traversal"""

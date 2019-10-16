@@ -532,6 +532,62 @@ class Controller(object):
         return summaries
 
 
+
+
+
+
+    def train_step_gym(self, r, b, actions, actions_mask): #no i_mask in case of gym (1 batch only)
+        """Computes loss, trains model, and returns summaries."""
+
+        feed_dict = {self.r : r,
+                     self.baseline : b,
+                     self.actions_mask : actions_mask,
+                     self.batch_size : actions.shape[0]}
+
+        # Zip along trajectory axis
+        feed_dict.update(zip(self.actions_ph, actions.T))
+        feed_dict.update(zip(self.parents_ph, self.prev_parents))
+        feed_dict.update(zip(self.siblings_ph, self.prev_siblings))
+        feed_dict.update(zip(self.priors_ph, self.prev_priors))
+
+        if self.ppo:
+            # Compute old_neglogp to be used for training
+            old_neglogp = self.sess.run(self.sample_neglogp, feed_dict=feed_dict)
+
+            # Perform multiple epochs of minibatch training
+            feed_dict[self.old_neglogp_ph] = old_neglogp
+            indices = np.arange(len(r))
+            for epoch in range(self.ppo_n_iters):
+                self.rng.shuffle(indices)
+                minibatches = np.array_split(indices, self.ppo_n_mb)
+                for i, mb in enumerate(minibatches):
+                    mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size, self.actions_mask]}
+                    mb_feed_dict.update({
+                        self.baseline : b,
+                        self.actions_mask : actions_mask[:, mb],
+                        self.batch_size : len(mb)
+                        })
+
+                    _ = self.sess.run([self.train_op], feed_dict=mb_feed_dict)
+
+                    # Diagnostics
+                    # kl, cf, _ = self.sess.run([self.sample_kl, self.clip_fraction, self.train_op], feed_dict=mb_feed_dict)
+                    # print("epoch", epoch, "i", i, "KL", kl, "CF", cf)
+
+        else:
+            _ = self.sess.run([self.train_op], feed_dict=feed_dict)
+
+        # Return summaries
+        if self.summary:
+            summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
+        else:
+            summaries = None
+
+        return summaries
+
+
+
+
 def make_prior(constraints, constraint_tokens, library_length):
     """
     Given a batch of constraints and the corresponding tokens to be constrained,
