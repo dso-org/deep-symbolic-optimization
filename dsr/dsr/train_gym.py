@@ -156,16 +156,16 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
     prev_base_r_best = None
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
     gym_states =  env.reset()
-    for iteration in range(10000): #episodes
-      for step in range(n_epochs):
-        env.render()
+    for iteration in range(n_epochs): #episodes
+#      for step in range(n_epochs):
+      env.render()
         # Sample batch of expressions from controller
-        actions = controller.sample(batch_size) # Shape: (batch_size, max_length)
+      actions = controller.sample(batch_size) # Shape: (batch_size, max_length)
 
-        # Instantiate, optimize, and evaluate expressions
-        if pool is None:
-            programs = [from_tokens(a, optimize=True) for a in actions]
-        else:
+      # Instantiate, optimize, and evaluate expressions
+      if pool is None:
+          programs = [from_tokens(a, optimize=True) for a in actions]
+      else:
             # To prevent interfering with the cache, un-optimized programs are
             # first generated serially. The resulting set is optimized in
             # parallel. Since multiprocessing operates on copies of programs,
@@ -177,6 +177,8 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
             for optimized_constants, p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
        
+      for step in range(100):
+
         # In gym environment, consider batch size is always 1
         gym_action = programs[0].execute(np.asarray([gym_states]))
         gym_states, base_reward, done, info =  env.step(gym_action)
@@ -270,28 +272,31 @@ def learn(sess, env, controller, logdir=".", n_epochs=1000, batch_size=1,
 
         # Early stopping
         if early_stopping and base_r > 90:
-            print("base reward is "+str(base_r)+ " which is above 90; breaking early.")
+            print("Iteration "+str(iteration) +"base reward is "+str(base_r)+ " which is above 90; breaking early.")
             #Test result: play episode with learned best equation#
-            print("\n Test result!! \n")
-            gym_states =  env.reset()
-            for t in range(100):
-                 print("\ntest step "+str(t))
-                 gym_action = p_r_best.execute(np.asarray([gym_states])) #state-(equ)->action
-                 gym_states, base_reward, done, info =  env.step(gym_action) #action-(gym)->reward
-                 # Retrieve the rewards
-                 base_r_test =  np.array([base_reward])
-                 r_test = np.array([base_r_test[0] - p_r_best.complexity])
-                 p_r_best.print_stats_gym(r_test, base_r_test)
-            print("\n Finish testing !! \n")
+            if iteration > 100:
+                print("\n Test result!! \n")
+                gym_states =  env.reset()
+                for t in range(100):
+                     print("\ntest step "+str(t))
+                     gym_action = p_r_best.execute(np.asarray([gym_states])) #state-(equ)->action
+                     gym_states, base_reward, done, info =  env.step(gym_action) #action-(gym)->reward
+                     # Retrieve the rewards
+                     base_r_test =  np.array([base_reward])
+                     r_test = np.array([base_r_test[0] - p_r_best.complexity])
+                     p_r_best.print_stats_gym(r_test, base_r_test)
+                print("\n Finish testing !! \n")
             #restart episode for training
             gym_states =  env.reset()
             break
 
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
-        if verbose and step > 0 and step % 100 == 0:
-            print("Completed {} steps".format(step))
-            print(" state "+ str(gym_states)+ " reward "+str( base_reward))
+        if verbose and step > 0 and step % 10 == 0:
+            print("Completed "+str(iteration) +" Iteration : Completed {} steps".format(step))
+            #print(" state "+ str(gym_states)+ " reward "+str( base_reward))
+            p_r_best.print_stats_gym(r, base_r)
+
             # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
 
     if pool is not None:
