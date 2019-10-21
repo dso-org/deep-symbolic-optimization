@@ -6,6 +6,36 @@ from numba import jit, prange
 from dsr.program import Program
 
 
+class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
+    """
+    RNNCell wrapper that adds a linear layer to the output.
+
+    See: https://github.com/tensorflow/models/blob/master/research/brain_coder/single_task/pg_agent.py
+    """
+
+    def __init__(self, cell, output_size):
+        self.cell = cell
+        self._output_size = output_size
+
+    def __call__(self, inputs, state, scope=None):
+        with tf.variable_scope(type(self).__name__):
+            outputs, state = self.cell(inputs, state, scope=scope)
+            logits = tf.layers.dense(outputs, units=self._output_size, reuse=tf.AUTO_REUSE)
+
+        return logits, state
+
+    @property
+    def output_size(self):
+        return self._output_size
+
+    @property
+    def state_size(self):
+        return self.cell.state_size
+
+    def zero_state(self, batch_size, dtype):
+        return self.cell.zero_state(batch_size, dtype)
+    
+
 class Controller(object):
     """
     Recurrent neural network (RNN) controller used to generate expressions.
@@ -178,7 +208,10 @@ class Controller(object):
         with tf.name_scope("controller"):
 
             # Create LSTM cell
-            cell = tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer())
+            cell = LinearWrapper(
+                cell=tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer()),
+                output_size=n_choices
+                )            
             cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)
 
             # Define input dimensions
@@ -249,13 +282,12 @@ class Controller(object):
             prior = tf.constant(prior, dtype=tf.float32)
 
             for i in range(max_length):
-                outputs, final_state = tf.nn.dynamic_rnn(cell,
+                logits, final_state = tf.nn.dynamic_rnn(cell,
                                                         cell_input,
                                                         initial_state=cell_state,
                                                         dtype=tf.float32)
 
-                # Outputs correspond to logits of library
-                logits = tf.layers.dense(outputs[:, -1, :], units=n_choices, reuse=tf.AUTO_REUSE)
+                logits = tf.squeeze(logits, axis=1) # (?, 1, n_choices) -> (?, n_choices)
                 logits = logits + prior
                 self.logits.append(logits)
 
