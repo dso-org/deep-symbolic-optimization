@@ -384,9 +384,11 @@ class Program(object):
         env = gym.envs.make(env_name)
         gym_states =  env.reset()
         for i in range(max_steps):
+            env.render()
             gym_action = self.execute(np.asarray([gym_states]))
             gym_states, r, done, info =  env.step(gym_action) # Do it multiples
             base_reward+=r
+        env.close()
         base_r = base_reward    
         return base_r
 
