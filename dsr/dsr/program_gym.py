@@ -11,7 +11,7 @@ from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 
 import gym
-
+from monitor import Monitor
 """config.json : early_stopping=false"""
 env_name = "MountainCarContinuous-v0"
 max_steps = 100 #in each episode
@@ -384,13 +384,31 @@ class Program(object):
         env = gym.envs.make(env_name)
         gym_states =  env.reset()
         for i in range(max_steps):
+          #  env.render()
+            gym_action = self.execute(np.asarray([gym_states]))
+            gym_states, r, done, info =  env.step(gym_action) # Do it multiples
+            base_reward+=r
+        env.close()
+        #print(base_reward)
+        base_r = base_reward/float(max_steps)    
+        return base_r
+
+    @cached_property
+    def rendering(self):
+        """GYM: Set one episdoe per one program"""
+        from gym import Wrapper
+        base_reward = 0
+        env = gym.envs.make(env_name)
+        env = Monitor(env, './video/',video_callable=lambda episode_id: True,force =True)
+        gym_states =  env.reset()
+        for i in range(max_steps):
             env.render()
             gym_action = self.execute(np.asarray([gym_states]))
             gym_states, r, done, info =  env.step(gym_action) # Do it multiples
             base_reward+=r
         env.close()
-        base_r = base_reward    
-        return base_r
+        
+
 
 
     @cached_property
