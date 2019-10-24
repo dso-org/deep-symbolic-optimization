@@ -445,32 +445,32 @@ class Controller(object):
             self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2]) # (?, n_inputs, max_length)
             # self.logits = tf.transpose(logits_ta.stack(), perm=[1, 0, 2]) # (?, max_length)
 
-            # TBD: Implement a sample class, like PQT?
-            # TBD: Implement variable length
-            self.actions_ph = tf.placeholder(tf.int32, [None, max_length])
-            self.inputs_ph = tf.placeholder(tf.float32, [None, max_length, n_inputs])
-            self.priors_ph = tf.placeholder(tf.float32, [None, max_length, n_choices])
-            self.lengths_ph = tf.placeholder(tf.int32, [None,])
-            self.mask_ph = tf.placeholder(tf.float32, [None, max_length])
-            with tf.variable_scope('policy', reuse=True):
-                logits, _ = tf.nn.dynamic_rnn(cell=cell,
-                                              inputs=self.inputs_ph,
-                                              sequence_length=self.lengths_ph,
-                                              dtype=tf.float32)
+        # TBD: Implement a sample class, like PQT?
+        # TBD: Implement variable length
+        self.actions_ph = tf.placeholder(tf.int32, [None, max_length])
+        self.inputs_ph = tf.placeholder(tf.float32, [None, max_length, n_inputs])
+        self.priors_ph = tf.placeholder(tf.float32, [None, max_length, n_choices])
+        self.lengths_ph = tf.placeholder(tf.int32, [None,])
+        self.mask_ph = tf.placeholder(tf.float32, [None, max_length])
+        with tf.variable_scope('policy', reuse=True):
+            logits, _ = tf.nn.dynamic_rnn(cell=cell,
+                                          inputs=self.inputs_ph,
+                                          sequence_length=self.lengths_ph,
+                                          dtype=tf.float32)
 
-            # Negative log probabilities of sequences
-            neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits + self.priors_ph,
-                                                                              labels=self.actions_ph)
-            neglogp = self.neglogp = tf.reduce_sum(neglogp_per_step * self.mask_ph, axis=1) # Sum over time
-            
-            # NOTE: The above implementation is the same as the one below, with a few caveats:
-            #   Exactly equivalent when removing priors.
-            #   Equivalent up to precision when including clipped prior.
-            #   Crashes when prior is not clipped due to multiplying zero by -inf.
-            # actions_one_hot = tf.one_hot(self.actions_ph, depth=n_choices, axis=-1, dtype=tf.float32)
-            # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(self.priors_ph, -2.4e38, 0)) * actions_one_hot
-            # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
-            # neglogp = self.neglogp = tf.reduce_sum(neglogp_per_step * self.mask_ph, axis=1) # Sum over time
+        # Negative log probabilities of sequences
+        neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits + self.priors_ph,
+                                                                          labels=self.actions_ph)
+        neglogp = self.neglogp = tf.reduce_sum(neglogp_per_step * self.mask_ph, axis=1) # Sum over time
+        
+        # NOTE: The above implementation is the same as the one below, with a few caveats:
+        #   Exactly equivalent when removing priors.
+        #   Equivalent up to precision when including clipped prior.
+        #   Crashes when prior is not clipped due to multiplying zero by -inf.
+        # actions_one_hot = tf.one_hot(self.actions_ph, depth=n_choices, axis=-1, dtype=tf.float32)
+        # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(self.priors_ph, -2.4e38, 0)) * actions_one_hot
+        # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
+        # neglogp = self.neglogp = tf.reduce_sum(neglogp_per_step * self.mask_ph, axis=1) # Sum over time
 
 
         # Set up losses
