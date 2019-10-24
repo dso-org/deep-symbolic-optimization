@@ -113,6 +113,21 @@ class Controller(object):
     ppo_n_mb : int
         Number of minibatches per optimization iteration for PPO.
 
+    pqt : bool
+        Train with priority queue training (PQT)?
+
+    pqt_k : int
+        Size of priority queue.
+
+    pqt_batch_size : int
+        Size of batch to sample (with replacement) from priority queue.
+
+    pqt_weight : float
+        Coefficient for PQT loss function.
+
+    pqt_use_pg : bool
+        Use policy gradient loss when using PQT?
+
     embedding : bool
         Embed each observation?
 
@@ -127,7 +142,9 @@ class Controller(object):
                  constrain_min_len=True, constrain_max_len=True,
                  constrain_num_const=False,
                  embedding=False, embedding_size=4, summary=True,
-                 ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4):
+                 ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4,
+                 pqt=False, pqt_k=10, pqt_batch_size=1,
+                 pqt_weight=200.0, pqt_use_pg=False):
 
         self.sess = sess
         self.summary = summary
@@ -149,6 +166,9 @@ class Controller(object):
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
+        self.pqt = pqt
+        self.pqt_k = pqt_k
+        self.pqt_batch_size = pqt_batch_size
 
         n_choices = Program.L
 
@@ -490,8 +510,8 @@ class Controller(object):
         self.sampled_batch = make_batch_ph("sampled_batch")
 
         # Off policy batch (used for PQT)
-        self.off_policy_batch = make_batch_ph("off_policy_batch")
-
+        if pqt:
+            self.off_policy_batch = make_batch_ph("off_policy_batch")
 
         # Set up losses
         with tf.name_scope("losses"):
@@ -502,27 +522,37 @@ class Controller(object):
             # Entropy = neglogp * p = neglogp * exp(-neglogp)
             entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
             entropy = tf.reduce_sum(entropy_per_step * self.sampled_batch["masks"], axis=1) # Sum over time
-            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")            
+            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
+            loss = entropy_loss
 
+            # PPO loss
             if ppo:
+                assert not pqt, "PPO is not compatible with PQT"
 
-                # Define PPO loss
                 self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
                 ratio = tf.exp(self.old_neglogp_ph - neglogp)
                 clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
                 ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (self.r - self.baseline), clipped_ratio * (self.r - self.baseline)))
-                self.loss = ppo_loss + entropy_loss
+                loss += ppo_loss
 
                 # Define PPO diagnostics
                 clipped = tf.logical_or(ratio < (1. - ppo_clip_ratio), ratio > 1. + ppo_clip_ratio)
                 self.clip_fraction = tf.reduce_mean(tf.cast(clipped, tf.float32))
                 self.sample_kl = tf.reduce_mean(neglogp - self.old_neglogp_ph)
 
-            else:               
-                # Policy gradient loss 
-                pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
-                self.loss = pg_loss + entropy_loss
+            # Policy gradient loss
+            else:
+                if not pqt or (pqt and pqt_use_pg):
+                    pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
+                    loss += pg_loss
 
+            # Priority queue training loss
+            if pqt:
+                pqt_neglogp, _ = make_neglogp(**self.off_policy_batch)
+                pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
+                loss += pqt_loss
+
+            self.loss = loss
 
         # Create summaries
         with tf.name_scope("summary"):
@@ -530,7 +560,10 @@ class Controller(object):
                 if ppo:
                     tf.summary.scalar("ppo_loss", ppo_loss)
                 else:
-                    tf.summary.scalar("pg_loss", pg_loss)
+                    if not pqt or (pqt and pqt_use_pg):
+                        tf.summary.scalar("pg_loss", pg_loss)
+                if pqt:
+                    tf.summary.scalar("pqt_loss", pqt_loss)
                 tf.summary.scalar("entropy_loss", entropy_loss)
                 tf.summary.scalar("total_loss", self.loss)
                 tf.summary.scalar("reward", tf.reduce_mean(self.r))
@@ -554,7 +587,7 @@ class Controller(object):
         return actions, inputs, priors
 
 
-    def train_step(self, r, b, actions, inputs, priors, mask):
+    def train_step(self, r, b, actions, inputs, priors, mask, priority_queue):
         """Computes loss, trains model, and returns summaries."""
 
         feed_dict = {self.r : r,
@@ -564,6 +597,23 @@ class Controller(object):
                      self.sampled_batch["lengths"] : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
                      self.sampled_batch["priors"] : priors,
                      self.sampled_batch["masks"] : mask}
+
+        if self.pqt:
+            # Sample from the priority queue
+            dicts = [extra_data for (item, extra_data) in priority_queue.random_sample(self.pqt_batch_size)]
+            pqt_actions = np.stack([d["actions"] for d in dicts], axis=0)
+            pqt_inputs = np.stack([d["inputs"] for d in dicts], axis=0)
+            pqt_priors = np.stack([d["priors"] for d in dicts], axis=0)
+            pqt_masks = np.stack([d["masks"] for d in dicts], axis=0)
+
+            # Update the feed_dict
+            feed_dict.update({
+                self.off_policy_batch["actions"] : pqt_actions,
+                self.off_policy_batch["inputs"] : pqt_inputs,
+                self.off_policy_batch["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
+                self.off_policy_batch["priors"] : pqt_priors,
+                self.off_policy_batch["masks"] : pqt_masks
+                })
 
         if self.ppo:
             # Compute old_neglogp to be used for training
