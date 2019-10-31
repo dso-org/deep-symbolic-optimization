@@ -13,6 +13,7 @@ import numpy as np
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.dataset import Dataset
+from dsr.utils import MaxUniquePriorityQueue
 
 
 # Ignore TensorFlow warnings
@@ -152,6 +153,14 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         if num_cores > 1:
             pool = multiprocessing.Pool(num_cores)
 
+    # Create the priority queue
+    k = controller.pqt_k
+    if k is not None and k > 0:
+        from collections import deque
+        priority_queue = MaxUniquePriorityQueue(capacity=k)
+    else:
+        priority_queue = None
+
     # Main training loop
     # max_count = 1    
     r_best = -np.inf
@@ -250,8 +259,24 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             length = min(len(p.traversal), controller.max_length)
             mask[i, :length] = 1.0
 
+        # Update the priority queue
+        # NOTE: Updates with at most one expression per batch
+        if priority_queue is not None:
+            i = np.argmax(r)
+            p = programs[i]
+            score = p.r
+            item = p.tokens.tostring()
+            extra_data = {
+                "actions" : actions[i],
+                "inputs" : inputs[i],
+                "priors" : priors[i],
+                "masks" : mask[i]
+            }
+            # Always push unique item if the queue isn't full
+            priority_queue.push(score, item, extra_data)
+
         # Train the controller
-        summaries = controller.train_step(r, b, actions, inputs, priors, mask)
+        summaries = controller.train_step(r, b, actions, inputs, priors, mask, priority_queue)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()

@@ -133,6 +133,7 @@ class Program(object):
 
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
+        self.tokens = tokens
         if optimize:
             _ = self.optimize()
         self.count = 1
