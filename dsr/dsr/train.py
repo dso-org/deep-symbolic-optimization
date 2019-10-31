@@ -136,6 +136,14 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     # Initialize compute graph
     sess.run(tf.global_variables_initializer())
 
+    debug = False
+    if debug:
+        tvars = tf.trainable_variables()
+        def print_var_means():
+            tvars_vals = sess.run(tvars)
+            for var, val in zip(tvars, tvars_vals):
+                print(var.name, val.mean())        
+
     # Create the pool of workers
     pool = None
     if "const" in Program.library:
@@ -153,8 +161,11 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
     for step in range(n_epochs):
 
+        if debug:
+            print_var_means()
+
         # Sample batch of expressions from controller
-        actions = controller.sample(batch_size) # Shape: (batch_size, max_length)
+        actions, inputs, priors = controller.sample(batch_size) # Shape: (batch_size, max_length), (batch_size, max_length, n_inputs)
 
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
@@ -200,6 +211,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         if epsilon is not None and epsilon < 1.0:
             cutoff = r >= np.percentile(r, 100 - int(100*epsilon))
             actions = actions[cutoff, :]
+            inputs = inputs[cutoff, :, :]
+            priors = priors[cutoff, :, :]
             programs = list(compress(programs, cutoff))
             r = r[cutoff]
             l = l[cutoff]
@@ -232,13 +245,13 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
                 np.savetxt(f, stats, delimiter=',')
 
         # Compute actions mask
-        actions_mask = np.zeros_like(actions.T, dtype=np.float32) # Shape: (max_length, batch_size)
+        mask = np.zeros_like(actions, dtype=np.float32) # Shape: (batch_size, max_length)
         for i,p in enumerate(programs):
             length = min(len(p.traversal), controller.max_length)
-            actions_mask[:length, i] = 1.0
+            mask[i, :length] = 1.0
 
         # Train the controller
-        summaries = controller.train_step(r, b, actions, actions_mask, cutoff)
+        summaries = controller.train_step(r, b, actions, inputs, priors, mask)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
@@ -281,7 +294,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
-            # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_actions_mask)[0])
+            # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_mask)[0])
 
     if pool is not None:
         pool.close()
