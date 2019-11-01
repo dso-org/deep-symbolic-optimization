@@ -18,6 +18,7 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import deap
 
+import sys
 
 def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
@@ -268,6 +269,13 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     for f in os.listdir(data_path):
         if f.endswith(".csv") and "benchmarks" not in f and "function_sets" not in f:
             names.append(f.split('.')[0])
+
+    # Load raw dataset from external directory in config
+    if "extra_data_dir" in config_dataset:
+        if not config_dataset["extra_data_dir"] == None:
+            for f in os.listdir(config_dataset["extra_data_dir"]):
+                if f.endswith(".csv"):
+                    names.append(f.split('.')[0])
 
     # Filter out expressions
     expressions = [parse_expr(e) for e in df["sympy"]]

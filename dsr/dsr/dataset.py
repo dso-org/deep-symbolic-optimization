@@ -55,6 +55,13 @@ class Dataset(object):
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
         self.rng = np.random.RandomState(seed)
 
+        # Load raw dataset from external directory in config
+        root_changed = False
+        if "extra_data_dir" in kwargs.keys():
+            if not kwargs["extra_data_dir"] == None:
+                root = os.path.join(kwargs["extra_data_dir"],"")
+                root_changed = True
+
         # Raw dataset
         if name not in df.index:
 
@@ -104,7 +111,7 @@ class Dataset(object):
             self.train_spec = None
             self.test_spec = None
 
-            function_set = "Real" # HACK: Currently hardcoded
+            function_set = "Real" # Default value of library
 
         # Expression dataset
         else:
@@ -142,11 +149,19 @@ class Dataset(object):
                 self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
                 self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
 
+        # If root has changed
+        if root_changed == True:
+            root = resource_filename("dsr", "data/")
+            
         # Create the function set (list of str)
         function_set_path = os.path.join(root, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
         self.function_set = df.loc[function_set].tolist()[0].strip().split(',')
 
+        # Overwrite the function set from config
+        if "function_lib" in kwargs.keys():
+            if not kwargs["function_lib"] == None:
+                self.function_set = kwargs["function_lib"].strip().split(',')
     
     def make_X(self, spec):
         """Creates X values based on specification"""
