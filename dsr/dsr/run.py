@@ -1,6 +1,8 @@
 import os
+import sys
 import json
 import time
+import datetime
 import multiprocessing
 from copy import deepcopy
 from functools import partial
@@ -18,7 +20,6 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import deap
 
-import sys
 
 def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
@@ -320,6 +321,16 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
             print("Setting 'n_jobs' to 1 for training to avoid nested child processes.")
             config_gp["n_jobs"] = 1
     print("Running {} for n={} on benchmarks {}".format(method, mc, unique_names))
+
+    # Copy terminal commands and input data into log directory
+    input_filename = "data_" + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + ".input"
+    input_filename = os.path.join(logdir, input_filename)
+    input_filename = open(input_filename, 'w')
+    print("Terminal commands:", file = input_filename)
+    print(" ".join(sys.argv) + "\n", file = input_filename)
+    print("Config file:", file = input_filename)
+    print(json.dumps(config, indent=4),file = input_filename)
+    input_filename.close()
 
     # Define the work
     if method == "dsr":
