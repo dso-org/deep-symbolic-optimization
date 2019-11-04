@@ -4,7 +4,9 @@
     "file" : "benchmarks.csv",
     "name" : "Burks",
     "extra_input_var" : 0,
-    "noise" : null
+    "noise" : null,
+    "extra_data_dir":null,
+    "function_lib":null
 },
 
 "training" : {
