@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import time
-import datetime
+from datetime import datetime
 import multiprocessing
 from copy import deepcopy
 from functools import partial
@@ -255,7 +255,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     # Create output directories
     if output_filename is None:
         output_filename = "benchmark_{}.csv".format(method)
-    logdir = os.path.join("log", config_training["logdir"])
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    logdir = os.path.join("log", config_training["logdir"]+"_"+timestamp)
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
 
@@ -323,7 +324,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     print("Running {} for n={} on benchmarks {}".format(method, mc, unique_names))
 
     # Copy terminal commands and input data into log directory
-    input_filename = "data_" + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + ".input"
+    input_filename = "data.input"
     input_filename = os.path.join(logdir, input_filename)
     input_filename = open(input_filename, 'w')
     print("Terminal commands:", file = input_filename)
