@@ -1,6 +1,8 @@
 import os
+import sys
 import json
 import time
+from datetime import datetime
 import multiprocessing
 from copy import deepcopy
 from functools import partial
@@ -253,7 +255,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     # Create output directories
     if output_filename is None:
         output_filename = "benchmark_{}.csv".format(method)
-    logdir = os.path.join("log", config_training["logdir"])
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    logdir = os.path.join("log", config_training["logdir"]+"_"+timestamp)
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
 
@@ -268,6 +271,13 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     for f in os.listdir(data_path):
         if f.endswith(".csv") and "benchmarks" not in f and "function_sets" not in f:
             names.append(f.split('.')[0])
+
+    # Load raw dataset from external directory in config
+    if "extra_data_dir" in config_dataset:
+        if not config_dataset["extra_data_dir"] == None:
+            for f in os.listdir(config_dataset["extra_data_dir"]):
+                if f.endswith(".csv"):
+                    names.append(f.split('.')[0])
 
     # Filter out expressions
     expressions = [parse_expr(e) for e in df["sympy"]]
@@ -312,6 +322,16 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
             print("Setting 'n_jobs' to 1 for training to avoid nested child processes.")
             config_gp["n_jobs"] = 1
     print("Running {} for n={} on benchmarks {}".format(method, mc, unique_names))
+
+    # Copy terminal commands and input data into log directory
+    input_filename = "data.input"
+    input_filename = os.path.join(logdir, input_filename)
+    input_filename = open(input_filename, 'w')
+    print("Terminal commands:", file = input_filename)
+    print(" ".join(sys.argv) + "\n", file = input_filename)
+    print("Config file:", file = input_filename)
+    print(json.dumps(config, indent=4),file = input_filename)
+    input_filename.close()
 
     # Define the work
     if method == "dsr":

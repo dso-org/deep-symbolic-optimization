@@ -123,7 +123,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,baseline\n")
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,baseline,nmse_best,nmse_avg_full\n")
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -160,6 +160,10 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         priority_queue = MaxUniquePriorityQueue(capacity=k)
     else:
         priority_queue = None
+
+    # Only needed for batch statistics log
+    if output_file is not None:
+        nmse_best = np.inf
 
     # Main training loop
     # max_count = 1    
@@ -235,10 +239,14 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
         b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
 
         # Collect sub-batch statistics and write output
-        if output_file is not None:            
+        if output_file is not None:
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
+            nmse = np.array([p.nmse for p in programs])
+            nmse_min = np.min(nmse)
+            nmse_best = min(nmse_min, nmse_best)
+            nmse_avg_full = np.mean(nmse)
             stats = np.array([[base_r_best,
                              base_r_max,
                              base_r_avg_full,
@@ -249,7 +257,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
                              r_avg_sub,
                              l_avg_full,
                              l_avg_sub,
-                             b]], dtype=np.float32)
+                             b,
+                             nmse_best,
+                             nmse_avg_full]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 

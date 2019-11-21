@@ -39,12 +39,20 @@ class Dataset(object):
         If not None, Gaussian noise is added to the y values with standard
         deviation = noise * RMS of the noiseless y training values.
 
+    function_lib : str, optional
+        List of operators to use in library. If None, use default. Otherwise,
+        this will override any default, e.g. when using a benchmark expression.
+
+    extra_data_dir : str, optional
+        Absolute path of directory to look for dataset files. If None, uses
+        default path dsr/data.
+
     **kwargs : keyword arguments, optional
         Unused. Only included to soak up keyword arguments.
     """
 
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
-                 **kwargs):
+                 function_lib=None, extra_data_dir=None, **kwargs):
 
         # Read in benchmark dataset information
         root = resource_filename("dsr", "data/")
@@ -54,6 +62,12 @@ class Dataset(object):
         # Random number generator used for sampling X values
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
         self.rng = np.random.RandomState(seed)
+
+        # Load raw dataset from external directory
+        root_changed = False
+        if extra_data_dir is not None:
+            root = os.path.join(extra_data_dir,"")
+            root_changed = True
 
         # Raw dataset
         if name not in df.index:
@@ -104,7 +118,7 @@ class Dataset(object):
             self.train_spec = None
             self.test_spec = None
 
-            function_set = "Real" # HACK: Currently hardcoded
+            function_set = "Real" # Default value of library
 
         # Expression dataset
         else:
@@ -142,11 +156,18 @@ class Dataset(object):
                 self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
                 self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
 
+        # If root has changed
+        if root_changed:
+            root = resource_filename("dsr", "data/")
+            
         # Create the function set (list of str)
         function_set_path = os.path.join(root, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
         self.function_set = df.loc[function_set].tolist()[0].strip().split(',')
 
+        # Overwrite the function set
+        if function_lib is not None:
+            self.function_set = function_lib.strip().split(',')
     
     def make_X(self, spec):
         """Creates X values based on specification"""
