@@ -63,6 +63,9 @@ class Controller(object):
     num_units : int
         Number of LSTM units in the RNN's single layer.
 
+    initiailizer : str
+        Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'.
+
     embedding : bool
         Embed each observation?
 
@@ -152,8 +155,9 @@ class Controller(object):
     def __init__(self, sess, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
-                 cell="lstm",
+                 cell='lstm',
                  num_units=32,
+                 initializer='zeros',
                  # Embedding hyperparameters
                  embedding=False,
                  embedding_size=4,
@@ -251,14 +255,24 @@ class Controller(object):
         # Build controller RNN
         with tf.name_scope("controller"):
 
+            def make_initializer(name):
+                if name == "zeros":
+                    return tf.zeros_initializer()
+                if name == "var_scale":
+                    return tf.contrib.layers.variance_scaling_initializer(
+                            factor=0.5, mode='FAN_AVG', uniform=True)
+                raise ValueError("Did not recognize initializer '{}'".format(name))
+
             def make_cell(name, num_units, initializer):
                 if name == 'lstm':
                     return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
                 if name == 'gru':
                     return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
+                raise ValueError("Did not recognize cell type '{}'".format(name))
 
             # Create recurrent cell
-            cell = make_cell(cell, num_units, initializer=tf.zeros_initializer())
+            initializer = make_initializer(initializer)
+            cell = make_cell(cell, num_units, initializer=initializer)
             cell = LinearWrapper(cell=cell, output_size=n_choices)
 
             # Define input dimensions
@@ -628,6 +642,7 @@ class Controller(object):
                 return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
             if name == "sgd":
                 return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+            raise ValueError("Did not recognize optimizer '{}'".format(name))
 
 
         # Create training op
