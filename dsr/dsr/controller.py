@@ -231,12 +231,14 @@ class Controller(object):
 
             # Create embeddings
             if embedding:
-                if observe_action:
-                    action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size])
-                if observe_parent:
-                    parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size])
-                if observe_sibling:
-                    sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
+                with tf.variable_scope("embeddings",
+                                       initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0)):
+                    if observe_action:
+                        action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size])
+                    if observe_parent:
+                        parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size])
+                    if observe_sibling:
+                        sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
 
             # First input is all empty tokens
             observations = [] # Each observation has shape (?, 1, n_choices + 1) or (?, 1, embedding_size)
