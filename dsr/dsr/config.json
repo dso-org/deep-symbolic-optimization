@@ -33,6 +33,7 @@
 
 "controller" : {
     "cell" : "lstm",
+    "num_layers" : 1,
     "num_units" : 32,
     "initializer" : "zeros",
     "embedding" : false,

@@ -60,8 +60,12 @@ class Controller(object):
     cell : str
         Recurrent cell to use. Supports 'lstm' and 'gru'.
 
-    num_units : int
-        Number of LSTM units in the RNN's single layer.
+    num_layers : int
+        Number of RNN layers.
+
+    num_units : int or list of ints
+        Number of RNN cell units in each of the RNN's layers. If int, the value
+        is repeated for each layer.
 
     initiailizer : str
         Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'.
@@ -156,6 +160,7 @@ class Controller(object):
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
                  cell='lstm',
+                 num_layers=1,
                  num_units=32,
                  initializer='zeros',
                  # Embedding hyperparameters
@@ -271,8 +276,11 @@ class Controller(object):
                 raise ValueError("Did not recognize cell type '{}'".format(name))
 
             # Create recurrent cell
+            if isinstance(num_units, int):
+                num_units = [num_units] * num_layers
             initializer = make_initializer(initializer)
-            cell = make_cell(cell, num_units, initializer=initializer)
+            cell = tf.contrib.rnn.MultiRNNCell(
+                    [make_cell(cell, n, initializer=initializer) for n in num_units])
             cell = LinearWrapper(cell=cell, output_size=n_choices)
 
             # Define input dimensions
