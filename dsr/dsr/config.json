@@ -25,6 +25,7 @@
     "b_jumpstart" : true,
     "num_cores" : 1,
     "summary" : false,
+    "debug" : 0,
     "output_file" : "output.csv",
     "early_stopping" : false,
     "threshold" : 1e-12

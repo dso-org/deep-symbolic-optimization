@@ -53,6 +53,10 @@ class Controller(object):
     summary : bool
         Write tensorboard summaries?
 
+    debug : int
+        Debug level, also used in learn(). 0: No debug. 1: Print shapes and
+        number of parameters for each variable.
+
     num_units : int
         Number of LSTM units in the RNN's single layer.
 
@@ -142,7 +146,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, summary=True,
+    def __init__(self, sess, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
                  num_units=32,
@@ -622,6 +626,18 @@ class Controller(object):
         optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
         with tf.name_scope("train"):
             self.train_op = optimizer.minimize(self.loss)
+
+        if debug >= 1:
+            total_parameters = 0
+            print("")
+            for variable in tf.trainable_variables():
+                shape = variable.get_shape()
+                n_parameters = np.product(shape)
+                total_parameters += n_parameters
+                print("Variable:    ", variable.name)
+                print("  Shape:     ", shape)
+                print("  Parameters:", n_parameters)
+            print("Total parameters:", total_parameters)
 
 
     def sample(self, n):
