@@ -31,7 +31,8 @@
     "threshold" : 1e-12
 },
 
-"controller" : {    
+"controller" : {
+    "cell" : "lstm",
     "num_units" : 32,
     "embedding" : false,
     "embedding_size" : 4,

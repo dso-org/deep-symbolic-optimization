@@ -57,6 +57,9 @@ class Controller(object):
         Debug level, also used in learn(). 0: No debug. 1: Print shapes and
         number of parameters for each variable.
 
+    cell : str
+        Recurrent cell to use. Supports 'lstm' and 'gru'.
+
     num_units : int
         Number of LSTM units in the RNN's single layer.
 
@@ -149,6 +152,7 @@ class Controller(object):
     def __init__(self, sess, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
+                 cell="lstm",
                  num_units=32,
                  # Embedding hyperparameters
                  embedding=False,
@@ -247,11 +251,15 @@ class Controller(object):
         # Build controller RNN
         with tf.name_scope("controller"):
 
-            # Create LSTM cell
-            cell = LinearWrapper(
-                cell=tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer()),
-                output_size=n_choices
-                )            
+            def make_cell(name, num_units, initializer):
+                if name == 'lstm':
+                    return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
+                if name == 'gru':
+                    return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
+
+            # Create recurrent cell
+            cell = make_cell(cell, num_units, initializer=tf.zeros_initializer())
+            cell = LinearWrapper(cell=cell, output_size=n_choices)
 
             # Define input dimensions
             n_action_inputs = n_choices + 1 # Library tokens + empty token
