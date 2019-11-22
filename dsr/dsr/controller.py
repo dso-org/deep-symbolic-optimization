@@ -243,20 +243,20 @@ class Controller(object):
             if embedding:                
                 if observe_action:
                     obs = tf.constant(n_action_inputs - 1, dtype=tf.int32)
-                    obs = tf.broadcast_to(obs, tf.stack([self.batch_size, 1]))
+                    obs = tf.broadcast_to(obs, [self.batch_size])
                     obs = tf.nn.embedding_lookup(action_embeddings, obs)
                     observations.append(obs)
                 if observe_parent:
                     obs = tf.constant(n_parent_inputs - 1, dtype=tf.int32)
-                    obs = tf.broadcast_to(obs, tf.stack([self.batch_size, 1]))
+                    obs = tf.broadcast_to(obs, [self.batch_size])
                     obs = tf.nn.embedding_lookup(parent_embeddings, obs)
                     observations.append(obs)
                 if observe_sibling:
                     obs = tf.constant(n_sibling_inputs - 1, dtype=tf.int32)
-                    obs = tf.broadcast_to(obs, tf.stack([self.batch_size, 1]))
+                    obs = tf.broadcast_to(obs, [self.batch_size])
                     obs = tf.nn.embedding_lookup(sibling_embeddings, obs)
                     observations.append(obs)
-                cell_input = tf.concat(observations, 2) # Shape (?, 1, n_inputs)
+                cell_input = tf.concat(observations, 1) # Shape (?, n_inputs)
             else:
                 observations = []
                 if observe_action:
@@ -273,7 +273,7 @@ class Controller(object):
                     observations += obs
                 observations = np.array(observations, dtype=np.float32)
                 cell_input = tf.constant(observations)
-                cell_input = tf.broadcast_to(cell_input, input_dims) # Shape (?, 1, n_inputs)
+                cell_input = tf.broadcast_to(cell_input, input_dims) # Shape (?, n_inputs)
 
             # Define prior on logits; currently only used to apply hard constraints
             arities = np.array([Program.arities[i] for i in range(n_choices)])
