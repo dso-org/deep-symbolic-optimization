@@ -32,11 +32,9 @@
 
 "controller" : {    
     "num_units" : 32,
-    "min_length" : 4,
-    "max_length" : 30,
-    "max_const" : null,
+    "embedding" : false,
+    "embedding_size" : 4,
     "learning_rate" : 1e-3,
-    "entropy_weight" : 0.1,
     "observe_action" : false,
     "observe_parent" : true,
     "observe_sibling" : true,
@@ -46,6 +44,10 @@
     "constrain_min_len" : true,
     "constrain_max_len" : true,
     "constrain_num_const" : false,
+    "min_length" : 4,
+    "max_length" : 30,
+    "max_const" : null,
+    "entropy_weight" : 0.1,
     "ppo" : false,
     "ppo_clip_ratio" : 0.2,
     "ppo_n_iters" : 10,
@@ -54,9 +56,7 @@
     "pqt_k" : 10,
     "pqt_batch_size" : 1,
     "pqt_weight" : 200.0,
-    "pqt_use_pg" : false,
-    "embedding" : false,
-    "embedding_size" : 4
+    "pqt_use_pg" : false
 },
 
 "gp" : {

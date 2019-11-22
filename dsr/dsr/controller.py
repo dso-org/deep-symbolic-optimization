@@ -50,26 +50,23 @@ class Controller(object):
     sess : tf.Session
         TenorFlow Session object.
 
+    summary : bool
+        Write tensorboard summaries?
+
     num_units : int
         Number of LSTM units in the RNN's single layer.
 
-    min_length : int (>= 1) or None
-        Minimum length of a sampled traversal when constrain_min_len=True. If
-        None or constrain_min_len=False, expressions have no minimum length.
+    embedding : bool
+        Embed each observation?
 
-    max_length : int (>= 3)
-        Maximum length of a sampled traversal.
+    embedding_size : int
+        Size of embedding for each observation if embedding=True.
 
-    max_const : int (>= 1) or None
-        Maximum number of constants of a sampled traversal when
-        constrain_num_const=True. If None or constrain_num_const=False,
-        expressions may have any number of constants.
+    optimizer : str
+        Optimizer to use. Supports 'adam', 'rmsprop', and 'sgd'.
 
     learning_rate : float
         Learning rate for optimizer.
-
-    entropy_weight : float
-        Coefficient for entropy bonus.
 
     observe_action : bool
         Observe previous action token?
@@ -101,6 +98,21 @@ class Controller(object):
     constrain_num_const : bool
         Prevent constants that would exceed max_const?
 
+    min_length : int (>= 1) or None
+        Minimum length of a sampled traversal when constrain_min_len=True. If
+        None or constrain_min_len=False, expressions have no minimum length.
+
+    max_length : int (>= 3)
+        Maximum length of a sampled traversal.
+
+    max_const : int (>= 1) or None
+        Maximum number of constants of a sampled traversal when
+        constrain_num_const=True. If None or constrain_num_const=False,
+        expressions may have any number of constants.
+
+    entropy_weight : float
+        Coefficient for entropy bonus.
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -128,33 +140,51 @@ class Controller(object):
     pqt_use_pg : bool
         Use policy gradient loss when using PQT?
 
-    embedding : bool
-        Embed each observation?
-
-    embedding_size : int
-        Size of embedding for each observation if embedding=True.
     """
 
-    def __init__(self, sess, num_units=32, min_length=2, max_length=30,
-                 max_const=None, learning_rate=0.001, entropy_weight=0.0,
-                 observe_action=True, observe_parent=True, observe_sibling=True,
-                 constrain_const=True, constrain_trig=True, constrain_inv=True,
-                 constrain_min_len=True, constrain_max_len=True,
+    def __init__(self, sess, summary=True,
+                 # Architecture hyperparameter
+                 # RNN cell hyperparameters
+                 num_units=32,
+                 # Embedding hyperparameters
+                 embedding=False,
+                 embedding_size=4,
+                 # Optimizer hyperparameters
+                 optimizer='adam',
+                 learning_rate=0.001,
+                 # Observation space hyperparameters
+                 observe_action=True,
+                 observe_parent=True,
+                 observe_sibling=True,
+                 # Constraint hyperparameters
+                 constrain_const=True,
+                 constrain_trig=True,
+                 constrain_inv=True,
+                 constrain_min_len=True,
+                 constrain_max_len=True,
                  constrain_num_const=False,
-                 embedding=False, embedding_size=4, summary=True,
-                 ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4,
-                 pqt=False, pqt_k=10, pqt_batch_size=1,
-                 pqt_weight=200.0, pqt_use_pg=False):
+                 min_length=2,
+                 max_length=30,
+                 max_const=None,
+                 # Loss hyperparameters
+                 entropy_weight=0.0,
+                 # PPO hyperparameters
+                 ppo=False,
+                 ppo_clip_ratio=0.2,
+                 ppo_n_iters=10,
+                 ppo_n_mb=4,
+                 # PQT hyperparameters
+                 pqt=False,
+                 pqt_k=10,
+                 pqt_batch_size=1,
+                 pqt_weight=200.0,
+                 pqt_use_pg=False):
 
         self.sess = sess
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
         # Hyperparameters
-        self.entropy_weight = entropy_weight
-        self.min_length = min_length
-        self.max_length = max_length
-        self.max_const = max_const
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.constrain_const = constrain_const and "const" in Program.library.values()
@@ -163,6 +193,10 @@ class Controller(object):
         self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
         self.constrain_num_const = constrain_num_const
+        self.min_length = min_length
+        self.max_length = max_length
+        self.max_const = max_const
+        self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -241,7 +275,7 @@ class Controller(object):
                         sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
 
             # First input is all empty tokens
-            observations = [] # Each observation has shape (?, 1, n_choices + 1) or (?, 1, embedding_size)
+            observations = []
             if embedding:                
                 if observe_action:
                     obs = tf.constant(n_action_inputs - 1, dtype=tf.int32)
