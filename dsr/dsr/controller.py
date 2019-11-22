@@ -608,9 +608,20 @@ class Controller(object):
                 tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch["masks"], axis=0))
                 self.summaries = tf.summary.merge_all()
 
+
+        def make_optimizer(name, learning_rate):
+            if name == "adam":
+                return tf.train.AdamOptimizer(learning_rate=learning_rate)
+            if name == "rmsprop":
+                return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
+            if name == "sgd":
+                return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+
+
         # Create training op
+        optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
         with tf.name_scope("train"):
-            self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
+            self.train_op = optimizer.minimize(self.loss)
 
 
     def sample(self, n):

@@ -34,6 +34,7 @@
     "num_units" : 32,
     "embedding" : false,
     "embedding_size" : 4,
+    "optimizer" : "adam",
     "learning_rate" : 1e-3,
     "observe_action" : false,
     "observe_parent" : true,
