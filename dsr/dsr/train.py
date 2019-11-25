@@ -33,7 +33,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
           verbose=True, summary=True, output_file=None, b_jumpstart=True,
-          early_stopping=False, threshold=1e-12):
+          early_stopping=False, threshold=1e-12, debug=0):
     """
     Executes the main training loop.
 
@@ -101,6 +101,10 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     threshold : float, optional
         NMSE threshold to stop early if a threshold is reached.
 
+    debug : int, optional
+        Debug level, also passed to Controller. 0: No debug. 1: Print initial
+        parameter means. 2: Print parameter means each step.
+
     Returns
     -------
     result : dict
@@ -137,10 +141,9 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     # Initialize compute graph
     sess.run(tf.global_variables_initializer())
 
-    debug = False
     if debug:
         tvars = tf.trainable_variables()
-        def print_var_means():
+        def print_var_means():            
             tvars_vals = sess.run(tvars)
             for var, val in zip(tvars, tvars_vals):
                 print(var.name, val.mean())        
@@ -165,6 +168,10 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     if output_file is not None:
         nmse_best = np.inf
 
+    if debug >= 1:
+        print("\nInitial parameter means:")
+        print_var_means()
+
     # Main training loop
     # max_count = 1    
     r_best = -np.inf
@@ -173,9 +180,6 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     prev_base_r_best = None
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
     for step in range(n_epochs):
-
-        if debug:
-            print_var_means()
 
         # Sample batch of expressions from controller
         actions, inputs, priors = controller.sample(batch_size) # Shape: (batch_size, max_length), (batch_size, max_length, n_inputs)
@@ -331,6 +335,11 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
             print("Completed {} steps".format(step))
             # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_mask)[0])
 
+        if debug >= 2:
+            print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
+            print_var_means()
+
+
     if pool is not None:
         pool.close()
 
@@ -382,7 +391,7 @@ def main():
 
     with tf.Session() as sess:
         # Instantiate the controller
-        controller = Controller(sess, summary=config_training["summary"], **config_controller)
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
         learn(sess, controller, **config_training)
 
 

@@ -50,7 +50,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     with tf.Session() as sess:        
 
         # Instantiate the controller
-        controller = Controller(sess, summary=config_training["summary"], **config_controller)
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
 
         # Train the controller
         result = learn(sess, controller, **config_training) # r, base_r, expression, traversal

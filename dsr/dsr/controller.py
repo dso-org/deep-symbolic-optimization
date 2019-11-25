@@ -50,26 +50,37 @@ class Controller(object):
     sess : tf.Session
         TenorFlow Session object.
 
-    num_units : int
-        Number of LSTM units in the RNN's single layer.
+    summary : bool
+        Write tensorboard summaries?
 
-    min_length : int (>= 1) or None
-        Minimum length of a sampled traversal when constrain_min_len=True. If
-        None or constrain_min_len=False, expressions have no minimum length.
+    debug : int
+        Debug level, also used in learn(). 0: No debug. 1: Print shapes and
+        number of parameters for each variable.
 
-    max_length : int (>= 3)
-        Maximum length of a sampled traversal.
+    cell : str
+        Recurrent cell to use. Supports 'lstm' and 'gru'.
 
-    max_const : int (>= 1) or None
-        Maximum number of constants of a sampled traversal when
-        constrain_num_const=True. If None or constrain_num_const=False,
-        expressions may have any number of constants.
+    num_layers : int
+        Number of RNN layers.
+
+    num_units : int or list of ints
+        Number of RNN cell units in each of the RNN's layers. If int, the value
+        is repeated for each layer.
+
+    initiailizer : str
+        Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'.
+
+    embedding : bool
+        Embed each observation?
+
+    embedding_size : int
+        Size of embedding for each observation if embedding=True.
+
+    optimizer : str
+        Optimizer to use. Supports 'adam', 'rmsprop', and 'sgd'.
 
     learning_rate : float
         Learning rate for optimizer.
-
-    entropy_weight : float
-        Coefficient for entropy bonus.
 
     observe_action : bool
         Observe previous action token?
@@ -101,6 +112,21 @@ class Controller(object):
     constrain_num_const : bool
         Prevent constants that would exceed max_const?
 
+    min_length : int (>= 1) or None
+        Minimum length of a sampled traversal when constrain_min_len=True. If
+        None or constrain_min_len=False, expressions have no minimum length.
+
+    max_length : int (>= 3)
+        Maximum length of a sampled traversal.
+
+    max_const : int (>= 1) or None
+        Maximum number of constants of a sampled traversal when
+        constrain_num_const=True. If None or constrain_num_const=False,
+        expressions may have any number of constants.
+
+    entropy_weight : float
+        Coefficient for entropy bonus.
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -128,33 +154,54 @@ class Controller(object):
     pqt_use_pg : bool
         Use policy gradient loss when using PQT?
 
-    embedding : bool
-        Embed each observation?
-
-    embedding_size : int
-        Size of embedding for each observation if embedding=True.
     """
 
-    def __init__(self, sess, num_units=32, min_length=2, max_length=30,
-                 max_const=None, learning_rate=0.001, entropy_weight=0.0,
-                 observe_action=True, observe_parent=True, observe_sibling=True,
-                 constrain_const=True, constrain_trig=True, constrain_inv=True,
-                 constrain_min_len=True, constrain_max_len=True,
+    def __init__(self, sess, debug=0, summary=True,
+                 # Architecture hyperparameter
+                 # RNN cell hyperparameters
+                 cell='lstm',
+                 num_layers=1,
+                 num_units=32,
+                 initializer='zeros',
+                 # Embedding hyperparameters
+                 embedding=False,
+                 embedding_size=4,
+                 # Optimizer hyperparameters
+                 optimizer='adam',
+                 learning_rate=0.001,
+                 # Observation space hyperparameters
+                 observe_action=True,
+                 observe_parent=True,
+                 observe_sibling=True,
+                 # Constraint hyperparameters
+                 constrain_const=True,
+                 constrain_trig=True,
+                 constrain_inv=True,
+                 constrain_min_len=True,
+                 constrain_max_len=True,
                  constrain_num_const=False,
-                 embedding=False, embedding_size=4, summary=True,
-                 ppo=False, ppo_clip_ratio=0.2, ppo_n_iters=10, ppo_n_mb=4,
-                 pqt=False, pqt_k=10, pqt_batch_size=1,
-                 pqt_weight=200.0, pqt_use_pg=False):
+                 min_length=2,
+                 max_length=30,
+                 max_const=None,
+                 # Loss hyperparameters
+                 entropy_weight=0.0,
+                 # PPO hyperparameters
+                 ppo=False,
+                 ppo_clip_ratio=0.2,
+                 ppo_n_iters=10,
+                 ppo_n_mb=4,
+                 # PQT hyperparameters
+                 pqt=False,
+                 pqt_k=10,
+                 pqt_batch_size=1,
+                 pqt_weight=200.0,
+                 pqt_use_pg=False):
 
         self.sess = sess
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
         # Hyperparameters
-        self.entropy_weight = entropy_weight
-        self.min_length = min_length
-        self.max_length = max_length
-        self.max_const = max_const
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.constrain_const = constrain_const and "const" in Program.library.values()
@@ -163,6 +210,10 @@ class Controller(object):
         self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
         self.constrain_num_const = constrain_num_const
+        self.min_length = min_length
+        self.max_length = max_length
+        self.max_const = max_const
+        self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -209,11 +260,28 @@ class Controller(object):
         # Build controller RNN
         with tf.name_scope("controller"):
 
-            # Create LSTM cell
-            cell = LinearWrapper(
-                cell=tf.nn.rnn_cell.LSTMCell(num_units, initializer=tf.zeros_initializer()),
-                output_size=n_choices
-                )            
+            def make_initializer(name):
+                if name == "zeros":
+                    return tf.zeros_initializer()
+                if name == "var_scale":
+                    return tf.contrib.layers.variance_scaling_initializer(
+                            factor=0.5, mode='FAN_AVG', uniform=True)
+                raise ValueError("Did not recognize initializer '{}'".format(name))
+
+            def make_cell(name, num_units, initializer):
+                if name == 'lstm':
+                    return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
+                if name == 'gru':
+                    return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
+                raise ValueError("Did not recognize cell type '{}'".format(name))
+
+            # Create recurrent cell
+            if isinstance(num_units, int):
+                num_units = [num_units] * num_layers
+            initializer = make_initializer(initializer)
+            cell = tf.contrib.rnn.MultiRNNCell(
+                    [make_cell(cell, n, initializer=initializer) for n in num_units])
+            cell = LinearWrapper(cell=cell, output_size=n_choices)
 
             # Define input dimensions
             n_action_inputs = n_choices + 1 # Library tokens + empty token
@@ -231,15 +299,17 @@ class Controller(object):
 
             # Create embeddings
             if embedding:
-                if observe_action:
-                    action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size])
-                if observe_parent:
-                    parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size])
-                if observe_sibling:
-                    sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
+                with tf.variable_scope("embeddings",
+                                       initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0)):
+                    if observe_action:
+                        action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size])
+                    if observe_parent:
+                        parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size])
+                    if observe_sibling:
+                        sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
 
             # First input is all empty tokens
-            observations = [] # Each observation has shape (?, 1, n_choices + 1) or (?, 1, embedding_size)
+            observations = []
             if embedding:                
                 if observe_action:
                     obs = tf.constant(n_action_inputs - 1, dtype=tf.int32)
@@ -572,9 +642,33 @@ class Controller(object):
                 tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch["masks"], axis=0))
                 self.summaries = tf.summary.merge_all()
 
+
+        def make_optimizer(name, learning_rate):
+            if name == "adam":
+                return tf.train.AdamOptimizer(learning_rate=learning_rate)
+            if name == "rmsprop":
+                return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
+            if name == "sgd":
+                return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+            raise ValueError("Did not recognize optimizer '{}'".format(name))
+
+
         # Create training op
+        optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
         with tf.name_scope("train"):
-            self.train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
+            self.train_op = optimizer.minimize(self.loss)
+
+        if debug >= 1:
+            total_parameters = 0
+            print("")
+            for variable in tf.trainable_variables():
+                shape = variable.get_shape()
+                n_parameters = np.product(shape)
+                total_parameters += n_parameters
+                print("Variable:    ", variable.name)
+                print("  Shape:     ", shape)
+                print("  Parameters:", n_parameters)
+            print("Total parameters:", total_parameters)
 
 
     def sample(self, n):
