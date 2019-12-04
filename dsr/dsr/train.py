@@ -133,7 +133,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,baseline,nmse_best,nmse_avg_full\n")
+            f.write("nmse_best,nmse_min,nmse_avg_full,nmse_avg_sub,base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,baseline\n")
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -170,18 +170,15 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
     else:
         priority_queue = None
 
-    # Only needed for batch statistics log
-    if output_file is not None:
-        nmse_best = np.inf
-
     if debug >= 1:
         print("\nInitial parameter means:")
         print_var_means()
 
     # Main training loop
-    # max_count = 1    
-    r_best = -np.inf
-    base_r_best = -np.inf
+    # max_count = 1 
+    nmse_best = np.inf
+    base_r_best = -np.inf   
+    r_best = -np.inf    
     prev_r_best = None
     prev_base_r_best = None
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
@@ -206,19 +203,23 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             for optimized_constants, p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
 
-        # Retrieve the rewards
-        r = np.array([p.r for p in programs])
+        # Retrieve metrics
+        nmse = np.array([p.nmse for p in programs])
         base_r = np.array([p.base_r for p in programs])
-        l = np.array([len(p.traversal) for p in programs])
+        r = np.array([p.r for p in programs])        
+        l = np.array([len(p.traversal) for p in programs])        
 
         # Collect full-batch statistics
+        nmse_min = np.min(nmse)
+        nmse_best = min(nmse_min, nmse_best)
+        nmse_avg_full = np.mean(nmse)
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
-        l_avg_full = np.mean(l)
+        l_avg_full = np.mean(l)        
 
         # # Show new commonest expression
         # # Note: This should go before epsilon heuristic
@@ -238,9 +239,10 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             inputs = inputs[cutoff, :, :]
             priors = priors[cutoff, :, :]
             programs = list(compress(programs, cutoff))
-            r = r[cutoff]
-            l = l[cutoff]
+            nmse = nmse[cutoff]
             base_r = base_r[cutoff]
+            r = r[cutoff]
+            l = l[cutoff]\
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
         if reward in ["neg_mse", "neg_nmse", "neg_nrmse"]:
@@ -251,14 +253,16 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
+            nmse_avg_sub = np.mean(nmse)
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
-            l_avg_sub = np.mean(l)
-            nmse = np.array([p.nmse for p in programs])
-            nmse_min = np.min(nmse)
-            nmse_best = min(nmse_min, nmse_best)
-            nmse_avg_full = np.mean(nmse)
-            stats = np.array([[base_r_best,
+            l_avg_sub = np.mean(l)           
+            stats = np.array([[
+                             nmse_best,
+                             nmse_min,
+                             nmse_avg_full,
+                             nmse_avg_sub,
+                             base_r_best,
                              base_r_max,
                              base_r_avg_full,
                              base_r_avg_sub,
@@ -268,9 +272,8 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
                              r_avg_sub,
                              l_avg_full,
                              l_avg_sub,
-                             b,
-                             nmse_best,
-                             nmse_avg_full]], dtype=np.float32)
+                             b
+                             ]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
