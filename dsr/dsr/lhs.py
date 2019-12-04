@@ -63,7 +63,7 @@ def abbrev(k, v):
         a += "{:g}".format(v)
     return a
 
-def generate_configs_lhs(default, sweep, n, verbose):
+def generate_configs_lhs(default, sweep, n, verbose, mc):
     """
     Generates config files using Latin hypercube sampling.
 
@@ -192,7 +192,7 @@ def generate_configs_lhs(default, sweep, n, verbose):
         with open(os.path.join(path, "config.json"), 'w') as f:
             json.dump(config, f, indent=3)
         with open(run_file, 'a') as f:
-            f.write("time python run.py ./{}/config.json --only=Nguyen --seed_shift={}\n".format(path, count))
+            f.write("time python run.py ./{}/config.json --only=Nguyen --mc={} --seed_shift={}\n".format(path, mc, count))
     
     # Make the run file executable
     st = os.stat(run_file)
@@ -303,7 +303,8 @@ def generate_configs_lhs(default, sweep, n, verbose):
 @click.option('--sweep', default="sweep.json", help="JSON filename of sweep hyperparameter specifications")
 @click.option('--n', default=100, type=int, help="Number of Latin hypercube samples")
 @click.option('--verbose', default=False, type=bool, help="Descriptive logdir names?")
-def main(default, sweep, n, verbose):
+@click.option('--mc', default=1, type=int, help="MC trials to use for run script")
+def main(default, sweep, n, verbose, mc):
 
     with open(default, encoding='utf-8') as f:
         default = json.load(f)
@@ -311,7 +312,7 @@ def main(default, sweep, n, verbose):
     with open(sweep, encoding='utf-8') as f:
         sweep = json.load(f)
 
-    generate_configs_lhs(default, sweep, n, verbose)
+    generate_configs_lhs(default, sweep, n, verbose, mc)
 
 
 if __name__ == "__main__":
