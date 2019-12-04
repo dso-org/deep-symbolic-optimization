@@ -324,15 +324,13 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
             config_gp["n_jobs"] = 1
     print("Running {} for n={} on benchmarks {}".format(method, mc, unique_names))
 
-    # Copy terminal commands and input data into log directory
-    input_filename = "data.input"
-    input_filename = os.path.join(logdir, input_filename)
-    input_filename = open(input_filename, 'w')
-    print("Terminal commands:", file = input_filename)
-    print(" ".join(sys.argv) + "\n", file = input_filename)
-    print("Config file:", file = input_filename)
-    print(json.dumps(config, indent=4),file = input_filename)
-    input_filename.close()
+    # Write terminal command and config.json into log directory
+    cmd_filename = os.path.join(logdir, "cmd.out")
+    with open(cmd_filename, 'w') as f:
+        print(" ".join(sys.argv), file=f)
+    config_filename = os.path.join(logdir, "config.json")
+    with open(config_filename, 'w') as f:
+        json.dump(config, f, indent=4)
 
     # Define the work
     if method == "dsr":
