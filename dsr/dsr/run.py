@@ -296,7 +296,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
             if '-' in included_name: # If the whole name is specified (otherwise, e.g., only=Name-1 will also apply Name-10, Name-11, etc.)
                 keep = [True if included_name == n else k for k,n in zip(keep, names)]
             else:
-                keep = [True if included_name in n else k for k,n in zip(keep, names)]
+                keep = [True if n.startswith(included_name) else k for k,n in zip(keep, names)]
 
     names = [n for k,n in zip(keep, names) if k]
     unique_names = names.copy()
