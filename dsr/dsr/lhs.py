@@ -63,7 +63,7 @@ def abbrev(k, v):
         a += "{:g}".format(v)
     return a
 
-def generate_configs_lhs(default, sweep, n, verbose, mc):
+def generate_configs_lhs(default, sweep, n, verbose, mc, num_cores):
     """
     Generates config files using Latin hypercube sampling.
 
@@ -192,7 +192,7 @@ def generate_configs_lhs(default, sweep, n, verbose, mc):
         with open(os.path.join(path, "config.json"), 'w') as f:
             json.dump(config, f, indent=3)
         with open(run_file, 'a') as f:
-            f.write("time python run.py ./{}/config.json --only=Nguyen --mc={} --seed_shift={}\n".format(path, mc, count))
+            f.write("time python run.py ./{}/config.json --only=Nguyen --mc={} --num_cores={} --seed_shift={}\n".format(path, mc, num_cores, count))
     
     # Make the run file executable
     st = os.stat(run_file)
@@ -304,7 +304,8 @@ def generate_configs_lhs(default, sweep, n, verbose, mc):
 @click.option('--n', default=100, type=int, help="Number of Latin hypercube samples")
 @click.option('--verbose', default=False, type=bool, help="Descriptive logdir names?")
 @click.option('--mc', default=1, type=int, help="MC trials to use for run script")
-def main(default, sweep, n, verbose, mc):
+@click.option('--num_cores', default=1, type=int, help="Number of cores to use for run script")
+def main(default, sweep, n, verbose, mc, num_cores):
 
     with open(default, encoding='utf-8') as f:
         default = json.load(f)
@@ -312,7 +313,7 @@ def main(default, sweep, n, verbose, mc):
     with open(sweep, encoding='utf-8') as f:
         sweep = json.load(f)
 
-    generate_configs_lhs(default, sweep, n, verbose, mc)
+    generate_configs_lhs(default, sweep, n, verbose, mc, num_cores)
 
 
 if __name__ == "__main__":
