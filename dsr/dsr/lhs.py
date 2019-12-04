@@ -192,7 +192,7 @@ def generate_configs_lhs(default, sweep, n, verbose, mc, num_cores):
         with open(os.path.join(path, "config.json"), 'w') as f:
             json.dump(config, f, indent=3)
         with open(run_file, 'a') as f:
-            f.write("time python run.py ./{}/config.json --only=Nguyen --mc={} --num_cores={} --seed_shift={}\n".format(path, mc, num_cores, count))
+            f.write("time python -m dsr.run ./{}/config.json --only=Nguyen --mc={} --num_cores={} --seed_shift={}\n".format(path, mc, num_cores, count))
     
     # Make the run file executable
     st = os.stat(run_file)
