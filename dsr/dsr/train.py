@@ -28,7 +28,7 @@ def work(p):
     return p.optimize()
 
 
-def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
+def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
@@ -48,8 +48,12 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     logdir : str, optional
         Name of log directory.
     
-    n_epochs : int, optional
-        Number of epochs to train.
+    n_epochs : int or None, optional
+        Number of epochs to train when n_samples is None.
+
+    n_samples : int or None, optional
+        Total number of expressions to sample when n_epochs is None. In this
+        case, n_epochs = int(n_samples / batch_size).
     
     batch_size : int, optional
         Number of sampled expressions per epoch.
@@ -110,6 +114,8 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     result : dict
         A dict describing the best-fit expression (determined by base_r).
     """
+
+    assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
     # Create the summary writer
     if summary:
@@ -179,6 +185,7 @@ def learn(sess, controller, logdir=".", n_epochs=1000, batch_size=1000,
     prev_r_best = None
     prev_base_r_best = None
     b = None if b_jumpstart else 0.0 # Baseline used for control variates
+    n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     for step in range(n_epochs):
 
         # Sample batch of expressions from controller
