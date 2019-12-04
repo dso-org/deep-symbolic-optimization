@@ -256,7 +256,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     if output_filename is None:
         output_filename = "benchmark_{}.csv".format(method)
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    logdir = os.path.join("log", config_training["logdir"]+"_"+timestamp)
+    config_training["logdir"] += "_" + timestamp
+    logdir = os.path.join("log", config_training["logdir"])
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
 
