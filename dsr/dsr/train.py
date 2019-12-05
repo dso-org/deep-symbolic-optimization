@@ -232,17 +232,18 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         #         commonest.print_stats()
 
         # Heuristic: Only train on top epsilon fraction of sampled expressions
-        cutoff = None
         if epsilon is not None and epsilon < 1.0:
-            cutoff = r >= np.percentile(r, 100 - int(100*epsilon))
-            actions = actions[cutoff, :]
-            inputs = inputs[cutoff, :, :]
-            priors = priors[cutoff, :, :]
-            programs = list(compress(programs, cutoff))
-            nmse = nmse[cutoff]
-            base_r = base_r[cutoff]
-            r = r[cutoff]
-            l = l[cutoff]
+            n_keep = int(epsilon * batch_size) # Number of top indices to keep
+            keep = np.zeros(shape=(batch_size,), dtype=bool)
+            keep[np.argsort(r)[-n_keep:]] = True
+            actions = actions[keep, :]
+            inputs = inputs[keep, :, :]
+            priors = priors[keep, :, :]
+            programs = list(compress(programs, keep))
+            nmse = nmse[keep]
+            base_r = base_r[keep]
+            r = r[keep]
+            l = l[keep]
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
         if reward in ["neg_mse", "neg_nmse", "neg_nrmse"]:
