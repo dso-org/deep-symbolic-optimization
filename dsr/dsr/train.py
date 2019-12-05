@@ -18,7 +18,7 @@ from dsr.utils import MaxUniquePriorityQueue
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-tf.logging.set_verbosity(tf.logging.ERROR)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 # Set TensorFlow seed
 tf.random.set_random_seed(0)
@@ -242,7 +242,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             nmse = nmse[cutoff]
             base_r = base_r[cutoff]
             r = r[cutoff]
-            l = l[cutoff]\
+            l = l[cutoff]
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
         if reward in ["neg_mse", "neg_nmse", "neg_nrmse"]:
