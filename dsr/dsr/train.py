@@ -164,7 +164,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
     # Create the priority queue
     k = controller.pqt_k
-    if k is not None and k > 0:
+    if controller.pqt and k is not None and k > 0:
         from collections import deque
         priority_queue = MaxUniquePriorityQueue(capacity=k)
     else:
