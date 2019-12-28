@@ -109,6 +109,11 @@ class Program(object):
     const_optimizer = None  # Function to optimize constants
     X_train = None
     y_train = None
+    X_test = None
+    y_test = None
+    y_train_noiseless = None
+    y_test_noiseless = None
+    var_y_test = None
     cache = {}
 
     # Additional derived static variables
@@ -247,6 +252,7 @@ class Program(object):
         cls.y_test = dataset.y_test
         cls.y_train_noiseless = dataset.y_train_noiseless
         cls.y_test_noiseless = dataset.y_test_noiseless
+        cls.var_y_test = np.var(dataset.y_test)
 
 
     @classmethod
@@ -493,8 +499,7 @@ class Program(object):
         program on the test set (used as final performance metric)"""
 
         y_hat = self.execute(Program.X_test)
-        var_y = np.var(Program.y_test)
-        return np.mean((Program.y_test - y_hat)**2) / var_y
+        return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
 
 
     @cached_property
