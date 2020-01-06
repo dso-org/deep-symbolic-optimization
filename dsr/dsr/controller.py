@@ -356,6 +356,32 @@ class Controller(object):
             initial_prior = prior
 
 
+            # Returns concatenated one-hot or embeddings
+            # Used for both raw_rnn and dynmaic_rnn
+            def get_input(action, parent, sibling):
+                observations = []
+                if observe_action:
+                    if embedding:
+                        obs = tf.nn.embedding_lookup(action_embeddings, action)
+                    else:
+                        obs = tf.one_hot(action, depth=n_action_inputs)
+                    observations.append(obs)
+                if observe_parent:
+                    if embedding:
+                        obs = tf.nn.embedding_lookup(parent_embeddings, parent)
+                    else:
+                        obs = tf.one_hot(parent, depth=n_parent_inputs)
+                    observations.append(obs)
+                if observe_sibling:
+                    if embedding:
+                        obs = tf.nn.embedding_lookup(sibling_embeddings, sibling)
+                    else:
+                        obs = tf.one_hot(sibling, depth=n_sibling_inputs)
+                    observations.append(obs)
+                input_ = tf.concat(observations, 1)
+                return input_
+
+
             # Applies constraints
             def get_action_parent_sibling_prior_dangling(actions, dangling):
                 n = actions.shape[0] # Batch size
@@ -433,26 +459,7 @@ class Controller(object):
                                                               Tout=[tf.int32, tf.int32, tf.int32, tf.float32, tf.int32])
 
                 # Observe previous action, parent, and/or sibling
-                observations = []
-                if observe_action:
-                    if embedding:
-                        obs = tf.nn.embedding_lookup(action_embeddings, action)
-                    else:
-                        obs = tf.one_hot(action, depth=n_action_inputs)
-                    observations.append(obs)
-                if observe_parent:
-                    if embedding:
-                        obs = tf.nn.embedding_lookup(parent_embeddings, parent)
-                    else:
-                        obs = tf.one_hot(parent, depth=n_parent_inputs)
-                    observations.append(obs)
-                if observe_sibling:
-                    if embedding:
-                        obs = tf.nn.embedding_lookup(sibling_embeddings, sibling)
-                    else:
-                        obs = tf.one_hot(sibling, depth=n_sibling_inputs)
-                    observations.append(obs)
-                input_ = tf.concat(observations, 1)
+                input_ = get_input(action, parent, sibling)
 
                 # Set the shapes for returned Tensors
                 input_.set_shape([None, n_inputs])
