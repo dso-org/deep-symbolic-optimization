@@ -302,11 +302,11 @@ class Controller(object):
                 with tf.variable_scope("embeddings",
                                        initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0)):
                     if observe_action:
-                        action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size])
+                        action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size], trainable=True)
                     if observe_parent:
-                        parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size])
+                        parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size], trainable=True)
                     if observe_sibling:
-                        sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size])
+                        sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size], trainable=True)
 
             # First input is all empty tokens
             observations = []
