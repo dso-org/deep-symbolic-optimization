@@ -349,7 +349,7 @@ class Controller(object):
                     else:
                         obs = tf.one_hot(sibling, depth=n_sibling_inputs)
                     observations.append(obs)
-                input_ = tf.concat(observations, 1)
+                input_ = tf.concat(observations, -1)                
                 return input_
 
 
@@ -417,9 +417,9 @@ class Controller(object):
                 return action, parent, sibling, prior, dangling
 
 
-            # Given the actions chosen so far, return the next RNN cell input, the prior, and the updated dangling
-            # Handles embeddings vs one-hot, observing previous/parent/sibling, and py_func to retrive action/parent/sibling/dangling
-            def get_next_input_prior_dangling(actions_ta, dangling):
+            # Given the actions chosen so far, return the observation, the prior, and the updated dangling
+            # Uses py_func to retrieve action/parent/sibling/dangling
+            def get_next_obs_prior_dangling(actions_ta, dangling):
 
                 # Get current action batch
                 actions = tf.transpose(actions_ta.stack()) # Shape: (?, time)
@@ -430,14 +430,17 @@ class Controller(object):
                                                               Tout=[tf.int32, tf.int32, tf.int32, tf.float32, tf.int32])
 
                 # Observe previous action, parent, and/or sibling
-                input_ = get_input((action, parent, sibling))
+                # Return all for now; get_input
+                obs = (action, parent, sibling)
 
                 # Set the shapes for returned Tensors
-                input_.set_shape([None, n_inputs])
+                action.set_shape([None])
+                parent.set_shape([None])
+                sibling.set_shape([None])                
                 prior.set_shape([None, Program.L])
                 dangling.set_shape([None])
 
-                return input_, prior, dangling
+                return obs, prior, dangling
 
 
             # Define loop function to be used by tf.nn.raw_rnn.
@@ -446,26 +449,30 @@ class Controller(object):
 
                 if cell_output is None: # time == 0
                     finished = tf.zeros(shape=[self.batch_size], dtype=tf.bool)
-                    next_input = input_ = initial_cell_input
+                    obs = initial_obs
+                    next_input = get_input(obs)
                     next_cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)                    
                     emit_output = None
                     actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=False) # Read twice
-                    inputs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
+                    obs_tas = (tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True), # Action inputs
+                              tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True), # Parent inputs
+                              tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True)) # Sibling inputs
+                    # inputs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     priors_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     prior = initial_prior
                     lengths = tf.ones(shape=[self.batch_size], dtype=tf.int32)
                     dangling = tf.ones(shape=[self.batch_size], dtype=tf.int32)
                     next_loop_state = (
                         actions_ta,
-                        inputs_ta,
+                        obs_tas,
                         priors_ta,
-                        input_,
+                        obs,
                         prior,
                         dangling,
                         lengths, # Unused until implementing variable length
                         finished)
                 else:
-                    actions_ta, inputs_ta, priors_ta, input_, prior, dangling, lengths, finished = loop_state
+                    actions_ta, obs_tas, priors_ta, obs, prior, dangling, lengths, finished = loop_state
                     logits = cell_output + prior
                     next_cell_state = cell_state
                     emit_output = logits
@@ -476,8 +483,13 @@ class Controller(object):
                     #     tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32)[:, 0],
                     #     tf.zeros(shape=[self.batch_size], dtype=tf.int32))
                     next_actions_ta = actions_ta.write(time - 1, action) # Write chosen actions
-                    next_input, next_prior, next_dangling = get_next_input_prior_dangling(next_actions_ta, dangling)
-                    next_inputs_ta = inputs_ta.write(time - 1, input_) # Write OLD input
+                    next_obs, next_prior, next_dangling = get_next_obs_prior_dangling(next_actions_ta, dangling)
+                    next_input = get_input(next_obs)
+                    # next_inputs_ta = inputs_ta.write(time - 1, input_) # Write OLD input
+                    next_obs_tas = ( # Write OLD observation
+                        obs_tas[0].write(time - 1, obs[0]), # Action inputs
+                        obs_tas[1].write(time - 1, obs[1]), # Parent inputs
+                        obs_tas[2].write(time - 1, obs[2])) # Sibling inputs
                     next_priors_ta = priors_ta.write(time - 1, prior) # Write OLD prior
                     finished = next_finished = tf.logical_or(
                         finished,
@@ -492,9 +504,9 @@ class Controller(object):
                         lengths,
                         tf.tile(tf.expand_dims(time + 1, 0), [self.batch_size]))
                     next_loop_state = (next_actions_ta,
-                                       next_inputs_ta,
+                                       next_obs_tas,
                                        next_priors_ta,
-                                       next_input,
+                                       next_obs,
                                        next_prior,
                                        next_dangling,
                                        next_lengths,
@@ -502,15 +514,15 @@ class Controller(object):
 
                 return (finished, next_input, next_cell_state, emit_output, next_loop_state)
 
-            # Returns RNN emit outputs (TensorArray), final cell state, and final loop state
+            # Returns RNN emit outputs TensorArray (i.e. logits), final cell state, and final loop state
             with tf.variable_scope('policy'):
-                logits_ta, _, loop_state = tf.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
-                actions_ta, inputs_ta, priors_ta, _, _, _, lengths, _ = loop_state
+                _, _, loop_state = tf.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
+                actions_ta, obs_tas, priors_ta, _, _, _, _, _ = loop_state
 
             # TBD: Implement a sample class, like PQT?
             self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0]) # (?, max_length)
-            self.inputs = tf.transpose(inputs_ta.stack(), perm=[1, 0, 2]) # (?, n_inputs, max_length)
-            self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2]) # (?, n_inputs, max_length)
+            self.obs = [tf.transpose(obs_ta.stack(), perm=[1, 0]) for obs_ta in obs_tas] # [(?, max_length)] * 3
+            self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2]) # (?, max_length, n_choices)
             # self.logits = tf.transpose(logits_ta.stack(), perm=[1, 0, 2]) # (?, max_length)
 
 
@@ -519,7 +531,9 @@ class Controller(object):
             with tf.name_scope(name):
                 dict_ = {
                     "actions" : tf.placeholder(tf.int32, [None, max_length]),
-                    "inputs" : tf.placeholder(tf.float32, [None, max_length, n_inputs]),
+                    "obs" : (tf.placeholder(tf.int32, [None, max_length]),
+                             tf.placeholder(tf.int32, [None, max_length]),
+                             tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None,]),
                     "masks" : tf.placeholder(tf.float32, [None, max_length])
@@ -528,11 +542,11 @@ class Controller(object):
             return dict_
 
 
-        # Generates tensor for neglogp of a batch given actions, inputs, priors, masks, and lengths
-        def make_neglogp(actions, inputs, priors, masks, lengths):
+        # Generates tensor for neglogp of a batch given actions, obs, priors, masks, and lengths
+        def make_neglogp(actions, obs, priors, masks, lengths):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
-                                              inputs=inputs,
+                                              inputs=get_input(obs),
                                               sequence_length=lengths,
                                               dtype=tf.float32)
             logits += priors
@@ -654,18 +668,18 @@ class Controller(object):
 
         feed_dict = {self.batch_size : n}
 
-        actions, inputs, priors = self.sess.run([self.actions, self.inputs, self.priors], feed_dict=feed_dict)
+        actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
 
-        return actions, inputs, priors
+        return actions, obs, priors
 
 
-    def train_step(self, r, b, actions, inputs, priors, mask, priority_queue):
+    def train_step(self, r, b, actions, obs, priors, mask, priority_queue):
         """Computes loss, trains model, and returns summaries."""
 
         feed_dict = {self.r : r,
                      self.baseline : b,
                      self.sampled_batch["actions"] : actions,
-                     self.sampled_batch["inputs"] : inputs,
+                     self.sampled_batch["obs"] : obs,
                      self.sampled_batch["lengths"] : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
                      self.sampled_batch["priors"] : priors,
                      self.sampled_batch["masks"] : mask}
@@ -674,14 +688,14 @@ class Controller(object):
             # Sample from the priority queue
             dicts = [extra_data for (item, extra_data) in priority_queue.random_sample(self.pqt_batch_size)]
             pqt_actions = np.stack([d["actions"] for d in dicts], axis=0)
-            pqt_inputs = np.stack([d["inputs"] for d in dicts], axis=0)
+            pqt_obs = np.stack([d["obs"] for d in dicts], axis=0)
             pqt_priors = np.stack([d["priors"] for d in dicts], axis=0)
             pqt_masks = np.stack([d["masks"] for d in dicts], axis=0)
 
             # Update the feed_dict
             feed_dict.update({
                 self.off_policy_batch["actions"] : pqt_actions,
-                self.off_policy_batch["inputs"] : pqt_inputs,
+                self.off_policy_batch["obs"] : pqt_obs,
                 self.off_policy_batch["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
                 self.off_policy_batch["priors"] : pqt_priors,
                 self.off_policy_batch["masks"] : pqt_masks

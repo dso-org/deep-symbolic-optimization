@@ -195,7 +195,10 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
     for step in range(n_epochs):
 
         # Sample batch of expressions from controller
-        actions, inputs, priors = controller.sample(batch_size) # Shape: (batch_size, max_length), (batch_size, max_length, n_inputs)
+        # Shape of actions: (batch_size, max_length)
+        # Shape of obs: [(batch_size, max_length)] * 3
+        # Shape of priors: (batch_size, max_length, n_choices)
+        actions, obs, priors = controller.sample(batch_size)
 
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
@@ -236,7 +239,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             keep = np.zeros(shape=(batch_size,), dtype=bool)
             keep[np.argsort(r)[-n_keep:]] = True
             actions = actions[keep, :]
-            inputs = inputs[keep, :, :]
+            obs = [o[keep, :] for o in obs]
             priors = priors[keep, :, :]
             programs = list(compress(programs, keep))
             nmse = nmse[keep]
@@ -303,7 +306,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             item = p.tokens.tostring()
             extra_data = {
                 "actions" : actions[i],
-                "inputs" : inputs[i],
+                "obs" : [o[i] for o in obs],
                 "priors" : priors[i],
                 "masks" : mask[i]
             }
@@ -311,7 +314,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             priority_queue.push(score, item, extra_data)
 
         # Train the controller
-        summaries = controller.train_step(r, b, actions, inputs, priors, mask, priority_queue)
+        summaries = controller.train_step(r, b, actions, obs, priors, mask, priority_queue)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
