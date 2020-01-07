@@ -308,42 +308,12 @@ class Controller(object):
                     if observe_sibling:
                         sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size], trainable=True)
 
-            # First input is all empty tokens
-            observations = []
-            if embedding:                
-                if observe_action:
-                    obs = tf.constant(n_action_inputs - 1, dtype=tf.int32)
-                    obs = tf.broadcast_to(obs, [self.batch_size])
-                    obs = tf.nn.embedding_lookup(action_embeddings, obs)
-                    observations.append(obs)
-                if observe_parent:
-                    obs = tf.constant(n_parent_inputs - 1, dtype=tf.int32)
-                    obs = tf.broadcast_to(obs, [self.batch_size])
-                    obs = tf.nn.embedding_lookup(parent_embeddings, obs)
-                    observations.append(obs)
-                if observe_sibling:
-                    obs = tf.constant(n_sibling_inputs - 1, dtype=tf.int32)
-                    obs = tf.broadcast_to(obs, [self.batch_size])
-                    obs = tf.nn.embedding_lookup(sibling_embeddings, obs)
-                    observations.append(obs)
-                cell_input = tf.concat(observations, 1) # Shape (?, n_inputs)
-            else:
-                observations = []
-                if observe_action:
-                    obs = [0]*(n_action_inputs)
-                    obs[n_action_inputs - 1] = 1
-                    observations += obs
-                if observe_parent:
-                    obs = [0]*(n_parent_inputs)
-                    obs[n_parent_inputs - 1] = 1
-                    observations += obs
-                if observe_sibling:
-                    obs = [0]*(n_sibling_inputs)
-                    obs[n_sibling_inputs - 1] = 1
-                    observations += obs
-                observations = np.array(observations, dtype=np.float32)
-                cell_input = tf.constant(observations)
-                cell_input = tf.broadcast_to(cell_input, input_dims) # Shape (?, n_inputs)
+            # First observation is all empty tokens
+            initial_obs = tuple()
+            for n in [n_action_inputs, n_parent_inputs, n_sibling_inputs]:
+                obs = tf.constant(n - 1, dtype=np.int32)
+                obs = tf.broadcast_to(obs, [self.batch_size])
+                initial_obs += (obs,)            
 
             # Define prior on logits; currently only used to apply hard constraints
             arities = np.array([Program.arities[i] for i in range(n_choices)])
@@ -356,9 +326,10 @@ class Controller(object):
             initial_prior = prior
 
 
-            # Returns concatenated one-hot or embeddings
+            # Returns concatenated one-hot or embeddings from observation tokens
             # Used for both raw_rnn and dynmaic_rnn
-            def get_input(action, parent, sibling):
+            def get_input(obs):
+                action, parent, sibling = obs
                 observations = []
                 if observe_action:
                     if embedding:
@@ -459,7 +430,7 @@ class Controller(object):
                                                               Tout=[tf.int32, tf.int32, tf.int32, tf.float32, tf.int32])
 
                 # Observe previous action, parent, and/or sibling
-                input_ = get_input(action, parent, sibling)
+                input_ = get_input((action, parent, sibling))
 
                 # Set the shapes for returned Tensors
                 input_.set_shape([None, n_inputs])
@@ -470,7 +441,7 @@ class Controller(object):
 
 
             # Define loop function to be used by tf.nn.raw_rnn.
-            initial_cell_input = cell_input # Old cell_input defined above
+            initial_cell_input = get_input(initial_obs)
             def loop_fn(time, cell_output, cell_state, loop_state):
 
                 if cell_output is None: # time == 0
