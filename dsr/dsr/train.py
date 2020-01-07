@@ -100,7 +100,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         Choices:
         (1) "ewma_R" : b = EWMA(<R>)
         (2) "R_e" : b = R_e
-        (3) "ewmaR_e" : b = EWMA(R_e)
+        (3) "ewma_R_e" : b = EWMA(R_e)
         (4) "combined" = R_e + EWMA(<R> - R_e)
         In the above, <R> is the sample average _after_ epsilon sub-sampling and
         R_e is the sample (1-epsilon)-quantile of the batch.

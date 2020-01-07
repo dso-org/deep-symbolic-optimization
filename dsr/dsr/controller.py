@@ -287,15 +287,6 @@ class Controller(object):
             n_action_inputs = n_choices + 1 # Library tokens + empty token
             n_parent_inputs = n_choices + 1 - len(Program.terminal_tokens) # Parent sub-library tokens + empty token
             n_sibling_inputs = n_choices + 1 # Library tokens + empty tokens
-            if embedding:
-                n_inputs = observe_action * embedding_size + \
-                           observe_parent * embedding_size + \
-                           observe_sibling * embedding_size
-            else:
-                n_inputs = observe_action * n_action_inputs + \
-                           observe_parent * n_parent_inputs + \
-                           observe_sibling * n_sibling_inputs
-            input_dims = tf.stack([self.batch_size, n_inputs])
 
             # Create embeddings
             if embedding:
@@ -327,7 +318,7 @@ class Controller(object):
 
 
             # Returns concatenated one-hot or embeddings from observation tokens
-            # Used for both raw_rnn and dynmaic_rnn
+            # Used for both raw_rnn and dynamic_rnn
             def get_input(obs):
                 action, parent, sibling = obs
                 observations = []
@@ -430,7 +421,6 @@ class Controller(object):
                                                               Tout=[tf.int32, tf.int32, tf.int32, tf.float32, tf.int32])
 
                 # Observe previous action, parent, and/or sibling
-                # Return all for now; get_input
                 obs = (action, parent, sibling)
 
                 # Set the shapes for returned Tensors
@@ -457,7 +447,6 @@ class Controller(object):
                     obs_tas = (tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True), # Action inputs
                               tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True), # Parent inputs
                               tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True)) # Sibling inputs
-                    # inputs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     priors_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     prior = initial_prior
                     lengths = tf.ones(shape=[self.batch_size], dtype=tf.int32)
@@ -485,7 +474,6 @@ class Controller(object):
                     next_actions_ta = actions_ta.write(time - 1, action) # Write chosen actions
                     next_obs, next_prior, next_dangling = get_next_obs_prior_dangling(next_actions_ta, dangling)
                     next_input = get_input(next_obs)
-                    # next_inputs_ta = inputs_ta.write(time - 1, input_) # Write OLD input
                     next_obs_tas = ( # Write OLD observation
                         obs_tas[0].write(time - 1, obs[0]), # Action inputs
                         obs_tas[1].write(time - 1, obs[1]), # Parent inputs
@@ -519,11 +507,9 @@ class Controller(object):
                 _, _, loop_state = tf.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
                 actions_ta, obs_tas, priors_ta, _, _, _, _, _ = loop_state
 
-            # TBD: Implement a sample class, like PQT?
             self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0]) # (?, max_length)
             self.obs = [tf.transpose(obs_ta.stack(), perm=[1, 0]) for obs_ta in obs_tas] # [(?, max_length)] * 3
             self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2]) # (?, max_length, n_choices)
-            # self.logits = tf.transpose(logits_ta.stack(), perm=[1, 0, 2]) # (?, max_length)
 
 
         # Generates dictionary containing placeholders needed for a batch of sequences
