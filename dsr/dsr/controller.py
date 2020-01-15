@@ -204,7 +204,7 @@ class Controller(object):
         # Hyperparameters
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.constrain_const = constrain_const and "const" in Program.library.values()
+        self.constrain_const = constrain_const and "const" in Program.library
         self.constrain_trig = constrain_trig
         self.constrain_inv = constrain_inv
         self.constrain_min_len = constrain_min_len
@@ -366,7 +366,7 @@ class Controller(object):
 
                 # Depending on the constraints, may need to compute parents and siblings
                 if self.compute_parents_siblings:
-                    parent, sibling = parents_siblings(actions, arities=Program.arities_numba, parent_adjust=Program.parent_adjust)
+                    parent, sibling = parents_siblings(actions, arities=Program.arities, parent_adjust=Program.parent_adjust)
                 else:
                     parent = np.zeros(n_parent_inputs, dtype=np.int32)
                     sibling = np.zeros(n_sibling_inputs, dtype=np.int32)
@@ -385,7 +385,7 @@ class Controller(object):
                 
                 # Constrain trig function with trig function ancestor
                 if self.constrain_trig:
-                    constraints = trig_ancestors(actions, Program.arities_numba, Program.trig_tokens)
+                    constraints = trig_ancestors(actions, Program.arities, Program.trig_tokens)
                     prior += make_prior(constraints, Program.trig_tokens, Program.L)
                 
                 # Constrain inverse unary operators
@@ -797,8 +797,8 @@ def trig_ancestors(tokens, arities, trig_tokens):
     tokens : np.ndarray, shape=(N, L), dtype=np.int32
         Batch of action sequences. Values correspond to library indices.
 
-    arities : numba.typed.Dict
-        Dictionary from library index to arity.
+    arities : np.ndarray, dtype=np.int32
+        Array of arities corresponding to library indices.
 
     trig_tokens : np.ndarray, dtype=np.int32
         Array of tokens corresponding to trig functions.
@@ -854,11 +854,11 @@ def parents_siblings(tokens, arities, parent_adjust):
     tokens : np.ndarray, shape=(N, L), dtype=np.int32
         Batch of action sequences. Values correspond to library indices.
 
-    arities : numba.typed.Dict
-        Dictionary from library index to arity.
+    arities : np.ndarray, dtype=np.int32
+        Array of arities corresponding to library indices.
 
-    parent_adjust : numba.typed.Dict
-        Dictionary from library index to parent sub-library index.
+    parent_adjust : np.ndarray, dtype=np.int32
+        Array of parent sub-library index corresponding to library indices.
 
     Returns
     _______
@@ -872,7 +872,7 @@ def parents_siblings(tokens, arities, parent_adjust):
     """
 
     N, L = tokens.shape
-    empty_parent = len(parent_adjust) # Empty token is after all non-empty tokens
+    empty_parent = np.max(parent_adjust) + 1 # Empty token is after all non-empty tokens
     empty_sibling = len(arities) # Empty token is after all non-empty tokens
     adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
     siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)

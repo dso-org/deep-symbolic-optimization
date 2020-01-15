@@ -1,8 +1,6 @@
 from textwrap import indent
 
 import numpy as np
-from numba.typed import Dict
-from numba import types
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
@@ -105,12 +103,17 @@ class Program(object):
     """
 
     # Static variables
-    library = None          # Dict of operators/terminals for each token
-    arities = None          # Dict of arities for each token
+    library = None          # List of operators/terminals for each token
+    arities = None          # Array of arities for each token
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
     X_train = None
     y_train = None
+    X_test = None
+    y_test = None
+    y_train_noiseless = None
+    y_test_noiseless = None
+    var_y_test = None
     cache = {}
 
     # Additional derived static variables
@@ -121,8 +124,7 @@ class Program(object):
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
-    arities_numba = None    # Numba Dict of token to arity
-    parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
+    parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
 
 
     def __init__(self, tokens, optimize):
@@ -250,6 +252,7 @@ class Program(object):
         cls.y_test = dataset.y_test
         cls.y_train_noiseless = dataset.y_train_noiseless
         cls.y_test_noiseless = dataset.y_test_noiseless
+        cls.var_y_test = np.var(dataset.y_test)
 
 
     @classmethod
@@ -350,46 +353,41 @@ class Program(object):
         """Sets the class library and arities"""
 
         # Add input variables
-        Program.library = {i : i for i in range(n_input_var)}
-        Program.arities = {i : 0 for i in range(n_input_var)}
+        Program.library = list(range(n_input_var))
+        Program.arities = [0] * n_input_var
 
         # Add operators
         operators = [op.lower() if isinstance(op, str) else op for op in operators]
         for i, op in enumerate(operators):
 
-            key = i + n_input_var
-
             # Function
             if op in _function_map:
                 op = _function_map[op]
-                Program.library[key] = op
-                Program.arities[key] = op.arity
+                Program.library.append(op)
+                Program.arities.append(op.arity)
 
             # Hard-coded floating-point constant
             elif isinstance(op, float):
-                Program.library[key] = op
-                Program.arities[key] = 0
+                Program.library.append(op)
+                Program.arities.append(0)
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
-                Program.library[key] = op
-                Program.arities[key] = 0
-                Program.const_token = key
+                Program.library.append(op)
+                Program.arities.append(op)
+                Program.const_token = i + n_input_var
 
             else:
                 raise ValueError("Operation {} not recognized.".format(op))
 
-        # Create Numba Dicts
-        Program.arities_numba = Dict.empty(key_type=types.int8, value_type=types.int8)
-        for i in range(len(Program.arities)):
-            Program.arities_numba[i] = Program.arities[i]
+        Program.arities = np.array(Program.arities, dtype=np.int32)
 
-        Program.parent_adjust = Dict.empty(key_type=types.int8, value_type=types.int8)
-        j = 0
+        count = 0
+        Program.parent_adjust = np.full_like(Program.arities, -1)
         for i in range(len(Program.arities)):
             if Program.arities[i] > 0:
-                Program.parent_adjust[i] = j
-                j += 1
+                Program.parent_adjust[i] = count
+                count += 1
 
         Program.L = len(Program.library)
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
@@ -407,7 +405,7 @@ class Program(object):
             "sqrt" : "n2",
             "n2" : "sqrt"
         }
-        token_from_name = {v.name : k for k,v in Program.library.items() if isinstance(v, _Function)}
+        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, _Function)}
         Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
         print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
@@ -501,8 +499,7 @@ class Program(object):
         program on the test set (used as final performance metric)"""
 
         y_hat = self.execute(Program.X_test)
-        var_y = np.var(Program.y_test)
-        return np.mean((Program.y_test - y_hat)**2) / var_y
+        return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
 
 
     @cached_property
@@ -537,19 +534,6 @@ class Program(object):
         print("\tTraversal: {}".format(self))
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
-
-
-
-    def print_stats_gym(self,  r, base_r):
-        """Prints the statistics of the program"""
-
-        print("\tReward: {}".format(r))
-        print("\tBase reward: {}".format(base_r))
-        print("\tCount: {}".format(self.count))
-        print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        print("{}\n".format(indent(self.pretty(), '\t  ')))
-
 
     
     def __repr__(self):

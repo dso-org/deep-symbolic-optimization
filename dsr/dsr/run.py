@@ -20,6 +20,9 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import deap
 
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
@@ -30,6 +33,10 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
         import tensorflow as tf
         from dsr.controller import Controller
         from dsr.train import learn
+
+        # Ignore TensorFlow warnings
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
     except:
         pass

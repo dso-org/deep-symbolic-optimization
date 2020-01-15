@@ -33,7 +33,8 @@ abbrev_key = {
     "observe_action" : "ac",
     "constrain_min_len" : "cmin",
     "constrain_max_len" : "cmax",
-    "min_length" : "min"
+    "min_length" : "min",
+    "optimizer" : "opt"
 }
 
 abbrev_val = {
@@ -62,7 +63,7 @@ def abbrev(k, v):
         a += "{:g}".format(v)
     return a
 
-def generate_configs_lhs(default, sweep, n):
+def generate_configs_lhs(default, sweep, n, verbose, mc, num_cores):
     """
     Generates config files using Latin hypercube sampling.
 
@@ -83,6 +84,9 @@ def generate_configs_lhs(default, sweep, n):
 
     n : int
         Number of Latin hypercube samples.
+
+    verbose : bool
+        Describe parameter values in logdir names?
     """
 
     expdir = default["training"]["logdir"]
@@ -99,7 +103,6 @@ def generate_configs_lhs(default, sweep, n):
     # Generate LHS config dictionaries
     configs = [deepcopy(blank) for _ in range(n)]
     lh = lhs(len(params), samples=n, criterion="center") # Values in [0, 1]
-    logdirs = {}
     for col, (k, v) in enumerate(params.items()):
 
         lh_col = lh[:, col] # LH-sampled values for this column, in [0, 1]
@@ -169,21 +172,27 @@ def generate_configs_lhs(default, sweep, n):
             configs[i][k[0]][k[1]] = p
 
     # Save configs to file
-    for config in configs:
-        logdir = '_'.join([abbrev(k2,v2) for k1 in config.keys() for k2,v2 in config[k1].items() if (k1,k2) in params])
-        if logdir in logdirs:
-            logdirs[logdir] += 1
+    unique_names = {}    
+    for i, config in enumerate(configs):
+        unique_name = '_'.join([abbrev(k2,v2) for k1 in config.keys() for k2,v2 in config[k1].items() if (k1,k2) in params]) 
+        if verbose:
+            logdir = unique_name
         else:
-            logdirs[logdir] = 0
-        count = logdirs[logdir] # Counter for possibly repeated hyperparameter combinations
-        logdir += '_' + str(count)
+            logdir = "lhs_{}".format(i)
+        if unique_name in unique_names:
+            unique_names[unique_name] += 1
+        else:
+            unique_names[unique_name] = 0        
+        count = unique_names[unique_name] # Counter for possibly repeated hyperparameter combinations
+        if verbose:
+            logdir += '_' + str(count)
         config["training"]["logdir"] = os.path.join(expdir, logdir)
         path = os.path.join("log", expdir, logdir)
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "config.json"), 'w') as f:
             json.dump(config, f, indent=3)
         with open(run_file, 'a') as f:
-            f.write("time python run.py ./{}/config.json --only=Nguyen --seed_shift={}\n".format(path, count))
+            f.write("time python -m dsr.run ./{}/config.json --only=Nguyen --mc={} --num_cores={} --seed_shift={}\n".format(path, mc, num_cores, count))
     
     # Make the run file executable
     st = os.stat(run_file)
@@ -293,7 +302,10 @@ def generate_configs_lhs(default, sweep, n):
 @click.option('--default', default="config.json", help="JSON filename of default hyperparameters")
 @click.option('--sweep', default="sweep.json", help="JSON filename of sweep hyperparameter specifications")
 @click.option('--n', default=100, type=int, help="Number of Latin hypercube samples")
-def main(default, sweep, n):
+@click.option('--verbose', default=False, type=bool, help="Descriptive logdir names?")
+@click.option('--mc', default=1, type=int, help="MC trials to use for run script")
+@click.option('--num_cores', default=1, type=int, help="Number of cores to use for run script")
+def main(default, sweep, n, verbose, mc, num_cores):
 
     with open(default, encoding='utf-8') as f:
         default = json.load(f)
@@ -301,7 +313,7 @@ def main(default, sweep, n):
     with open(sweep, encoding='utf-8') as f:
         sweep = json.load(f)
 
-    generate_configs_lhs(default, sweep, n)
+    generate_configs_lhs(default, sweep, n, verbose, mc, num_cores)
 
 
 if __name__ == "__main__":

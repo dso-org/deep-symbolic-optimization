@@ -23,6 +23,7 @@
     "alpha" : 0.1,
     "epsilon" : 0.1,
     "verbose" : true,
+    "baseline" : "ewma_R",
     "b_jumpstart" : true,
     "num_cores" : 1,
     "summary" : false,

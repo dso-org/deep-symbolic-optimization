@@ -18,7 +18,7 @@ from dsr.utils import MaxUniquePriorityQueue
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-tf.logging.set_verbosity(tf.logging.ERROR)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 # Set TensorFlow seed
 tf.random.set_random_seed(0)
@@ -32,8 +32,8 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
-          verbose=True, summary=True, output_file=None, b_jumpstart=True,
-          early_stopping=False, threshold=1e-12, debug=0):
+          verbose=True, summary=True, output_file=None, baseline="ewma_R",
+          b_jumpstart=True, early_stopping=False, threshold=1e-12, debug=0):
     """
     Executes the main training loop.
 
@@ -95,9 +95,19 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
     output_file : str, optional
         Filename to write results for each iteration.
 
+    baseline : str, optional
+        Type of baseline to use: grad J = (R - b) * grad-log-prob(expression).
+        Choices:
+        (1) "ewma_R" : b = EWMA(<R>)
+        (2) "R_e" : b = R_e
+        (3) "ewmaR_e" : b = EWMA(R_e)
+        (4) "combined" = R_e + EWMA(<R> - R_e)
+        In the above, <R> is the sample average _after_ epsilon sub-sampling and
+        R_e is the sample (1-epsilon)-quantile of the batch.
+
     b_jumpstart : bool, optional
-        Whether baseline start at average reward for the first iteration. If
-        False, it starts at 0.0.
+        Whether EWMA part of the baseline starts at the average of the first
+        iteration. If False, the EWMA starts at 0.0.
 
     early_stopping : bool, optional
         Whether to stop early if a threshold is reached.
@@ -133,7 +143,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("nmse_best,nmse_min,nmse_avg_full,nmse_avg_sub,base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,baseline\n")
+            f.write("nmse_best,nmse_min,nmse_avg_full,nmse_avg_sub,base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma\n")
 
     # Set the reward and complexity functions
     reward_params = reward_params if reward_params is not None else []
@@ -149,10 +159,10 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
     if debug:
         tvars = tf.trainable_variables()
-        def print_var_means():            
+        def print_var_means():
             tvars_vals = sess.run(tvars)
             for var, val in zip(tvars, tvars_vals):
-                print(var.name, val.mean())        
+                print(var.name, val.mean())
 
     # Create the pool of workers
     pool = None
@@ -164,7 +174,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
     # Create the priority queue
     k = controller.pqt_k
-    if k is not None and k > 0:
+    if controller.pqt and k is not None and k > 0:
         from collections import deque
         priority_queue = MaxUniquePriorityQueue(capacity=k)
     else:
@@ -175,13 +185,12 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         print_var_means()
 
     # Main training loop
-    # max_count = 1 
     nmse_best = np.inf
-    base_r_best = -np.inf   
-    r_best = -np.inf    
+    base_r_best = -np.inf
+    r_best = -np.inf
     prev_r_best = None
     prev_base_r_best = None
-    b = None if b_jumpstart else 0.0 # Baseline used for control variates
+    ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     for step in range(n_epochs):
 
@@ -207,7 +216,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         nmse = np.array([p.nmse for p in programs])
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])        
-        l = np.array([len(p.traversal) for p in programs])        
+        l = np.array([len(p.traversal) for p in programs])
 
         # Collect full-batch statistics
         nmse_min = np.min(nmse)
@@ -219,44 +228,46 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         r_max = np.max(r)
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
-        l_avg_full = np.mean(l)        
+        l_avg_full = np.mean(l)
 
-        # # Show new commonest expression
-        # # Note: This should go before epsilon heuristic
-        # counts = np.array([p.count for p in programs])
-        # if max(counts) > max_count:
-        #     max_count = max(counts)
-        #     commonest = programs[np.argmax(counts)]            
-        #     if verbose:                
-        #         print("\nNew commonest expression")
-        #         commonest.print_stats()
-
-        # Heuristic: Only train on top epsilon fraction of sampled expressions
-        cutoff = None
+        # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
-            cutoff = r >= np.percentile(r, 100 - int(100*epsilon))
-            actions = actions[cutoff, :]
-            inputs = inputs[cutoff, :, :]
-            priors = priors[cutoff, :, :]
-            programs = list(compress(programs, cutoff))
-            nmse = nmse[cutoff]
-            base_r = base_r[cutoff]
-            r = r[cutoff]
-            l = l[cutoff]\
+            n_keep = int(epsilon * batch_size) # Number of top indices to keep
+            keep = np.zeros(shape=(batch_size,), dtype=bool)
+            keep[np.argsort(r)[-n_keep:]] = True
+            actions = actions[keep, :]
+            inputs = inputs[keep, :, :]
+            priors = priors[keep, :, :]
+            programs = list(compress(programs, keep))
+            nmse = nmse[keep]
+            base_r = base_r[keep]
+            r = r[keep]
+            l = l[keep]
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
         if reward in ["neg_mse", "neg_nmse", "neg_nrmse"]:
             r = np.clip(r, -1e6, np.inf)
 
-        # Compute baseline (EWMA of average reward)
-        b = np.mean(r) if b is None else alpha*np.mean(r) + (1 - alpha)*b
+        # Compute baseline
+        if baseline == "ewma_R":
+            ewma = np.mean(r) if ewma is None else alpha*np.mean(r) + (1 - alpha)*ewma
+            b = ewma
+        elif baseline == "R_e":
+            ewma = -1
+            b = np.min(r)
+        elif baseline == "ewma_R_e":
+            ewma = np.min(r) if ewma is None else alpha*np.min(r) + (1 - alpha)*ewma
+            b = ewma
+        elif baseline == "combined":
+            ewma = np.mean(r) - np.min(r) if ewma is None else alpha*(np.mean(r) - np.min(r)) + (1 - alpha)*ewma
+            b = np.min(r) + ewma
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
             nmse_avg_sub = np.mean(nmse)
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
-            l_avg_sub = np.mean(l)           
+            l_avg_sub = np.mean(l)
             stats = np.array([[
                              nmse_best,
                              nmse_min,
@@ -272,7 +283,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
                              r_avg_sub,
                              l_avg_full,
                              l_avg_sub,
-                             b
+                             ewma
                              ]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
