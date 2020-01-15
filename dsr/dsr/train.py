@@ -142,8 +142,8 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         logdir = os.path.join("log", logdir)
         os.makedirs(logdir, exist_ok=True)
         output_file = os.path.join(logdir, output_file)
-        prefix, ext = os.path.splitext(output_file)
-        all_r_output_file = "{}_all_r{}".format(prefix, ext)
+        prefix, _ = os.path.splitext(output_file)
+        all_r_output_file = "{}_all_r.npy".format(prefix)
         with open(output_file, 'w') as f:
             # r_best : Maximum across all iterations so far
             # r_max : Maximum across this iteration's batch
@@ -359,6 +359,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
         # Early stopping
         if early_stopping and p_base_r_best.nmse < threshold:
+            all_r = all_r[:(step + 1)]
             print("Fitness exceeded threshold; breaking early.")
             break
 
@@ -371,8 +372,9 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
             print_var_means()
 
-    with open(all_r_output_file, 'ab') as f:
-        np.savetxt(f, all_r, delimiter=',')
+    if save_all_r:
+        with open(all_r_output_file, 'ab') as f:
+            np.save(f, all_r)
 
     if pool is not None:
         pool.close()
