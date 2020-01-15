@@ -674,7 +674,7 @@ class Controller(object):
             # Sample from the priority queue
             dicts = [extra_data for (item, extra_data) in priority_queue.random_sample(self.pqt_batch_size)]
             pqt_actions = np.stack([d["actions"] for d in dicts], axis=0)
-            pqt_obs = np.stack([d["obs"] for d in dicts], axis=0)
+            pqt_obs = tuple([np.stack([d["obs"][i] for d in dicts], axis=0) for i in range(3)])
             pqt_priors = np.stack([d["priors"] for d in dicts], axis=0)
             pqt_masks = np.stack([d["masks"] for d in dicts], axis=0)
 
