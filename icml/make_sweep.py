@@ -20,23 +20,23 @@ def main():
 
     sweep_dsr = {
         "training" : {
-            "batch_size" : [100, 250, 500, 1000],
-            "epsilon" : [0.05, 0.1, 0.2, 0.25],
+            "batch_size" : [250, 500, 1000],
+            "epsilon" : [0.05, 0.1, 0.2],
             "baseline" : ["R_e", "ewma_R_e"]
         },
         "controller" : {
-            "entropy_weight" : [0.01, 0.05, 0.08, 0.1],
-            "learning_rate" : [1e-4, 3e-4, 5e-5, 1e-3],
+            "entropy_weight" : [0.01, 0.05, 0.1],
+            "learning_rate" : [1e-4, 5e-4, 1e-3],
             "embedding" : [True, False]
         }
     }
 
     sweep_gp = {
         "deap" : {
-            "population_size" : [100, 250, 500, 1000],
-            "tournament_size" : [1, 3, 5, 10],
-            "p_crossover" : [0.1, 0.2, 0.3, 0.5],
-            "p_mutate" : [0.1, 0.2, 0.3, 0.5]
+            "population_size" : [250, 500, 1000],
+            "tournament_size" : [1, 3, 5],
+            "p_crossover" : [0.1, 0.25, 0.5],
+            "p_mutate" : [0.1, 0.25, 0.5]
         }
     }
 
