@@ -40,7 +40,7 @@
     "num_units" : 32,
     "initializer" : "zeros",
     "embedding" : false,
-    "embedding_size" : 4,
+    "embedding_size" : 8,
     "optimizer" : "adam",
     "learning_rate" : 3e-4,
     "observe_action" : false,

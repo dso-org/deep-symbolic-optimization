@@ -22,7 +22,7 @@ def main():
         "training" : {
             "batch_size" : [100, 250, 500, 1000],
             "epsilon" : [0.05, 0.1, 0.2, 0.25],
-            "baseline" : ["R_e", "ewma_R_avg"]
+            "baseline" : ["R_e", "ewma_R_e"]
         },
         "controller" : {
             "entropy_weight" : [0.01, 0.05, 0.08, 0.1],
