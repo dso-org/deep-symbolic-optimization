@@ -32,8 +32,9 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
-          verbose=True, summary=True, output_file=None, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, threshold=1e-12, debug=0):
+          verbose=True, summary=True, output_file=None, save_all_r=False,
+          baseline="ewma_R", b_jumpstart=True, early_stopping=False,
+          threshold=1e-12, debug=0):
     """
     Executes the main training loop.
 
@@ -95,6 +96,9 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
     output_file : str, optional
         Filename to write results for each iteration.
 
+    save_all_r : bool, optional
+        Whether to save all rewards for each iteration.
+
     baseline : str, optional
         Type of baseline to use: grad J = (R - b) * grad-log-prob(expression).
         Choices:
@@ -138,6 +142,8 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         logdir = os.path.join("log", logdir)
         os.makedirs(logdir, exist_ok=True)
         output_file = os.path.join(logdir, output_file)
+        prefix, _ = os.path.splitext(output_file)
+        all_r_output_file = "{}_all_r.npy".format(prefix)
         with open(output_file, 'w') as f:
             # r_best : Maximum across all iterations so far
             # r_max : Maximum across this iteration's batch
@@ -192,6 +198,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
+    all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
     for step in range(n_epochs):
 
         # Sample batch of expressions from controller
@@ -220,6 +227,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])        
         l = np.array([len(p.traversal) for p in programs])
+        all_r[step] = base_r
 
         # Collect full-batch statistics
         nmse_min = np.min(nmse)
@@ -351,6 +359,7 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
         # Early stopping
         if early_stopping and p_base_r_best.nmse < threshold:
+            all_r = all_r[:(step + 1)]
             print("Fitness exceeded threshold; breaking early.")
             break
 
@@ -363,6 +372,9 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
             print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
             print_var_means()
 
+    if save_all_r:
+        with open(all_r_output_file, 'ab') as f:
+            np.save(f, all_r)
 
     if pool is not None:
         pool.close()
