@@ -359,10 +359,8 @@ class Controller(object):
                     parent = np.zeros(n_parent_inputs, dtype=np.int32)
                     sibling = np.zeros(n_sibling_inputs, dtype=np.int32)
 
-                # Update dangling
-                # Fast dictionary lookup of arities for each element in action
-                unique, inv = np.unique(action, return_inverse=True)
-                dangling += np.array([Program.arities[t] - 1 for t in unique])[inv]
+                # Update dangling with (arity - 1) for each element in action
+                dangling += Program.arities[action] - 1
 
                 # Constrain unary of constant or binary of two constants
                 if self.constrain_const:
@@ -561,7 +559,7 @@ class Controller(object):
         if pqt:
             self.off_policy_batch = make_batch_ph("off_policy_batch")
 
-        # Set up losses
+        # Setup losses
         with tf.name_scope("losses"):
 
             neglogp, neglogp_per_step = make_neglogp(**self.sampled_batch)
