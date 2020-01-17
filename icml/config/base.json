@@ -69,7 +69,8 @@
 
 "deap" : {
     "population_size" : 1000,
-    "generations" : 1000,
+    "generations" : null,
+    "n_samples" : 1e6,
     "tournament_size" : 3,
     "metric" : "nmse",
     "const_range" : [-1.0, 1.0],
