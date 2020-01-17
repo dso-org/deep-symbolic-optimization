@@ -67,31 +67,6 @@
     "pqt_use_pg" : false
 },
 
-"gp" : {
-    "population_size" : 1000,
-    "generations" : 1000,
-    "tournament_size": 20,
-    "stopping_criteria" : 0.0,
-    "const_range" : [-1.0, 1.0],
-    "init_depth" : [2, 6],
-    "init_method" : "half and half",
-    "function_set" : null,
-    "metric" : "mse",
-    "parsimony_coefficient" : 0.001,
-    "p_crossover" : 0.9,
-    "p_subtree_mutation" : 0.01,
-    "p_hoist_mutation" : 0.01,
-    "p_point_mutation" : 0.01,
-    "p_point_replace" : 0.05,
-    "max_samples" : 1.0,
-    "feature_names" : null,
-    "warm_start" : false,
-    "low_memory" : false,
-    "n_jobs" : 1,
-    "verbose" : 1,
-    "random_state" : 0
-},
-
 "deap" : {
     "population_size" : 1000,
     "generations" : 1000,
@@ -100,13 +75,13 @@
     "const_range" : [-1.0, 1.0],
     "p_crossover" : 0.5,
     "p_mutate" : 0.1,
-    "max_depth" : 17,
-    "max_len" : null,
+    "max_depth" : null,
+    "max_len" : 30,
     "max_const" : null,
     "seed" : 0,
-    "early_stopping" : false,
+    "early_stopping" : true,
     "threshold" : 1e-12,
-    "verbose" : true
+    "verbose" : false
 }
 
 }

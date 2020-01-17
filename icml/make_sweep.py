@@ -78,8 +78,9 @@ def main():
                 json.dump(new_config, f, indent=3)
         
             with open(run_file, 'a') as f:
+                method_cmd_name = "deap" if method == "gp" else "dsr"
                 only = " ".join(["--only=Nguyen-{}".format(b) for b in benchmarks])
-                cmd = "time python -m dsr.run {} --method={} {} --mc={} --num_cores={}\n".format(path, method, only, mc, num_cores)
+                cmd = "time python -m dsr.run {} --method={} {} --mc={} --num_cores={}\n".format(path, method_cmd_name, only, mc, num_cores)
                 f.write(cmd)
 
         # Make the run file executable
