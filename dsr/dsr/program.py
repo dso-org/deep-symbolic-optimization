@@ -4,6 +4,7 @@ import numpy as np
 from numba import jit
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
+import array
 
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
@@ -137,7 +138,7 @@ class Program(object):
         self.traversal      = [Program.library[t] for t in tokens]
         self.new_traversal  = [Program.library[t] for t in tokens]
         self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]     
-        self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]
+        self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
                 
         self.len_traversal  = len(self.traversal)
         
@@ -166,73 +167,7 @@ class Program(object):
         """
         
         return cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos)
-    
-    
-    '''
-    def __init__(self, tokens, optimize):
-        """
-        Builds the program from a list of tokens, optimizes the constants
-        against training data, and evalutes the reward.
-        """
-
-        self.traversal = [Program.library[t] for t in tokens]
-        self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
-        self.tokens = tokens
-        if optimize:
-            _ = self.optimize()
-        self.count = 1
-
-    
-    def execute(self, X):
-        """Executes the program according to X.
-
-        Parameters
-        ----------
-        X : array-like, shape = [n_samples, n_features]
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features.
         
-        Returns
-        -------
-        y_hats : array-like, shape = [n_samples]
-            The result of executing the program on X.
-        """
-
-        # Check for single-node programs
-        node = self.traversal[0]
-        if isinstance(node, float):
-            return np.repeat(node, X.shape[0])
-        if isinstance(node, int):
-            return X[:, node]
-
-        apply_stack = []
-
-        for node in self.traversal:
-
-            if isinstance(node, _Function):
-                apply_stack.append([node])
-            else:
-                # Lazily evaluate later
-                apply_stack[-1].append(node)
-
-            while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
-                # Apply functions that have sufficient arguments
-                function = apply_stack[-1][0]
-                terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
-                             else X[:, t] if isinstance(t, int)
-                             else t for t in apply_stack[-1][1:]]
-                intermediate_result = function(*terminals)
-                if len(apply_stack) != 1:
-                    apply_stack.pop()
-                    apply_stack[-1].append(intermediate_result)
-                else:
-                    return intermediate_result
-
-        # We should never get here
-        assert False, "Function should never get here!"
-        return None
-    '''
-    
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -269,7 +204,6 @@ class Program(object):
 
         return optimized_constants
 
-    @jit(cache=True)
     def set_constants(self, consts):
         """Sets the program's constants to the given values"""
 

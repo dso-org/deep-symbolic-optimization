@@ -7,6 +7,7 @@ cimport numpy as np
 from cpython cimport array
 cimport cython
 from libc.stdlib cimport malloc, free
+from cpython.ref cimport PyObject
 
 # Static inits
 cdef list apply_stack   = [[None for i in range(25)] for i in range(1024)]
@@ -36,10 +37,9 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
         
     cdef int        arity
     cdef np.ndarray intermediate_result
-    
-    
+    cdef PyObject*  node
+
     # OTHER VARIABLES TO BIND
-    ##node
     ##stack_end
     ##stack_end_function
     ##_Function
@@ -52,14 +52,14 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
                    
     for i in range(len_traversal):
         
-        node = new_traversal[i]
+        node = <PyObject*>new_traversal[i]
 
-        if isinstance(node, _Function): # GET RID OF ISINSTANCE
+        if isinstance(<object>node, _Function): # GET RID OF ISINSTANCE
             sp += 1
             # Move this to the front with a memset call
             stack_count[sp]                     = 0
             # Store the reference to stack_count[sp] rather than keep calling
-            apply_stack[sp][stack_count[sp]]    = node
+            apply_stack[sp][stack_count[sp]]    = <object>node
             stack_end                           = apply_stack[sp]
             # The first element is the function itself
             stack_end_function                  = stack_end[0]
@@ -67,7 +67,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
         else:
             # Not a function, so lazily evaluate later
             stack_count[sp] += 1
-            stack_end[stack_count[sp]]          = node
+            stack_end[stack_count[sp]]          = <object>node
 
         # Keep on doing this so long as arity matches up, we can 
         # add in numbers above and complete the arity later.
@@ -86,9 +86,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
             # The first element is the function itself
             stack_end_function          = stack_end[0]
             arity                       = stack_end_function.arity
-   
-    #return intermediate_result
-   
+      
     # We should never get here
     assert False, "Function should never get here!"
     return None
