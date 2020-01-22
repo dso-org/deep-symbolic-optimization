@@ -1,13 +1,14 @@
 from textwrap import indent
 
 import numpy as np
+import copy
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-
+from .         import cyfunc
 
 def from_tokens(tokens, optimize):
     """
@@ -116,6 +117,59 @@ class Program(object):
     var_y_test = None
     cache = {}
 
+   # Additional derived static variables
+    L = None                # Length of library    
+    terminal_tokens = None  # Tokens corresponding to terminals
+    unary_tokens = None     # Tokens corresponding to unary operators
+    binary_tokens = None    # Tokens corresponding to binary operators
+    trig_tokens = None      # Tokens corresponding to trig functions
+    const_token = None      # Token corresponding to constant
+    inverse_tokens = None   # Dict of token to inverse tokens
+    arities_numba = None    # Numba Dict of token to arity
+    parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
+    
+    apply_stack     = [[None for i in range(25)] for i in range(1024)]
+    stack_count     = [0 for i in range(1024)]
+
+    def __init__(self, tokens, optimize):
+        """
+        Builds the program from a list of tokens, optimizes the constants
+        against training data, and evalutes the reward.
+        """
+
+        self.traversal      = [Program.library[t] for t in tokens]
+        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]     
+        self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]
+        
+        self.new_traversal  = copy.deepcopy(self.traversal)
+        
+        self.len_traversal  = len(self.traversal)
+        
+        assert(self.len_traversal > 1)
+        
+        self.tokens = tokens
+        if optimize:
+            _ = self.optimize()
+        self.count = 1
+        
+    def execute(self, X):
+                
+        """Executes the program according to X.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        
+        Returns
+        -------
+        y_hats : array-like, shape = [n_samples]
+            The result of executing the program on X.
+        """
+        return cyfunc.execute(X, self.len_traversal, self.stack_count, self.traversal, self.new_traversal, self.apply_stack, self.const_pos, self.int_pos)
+    
+    '''
     # Additional derived static variables
     L = None                # Length of library    
     terminal_tokens = None  # Tokens corresponding to terminals
@@ -139,8 +193,8 @@ class Program(object):
         if optimize:
             _ = self.optimize()
         self.count = 1
-
-
+    '''
+    '''
     def execute(self, X):
         """Executes the program according to X.
 
@@ -189,7 +243,7 @@ class Program(object):
         # We should never get here
         assert False, "Function should never get here!"
         return None
-
+    '''
     
     def optimize(self):
         """
