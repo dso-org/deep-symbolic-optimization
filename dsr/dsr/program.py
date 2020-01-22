@@ -1,7 +1,7 @@
 from textwrap import indent
 
 import numpy as np
-import copy
+from numba import jit
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
@@ -116,8 +116,8 @@ class Program(object):
     y_test_noiseless = None
     var_y_test = None
     cache = {}
-
-   # Additional derived static variables
+    
+    # Additional derived static variables
     L = None                # Length of library    
     terminal_tokens = None  # Tokens corresponding to terminals
     unary_tokens = None     # Tokens corresponding to unary operators
@@ -127,10 +127,7 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     arities_numba = None    # Numba Dict of token to arity
     parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
-    
-    apply_stack     = [[None for i in range(25)] for i in range(1024)]
-    stack_count     = [0 for i in range(1024)]
-
+        
     def __init__(self, tokens, optimize):
         """
         Builds the program from a list of tokens, optimizes the constants
@@ -138,11 +135,10 @@ class Program(object):
         """
 
         self.traversal      = [Program.library[t] for t in tokens]
+        self.new_traversal  = [Program.library[t] for t in tokens]
         self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]     
         self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]
-        
-        self.new_traversal  = copy.deepcopy(self.traversal)
-        
+                
         self.len_traversal  = len(self.traversal)
         
         assert(self.len_traversal > 1)
@@ -151,7 +147,8 @@ class Program(object):
         if optimize:
             _ = self.optimize()
         self.count = 1
-        
+    
+       
     def execute(self, X):
                 
         """Executes the program according to X.
@@ -167,20 +164,11 @@ class Program(object):
         y_hats : array-like, shape = [n_samples]
             The result of executing the program on X.
         """
-        return cyfunc.execute(X, self.len_traversal, self.stack_count, self.traversal, self.new_traversal, self.apply_stack, self.const_pos, self.int_pos)
+        
+        return cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos)
+    
     
     '''
-    # Additional derived static variables
-    L = None                # Length of library    
-    terminal_tokens = None  # Tokens corresponding to terminals
-    unary_tokens = None     # Tokens corresponding to unary operators
-    binary_tokens = None    # Tokens corresponding to binary operators
-    trig_tokens = None      # Tokens corresponding to trig functions
-    const_token = None      # Token corresponding to constant
-    inverse_tokens = None   # Dict of token to inverse tokens
-    parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
-
-
     def __init__(self, tokens, optimize):
         """
         Builds the program from a list of tokens, optimizes the constants
@@ -193,8 +181,8 @@ class Program(object):
         if optimize:
             _ = self.optimize()
         self.count = 1
-    '''
-    '''
+
+    
     def execute(self, X):
         """Executes the program according to X.
 
@@ -281,7 +269,7 @@ class Program(object):
 
         return optimized_constants
 
-
+    @jit(cache=True)
     def set_constants(self, consts):
         """Sets the program's constants to the given values"""
 
