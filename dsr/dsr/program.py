@@ -137,6 +137,7 @@ class Program(object):
 
         self.traversal      = [Program.library[t] for t in tokens]
         self.new_traversal  = [Program.library[t] for t in tokens]
+        self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
         self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]     
         self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
                 
@@ -166,7 +167,7 @@ class Program(object):
             The result of executing the program on X.
         """
         
-        return cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos)
+        return cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos, self.is_function)
         
     def optimize(self):
         """
