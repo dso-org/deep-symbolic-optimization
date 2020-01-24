@@ -6,4 +6,5 @@ pandas
 click
 deap
 gym
+cython
 -e dsr

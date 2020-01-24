@@ -26,6 +26,7 @@ source venv3/bin/activate # Source the virtual environmnet
 pip install -r requirements.txt # Install Python dependencies
 git clone https://github.com/trevorstephens/gplearn.git # Clone gplearn
 pip install ./gplearn # Install gplearn
+python dsr/setup.py build_ext --inplace # Compile cython source
 ```
 
 # Getting started

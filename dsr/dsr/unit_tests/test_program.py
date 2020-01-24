@@ -7,6 +7,10 @@ import sys
 from dsr.program import Program
 from test_base import TestBase
 
+# For profiling
+import pstats, cProfile
+import pyximport
+
 class TestProgram(TestBase):
     
     # ******************************************************************************************************************* 
@@ -78,3 +82,13 @@ class TestProgram(TestBase):
             
 if __name__ == '__main__':
     unittest.main()
+    
+    # to profile using cProfile, uncomment
+    '''
+    pyximport.install()
+    cProfile.runctx("unittest.main()", globals(), locals(), "Profile.prof")
+    s = pstats.Stats("Profile.prof")
+    s.strip_dirs().sort_stats("cumtime").print_stats(25)
+    s.print_callees('execute')
+    '''
+    
