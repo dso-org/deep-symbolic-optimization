@@ -11,22 +11,22 @@ def main():
     with open(path, encoding='utf-8') as f:
         default = json.load(f)
 
-    # Manually turn off saving all rewards
+    # Manually turn off saving outputs
+    default["training"]["output_file"] = None
     default["training"]["save_all_r"] = False
 
     benchmarks = [4, 5, 7, 8]
     mc = 8
-    num_cores = 16
+    num_cores = 24
 
     sweep_dsr = {
         "training" : {
-            "batch_size" : [250, 500, 1000],
-            "epsilon" : [0.05, 0.1, 0.2],
-            "baseline" : ["R_e", "ewma_R_e"]
+            "batch_size" : [100, 250, 500, 1000],
+            "epsilon" : [0.05, 0.1, 0.15]
         },
         "controller" : {
             "entropy_weight" : [0.01, 0.05, 0.1],
-            "learning_rate" : [1e-4, 5e-4, 1e-3],
+            "learning_rate" : [3e-4, 5e-4, 1e-3],
             "embedding" : [True, False]
         }
     }
@@ -34,9 +34,9 @@ def main():
     sweep_gp = {
         "deap" : {
             "population_size" : [100, 250, 500, 1000],
-            "tournament_size" : [2, 3, 5, 10],
-            "p_crossover" : [0.1, 0.25, 0.5, 0.75],
-            "p_mutate" : [0.1, 0.25, 0.5, 0.75]
+            "tournament_size" : [3, 5, 10],
+            "p_crossover" : [0.25, 0.5, 0.75, 0.9],
+            "p_mutate" : [0.01, 0.03, 0.05, 0.10, 0.15]
         }
     }
 

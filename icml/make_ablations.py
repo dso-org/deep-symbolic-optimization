@@ -72,7 +72,7 @@ ablations = {
 
 def main():
     
-    with open("config/base.json", encoding='utf-8') as f:
+    with open("config/current.json", encoding='utf-8') as f:
         template = json.load(f)
 
     # Create config directory
@@ -110,7 +110,7 @@ def main():
         # Add the ablation to the run file
         method = "gp" if name == "gp" else "dsr"
         with open(run_file, 'a') as f:
-            f.write("time python -m dsr.run ./config/ablations/{}.json --method={} --only=Nguyen --mc=10 --num_cores=16\n".format(name, method))
+            f.write("time python -m dsr.run ./config/ablations/{}.json --method={} --only=Nguyen --mc=10 --num_cores=24\n".format(name, method))
 
 
 if __name__ == "__main__":
