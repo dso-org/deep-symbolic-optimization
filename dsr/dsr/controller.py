@@ -356,8 +356,8 @@ class Controller(object):
                 if self.compute_parents_siblings:
                     parent, sibling = parents_siblings(actions, arities=Program.arities, parent_adjust=Program.parent_adjust)
                 else:
-                    parent = np.zeros(n_parent_inputs, dtype=np.int32)
-                    sibling = np.zeros(n_sibling_inputs, dtype=np.int32)
+                    parent = np.zeros(n, dtype=np.int32)
+                    sibling = np.zeros(n, dtype=np.int32)
 
                 # Update dangling with (arity - 1) for each element in action
                 dangling += Program.arities[action] - 1
