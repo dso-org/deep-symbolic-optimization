@@ -5,8 +5,9 @@
     "name" : "Burks",
     "extra_input_var" : 0,
     "noise" : null,
-    "extra_data_dir":null,
-    "function_lib":null
+    "extra_data_dir" : null,
+    "function_lib" : null,
+    "dataset_size_multiplier" : null
 },
 
 "training" : {
