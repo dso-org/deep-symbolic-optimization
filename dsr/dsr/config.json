@@ -11,7 +11,7 @@
 },
 
 "training" : {
-    "logdir" : "test",
+    "logdir" : "./log/test",
     "n_epochs" : null,
     "n_samples" : 1e6,
     "batch_size" : 1000,

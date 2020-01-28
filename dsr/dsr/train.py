@@ -28,7 +28,7 @@ def work(p):
     return p.optimize()
 
 
-def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size=1000,
+def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_size=1000,
           reward="neg_mse", reward_params=None, complexity="length",
           complexity_weight=0.001, const_optimizer="minimize",
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
@@ -139,7 +139,6 @@ def learn(sess, controller, logdir=".", n_epochs=None, n_samples=1e6, batch_size
 
     # Create log file
     if output_file is not None:
-        logdir = os.path.join("log", logdir)
         os.makedirs(logdir, exist_ok=True)
         output_file = os.path.join(logdir, output_file)
         prefix, _ = os.path.splitext(output_file)
