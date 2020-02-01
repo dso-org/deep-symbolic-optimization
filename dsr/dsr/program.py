@@ -374,7 +374,7 @@ class Program(object):
             # Constant placeholder (to-be-optimized)
             elif op == "const":
                 Program.library.append(op)
-                Program.arities.append(op)
+                Program.arities.append(0)
                 Program.const_token = i + n_input_var
 
             else:
