@@ -6,10 +6,10 @@ from tensorflow.contrib import rnn
 
 
 class DynRNNLanguageModel(object):
-    def __init__(self, vocabulary_size, args, mode='train'):
-        self.embedding_size = args.embedding_size
-        self.num_layers = args.num_layers
-        self.num_hidden = args.num_hidden
+    def __init__(self, vocabulary_size, embedding_size, num_layers, num_hidden, mode='train'):
+        self.embedding_size = embedding_size
+        self.num_layers = num_layers
+        self.num_hidden = num_hidden
 
         self.x = tf.compat.v1.placeholder(tf.int32, [None, None], name="x") # whole seq + seq len
         self.keep_prob = tf.compat.v1.placeholder(tf.float32, [], name="keep_prob")

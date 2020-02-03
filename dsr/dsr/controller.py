@@ -9,6 +9,7 @@ from numba import jit, prange
 
 from dsr.program import Program
 
+from dsr.language_model.language_model import LModel
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
@@ -158,7 +159,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, debug=0, summary=True,
+    def __init__(self, sess, lmodel, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
                  cell='lstm',
@@ -200,6 +201,7 @@ class Controller(object):
                  pqt_use_pg=False):
 
         self.sess = sess
+        self.lmodel = lmodel
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
@@ -404,6 +406,9 @@ class Controller(object):
                 if self.constrain_min_len and (i + 2) < self.min_length:
                     constraints = dangling == 1 # Constrain terminals
                     prior += make_prior(constraints, Program.terminal_tokens, Program.L)
+
+                # Language Model prior
+                prior += self.lmodel.get_lm_prior(action)
 
                 return action, parent, sibling, prior, dangling
 

@@ -1,62 +1,85 @@
 """
 first input??
-train
-
+remove redundant
+try grouping
 """
 
 # Load lang model
 
 import os
 import time
+import pickle
 
 import argparse
 import numpy as np
 import tensorflow as tf
 # from lm_utils import build_dataset_no_eos, batch_iter
-from lm_utils import build_dataset_with_eos_padding, batch_iter
+from dsr.language_model.lm_utils import build_dataset_with_eos_padding, batch_iter
 
-
-# from model.model_rnn import RNNLanguageModel
-# from model.model_birnn import BiRNNLanguageModel
-# from model.model_dyn_rnn_single import DynRNNLanguageModel
-from model.model_dyn_rnn import DynRNNLanguageModel
-
-# def log_print(str):
-#     print(str)
-#     with open('log.txt','a') as f:
-#         f.write('{}\n'.format(str))
-
-
-
+from dsr.language_model.model.model_dyn_rnn import DynRNNLanguageModel
 
 class LModel(object):
-    def __init__(self, saved_model_path, lmodel_vocabulary_size, ):
-        self.lmodel = DynRNNLanguageModel(lmodel_vocabulary_size, args, mode='predict')
-        self.lsess = self.load_model(saved_model_path)
+    def __init__(self, dsr_function_set, dsr_n_input_var, 
+                saved_lmodel_path, saved_lmodel_lib,
+                embedding_size=32, num_layers=1, num_hidden=256
+                ):
+
+        with open(saved_lmodel_lib,'rb') as f:
+            self.lm_token2idx = pickle.load(f)
+        self.dsr2lm, self.lm2dsr = self.set_lib_to_lib(dsr_function_set,dsr_n_input_var)
+
+        self.lmodel = DynRNNLanguageModel(len(self.lm_token2idx), embedding_size, num_layers, num_hidden, mode='predict')
+        self.lsess = self.load_model(saved_lmodel_path)
         self.next_state = None
-
-        self.lib_dsr = {} # id to token
-        self.lib_lmodel = {} # token to id
-
-        # self.lib_dsr_to_lmodel = []
 
         # def _state_after_initial():
 
-    def load_model(self, saved_model_path):
+    def load_model(self, saved_lmodel_path):
         sess = tf.compat.v1.Session()
         saver = tf.train.Saver()
-        saver.restore(sess,tf.train.latest_checkpoint(saved_model_path))
+        saver.restore(sess,tf.train.latest_checkpoint(saved_lmodel_path))
         return sess
+
+    def set_lib_to_lib(self, dsr_function_set, dsr_n_input_var):
+        """
+        dsr2lm: len(dsr)
+        lm2dsr: len(lm)
+        
+        need to handle terminals! constant!
+        """
+        dsr2lm = [self.lm_token2idx['TERMINAL'] for _ in range(dsr_n_input_var)]
+        dsr2lm += [self.lm_token2idx[func.lower()] for func in dsr_function_set] # ex) [1,1,1,2,3,4,5,6,7,8,9]
+        
+        lm2dsr = {lm_idx: i for i, lm_idx in enumerate(dsr2lm)}
+
+        # todo: if missing in lm
+
+        return dsr2lm, lm2dsr
 
     def get_lm_prior(self, next_input):
         def _prep(next_input):
             """
             match library and return as lang model's input
-            don't forget to handle terminals!
+
+            next_input: array, shape = [batch size, 1]
+            
             """
-            next_token = self.lib_dsr[next_input]
-            next_x = self.lib_lmodel[next_token]
-            return np.array([[next_x]])
+            next_token = np.array(self.dsr2lm)[next_input]
+
+            return np.array([next_token]) 
+
+        def _logit_to_prior(logit):
+            """
+            return as make_prior
+            logit: np.ndarray
+            prior: np.ndarray
+            """
+            # permutation
+            
+            prior = logit[0,:,self.dsr2lm]
+            prior = np.transpose(prior)
+
+            return prior
 
         feed_dict = {self.lmodel.x: _prep(next_input), self.lmodel.keep_prob: 1.0}
         if self.next_state is not None: # not the first input
@@ -64,10 +87,16 @@ class LModel(object):
 
         self.next_state, lm_logit = self.lsess.run([self.lmodel.last_state, self.lmodel.logits], feed_dict=feed_dict)
 
-        return lm_logit
+        lm_prior = _logit_to_prior(lm_logit)
+        
+        return lm_prior
 
 
-def predict(saved_path, predict_data, vocabulary_size, args):
+
+
+##########
+### model test
+def predict(saved_path, predict_data, vocabulary_size, embedding_size=32, num_layers=1, num_hidden=256, batch_size=1):
     with tf.compat.v1.Session() as sess:
         
         # if args.model == "rnn":
@@ -79,14 +108,14 @@ def predict(saved_path, predict_data, vocabulary_size, args):
         # else:
         #     raise ValueError("Not Implemented {}.".format(args.model))
 
-        model = DynRNNLanguageModel(vocabulary_size, args, mode='predict')
+        model = DynRNNLanguageModel(vocabulary_size, embedding_size, num_layers, num_hidden, mode='predict')
 
 
         # Load model
         saver = tf.train.Saver()
         saver.restore(sess,tf.train.latest_checkpoint(saved_path))
 
-        test_batches = batch_iter(predict_data, args.batch_size, 1)
+        test_batches = batch_iter(predict_data, batch_size, 1)
 
         for test_x in test_batches:
             # first
@@ -111,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=1, help="batch size.")
     parser.add_argument("--num_epochs", type=int, default=30, help="number of epochs.")
 
-    parser.add_argument("--saved_path", type=str, default="/Users/kim102/OneDrive - LLNL/git/equation_language_model/results/dynrnn-(ep_10,la_1,kp_0.5,bs_64)-2001251717", help="trained model")
+    parser.add_argument("--saved_path", type=str, default="/Users/kim102/OneDrive - LLNL/git/equation_language_model/results/dynrnn-(ep_10,la_1,kp_0.5,bs_64)-2001251717/saved_model", help="trained model")
     args = parser.parse_args()
 
 
@@ -127,5 +156,5 @@ if __name__ == "__main__":
     # log_print(predict_.shape)
 
 
-    predict(os.path.join(args.saved_path,'saved_model'), predict_, len(word_dict), args)
+    predict(os.path.join(args.saved_path,'saved_model'), predict_, len(word_dict), args.embedding_size, args.num_layers, args.num_hidden, args.batch_size)
     

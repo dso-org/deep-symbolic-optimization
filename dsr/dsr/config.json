@@ -82,6 +82,12 @@
       "early_stopping": true,
       "threshold": 1e-12,
       "verbose": false
-   }
+   },
+   "lmodel": {
+    "saved_lmodel_path": "/Users/kim102/OneDrive - LLNL/git/equation_language_model/results/dynrnn-(ep_10,la_1,kp_0.5,bs_64)-2001251717/saved_model",
+    "saved_lmodel_lib" : "/Users/kim102/OneDrive - LLNL/git/equation_language_model/word_dict.pkl",
+    "embedding_size":32, 
+    "num_layers":1, 
+    "num_hidden":256
 }
 
