@@ -1,6 +1,5 @@
 """
 first input??
-remove redundant
 try grouping
 """
 
@@ -61,8 +60,8 @@ class LModel(object):
             """
             match library and return as lang model's input
 
-            next_input: array, shape = [batch size, 1]
-            
+            next_input: array, shape = (batch size)
+            next_token: np.ndarry, shape = (batch size,)
             """
             next_token = np.array(self.dsr2lm)[next_input]
 
@@ -71,8 +70,8 @@ class LModel(object):
         def _logit_to_prior(logit):
             """
             return as make_prior
-            logit: np.ndarray
-            prior: np.ndarray
+            logit: np.ndarray, shape = (1,batch size, lm size)
+            prior: np.ndarray, shape = (batch size, dsr size)
             """
             # permutation
             

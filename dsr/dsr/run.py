@@ -21,11 +21,13 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import gpsr
 
+from dsr.language_model.language_model import LModel
+
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
+def train_dsr(name_and_seed, config_dataset, config_controller, config_lmodel, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     name, seed = name_and_seed
@@ -60,8 +62,9 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     
     with tf.Session() as sess:        
 
-        # Instantiate the controller
-        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
+        # Instantiate the controller w/ language model
+        lmodel = LModel(dataset.function_set, dataset.n_input_var, **config_lmodel)
+        controller = Controller(sess, lmodel, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
 
         # Train the controller
         result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
@@ -159,6 +162,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
+        config_lmodel = config["lmodel"]            # Language model hyperparameters
     if "gp" in config:
         config_gp = config["gp"]                    # GP hyperparameters
 
@@ -230,7 +234,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
+        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_lmodel=config_lmodel, config_training=config_training)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
 
