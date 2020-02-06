@@ -20,8 +20,11 @@ from dsr.language_model.model.model_dyn_rnn import DynRNNLanguageModel
 class LModel(object):
     def __init__(self, dsr_function_set, dsr_n_input_var, 
                 saved_lmodel_path, saved_lmodel_lib,
-                embedding_size=32, num_layers=1, num_hidden=256
+                embedding_size=32, num_layers=1, num_hidden=256,
+                prob_sharing=True
                 ):
+        self.dsr_n_input_var = dsr_n_input_var
+        self.prob_sharing = prob_sharing
 
         with open(saved_lmodel_lib,'rb') as f:
             self.lm_token2idx = pickle.load(f)
@@ -73,8 +76,11 @@ class LModel(object):
             logit: np.ndarray, shape = (1,batch size, lm size)
             prior: np.ndarray, shape = (batch size, dsr size)
             """
-            # permutation
-            
+
+            # sharing probability among same tokens (e.g., TERMINAL to multiple variables)
+            if self.prob_sharing is True:
+                logit[:,:,self.lm_token2idx['TERMINAL']] = np.log(logit[:,:,self.lm_token2idx['TERMINAL']]/self.dsr_n_input_var)
+
             prior = logit[0,:,self.dsr2lm]
             prior = np.transpose(prior)
 

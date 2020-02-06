@@ -89,6 +89,7 @@
         "embedding_size":32, 
         "num_layers":1, 
         "num_hidden":256
+        "prob_sharing": false
     }
 }
 
