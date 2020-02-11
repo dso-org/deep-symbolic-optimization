@@ -79,7 +79,12 @@ class LModel(object):
 
             # sharing probability among same tokens (e.g., TERMINAL to multiple variables)
             if self.prob_sharing is True:
-                logit[:,:,self.lm_token2idx['TERMINAL']] = np.log(logit[:,:,self.lm_token2idx['TERMINAL']]/self.dsr_n_input_var)
+                # A
+                # continue
+                # B
+                logit[:,:,self.lm_token2idx['TERMINAL']] = logit[:,:,self.lm_token2idx['TERMINAL']] - np.log(self.dsr_n_input_var)
+                # C
+                # logit[:,:,self.lm_token2idx['TERMINAL']] = logit[:,:,self.lm_token2idx['TERMINAL']] - np.log((self.dsr_n_input_var-1)*np.exp(logit[:,:,self.lm_token2idx['TERMINAL']])+self.dsr_n_input_var)
 
             prior = logit[0,:,self.dsr2lm]
             prior = np.transpose(prior)
