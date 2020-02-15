@@ -51,7 +51,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     cdef object     stack_end_function
         
     for n in const_pos:
-        new_traversal[n] = np.repeat(traversal[n], Xs) # 5% of overhead
+        new_traversal[n] = np.repeat(traversal[n], Xs) #>>> 5% of overhead
         
     for n in int_pos:
         new_traversal[n] = X[:, traversal[n]] 
@@ -76,7 +76,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
         # Keep on doing this so long as arity matches up, we can 
         # add in numbers above and complete the arity later.
         while stack_count[sp] == arity:
-            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) # 85% of overhead
+            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) #>>> 85% of overhead
 
             # I think we can get rid of this line ...
             if sp == 0:
