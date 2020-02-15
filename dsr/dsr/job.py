@@ -3,6 +3,8 @@ import imp
 import os
 import socket
 import inspect
+import sys
+import subprocess
 
 # *******************************************************************************************************************
 def std_error_print(message,exception):
@@ -40,18 +42,29 @@ class host_configure:
         # Where is your home on LC
         self.config['home_dir']             = os.path.expanduser("~") 
         # User name derived from home dir.
-        self.config['user_name']            = config['home_dir'].split('/')[-1]
+        self.config['user_name']            = self.config['home_dir'].split('/')[-1]
         # Lets keep track of what host we are on
         self.config['host_name']            = socket.gethostname()
         # What is the name of the cluster (remove numbers from host name)
-        self.config['cluster_name']         = ''.join([i for i in config['host_name'] if not i.isdigit()])
+        self.config['cluster_name']         = ''.join([i for i in self.config['host_name'] if not i.isdigit()])
         # Our current working directory
         self.config['working_dir']          = os.getcwd()
         
+        # Who called me?
+        stack_ret                           = inspect.stack()[1]
+        self.config['main_script']          = inspect.getmodule(stack_ret[0]).__file__
+        self.config['root_dir']             = os.path.abspath(os.path.dirname(self.config['main_script']))
         
+        '''
+            These are related to doing recurrent jobs
+        '''
+        self.config['lsf_run_once']         = True      # Run one job and end (lsf), no recurrent runs
+        self.config['msub_do_depend']       = False     # Run recurrent jobs (slurm)
+        self.config['lsf_job_verbose']      = True
+        self.config['lsf_recursive']        = True
+        self.config['lsf_max_dep_jobs']     = 100
         
-        
-        self.config['lsf_run_once']         = False
+        self.config['extra_batch_commands'] = None   
         
         self.config['login_nodes']          = []
         self.config['node_num']             = ""
@@ -80,16 +93,11 @@ class host_configure:
         return lines[0]
 
     # *******************************************************************************************************************
-    def __call__(self, job_label, account, partition="", project_dir='projects', figures_dir='figures', log_dir='log'):
+    def __call__(self, job_label, account, partition="", projects_dir='projects', figures_dir='figures', log_dir='log'):
         
-        # Who called me?
-        module                              = inspect.stack()[1][1]
-        self.config['call_dir']             = os.path.split(module)[-1].split('.py')[0] 
-        frame                               = inspect.stack()[1]
-        module                              = inspect.getmodule(frame[0])
-        self.config['main_script']          = module.__file__
-        self.config['root_dir']             = os.path.abspath(os.path.dirname(main_script))
-            
+        assert(isinstance(job_label,str))
+        assert(isinstance(account,str))
+        
         # Our job_label from function arg
         self.config['job_label']            = job_label
         
@@ -101,9 +109,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lustre instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/lustre1/",[projects_dir,job_label])  
+            self.config['proj_base_dir']        = os.path.join("/p/lustre1/",self.config['user_name'],projects_dir,job_label)  
             
-            self.config['node_num']             = int(hn[6:])
+            self.config['node_num']             = int(self.config['host_name'][6:])
             self.config['job_sched']            = "slurm"
             self.config['gpus']                 = [0,1]
             self.config['walltime']             = "24:00:00"
@@ -119,9 +127,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lustre instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/lustre1/",[projects_dir,job_label])  
+            self.config['proj_base_dir']        = os.path.join("/p/lustre1/",self.config['user_name'],projects_dir,job_label)  
             
-            self.config['node_num']             = int(hn[7:])
+            self.config['node_num']             = int(self.config['host_name'][7:])
             self.config['job_sched']            = "slurm"
             self.config['login_nodes']          = [86]
             if self.config['node_num'] > 162:
@@ -143,9 +151,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lustre instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/lustre1/",[projects_dir,job_label])  
+            self.config['proj_base_dir']        = os.path.join("/p/lustre1/",self.config['user_name'],projects_dir,job_label)  
             
-            self.config['node_num']             = int(hn[6:])
+            self.config['node_num']             = int(self.config['host_name'][6:])
             self.config['job_sched']            = "slurm"
             self.config['gpus']                 = []
             self.config['walltime']             = "24:00:00"
@@ -164,9 +172,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lscratch instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/gscratchrzm/",[projects_dir,job_label]) 
+            self.config['proj_base_dir']        = os.path.join("/p/gscratchrzm/",self.config['user_name'],projects_dir,job_label) 
             
-            self.config['node_num']             = int(hn[7:])
+            self.config['node_num']             = int(self.config['host_name'][7:])
             self.config['job_sched']            = "lsf"
             self.config['gpus']                 = [0,1,2,3]  
             self.config['walltime']             = "720" # New job.lim
@@ -185,9 +193,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lscratch instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/gpfs1/",[projects_dir,job_label])    
+            self.config['proj_base_dir']        = os.path.join("/p/gpfs1/",self.config['user_name'],projects_dir,job_label)    
             
-            self.config['node_num']             = int(hn[6:])
+            self.config['node_num']             = int(self.config['host_name'][6:])
             self.config['job_sched']            = "lsf"
             self.config['gpus']                 = [0,1,2,3]  
             self.config['walltime']             = "720"
@@ -206,9 +214,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lscratch instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/gpfs1/",[projects_dir,job_label])                                                     
+            self.config['proj_base_dir']        = os.path.join("/p/gpfs1/",self.config['user_name'],projects_dir,job_label)                                                     
 
-            self.config['node_num']             = int(hn[7:])
+            self.config['node_num']             = int(self.config['host_name'][7:])
             self.config['job_sched']            = "lsf"
             self.config['gpus']                 = [0,1,2,3]  
             self.config['walltime']             = "1440" # Using standby, so ask for 24 hour blocks
@@ -230,9 +238,9 @@ class host_configure:
             
             # Where to save your checkpoint models to. Should probably not be home dir since it stores lots of data here.
             # Use workspace or lscratch instead (make sure dir exists)
-            self.config['proj_base_dir']        = os.join("/p/gscratchr/",[projects_dir,job_label])  
+            self.config['proj_base_dir']        = os.path.join("/p/gscratchr/",self.config['user_name'],projects_dir,job_label)  
             
-            self.config['node_num']             = int(hn[3:])
+            self.config['node_num']             = int(self.config['host_name'][3:])
             self.config['job_sched']            = "lsf"
             self.config['gpus']                 = [0,1,2,3]  
             self.config['walltime']             = "720" # New job.lim
@@ -251,13 +259,13 @@ class host_configure:
         # DIRECTORY PARAMETERS
         # *******************************************************************************************************************
         # Where are the job log files?
-        self.config['proj_log_dir']             = os.join(self.config['proj_base_dir'],log_dir)
+        self.config['proj_log_dir']             = os.path.join(self.config['proj_base_dir'],log_dir)
             
         # My main startup script. So batch jobs can set the environment you want.  
-        self.config['profile']                  = os.join(self.config['home_dir'],"/.profile")
+        self.config['profile']                  = os.path.join(self.config['home_dir'],".profile")
         
         # Where do we save figures and graph outputs
-        self.config['figures_dir']              = os.join(self.config['home_dir'],figures_dir)
+        self.config['figures_dir']              = os.path.join(self.config['home_dir'],figures_dir)
                 
         # *******************************************************************************************************************   
         # Create Dirs if needed
@@ -275,11 +283,30 @@ class host_configure:
             print("**********************************************************************************************************************")
             os.makedirs(self.config['figures_dir'])
             
-        if not os.path.isdir(config['proj_log_dir']):
+        if not os.path.isdir(self.config['proj_log_dir']):
             print("**********************************************************************************************************************")
             print("Creating Directory: {}".format(self.config['proj_log_dir']))
             print("**********************************************************************************************************************")
             os.makedirs(self.config['proj_log_dir'])
+       
+        # *******************************************************************************************************************   
+        # Define common vars and things
+        # *******************************************************************************************************************        
+        
+        if self.config['job_sched'] == "slurm":
+        
+            self.config['msub_preamble'] = "\
+#!/bin/bash\n\
+#SBATCH --nodes=1            # use 1 node\n\
+#SBATCH --time={}            # ask for n hours\n\
+#SBATCH --partition={}       # use the {} partition\n\
+#SBATCH --account={}         # use my account\n\
+#SBATCH --signal=INT@120     # ask for signal two minutes before out of time\n"\
+            .format(self.config['walltime'],self.config['partition'],self.config['partition'],self.config['account'])   
+        elif  self.config['job_sched'] == "lsf":  
+            self.config['lsf_job_init']                  = "bsub -W {} -G {} -wa SIGHUP -wt 5 ".format(self.config['walltime'],self.config['account'])
+        else:
+            self.config['msub_preamble'] = "NOT YET DEFINED\n"
             
         return self.config
     
@@ -417,14 +444,14 @@ sleep 110s\n\
 echo \"Script done\"\n\n".format(self.runtime_secs, self.runtime_secs)
 
 
-    if config['job_sched'] == 'slurm':
-        self._create_sbatch()
-    elif config['job_sched'] == 'lsf':
-        self._create_lsf()
-    else:
-        std_error_print("Unknown batching system \"{}\"!".format(config['job_sched']), NotImplementedError)
-        
-    self._create_run_script()
+        if self.config['job_sched'] == 'slurm':
+            self._create_sbatch()
+        elif self.config['job_sched'] == 'lsf':
+            self._create_lsf()
+        else:
+            std_error_print("Unknown batching system \"{}\"!".format(config['job_sched']), NotImplementedError)
+            
+        self._create_run_script()
 
     # *******************************************************************************************************************   
     def _create_run_script(self):
@@ -653,13 +680,14 @@ class create_project:
         
         self.cmd_line_args      = cmd_line_args
         self.auto_run_batch     = auto_run_batch
+        self.config             = config
                         
         self.batch_run_line     = None
         
-        self.init_file          = os.join(self.config['proj_base_dir'], "init.done")
+        self.init_file          = os.path.join(self.config['proj_base_dir'], "init.done")
         
     # *******************************************************************************************************************
-    def _save_project_state(proj_base_dir, root_dir):
+    def _save_project_state(self, proj_base_dir, root_dir):
                        
         r'''    
             use rsync so we can exclude hidden files such as all the git stuff
@@ -697,8 +725,8 @@ class create_project:
             #np              = create_job.node_props()
             #self.node_props = np.get(extern_config=extern_config)
             
-            mjf             = create_job.make_job_file(self.config['proj_base_dir'], self.config['proj_log_dir'], self.config['profile'], self.config['job_label'], 
-                                                       self.config['main_script'], self.config, self.cmd_line_args)
+            mjf             = make_job_file(self.config['proj_base_dir'], self.config['proj_log_dir'], self.config['profile'], self.config['job_label'], 
+                                            self.config['main_script'], self.config, self.cmd_line_args)
                         
             self.batch_run_line = mjf.batch_run_line
             
