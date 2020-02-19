@@ -59,11 +59,7 @@ def main():
 
             for m in methods:
 
-                path = "./ICML_LOGS/noise/{}/".format(m)
-
-                if m == "gp":
-                    path = "./ICML_LOGS/noise/gp320/"
-
+                path = os.path.join(LOGDIR, m)
                 files = os.listdir(path)
                 filename = None
                 for f in files:

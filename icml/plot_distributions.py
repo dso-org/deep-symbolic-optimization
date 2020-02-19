@@ -43,7 +43,7 @@ def main():
 
     path = LOGDIR
     experiments = {}
-    names = ["risk", "std"]
+    names = ["risk-seeking", "standard"]
     for directory in os.listdir(path):
         for name in names:
             if name in directory:
@@ -130,20 +130,20 @@ def main():
 
         # Color map for different experiments
         cmaps = {
-            "risk" : "Greys",
-            "std" : "Blues",
+            "risk-seeking" : "Greys",
+            "standard" : "Blues",
             "pqt" : "Greens"
         }
 
         colors = {
-            "risk" : "black",
-            "std" : "blue",
+            "risk-seeking" : "black",
+            "standard" : "blue",
             "pqt" : "green"
         }
 
         method_names = {
-            "risk" : "Risk-seeking PG",
-            "std" : "Standard PG",
+            "risk-seeking" : "Risk-seeking PG",
+            "standard" : "Standard PG",
             "pqt" : "Priority queue training"
         }
         
