@@ -14,14 +14,18 @@ class GP():
     """GP class using DEAP implementation"""
 
     def __init__(self, dataset, metric="nmse", population_size=1000,
-                 generations=1000, tournament_size=3, p_crossover=0.5,
-                 p_mutate=0.1, max_depth=17, max_len=None, max_const=None,
-                 const_range=[-1, 1], const_optimizer="scipy",
+                 generations=1000, n_samples=None, tournament_size=3,
+                 p_crossover=0.5, p_mutate=0.1, max_depth=17, max_len=None,
+                 max_const=None, const_range=[-1, 1], const_optimizer="scipy",
                  const_params=None, seed=0, early_stopping=False,
                  threshold=1e-12, verbose=True):
 
         self.dataset = dataset
         self.fitted = False
+
+        assert n_samples is None or generations is None, "At least one of 'n_samples' or 'generations' must be None."
+        if generations is None:
+            generations = int(n_samples / population_size)
 
         # Set hyperparameters
         self.population_size = population_size

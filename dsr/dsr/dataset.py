@@ -1,3 +1,5 @@
+"""Class for deterministically generating a benchmark dataset from benchmark specifications."""
+
 import os
 import ast
 import itertools
@@ -47,12 +49,16 @@ class Dataset(object):
         Absolute path of directory to look for dataset files. If None, uses
         default path dsr/data.
 
+    dataset_size_multiplier : float, optional
+        Multiplier for size of the dataset. Only works for expressions.
+
     **kwargs : keyword arguments, optional
         Unused. Only included to soak up keyword arguments.
     """
 
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
-                 function_lib=None, extra_data_dir=None, **kwargs):
+                 function_lib=None, extra_data_dir=None, 
+                 dataset_size_multiplier=None, **kwargs):
 
         # Read in benchmark dataset information
         root = resource_filename("dsr", "data/")
@@ -62,6 +68,8 @@ class Dataset(object):
         # Random number generator used for sampling X values
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
         self.rng = np.random.RandomState(seed)
+
+        self.dataset_size_multiplier = dataset_size_multiplier if dataset_size_multiplier is not None else 1.0
 
         # Load raw dataset from external directory
         root_changed = False
@@ -184,6 +192,7 @@ class Dataset(object):
 
             if "U" in spec[input_var]:
                 low, high, n = spec[input_var]["U"]
+                n = int(n * self.dataset_size_multiplier)
                 feature = self.rng.uniform(low=low, high=high, size=n)
             elif "E" in spec[input_var]:
                 start, stop, step = spec[input_var]["E"]
@@ -191,6 +200,7 @@ class Dataset(object):
                     n = step
                 else:
                     n = int((stop - start)/step) + 1
+                n = int(n * self.dataset_size_multiplier)
                 feature = np.linspace(start=start, stop=stop, num=n, endpoint=True)
             else:
                 raise ValueError("Did not recognize specification for {}: {}.".format(input_var, spec[input_var]))

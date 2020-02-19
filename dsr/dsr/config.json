@@ -5,12 +5,13 @@
     "name" : "Burks",
     "extra_input_var" : 0,
     "noise" : null,
-    "extra_data_dir":null,
-    "function_lib":null
+    "extra_data_dir" : null,
+    "function_lib" : null,
+    "dataset_size_multiplier" : null
 },
 
 "training" : {
-    "logdir" : "test",
+    "logdir" : "./log/test",
     "n_epochs" : null,
     "n_samples" : 1e6,
     "batch_size" : 1000,
@@ -29,6 +30,7 @@
     "summary" : false,
     "debug" : 0,
     "output_file" : "output.csv",
+    "save_all_r" : false,
     "early_stopping" : false,
     "threshold" : 1e-12
 },

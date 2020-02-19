@@ -1,3 +1,5 @@
+"""Constant optimizer used for deep symbolic regression."""
+
 from functools import partial
 
 import numpy as np
