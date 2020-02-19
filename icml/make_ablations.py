@@ -3,6 +3,8 @@ import stat
 import json
 from copy import deepcopy
 
+ABLATIONS_SEED_SHIFT = 100
+
 ablations = {
     "vanilla" : {
         "controller:entropy_weight" : 0.0,
@@ -72,7 +74,7 @@ ablations = {
 
 def main():
     
-    with open("config/current.json", encoding='utf-8') as f:
+    with open("config/base.json", encoding='utf-8') as f:
         template = json.load(f)
 
     # Create config directory
@@ -81,6 +83,8 @@ def main():
 
     # Manually turn off saving all rewards
     template["training"]["save_all_r"] = False
+    template["training"]["early_stopping"] = True
+    template["deap"]["early_stopping"] = True
 
     # Create the run file
     run_file = "run_ablations.sh"
@@ -93,7 +97,8 @@ def main():
 
         config = deepcopy(template)
 
-        logdir = os.path.join("ablations", name)
+        logdir = template["training"]["logdir"]
+        logdir = os.path.join(logdir, "ablations", name)
         config["training"]["logdir"] = logdir
 
         # Overwrite config parameters
@@ -108,9 +113,9 @@ def main():
             json.dump(config, f, indent=3)
 
         # Add the ablation to the run file
-        method = "gp" if name == "gp" else "dsr"
+        method = "deap" if name == "gp" else "dsr"
         with open(run_file, 'a') as f:
-            f.write("time python -m dsr.run ./config/ablations/{}.json --method={} --only=Nguyen --mc=10 --num_cores=24\n".format(name, method))
+            f.write("time python -m dsr.run ./config/ablations/{}.json --method={} --only=Nguyen --mc=10 --seed_shift={} --num_cores=24\n".format(name, method, ABLATIONS_SEED_SHIFT))
 
 
 if __name__ == "__main__":
