@@ -1,7 +1,7 @@
 {
    "dataset": {
       "file": "benchmarks.csv",
-      "name": "Burks",
+      "name" : null,
       "extra_input_var": 0,
       "noise": null,
       "extra_data_dir": null,

@@ -21,21 +21,20 @@ def main():
 
     sweep_dsr = {
         "training" : {
-            "batch_size" : [100, 250, 500, 1000],
+            "batch_size" : [250, 500, 1000],
             "epsilon" : [0.05, 0.1, 0.15]
         },
         "controller" : {
             "entropy_weight" : [0.01, 0.05, 0.1],
-            "learning_rate" : [3e-4, 5e-4, 1e-3],
-            "embedding" : [True, False]
+            "learning_rate" : [3e-4, 5e-4, 1e-3]
         }
     }
 
     sweep_gp = {
         "deap" : {
             "population_size" : [100, 250, 500, 1000],
-            "tournament_size" : [3, 5, 10],
-            "p_crossover" : [0.25, 0.5, 0.75, 0.9],
+            "tournament_size" : [2, 3, 5, 10],
+            "p_crossover" : [0.25, 0.5, 0.75, 0.9, 0.95],
             "p_mutate" : [0.01, 0.03, 0.05, 0.10, 0.15]
         }
     }
