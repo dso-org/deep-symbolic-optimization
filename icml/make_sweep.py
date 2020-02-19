@@ -15,6 +15,10 @@ def main():
     default["training"]["output_file"] = None
     default["training"]["save_all_r"] = False
 
+    # Manually adjust to 1M expressions
+    default["training"]["n_samples"] = 1000000
+    default["deap"]["n_samples"] = 1000000
+
     benchmarks = [4, 5]
     mc = 8
     num_cores = 16
