@@ -1,3 +1,5 @@
+"""Utility functions used in deep symbolic regression."""
+
 import heapq
 import functools
 

@@ -1,3 +1,5 @@
+"""Class for symbolic expression object or program."""
+
 from textwrap import indent
 
 import numpy as np

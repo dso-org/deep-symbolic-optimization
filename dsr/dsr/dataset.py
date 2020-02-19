@@ -1,3 +1,5 @@
+"""Class for deterministically generating a benchmark dataset from benchmark specifications."""
+
 import os
 import ast
 import itertools

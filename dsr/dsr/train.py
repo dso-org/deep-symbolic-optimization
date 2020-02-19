@@ -1,3 +1,5 @@
+"""Defines main training loop for deep symbolic regression."""
+
 import os
 import sys
 import json

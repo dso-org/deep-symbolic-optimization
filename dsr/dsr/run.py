@@ -1,3 +1,5 @@
+"""Parallelized, single-point launch script to run DSR or GP on a set of benchmarks."""
+
 import os
 import sys
 import json

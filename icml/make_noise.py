@@ -1,3 +1,5 @@
+"""Script used to generate noise and dataset size parameters from base config file."""
+
 import os
 import stat
 import json

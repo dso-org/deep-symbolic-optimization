@@ -1,3 +1,5 @@
+"""Controller used to generate distribution over hierarchical, variable-length objects."""
+
 from functools import partial
 
 import tensorflow as tf

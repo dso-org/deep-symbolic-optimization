@@ -1,3 +1,5 @@
+"""Protected functions used in symbolic regression."""
+
 import numpy as np
 from gplearn.functions import _function_map, _Function
 
