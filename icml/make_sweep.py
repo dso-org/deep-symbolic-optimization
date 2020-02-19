@@ -15,9 +15,9 @@ def main():
     default["training"]["output_file"] = None
     default["training"]["save_all_r"] = False
 
-    benchmarks = [4, 5, 7, 8]
+    benchmarks = [4, 5]
     mc = 8
-    num_cores = 24
+    num_cores = 16
 
     sweep_dsr = {
         "training" : {
@@ -79,7 +79,7 @@ def main():
         
             with open(run_file, 'a') as f:
                 method_cmd_name = "deap" if method == "gp" else "dsr"
-                only = " ".join(["--only=Nguyen-{}".format(b) for b in benchmarks])
+                only = " ".join(["--b=Nguyen-{}".format(b) for b in benchmarks])
                 cmd = "time python -m dsr.run {} --method={} {} --mc={} --num_cores={}\n".format(path, method_cmd_name, only, mc, num_cores)
                 f.write(cmd)
 
@@ -90,4 +90,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

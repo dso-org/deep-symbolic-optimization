@@ -51,9 +51,12 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     Program.clear_cache()
     Program.set_training_data(dataset)
     Program.set_library(dataset.function_set, dataset.n_input_var)
-
+        
     tf.reset_default_graph()
-    tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8"))) # Actual seed is shifted by checksum to ensure it's different across different benchmarks
+
+    # Shift actual seed by checksum to ensure it's different across different benchmarks
+    tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
+    
     with tf.Session() as sess:        
 
         # Instantiate the controller
@@ -70,6 +73,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
 
 
 def train_deap(name_and_seed, logdir, config_dataset, config_deap):
+    """Trains GP with deap and returns dict of reward, expression, and program"""
 
     name, seed = name_and_seed
     config_deap["seed"] = seed + zlib.adler32(name.encode("utf-8"))
@@ -91,8 +95,7 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
     r_noiseless = base_r_noiseless = gp.eval_train_noiseless(p)[0]
     r_test_noiseless = base_r_test_noiseless = gp.eval_test_noiseless(p)[0]
 
-    # Many failure cases right now for converting to SymPy expression...not high priority to fix
-    # To do: serialized program --> tree --> SymPy-compatible tree --> traversal --> SymPy expression
+    # Many failure cases right now for converting to SymPy expression
     try:
         expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
     except:
@@ -129,7 +132,7 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
 
 
 def train_gp(name_and_seed, logdir, config_dataset, config_gp):
-    """Trains GP and returns dict of reward, expression, and program"""
+    """Trains GP with gplearn and returns dict of reward, expression, and program"""
 
     config_gp = deepcopy(config_gp) # Create a copy since it might be edited
 
@@ -184,11 +187,10 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
             break
     r = p.fitness_ if p is not None else "N/A"
     
-    # Currently outputting seralized program in place of its corresponding traversal
+    # Output seralized program in place of its corresponding traversal
     str_p = str(p) if p is not None else "N/A"
 
-    # Many failure cases right now for converting to SymPy expression...not high priority to fix
-    # To do: serialized program --> tree --> SymPy-compatible tree --> traversal --> SymPy expression
+    # Many failure cases right now for converting to SymPy expression
     try:
         expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
     except:
@@ -196,7 +198,8 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
 
     # Compute r and base_r on test set
     if p is not None:
-        p.raw_fitness_ = p.raw_fitness(X=dataset.X_test, y=dataset.y_test, sample_weight=None) # Must override p.raw_fitness_ because p.fitness() uses it in its calculation
+        # Override p.raw_fitness_ because p.fitness() uses it in its calculation
+        p.raw_fitness_ = p.raw_fitness(X=dataset.X_test, y=dataset.y_test, sample_weight=None)
         base_r_test = p.raw_fitness_
         r_test = p.fitness(parsimony_coefficient=gp.parsimony_coefficient)
 
@@ -238,12 +241,8 @@ def get_dataset(name, config_dataset):
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
 @click.option('--seed_shift', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
-@click.option('--exclude_fp_constants', is_flag=True, help="Exclude benchmark expressions containing floating point constants")
-@click.option('--exclude_int_constants', is_flag=True, help="Exclude benchmark expressions containing integer constants")
-@click.option('--exclude', multiple=True, type=str, help="Exclude benchmark expressions containing these names")
-@click.option('--only', multiple=True, type=str, help="Only include benchmark expressions containing these names (overrides other exclusions)")
-def main(config_template, method, mc, output_filename, num_cores, seed_shift,
-         exclude_fp_constants, exclude_int_constants, exclude, only):
+@click.option('--benchmark', '--b', '--only', multiple=True, type=str, help="Benchmark or benchmark prefix to include")
+def main(config_template, method, mc, output_filename, num_cores, seed_shift, benchmark):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
     
      # Load the config file
@@ -289,18 +288,10 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
 
     # Filter out expressions
     expressions = [parse_expr(e) for e in df["sympy"]]
-    if len(only) == 0:
-        keep = [True]*len(expressions)
-        if exclude_fp_constants:
-            keep = [False if "Float" in srepr(e) else k for k,e in zip(keep, expressions)]
-        if exclude_int_constants:
-            keep = [False if "Integer" in srepr(e) else k for k,e in zip(keep, expressions)]
-        for excluded_name in exclude:
-            keep = [False if excluded_name in n else k for k,n in zip(keep, names)]
-    else:
+    if len(benchmark) > 0:
         keep = [False]*len(names)
-        for included_name in only:
-            if '-' in included_name: # If the whole name is specified (otherwise, e.g., only=Name-1 will also apply Name-10, Name-11, etc.)
+        for included_name in benchmark:
+            if '-' in included_name:
                 keep = [True if included_name == n else k for k,n in zip(keep, names)]
             else:
                 keep = [True if n.startswith(included_name) else k for k,n in zip(keep, names)]
@@ -308,9 +299,10 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift,
     names = [n for k,n in zip(keep, names) if k]
     unique_names = names.copy()
     names *= mc
+    
     # When passed to RNGs, these seeds will actually be added to checksums on the name
     seeds = (np.arange(mc) + seed_shift).repeat(len(unique_names)).tolist()
-    names_and_seeds = list(zip(names, seeds)) # E.g. [("Koza-1", 0), ("Nguyen-1", 0), ("Koza-2", 1), ("Nguyen-1", 1)]
+    names_and_seeds = list(zip(names, seeds))
 
     if num_cores > len(names):
         print("Setting 'num_cores' to {} for batch because there are only {} expressions.".format(len(names), len(names)))

@@ -56,7 +56,7 @@ def main():
                 method_cmd_name = "deap" if method=="gp" else "dsr"
                 num_cores = 24 if method == "dsr" else 32
                 with open(run_file, 'a') as f:
-                    f.write("time python -m dsr.run ./config/noise/{}/{}.json --method={} --only=Nguyen --mc=10 --seed_shift={} --num_cores={}\n".format(method, name, method_cmd_name, NOISE_SEED_SHIFT, num_cores))
+                    f.write("time python -m dsr.run ./config/noise/{}/{}.json --method={} --b=Nguyen --mc=10 --seed_shift={} --num_cores={}\n".format(method, name, method_cmd_name, NOISE_SEED_SHIFT, num_cores))
 
 
 if __name__ == "__main__":

@@ -60,10 +60,10 @@ python -m dsr.run [PATH_TO_CONFIG] [--OTHER_FLAGS]
 python -m dsr.run --help
 ```
 
-### Train DSR on Korns-1
+### Train DSR on Nguyen-1
 
 ```
-python -m dsr.run config.json --only=Korns-1
+python -m dsr.run config.json --b=Nguyen-1
 ```
 
 ### Train DSR on all benchmarks (not recommended)
@@ -72,26 +72,26 @@ python -m dsr.run config.json --only=Korns-1
 python dsr.run config.json
 ```
 
-### Train GP (using `gplearn`) on Korns-1
+### Train GP (using `gplearn`) on Nguyen-1
 
 ```
-python dsr.run config.json --method=gp --only=Korns-1
+python dsr.run config.json --method=gp --b=Nguyen-1
 ```
 
-### Train GP (using `deap`) on Korns-1
+### Train GP (using `deap`) on Nguyen-1
 
 ```
-python -m dsr.run config.json --method=gp --only=Korns-1
+python -m dsr.run config.json --method=deap --b=Nguyen-1
 ```
 
-### Train DSR on Korns-1 and Nguyen-4
+### Train DSR on Nguyen-1 and Nguyen-4
 
 ```
-python dsr.run config.json --only=Korns-1 --only=Nguyen-4
+python dsr.run config.json --b=Nguyen-1 --b=Nguyen-4
 ```
 
-### Train DSR on all benchamrks except those beginning with Korns (i.e. Korns-1, Korns-2, etc.)
+### Train DSR on all Nguyen benchamrks
 
 ```
-python -m dsr.run config.json --exclude=Korns
+python -m dsr.run config.json --b=Nguyen
 ```
