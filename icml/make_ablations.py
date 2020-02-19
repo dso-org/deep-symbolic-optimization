@@ -70,7 +70,6 @@ ablations = {
         "controller:constrain_max_len" : False
     },
     "full" : {}, # No ablations; DSR
-    "gp" : {} # GP baseline
 }
 
 
@@ -115,9 +114,8 @@ def main():
             json.dump(config, f, indent=3)
 
         # Add the ablation to the run file
-        method = "deap" if name == "gp" else "dsr"
         with open(run_file, 'a') as f:
-            f.write("time python -m dsr.run ./config/ablations/{}.json --method={} --b=Nguyen --mc=10 --seed_shift={} --num_cores=24\n".format(name, method, ABLATIONS_SEED_SHIFT))
+            f.write("time python -m dsr.run ./config/ablations/{}.json --method=dsr --b=Nguyen --mc=10 --seed_shift={} --num_cores=24\n".format(name, ABLATIONS_SEED_SHIFT))
 
 
 if __name__ == "__main__":
