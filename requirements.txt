@@ -1,3 +1,5 @@
+cython
+numpy
 tensorflow==1.14
 gplearn
 numba
@@ -6,5 +8,4 @@ pandas
 click
 deap
 gym
-cython
 -e dsr

@@ -10,6 +10,6 @@ setup(  name='dsr',
                 description='Deep symbolic regression.',
                 author='LLNL',
                 packages=['dsr'],
-                ext_modules=cythonize("dsr/dsr/cyfunc.pyx"), 
+                ext_modules=cythonize("dsr/cyfunc.pyx"), 
                 include_dirs=[numpy.get_include()]
                 )
