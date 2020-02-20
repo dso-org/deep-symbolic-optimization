@@ -87,7 +87,7 @@ Top-level key "training" specifies the training hyperparameters for DSR. See doc
 
 Top-level key "controller" specifies the RNN controller hyperparameters for DSR. See docs for in `controller.py` for details.
 
-Top-level key "deap" specifies the hyperparameters for GP using `deap`. See docs for `dsr.baselines.deap.GP` for details.
+Top-level key "gp" specifies the hyperparameters for GP. See docs for `dsr.baselines.gpsr.GP` for details.
 
 ## Launching runs
 
