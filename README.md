@@ -128,3 +128,7 @@ python -m dsr.run config.json --method=deap --b=Nguyen-1 --mc=2 --num_cores=2
 ```
 python -m dsr.run config.json --b=Nguyen-1 --b=Nguyen-4
 ```
+
+# Release
+
+LLNL-CODE-647188
