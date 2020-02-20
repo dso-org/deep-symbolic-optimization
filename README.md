@@ -1,6 +1,10 @@
 # Deep symbolic regression
 
-The package `dsr` contains the code for deep symbolic regression (DSR), including a single-point, parallelized launch script (`dsr/run.py`).
+*Authors: Brenden Petersen
+
+Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regression--recovering tractable mathematical expressions from an input dataset. The package `dsr` contains the code for DSR, including a single-point, parallelized launch script (`dsr/run.py`), baseline genetic programming-based symbolic regression algorithm, and scripts to reproduce results and figures from the paper.
+
+This code supports the paper Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients](https://arxiv.org/abs/1912.04871).
 
 # Installation
 
@@ -12,7 +16,7 @@ source venv3/bin/activate # Activate the virtual environmnet
 pip install -r requirements.txt # Install Python dependencies
 ```
 
-To install additional dependencies only needed for reproducing plots from the paper:
+To install additional dependencies only needed for reproducing figures from the paper:
 
 ```
 pip install -r requirements_plots.txt
