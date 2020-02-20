@@ -1,0 +1,7 @@
+tensorflow==1.14
+gplearn
+numba
+sympy
+pandas
+click
+-e dsr

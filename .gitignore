@@ -1,0 +1,6 @@
+*.DS_Store
+*.pyc
+*.egg*
+venv*
+dsr/dsr/summary*
+.gitignore

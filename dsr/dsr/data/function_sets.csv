@@ -1,0 +1,4 @@
+name,function_set
+Koza,"add,sub,mul,div,sin,cos,exp,log"
+CKoza,"add,sub,mul,div,sin,cos,exp,log,const"
+None,"add,sub,mul,div,sin,cos,exp,log"
