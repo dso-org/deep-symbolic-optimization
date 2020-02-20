@@ -23,3 +23,19 @@ module load python/3.6.4
 export LD_LIBRARY_PATH=/usr/tce/packages/gcc/gcc-8.1.0/lib64:$LD_LIBRARY_PATH
 export LC_ALL=en_US.utf-8
 export LAND=en_US.utf-8
+
+#############################
+# make sure all files created by default are accessable to group level
+umask 007
+
+#############################
+# Fuck core dumps
+ulimit -c 0
+
+#############################
+# Node Info
+if [ -z ${SLURM_JOB_UID+x} ]; then
+   echo \>\>\> USING LOGIN NODE;
+else
+   echo \>\>\> USING SLURM NODE ${SLURM_JOB_NODELIST} : JOB ${SLURM_JOB_UID};
+fi
