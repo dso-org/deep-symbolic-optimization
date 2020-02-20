@@ -11,7 +11,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, inset_axes, mark_inset
 
-LOGDIR = "./ICML_LOGS/dsr_vs_gp/" # Directory containing results
+LOGDIR = "./log/dsr_vs_gp/" # Directory containing results
 PREFIX = "plots" # Directory to save plots
 FONTSIZE = 8
 NROWS = 4

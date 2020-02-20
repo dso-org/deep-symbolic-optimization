@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from progress.bar import Bar
 
-LOGDIR = "./ICML_LOGS/dist/" # Directory containing results
+LOGDIR = "./log/dist/" # Directory containing results
 PREFIX = "plots" # Directory to save plots
 RESOLUTION = 10 # Number of points in KDE estimate
 LINEWIDTH = 0.75 # Linewidth used for KDEs

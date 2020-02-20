@@ -9,7 +9,7 @@ from scipy.stats import ttest_ind, fisher_exact
 MODES = ["Nguyen", "Constant"]
 THRESHOLD = 1e-10
 PRECISION = 3
-ROOT = "./ICML_LOGS/dsr_vs_gp/"
+ROOT = "./log/dsr_vs_gp/"
 
 
 def main():

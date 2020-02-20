@@ -10,7 +10,7 @@ from scipy.stats import sem
 import matplotlib
 import matplotlib.pyplot as plt
 
-LOGDIR = "./ICML_LOGS/noise/" # Directory containing results
+LOGDIR = "./log/noise/" # Directory containing results
 PREFIX = "plots" # Directory to save plots
 ERROR_FUNCTION = sem
 THRESHOLD = 1e-12

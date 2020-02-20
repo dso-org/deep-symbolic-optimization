@@ -23,14 +23,14 @@ pip install -r requirements_plots.txt
 To try out `dsr`, use the following command from the repository root:
 
 ```
-python -m dsr.run ./icml/config/test.json --b=Nguyen-6
+python -m dsr.run ./paper/config/test.json --b=Nguyen-6
 ```
 
 This should solve in around 50 training steps (~30 seconds on a laptop).
 
 # Reproducing paper results
 
-Results from the paper can be exactly reproduced using the following commands. First, `cd` into the `icml` directory.
+Results from the paper can be exactly reproduced using the following commands. First, `cd` into the `paper` directory.
 
 To reproduce hyperparameter sweeps:
 
