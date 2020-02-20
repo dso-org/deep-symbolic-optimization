@@ -63,7 +63,7 @@
       "pqt_weight": 200.0,
       "pqt_use_pg": false
    },
-   "deap": {
+   "gp": {
       "population_size": 1000,
       "generations": null,
       "n_samples" : 2000000,

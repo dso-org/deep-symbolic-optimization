@@ -47,7 +47,6 @@ def main():
         mc = 10
         epsilons = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
         methods = ["dsr", "gp"]
-        algs = {"dsr" : "dsr", "gp" : "deap"}
 
         for method in methods:
             nrmse[multiplier][method] = np.zeros_like(epsilons)
@@ -69,7 +68,7 @@ def main():
                         filename = f
                         break
                 assert filename is not None
-                df = pd.read_csv("{}/{}/benchmark_{}.csv".format(path, filename, algs[m]))
+                df = pd.read_csv("{}/{}/benchmark_{}.csv".format(path, filename, m))
 
                 # Compute correctness, which uses base_r_test_noiseless
                 if m == "dsr":

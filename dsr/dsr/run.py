@@ -19,7 +19,7 @@ from sympy import srepr
 
 from dsr.program import Program
 from dsr.dataset import Dataset
-from dsr.baselines import deap
+from dsr.baselines import gpsr
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -73,11 +73,11 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
         return result
 
 
-def train_deap(name_and_seed, logdir, config_dataset, config_deap):
-    """Trains GP with deap and returns dict of reward, expression, and program"""
+def train_gp(name_and_seed, logdir, config_dataset, config_gp):
+    """Trains GP and returns dict of reward, expression, and program"""
 
     name, seed = name_and_seed
-    config_deap["seed"] = seed + zlib.adler32(name.encode("utf-8"))
+    config_gp["seed"] = seed + zlib.adler32(name.encode("utf-8"))
 
     start = time.time()
 
@@ -85,7 +85,7 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
     dataset = get_dataset(name, config_dataset)
 
     # Fit the GP
-    gp = deap.GP(dataset=dataset, **config_deap)
+    gp = gpsr.GP(dataset=dataset, **config_gp)
     p, logbook = gp.train()
 
     # Retrieve results
@@ -110,7 +110,7 @@ def train_deap(name_and_seed, logdir, config_dataset, config_deap):
     df_len = pd.DataFrame(logbook.chapters["size"]).drop(drop, axis=1)
     df_len = df_len.rename({"avg" : "l_avg"}, axis=1)
     df = pd.concat([df_fitness, df_len], axis=1, sort=False)
-    df.to_csv(os.path.join(logdir, "deap_{}_{}.csv".format(name, seed)), index=False)
+    df.to_csv(os.path.join(logdir, "gp_{}_{}.csv".format(name, seed)), index=False)
 
     result = {
         "name" : name,
@@ -142,7 +142,7 @@ def get_dataset(name, config_dataset):
 
 @click.command()
 @click.argument('config_template', default="config.json")
-@click.option('--method', default="dsr", type=click.Choice(["dsr", "deap"]), help="Symbolic regression method")
+@click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
@@ -159,8 +159,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
-    if "deap" in config:
-        config_deap = config["deap"]                # deap GP hyperparameters
+    if "gp" in config:
+        config_gp = config["gp"]                    # GP hyperparameters
 
     # Create output directories
     if output_filename is None:
@@ -231,8 +231,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     # Define the work
     if method == "dsr":
         work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
-    elif method == "deap":
-        work = partial(train_deap, logdir=logdir, config_dataset=config_dataset, config_deap=config_deap)
+    elif method == "gp":
+        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
 
     # Farm out the work
     columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]

@@ -38,7 +38,7 @@ def main():
 
         # Read the summary file
         df = None
-        for method in ["dsr", "deap"]:
+        for method in ["dsr", "gp"]:
             if "benchmark_{}.csv".format(method) in files:
                 path = os.path.join(root, "benchmark_{}.csv".format(method))
                 df = pd.read_csv(path)

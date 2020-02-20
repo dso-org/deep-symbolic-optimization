@@ -45,8 +45,7 @@ def main():
     # To get a threshold, check the manual correctness and retrieve the corresponding best reward
     thresholds = {"dsr" : [], "gp" : []}
     for method in methods:
-        alg = {"dsr" : "dsr", "gp" : "deap"}
-        path = os.path.join(LOGDIR, method, "benchmark_{}_Constant.csv".format(alg[method]))
+        path = os.path.join(LOGDIR, method, "benchmark_{}_Constant.csv".format(method))
         summary = pd.read_csv(path)
         for b in benchmarks:
             if "Nguyen" in b:
@@ -67,8 +66,7 @@ def main():
     # Read summary files for Constant benchmarks, which have manual correctness
     summaries = {}
     for method in methods:
-        alg = {"gp" : "deap", "dsr" : "dsr"}
-        path = os.path.join(LOGDIR, method, "benchmark_{}_Constant.csv".format(alg[method]))
+        path = os.path.join(LOGDIR, method, "benchmark_{}_Constant.csv".format(method))
         summary = pd.read_csv(path)
         summaries[method] = summary
 
@@ -114,7 +112,7 @@ def main():
             data[i]["correct"]["dsr"].append(correct)
 
             # Load corresponding GP data
-            filename = filename.replace("dsr", "deap")
+            filename = filename.replace("dsr", "gp")
             path = os.path.join(LOGDIR, "gp", filename)
             df = pd.read_csv(path)
             nmse = df["fit_best"].values[1:] # Skip initial row (before first GP update)
