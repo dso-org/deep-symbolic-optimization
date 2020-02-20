@@ -1,4 +1,5 @@
 # How to run on LC
+## Install and Test
 
 We should run dsr in a terminal. On Pascal, we can create one like:
 
@@ -66,4 +67,5 @@ You should see an output that looks like, but can be a a little different from:
 
 etc....
 
+## Creating an LC Job
 
