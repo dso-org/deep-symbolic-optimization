@@ -8,7 +8,7 @@
       "function_lib": null
    },
    "training": {
-      "logdir": "./log",
+      "logdir": "./log/test",
       "n_epochs": null,
       "n_samples": 2000000,
       "batch_size": 500,
