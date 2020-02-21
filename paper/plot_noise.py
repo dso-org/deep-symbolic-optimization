@@ -10,7 +10,7 @@ from scipy.stats import sem
 import matplotlib
 import matplotlib.pyplot as plt
 
-LOGDIR = "./ICML_LOGS/noise/" # Directory containing results
+LOGDIR = "./log/noise/" # Directory containing results
 PREFIX = "plots" # Directory to save plots
 ERROR_FUNCTION = sem
 THRESHOLD = 1e-12
@@ -47,7 +47,6 @@ def main():
         mc = 10
         epsilons = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
         methods = ["dsr", "gp"]
-        algs = {"dsr" : "dsr", "gp" : "deap"}
 
         for method in methods:
             nrmse[multiplier][method] = np.zeros_like(epsilons)
@@ -59,11 +58,7 @@ def main():
 
             for m in methods:
 
-                path = "./ICML_LOGS/noise/{}/".format(m)
-
-                if m == "gp":
-                    path = "./ICML_LOGS/noise/gp320/"
-
+                path = os.path.join(LOGDIR, m)
                 files = os.listdir(path)
                 filename = None
                 for f in files:
@@ -73,7 +68,7 @@ def main():
                         filename = f
                         break
                 assert filename is not None
-                df = pd.read_csv("{}/{}/benchmark_{}.csv".format(path, filename, algs[m]))
+                df = pd.read_csv("{}/{}/benchmark_{}.csv".format(path, filename, m))
 
                 # Compute correctness, which uses base_r_test_noiseless
                 if m == "dsr":

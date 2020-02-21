@@ -19,7 +19,7 @@ def main():
     # Manually turn off saving all rewards
     template["training"]["save_all_r"] = False
     template["training"]["early_stopping"] = True
-    template["deap"]["early_stopping"] = True
+    template["gp"]["early_stopping"] = True
 
     methods = ["gp", "dsr"]
     noise_levels = np.linspace(0.0, 0.1, 11, endpoint=True)
@@ -55,10 +55,9 @@ def main():
                     json.dump(config, f, indent=3)
 
                 # Add the ablation to the run file
-                method_cmd_name = "deap" if method=="gp" else "dsr"
                 num_cores = 24 if method == "dsr" else 32
                 with open(run_file, 'a') as f:
-                    f.write("time python -m dsr.run ./config/noise/{}/{}.json --method={} --b=Nguyen --mc=10 --seed_shift={} --num_cores={}\n".format(method, name, method_cmd_name, NOISE_SEED_SHIFT, num_cores))
+                    f.write("time python -m dsr.run ./config/noise/{}/{}.json --method={} --b=Nguyen --mc=10 --seed_shift={} --num_cores={}\n".format(method, name, method, NOISE_SEED_SHIFT, num_cores))
 
 
 if __name__ == "__main__":

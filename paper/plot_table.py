@@ -9,12 +9,12 @@ from scipy.stats import ttest_ind, fisher_exact
 MODES = ["Nguyen", "Constant"]
 THRESHOLD = 1e-10
 PRECISION = 3
-ROOT = "./ICML_LOGS/dsr_vs_gp/"
+ROOT = "./log/dsr_vs_gp/"
 
 
 def main():
 
-    methods = ["deap", "dsr"]
+    methods = ["gp", "dsr"]
     expressions = {
         "Nguyen-1" : "$x^3+x^2+x$",
         "Nguyen-2" : "$x^4+x^3+x^2+x$",
@@ -109,7 +109,7 @@ def main():
                 table = np.stack([a, b])
                 p = fisher_exact(table)[1]
                 if p < 0.05:
-                    if method == "deap" and percent[name] > percents[1][name]:
+                    if method == "gp" and percent[name] > percents[1][name]:
                         bold_percent = True
                     elif method == "dsr" and percent[name] > percents[0][name]:
                         bold_percent = True
@@ -120,7 +120,7 @@ def main():
                 b = nrmses[1].get_group(name)
                 p = ttest_ind(a=a, b=b, equal_var=False)[1]
                 if p < 0.05:
-                    if method == "deap" and mean[name] < means[1][name] and percents[1][name] < 100:
+                    if method == "gp" and mean[name] < means[1][name] and percents[1][name] < 100:
                         bold_nrmse = True
                     elif method == "dsr" and mean[name] < means[0][name] and percents[0][name] < 100:
                         bold_nrmse = True
@@ -150,10 +150,10 @@ def main():
         for i, method in enumerate(methods):
 
             # For "Average" line, consider each experiment an average across all expressions
-            df_a = dfs[0].groupby("seed").mean() # deap
+            df_a = dfs[0].groupby("seed").mean() # gp
             df_b = dfs[1].groupby("seed").mean() # dsr
 
-            if method == "deap":
+            if method == "gp":
                 df = df_a
             elif method == "dsr":
                 df = df_b
@@ -164,7 +164,7 @@ def main():
             b = df_b["correct"]
             p = ttest_ind(a=a, b=b, equal_var=False)[1]
             if p < 0.05:
-                if method == "deap" and a.mean() > b[1].mean():
+                if method == "gp" and a.mean() > b[1].mean():
                     bold_percent = True
                 elif method == "dsr" and b.mean() > a[0].mean():
                     bold_percent = True
@@ -175,7 +175,7 @@ def main():
             b = df_b["nrmse"]
             p = ttest_ind(a=a, b=b, equal_var=False)[1]
             if p < 0.05:
-                if method == "deap" and a.mean() < b.mean() and b.mean() > THRESHOLD:
+                if method == "gp" and a.mean() < b.mean() and b.mean() > THRESHOLD:
                     bold_nrmse = True
                 elif method == "dsr" and b.mean() < a.mean() and a.mean() > THRESHOLD:
                     bold_nrmse = True

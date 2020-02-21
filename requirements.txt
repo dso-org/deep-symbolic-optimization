@@ -6,6 +6,4 @@ numba
 sympy
 pandas
 click
-deap
-gym
 -e dsr

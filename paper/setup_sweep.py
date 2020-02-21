@@ -19,7 +19,7 @@ def main():
 
     # Manually adjust to 1M expressions
     default["training"]["n_samples"] = 1000000
-    default["deap"]["n_samples"] = 1000000
+    default["gp"]["n_samples"] = 1000000
 
     benchmarks = [4, 5]
     mc = 8
@@ -37,7 +37,7 @@ def main():
     }
 
     sweep_gp = {
-        "deap" : {
+        "gp" : {
             "population_size" : [100, 250, 500, 1000],
             "tournament_size" : [2, 3, 5, 10],
             "p_crossover" : [0.25, 0.5, 0.75, 0.9, 0.95],
@@ -83,9 +83,8 @@ def main():
                 json.dump(new_config, f, indent=3)
         
             with open(run_file, 'a') as f:
-                method_cmd_name = "deap" if method == "gp" else "dsr"
                 only = " ".join(["--b=Nguyen-{}".format(b) for b in benchmarks])
-                cmd = "time python -m dsr.run {} --method={} {} --mc={} --num_cores={}\n".format(path, method_cmd_name, only, mc, num_cores)
+                cmd = "time python -m dsr.run {} --method={} {} --mc={} --num_cores={}\n".format(path, method, only, mc, num_cores)
                 f.write(cmd)
 
         # Make the run file executable

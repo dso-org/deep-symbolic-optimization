@@ -8,9 +8,9 @@
       "function_lib": null
    },
    "training": {
-      "logdir": "./log",
+      "logdir": "./log/test",
       "n_epochs": null,
-      "n_samples": 1000000,
+      "n_samples": 2000000,
       "batch_size": 500,
       "reward": "inv_nrmse",
       "reward_params": [],
@@ -20,13 +20,13 @@
       "const_params": {},
       "alpha": 0.5,
       "epsilon": 0.1,
-      "verbose": false,
+      "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
       "num_cores": 1,
       "summary": false,
       "debug": 0,
-      "output_file": null,
+      "output_file": "test",
       "save_all_r": false,
       "early_stopping": true,
       "threshold": 1e-12
@@ -63,7 +63,7 @@
       "pqt_weight": 200.0,
       "pqt_use_pg": false
    },
-   "deap": {
+   "gp": {
       "population_size": 1000,
       "generations": null,
       "n_samples" : 2000000,

@@ -85,7 +85,7 @@ def main():
     # Manually turn off saving all rewards
     template["training"]["save_all_r"] = False
     template["training"]["early_stopping"] = True
-    template["deap"]["early_stopping"] = True
+    template["gp"]["early_stopping"] = True
 
     # Create the run file
     run_file = "run_ablations.sh"
@@ -120,4 +120,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

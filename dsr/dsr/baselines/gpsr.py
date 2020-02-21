@@ -1,17 +1,25 @@
 import random
 import operator
+import importlib
 from functools import partial
 
 import numpy as np
-from deap import base, gp, creator, tools, algorithms
-from deap.gp import *
 
 from dsr.functions import _function_map
 from dsr.const import make_const_optimizer
 
 
+GP_MOD = "deap"
+OBJECTS = ["base", "gp", "creator", "tools", "algorithms"]
+gp = importlib.import_module(GP_MOD + ".gp")
+base = importlib.import_module(GP_MOD + ".base")
+creator = importlib.import_module(GP_MOD + ".creator")
+tools = importlib.import_module(GP_MOD + ".tools")
+algorithms = importlib.import_module(GP_MOD + ".algorithms")
+
+
 class GP():
-    """GP class using DEAP implementation"""
+    """Genetic-programming based symbolic regression class"""
 
     def __init__(self, dataset, metric="nmse", population_size=1000,
                  generations=1000, n_samples=None, tournament_size=3,

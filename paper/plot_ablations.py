@@ -10,7 +10,7 @@ from scipy.stats import sem
 import matplotlib
 import matplotlib.pyplot as plt
 
-LOGDIR = "./ICML_LOGS/ablations/" # Directory containing results
+LOGDIR = "./log/ablations/" # Directory containing results
 PREFIX = "plots" # Directory to save plots
 ERROR_FUNCTION = sem
 THRESHOLD = 1e-12
@@ -33,12 +33,12 @@ def main():
     data["correct"] = {}
     dsr_baseline = {"nrmse" : None, "correct" : None}
 
-    # Run from icml directory
+    # Run from paper directory
     for root, dirs, files in os.walk(LOGDIR):
 
         # Read the summary file
         df = None
-        for method in ["dsr", "deap"]:
+        for method in ["dsr", "gp"]:
             if "benchmark_{}.csv".format(method) in files:
                 path = os.path.join(root, "benchmark_{}.csv".format(method))
                 df = pd.read_csv(path)
