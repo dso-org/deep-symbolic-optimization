@@ -1,4 +1,5 @@
 """Demonstration of deep symbolic regression."""
+import numpy as np
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -85,13 +86,7 @@ class View(tk.Tk):
         start = tk.Button(frame_control, text="Start")
         stop = tk.Button(frame_control, text="Stop")
         start.pack(fill=tk.X,side=tk.LEFT, ipadx=10,ipady=3)
-        stop.pack(side=tk.LEFT, ipadx=10,ipady=3)
-
-
-        # ok = tk.Button(self.content_right, text="Okay")
-        # cancel = tk.Button(self.content_right, text="Cancel")
-        # ok.grid(column=0, row=0)
-        # cancel.grid(column=3, row=1)   
+        stop.pack(side=tk.LEFT, ipadx=10,ipady=3) 
 
         ### RIGHT ### self.content_right
         self.equation = tk.Frame(self.content_right, borderwidth=20, width=720, height=100)
@@ -116,12 +111,15 @@ class View(tk.Tk):
     def update_distribution(self, data):
         self.distribution
         
-    def _init_visualization(self):
-        self.visualization.ax.set_xlim(-100,100)
-        self.visualization.ax.set_ylim(-100,100)
-        self.visualization.pack()
-        
+    def _init_visualization(self, min=-100, max=100):
+        self.visualization.ax.set_xlim(min, max)
+        self.visualization.ax.set_ylim(min, max)
+        self.visualization.min = -100
+        self.visualization.max = 100
 
+        # include data points in range min,max
+        self.visualization.plot_vis()
+    
 
 
 ##### PLOT TIME STEPS #####
@@ -246,9 +244,17 @@ class Trace(FigureCanvasTkAgg):
         
         self.time += 1
         
-    def plot_vis(self, data, log_scale=False, ymin_input=0):
+    def plot_vis(self, equation=None):
+        """ visualization frame for equation plot """
         # plot 
+        xs=np.arange(self.min,self.max,0.3)
+        ys = 2*np.sin(xs)
+        self.ax.set_ylim(auto=True)
+        self.ax.plot(xs,ys)
+
+        self.pack(fill=tk.BOTH)
     
+
     def reset(self):
         self.time = 0     
         self.history = None        
