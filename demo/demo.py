@@ -1,5 +1,10 @@
 """Demonstration of deep symbolic regression."""
 import numpy as np
+from sympy.parsing.latex import parse_latex
+# from sympy import init_printing
+# from sympy import preview
+# init_printing(use_latex='mathjax')
+
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -11,6 +16,9 @@ import tkinter as tk
 # from tkinter import ttk
 
 # sleep 
+
+""" test static data """
+test_eq = parse_latex(r"\frac {1 + \sqrt {\a}} {\b}")
 
 
 class Model:
@@ -39,87 +47,148 @@ class View(tk.Tk):
         self.init_window()
 
     def init_window(self):
-        self.content_left = tk.Frame(self.root)
-        self.content_right = tk.Frame(self.root)
+        content_left = tk.Frame(self.root)
+        # content_left = tk.Frame(self.root,width=450)
+        content_mid = tk.Frame(self.root)
+        content_right = tk.Frame(self.root)
 
-        self.content_left.pack(side=tk.LEFT)
-        self.content_right.pack(side=tk.RIGHT)
+        content_left.pack(side=tk.LEFT)
+        content_mid.pack(side=tk.LEFT)
+        content_right.pack(side=tk.LEFT)
 
-        ### LEFT ###
-        frame_vis = tk.Frame(self.content_left, borderwidth=20, width=720, height=540)
-        frame_config = tk.Frame(self.content_left)
-        frame_control = tk.Frame(self.content_left)
+        # content_left.grid(column=0)
+        # content_mid.grid(column=1)
+        # content_right.grid(column=2)
+
+        ###########
+        ### MID ###
+        frame_vis = tk.Frame(content_mid, borderwidth=20, width=720, height=810)
+        frame_vis_info = tk.Frame(content_mid, borderwidth=20, width=720, height=100)
 
         frame_vis.pack(side=tk.TOP)
-        frame_config.pack(side=tk.LEFT, padx=50)
-        frame_control.pack(side=tk.RIGHT, padx=100)
+        frame_vis_info.pack()
 
-        ### LEFT 1: vis ###
-        # self.visualization = Trace(frame_vis, colors=['brown'],dpi=100)
-        self.visualization = Trace(frame_vis, colors=['brown'], figsize=(6,6), dpi=100)
-        self._init_visualization()
+        """ visualization,vis_zoom_in/out/reset """
+        self._init_frame_vis(frame_vis) # missing: plot label
+        """ best_equation """
+        self._init_frame_vis_info(frame_vis_info, equation= test_eq)
 
-        ### LEFT 2-1: config ###
-        onevar = tk.BooleanVar()
-        twovar = tk.BooleanVar()
-        threevar = tk.BooleanVar()
-        onevar.set(True)
-        twovar.set(False)
-        threevar.set(True)
+        ############
+        ### LEFT ###
+        frame_control = tk.Frame(content_left)
+        frame_config = tk.Frame(content_left)
 
-        fram_name = tk.Frame(frame_config)
-        fram_name.pack(side=tk.TOP)
-        # namelabel = tk.Label(fram_name, text="csv")
-        # name = tk.Entry(fram_name)
-        tk.Label(fram_name, text="csv").pack(side=tk.LEFT)
-        tk.Entry(fram_name).pack(fill=tk.X)
+        frame_control.pack(ipady=10, pady=50)
+        frame_config.pack()
 
-        one = tk.Checkbutton(frame_config, text="add", variable=onevar, onvalue=True)
-        two = tk.Checkbutton(frame_config, text="mul", variable=twovar, onvalue=True)
-        three = tk.Checkbutton(frame_config, text="exp", variable=threevar, onvalue=True)
+        """ start_button/.. """
+        self._init_control(frame_control)
+        """ token libs, """
+        self._init_config(frame_config)
 
-        one.pack(side=tk.LEFT)
-        two.pack(side=tk.LEFT)
-        three.pack(side=tk.LEFT)
+        #############
+        ### RIGHT ###
+        self.training_nmse = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
+        self.training = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
+        self.distribution = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
 
-        ### LEFT 2-2: control ###
-        start = tk.Button(frame_control, text="Start")
-        stop = tk.Button(frame_control, text="Stop")
-        start.pack(fill=tk.X,side=tk.LEFT, ipadx=10,ipady=3)
-        stop.pack(side=tk.LEFT, ipadx=10,ipady=3) 
-
-        ### RIGHT ### self.content_right
-        self.equation = tk.Frame(self.content_right, borderwidth=20, width=720, height=100)
-
-        self.training_nmse = Trace(self.content_right, colors=['brown'], figsize=(7,2), dpi=100)
-        self.training = Trace(self.content_right, colors=['brown'], figsize=(7,2), dpi=100)
-        self.distribution = Trace(self.content_right, colors=['brown'], figsize=(7,2), dpi=100)
-
-        self.equation.pack()
         self.training_nmse.pack()
         self.training.pack()
         self.distribution.pack()
 
-    def update_plots(self, best_p, rewards):
-        self.visualization.plot_vis
-        self.equation
+    def update_plots(self, best_p, rewards): 
+        """ each iteration """
+        best_equation=None
+        self.visualization.plot_vis(best_equation)
+
+        self.equation.pack()
 
         self.training_nmse.plot
         self.training.plot
 
-
     def update_distribution(self, data):
+        """ over several iterations """
         self.distribution
         
-    def _init_visualization(self, min=-100, max=100):
+    def _init_frame_vis(self, frame, min=-100, max=100):
+        buttons = tk.Frame(frame)
+        self.vis_zoom_in = tk.Button(buttons, text="+")
+        self.vis_zoom_reset = tk.Button(buttons, text="zoom")
+        self.vis_zoom_out = tk.Button(buttons, text="-")
+
+        self.visualization = Trace(frame, colors=['brown'], figsize=(6,6), dpi=100)
+
         self.visualization.ax.set_xlim(min, max)
         self.visualization.ax.set_ylim(min, max)
         self.visualization.min = -100
         self.visualization.max = 100
+        self.visualization.data_points = None
 
         # include data points in range min,max
         self.visualization.plot_vis()
+
+        """ pack vis"""
+        buttons.pack()
+        self.vis_zoom_out.pack(side=tk.RIGHT, fill=tk.X, expand=1)
+        self.vis_zoom_reset.pack(side=tk.RIGHT, fill=tk.X, expand=1)
+        self.vis_zoom_in.pack(side=tk.RIGHT, fill=tk.X, expand=1)
+
+        self.visualization.pack(fill=tk.BOTH)
+        # frame.pack(expand=1)
+
+    def _init_frame_vis_info(self, frame, equation):
+        self.best_equation = tk.Label(frame, text=equation)
+        # tk.Label(frame, image=tk.PhotoImage())
+        
+        tk.Label(frame, text="Best Equation:").pack(side=tk.LEFT)
+        self.best_equation.pack(side=tk.LEFT)
     
+    def _init_control(self, frame):
+        self.start_button = tk.Button(frame, text="Start")
+        self.stop = tk.Button(frame, text="Stop")
+
+        self.start_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
+        self.stop.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X) 
+
+    def _init_config(self, frame):
+        fr_upload = tk.Frame(frame)
+        fr_library = tk.Frame(frame)
+        fr_sliders = tk.Frame(frame)
+
+        fr_upload.pack()
+        fr_library.pack()
+        fr_sliders.pack()
+
+        ### upload ### 
+        tk.Label(fr_upload, text="Import Data").pack(side=tk.LEFT)
+        self.data_input = tk.Entry(fr_upload)
+        self.data_input_button = tk.Button(fr_upload, text="UPLOAD")
+
+        self.data_input.pack(side=tk.LEFT)
+        self.data_input_button.pack(side=tk.LEFT)
+
+        ### library ###
+        token_library = [["add","sub","mul","div"],["sin","cos","exp","log"]]
+        self.buttons_lib = [[tk.Checkbutton(fr_library, text=token, onvalue=True) for token in token_set] for token_set in token_library]
+
+        # onevar = tk.BooleanVar()
+        # twovar = tk.BooleanVar()
+        # threevar = tk.BooleanVar()
+        # onevar.set(True)
+        # twovar.set(False)
+        # threevar.set(True)
+
+        # one = tk.Checkbutton(fr_library, text="add", variable=onevar, onvalue=True)
+        # two = tk.Checkbutton(fr_library, text="mul", variable=twovar, onvalue=True)
+        # three = tk.Checkbutton(fr_library, text="exp", variable=threevar, onvalue=True)
+
+        """ pack""" 
+        for row, button_set in enumerate(self.buttons_lib):
+            for col, button in enumerate(button_set):
+                button.grid(column=col, row=row)
+
+        ### sliders ###
+        # num_var, noise
 
 
 ##### PLOT TIME STEPS #####
@@ -246,13 +315,13 @@ class Trace(FigureCanvasTkAgg):
         
     def plot_vis(self, equation=None):
         """ visualization frame for equation plot """
+        self.data_points
         # plot 
         xs=np.arange(self.min,self.max,0.3)
         ys = 2*np.sin(xs)
         self.ax.set_ylim(auto=True)
         self.ax.plot(xs,ys)
 
-        self.pack(fill=tk.BOTH)
     
 
     def reset(self):
@@ -286,7 +355,7 @@ def main():
     root.title("DSR VIS")
     # root.withdraw()
     # root.attributes('-fullscreen', True)
-    root.geometry("1440x900")
+    root.geometry("1600x900")
     app = Controller(root)
     root.mainloop()
 
