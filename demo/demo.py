@@ -172,15 +172,8 @@ class View(tk.Tk):
         self.buttons_lib = [[tk.Checkbutton(fr_library, text=token, onvalue=True) for token in token_set] for token_set in token_library]
 
         # onevar = tk.BooleanVar()
-        # twovar = tk.BooleanVar()
-        # threevar = tk.BooleanVar()
         # onevar.set(True)
-        # twovar.set(False)
-        # threevar.set(True)
-
         # one = tk.Checkbutton(fr_library, text="add", variable=onevar, onvalue=True)
-        # two = tk.Checkbutton(fr_library, text="mul", variable=twovar, onvalue=True)
-        # three = tk.Checkbutton(fr_library, text="exp", variable=threevar, onvalue=True)
 
         """ pack""" 
         for row, button_set in enumerate(self.buttons_lib):
@@ -188,7 +181,14 @@ class View(tk.Tk):
                 button.grid(column=col, row=row)
 
         ### sliders ###
-        # num_var, noise
+        tk.Label(fr_sliders, text="Number of Variables").grid(row=0, column=0)
+        self.slide_num_var = tk.Scale(fr_sliders, from_=1, to=5, orient=tk.HORIZONTAL)
+        # self.slide_num_var = tk.Scale(fr_sliders, from_=1, to=5, orient=tk.HORIZONTAL,label="hi")
+        tk.Label(fr_sliders, text="Noise Level").grid(row=1, column=0)
+        self.slide_noise = tk.Scale(fr_sliders, from_=0, to=1, orient=tk.HORIZONTAL)
+
+        self.slide_num_var.grid(row=0, column=1)
+        self.slide_noise.grid(row=1, column=1)
 
 
 ##### PLOT TIME STEPS #####
