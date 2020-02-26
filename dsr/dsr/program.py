@@ -417,7 +417,14 @@ class Program(object):
     def convert(traversal):
         """Converts a string traversal to an int traversal"""
 
-        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        str_library = []
+        for f in Program.library:
+            if isinstance(f, int):
+                str_library.append("x{}".format(f+1))
+            elif isinstance(f, str):
+                str_library.append(f)
+            else:
+                str_library.append(f.name)
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
 

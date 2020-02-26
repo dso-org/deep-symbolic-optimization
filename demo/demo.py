@@ -14,12 +14,19 @@ from matplotlib.figure import Figure
 from cycler import cycler
 
 import tkinter as tk
+
+from dsr.program import Program
+import utils as U
+
 # from tkinter import ttk
 
 # sleep 
 
 """ test static data """
 test_eq = parse_latex(r"\frac {1 + \sqrt {\a}} {\b}")
+
+# Configure the Program class from config file
+U.configure_program("./data/demo.json")
 
 
 class Model:
@@ -316,13 +323,14 @@ class Trace(FigureCanvasTkAgg):
         
     def plot_vis(self, equation=None):
         """ visualization frame for equation plot """
-        self.data_points
-        # plot 
-        xs=np.arange(self.min,self.max,0.3)
-        ys = 2*np.sin(xs)
-        self.ax.set_ylim(auto=True)
-        self.ax.plot(xs,ys)
+        xs = Program.X_train
+        ys = Program.y_train
 
+        # xs=np.arange(self.min,self.max,0.3)
+        # ys = 2*np.sin(xs)
+        self.ax.set_xlim(auto=True)
+        self.ax.set_ylim(auto=True)
+        self.ax.scatter(xs,ys)
     
 
     def reset(self):
