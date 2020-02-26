@@ -40,7 +40,7 @@ class Observable:
         self.callbacks[func] = 1
 
     def delCallback(self, func):
-        del self.callback[func]
+        del self.callbacks[func]
 
     def _docallbacks(self):
         for func in self.callbacks:
