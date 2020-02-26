@@ -1,10 +1,11 @@
 """Demonstration of deep symbolic regression."""
+# data: 
+
 import numpy as np
 from sympy.parsing.latex import parse_latex
 # from sympy import init_printing
 # from sympy import preview
 # init_printing(use_latex='mathjax')
-
 
 import matplotlib
 matplotlib.use("TkAgg")
