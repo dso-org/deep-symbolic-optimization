@@ -1,13 +1,11 @@
-import os
-
 """Demonstration of deep symbolic regression."""
-# data: 
+import os
 
 import numpy as np
 from sympy.parsing.latex import parse_latex
-# from sympy import init_printing
-# from sympy import preview
-# init_printing(use_latex='mathjax')
+
+import time
+import pandas as pd
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -19,10 +17,6 @@ import tkinter as tk
 
 from dsr.program import Program
 import utils as U
-
-# from tkinter import ttk
-
-# sleep 
 
 """ test static data """
 test_eq = parse_latex(r"\frac {1 + \sqrt {\a}} {\b}")
@@ -43,6 +37,7 @@ class Model:
         # Data
         self.batch_rewards = [] # List of np.ndarrays of size (batch_size,)
         self.best_programs = [] # List of best Programs
+        self.training_info = [] # List of training information
         self.iteration = 0
 
         # Load offline data files
@@ -50,6 +45,9 @@ class Model:
             self.traversal_text = f.readlines()
 
         self.all_rewards = np.load(os.path.join(PATH, "dsr_Nguyen-5_0_all_r.npy"))
+
+        pd_all_tinfo = pd.read_csv(os.path.join(PATH, "dsr_Nguyen-5_0.csv"))
+        self.all_training_info = pd_all_tinfo.to_numpy()
 
 
     def addCallback(self, func):
@@ -62,13 +60,13 @@ class Model:
 
     def _docallbacks(self):
         for func in self.callbacks:
-             func(self.best_programs[-1])
+             func(self.batch_rewards, self.best_programs[-1], self.training_info[-1])
 
 
     def step(self):
         """Perform one iteration of DSR"""
 
-        for _ in range(100):
+        for _ in range(10):
 
             # Read rewards from file
             r = self.all_rewards[self.iteration]
@@ -77,6 +75,10 @@ class Model:
             # Read Program from file
             p = U.make_program(self.traversal_text, self.iteration)
             self.best_programs.append(p)
+
+            # Read training info from file
+            ti = self.all_training_info[self.iteration]
+            self.training_info.append(ti)
 
             self.iteration += 1
 
@@ -92,16 +94,14 @@ class View(tk.Tk):
     # controller, visulization, diagnostic
 
     def __init__(self, root):
-        # tk.Toplevel.__init__(self, master)
         self.root = root
-        # self.protocol('WM_DELETE_WINDOW', self.master.destroy)
         self.init_window()
 
     def init_window(self):
-        content_left = tk.Frame(self.root)
+        content_left = tk.Frame(self.root, width=450, height=700)
         # content_left = tk.Frame(self.root,width=450)
-        content_mid = tk.Frame(self.root)
-        content_right = tk.Frame(self.root)
+        content_mid = tk.Frame(self.root, width=450, height=700)
+        content_right = tk.Frame(self.root, width=450, height=700)
 
         content_left.pack(side=tk.LEFT)
         content_mid.pack(side=tk.LEFT)
@@ -113,23 +113,24 @@ class View(tk.Tk):
 
         ###########
         ### MID ###
-        frame_vis = tk.Frame(content_mid, borderwidth=20, width=720, height=810)
-        frame_vis_info = tk.Frame(content_mid, borderwidth=20, width=720, height=100)
-
+        frame_vis = tk.Frame(content_mid, borderwidth=20, width=720, height=500)
+        frame_vis_info = tk.Frame(content_mid, borderwidth=20, width=720, height=500)
+        frame_vis.pack(ipady=10, pady=10)
         frame_vis.pack(side=tk.TOP)
+
         frame_vis_info.pack()
 
         """ visualization,vis_zoom_in/out/reset """
         self._init_frame_vis(frame_vis) # missing: plot label
         """ best_equation """
-        self._init_frame_vis_info(frame_vis_info, equation= test_eq)
+        self._init_frame_vis_info(frame_vis_info)
 
         ############
         ### LEFT ###
         frame_control = tk.Frame(content_left)
         frame_config = tk.Frame(content_left)
 
-        frame_control.pack(ipady=10, pady=50)
+        frame_control.pack(ipady=10, pady=10)
         frame_config.pack()
 
         """ start_button/.. """
@@ -139,35 +140,39 @@ class View(tk.Tk):
 
         #############
         ### RIGHT ###
-        self.training_nmse = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
-        self.training = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
-        self.distribution = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
+        self.training_nmse = Trace( content_right,  xlabel='timestep', ylabel='Best NMSE',  colors=['brown'], figsize=(4,1.7), dpi=100)
+        self.training_nmse.ax.set_ylim(0,0.6)
+        self.training_best_reward = Trace(content_right, xlabel='timestep', ylabel='Best Reward',colors=['brown'], figsize=(4,1.7), dpi=100)
+        self.training_best_reward.ax.set_ylim(0,1.1)
+        self.distribution = Trace(content_right, xlabel='timestep', ylabel='Reward Dist',colors=['brown'], figsize=(4,1.7), dpi=100)
 
         self.training_nmse.pack()
-        self.training.pack()
+        self.training_best_reward.pack()
         self.distribution.pack()
 
-    def update_plots(self, best_p, rewards): 
-        """ each iteration """
-        best_equation=None
-        self.visualization.plot_vis(best_equation)
+    # def update_plots(self, best_p, rewards): 
+    #     """ each iteration """
+    #     best_equation=None
+    #     self.visualization.plot_vis(best_equation)
 
-        self.equation.pack()
+    #     self.equation.pack()
 
-        self.training_nmse.plot
-        self.training.plot
+    #     self.training_nmse.plot
+    #     self.training_best_reward.plot
 
-    def update_distribution(self, data):
-        """ over several iterations """
-        self.distribution
+    # def update_distribution(self, data):
+    #     """ over several iterations """
+    #     self.distribution
         
     def _init_frame_vis(self, frame, min=-100, max=100):
+
+        self.visualization = Trace(frame, xlabel='X1', ylabel='X2', title='DSR results', colors=['brown'], figsize=(3.9,3.9), dpi=100)
+
         buttons = tk.Frame(frame)
-        self.vis_zoom_in = tk.Button(buttons, text="+")
+        self.vis_zoom_in = tk.Button(buttons, text="+", bg="green")
         self.vis_zoom_reset = tk.Button(buttons, text="zoom")
         self.vis_zoom_out = tk.Button(buttons, text="-")
 
-        self.visualization = Trace(frame, colors=['brown'], figsize=(6,6), dpi=100)
 
         self.visualization.ax.set_xlim(min, max)
         self.visualization.ax.set_ylim(min, max)
@@ -187,21 +192,37 @@ class View(tk.Tk):
         self.visualization.pack(fill=tk.BOTH)
         # frame.pack(expand=1)
 
-    def _init_frame_vis_info(self, frame, equation):
-        self.best_equation = tk.Label(frame, text=equation)
+    def _init_frame_vis_info(self, frame):
+        self.best_equation_var = tk.StringVar()
+        self.best_equation_var.set("N/A")
+        self.time_step = tk.StringVar()
+        self.time_step.set("2000")
+        self.best_reward_var = tk.StringVar()
+        self.best_reward_var.set("1.00E+00")
+
+        self.best_nmse = tk.StringVar()
+        self.best_nmse.set("0.00E+00")
+
         # tk.Label(frame, image=tk.PhotoImage())
-        
-        tk.Label(frame, text="Best Equation:").pack(side=tk.LEFT)
-        self.best_equation.pack(side=tk.LEFT)
+        tk.Label(frame, text="Training timesteps:", fg="red").pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, textvariable=self.time_step).pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, text="Best Equation:", fg="red").pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, textvariable=self.best_equation_var).pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, text="Best Reward:", fg="red").pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, textvariable=self.best_reward_var).pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, text="Best NMSE:", fg="red").pack(side=tk.TOP,anchor=tk.W)
+        tk.Label(frame, textvariable=self.best_nmse).pack(side=tk.TOP,anchor=tk.W)
+
+
     
     def _init_control(self, frame):
-        self.start_button = tk.Button(frame, text="Start")
-        self.step_button = tk.Button(frame, text="Step")
-        self.stop = tk.Button(frame, text="Stop")
+        self.start_button = tk.Button(frame, text="Start", bg='green')
+        self.step_button = tk.Button(frame, text="Continue", bg='green')
+        self.stop = tk.Button(frame, text="Stop", bg='green')
 
-        self.start_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
-        self.step_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
-        self.stop.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X) 
+        self.start_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
+        self.step_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
+        self.stop.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X) 
 
     def _init_config(self, frame):
         fr_upload = tk.Frame(frame)
@@ -213,7 +234,7 @@ class View(tk.Tk):
         fr_sliders.pack()
 
         ### upload ### 
-        tk.Label(fr_upload, text="Import Data").pack(side=tk.LEFT)
+        tk.Label(fr_upload, text="Import Data", fg="red").pack(side=tk.LEFT)
         self.data_input = tk.Entry(fr_upload)
         self.data_input_button = tk.Button(fr_upload, text="UPLOAD")
 
@@ -221,7 +242,7 @@ class View(tk.Tk):
         self.data_input_button.pack(side=tk.LEFT)
 
         ### library ###
-        token_library = [["add","sub","mul","div"],["sin","cos","exp","log"]]
+        token_library = [["add","sub","mul","div"],["sin","cos","tan","exp","log"]]
         self.buttons_lib = [[tk.Checkbutton(fr_library, text=token, onvalue=True) for token in token_set] for token_set in token_library]
 
         # onevar = tk.BooleanVar()
@@ -234,22 +255,34 @@ class View(tk.Tk):
                 button.grid(column=col, row=row)
 
         ### sliders ###
-        tk.Label(fr_sliders, text="Number of Variables").grid(row=0, column=0)
-        self.slide_num_var = tk.Scale(fr_sliders, from_=1, to=5, orient=tk.HORIZONTAL)
+        tk.Label(fr_sliders, text="Number of Variables",  fg="red").grid(row=0, column=0)
+        self.slide_num_var = tk.Scale(fr_sliders, from_=1, to=5, orient=tk.HORIZONTAL,  length=200)
         # self.slide_num_var = tk.Scale(fr_sliders, from_=1, to=5, orient=tk.HORIZONTAL,label="hi")
-        tk.Label(fr_sliders, text="Noise Level").grid(row=1, column=0)
-        self.slide_noise = tk.Scale(fr_sliders, from_=0, to=1, orient=tk.HORIZONTAL)
+        tk.Label(fr_sliders, text="Noise Level",  fg="red").grid(row=1, column=0)
+        self.slide_noise = tk.Scale(fr_sliders, from_=0, to=1, orient=tk.HORIZONTAL, length=200)
+ 
+
+        tk.Label(fr_sliders, text="Length of Equation", fg="red").grid(row=2, column=0)
+        self.slide_equ = tk.Scale(fr_sliders, from_=0, to=100, orient=tk.HORIZONTAL, length=200)
+
+        tk.Label(fr_sliders, text="Batch size",  fg="red").grid(row=3, column=0)
+        self.slide_batch = tk.Scale(fr_sliders, from_=10, to=100, orient=tk.HORIZONTAL, length=200)
+
+        tk.Label(fr_sliders, text="Learning rate",  fg="red").grid(row=4, column=0)
+        self.slide_ll = tk.Scale(fr_sliders, from_=0.0001, to=0.1, orient=tk.HORIZONTAL, length=200)
 
         self.slide_num_var.grid(row=0, column=1)
         self.slide_noise.grid(row=1, column=1)
-
+        self.slide_equ.grid(row=2, column=1)
+        self.slide_batch.grid(row=3, column=1)
+        self.slide_ll.grid(row=4, column=1)
 
 ##### PLOT TIME STEPS #####
 # Prints time series information
 # If speedup is needed, can refactor so that a single Trace object has multiple subplots.
 class Trace(FigureCanvasTkAgg):
-    def __init__(self, parent, colors=None, *args, **kwargs):
-        self.length = 411 # Length (in time steps) of the plot at any given time (411 maps to 48 hr)
+    def __init__(self, parent, xlabel=None, ylabel=None, title=None, colors=None, *args, **kwargs):
+        self.length = 1000 # Length (in time steps) of the plot at any given time (411 maps to 48 hr)
         self.shift = self.length/4 # How far (in time steps) to shift the plot when it jumps
 
         # HACK FOR NOW. It should find parent's time.
@@ -259,14 +292,21 @@ class Trace(FigureCanvasTkAgg):
         self.lines = None
         self.history = None        
         self.figure = Figure(*args, **kwargs)
-        #self.figure.set_tight_layout(True)
+        self.figure.set_tight_layout(True)
         self.ax = self.figure.add_subplot(111)        
         FigureCanvasTkAgg.__init__(self, self.figure, self.parent)
         #self.show()        
         
         self.ax.set_xlim(0, self.length)
         self.ax.set_ylim(0, 100)
-        
+
+        if xlabel != None:
+                self.ax.set_xlabel(xlabel)
+        if ylabel != None:
+                self.ax.set_ylabel(ylabel)
+        if title != None:
+                self.ax.set_title(title)
+ 
         # Will rotate colors after resetting.
         if colors is not None:
             self.ax.set_prop_cycle(cycler('color', colors))
@@ -344,7 +384,7 @@ class Trace(FigureCanvasTkAgg):
                     if log_scale:
                         self.ymax = np.nanmax([2, 1 + new_ymax])
                     else:
-                        self.ymax = 100*(1 + ceil(new_ymax/100)) # Update to the next 100
+                        self.ymax = 100*(1 + np.ceil(new_ymax/100)) # Update to the next 100
                     # print self.ymax
                     self.ax.set_ylim(self.ymin, self.ymax)
                     blit = False
@@ -384,8 +424,6 @@ class Trace(FigureCanvasTkAgg):
 
         self.ax.set_xlim(-1, 1)
         self.ax.set_ylim(-2, 2)
-
-        print(p, p.r)
 
         self.figure.canvas.draw()
     
@@ -431,8 +469,18 @@ class Controller:
         self.model.step()
 
 
-    def update_views(self, p):
+    def update_views(self, batch_rewards, p, training_info):
         self.view.visualization.plot_vis(p)
+        self.view.training_best_reward.plot(np.atleast_1d(p.r))
+        self.view.training_nmse.plot(np.atleast_1d(training_info[0]))
+
+        str_p=str(p)
+        try:
+            expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
+        except:
+            expression = "N/A????"
+
+        self.view.best_equation_var.set(expression)
 
 
 def main():
@@ -440,7 +488,7 @@ def main():
     root.title("DSR VIS")
     # root.withdraw()
     # root.attributes('-fullscreen', True)
-    root.geometry("1600x900")
+    root.geometry("1500x700")
     app = Controller(root)
     root.mainloop()
 
