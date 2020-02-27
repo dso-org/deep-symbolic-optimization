@@ -282,7 +282,7 @@ class View(tk.Tk):
 # If speedup is needed, can refactor so that a single Trace object has multiple subplots.
 class Trace(FigureCanvasTkAgg):
     def __init__(self, parent, xlabel=None, ylabel=None, title=None, colors=None, *args, **kwargs):
-        self.length = 1000 # Length (in time steps) of the plot at any given time (411 maps to 48 hr)
+        self.length = 400 # Length (in time steps) of the plot at any given time (411 maps to 48 hr)
         self.shift = self.length/4 # How far (in time steps) to shift the plot when it jumps
 
         # HACK FOR NOW. It should find parent's time.
@@ -439,7 +439,6 @@ class Trace(FigureCanvasTkAgg):
         self.figure.canvas.flush_events()
 
 
-
 class Controller:
     """Class for uploading data and configuring runs."""
 
@@ -486,7 +485,6 @@ class Controller:
             expression = "N/A????"
 
         self.view.best_equation_var.set(expression)
-
 
 def main():
     root = tk.Tk()
