@@ -75,21 +75,19 @@ class Model:
     def step(self):
         """Perform one iteration of DSR"""
 
-        for _ in range(10):
+        # Read rewards from file
+        r = self.all_rewards[self.iteration]
+        self.batch_rewards.append(r)
 
-            # Read rewards from file
-            r = self.all_rewards[self.iteration]
-            self.batch_rewards.append(r)
+        # Read Program from file
+        p = U.make_program(self.traversal_text, self.iteration)
+        self.best_programs.append(p)
 
-            # Read Program from file
-            p = U.make_program(self.traversal_text, self.iteration)
-            self.best_programs.append(p)
+        # Read training info from file
+        ti = self.all_training_info[self.iteration]
+        self.training_info.append(ti)
 
-            # Read training info from file
-            ti = self.all_training_info[self.iteration]
-            self.training_info.append(ti)
-
-            self.iteration += 1
+        self.iteration += 1
 
         self._docallbacks()
 
@@ -218,8 +216,8 @@ class View(tk.Tk):
 
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start", bg='green')
-        self.step_button = tk.Button(frame, text="Continue", bg='green')
-        self.stop_button = tk.Button(frame, text="Stop", bg='green')
+        self.step_button = tk.Button(frame, text="Step", bg='green')
+        self.stop = tk.Button(frame, text="Stop", bg='green')
 
         self.start_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
         self.step_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
@@ -441,6 +439,7 @@ class Controller:
     """Class for uploading data and configuring runs."""
 
     def __init__(self, root):
+        self.root = root
         self.model = Model()
         self.view = View(root)
 
@@ -458,9 +457,8 @@ class Controller:
 
 
     def start_model(self):
-        while True:
-            self.model.step()
-            time.sleep(1)
+        self.step_model()
+        self.root.after(0, self.start_model)
 
 
     def step_model(self):
