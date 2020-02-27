@@ -40,10 +40,9 @@ def configure_program(config_filename):
 
 # Return a Program object corresponding to the ith iteration
 def make_program(traversal_text, i):
-    traversal = traversal_text[i]
+    traversal = traversal_text[i].strip()
     traversal = traversal.split(",")
-    traversal = traversal[:-2] # Remove \n
-    traversal = Program.convert(traversal)
+    traversal = Program.convert(traversal)   
     p = from_tokens(traversal, optimize=False)
     return p
 

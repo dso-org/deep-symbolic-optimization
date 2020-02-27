@@ -1,11 +1,11 @@
 """Demonstration of deep symbolic regression."""
-# data: 
+import os
 
 import numpy as np
 from sympy.parsing.latex import parse_latex
-# from sympy import init_printing
-# from sympy import preview
-# init_printing(use_latex='mathjax')
+
+import time
+import pandas as pd
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -18,26 +18,71 @@ import tkinter as tk
 from dsr.program import Program
 import utils as U
 
-# from tkinter import ttk
-
-# sleep 
-
 """ test static data """
 test_eq = parse_latex(r"\frac {1 + \sqrt {\a}} {\b}")
 
+PATH = "./data"
+
 # Configure the Program class from config file
-U.configure_program("./data/demo.json")
+U.configure_program(os.path.join(PATH, "demo.json"))
 
 
 class Model:
     """Class for the DSR backend."""
 
     def __init__(self):
-        pass
 
-    def step():
+        self.callbacks = {}
+
+        # Data
+        self.batch_rewards = [] # List of np.ndarrays of size (batch_size,)
+        self.best_programs = [] # List of best Programs
+        self.training_info = [] # List of training information
+        self.iteration = 0
+
+        # Load offline data files
+        with open(os.path.join(PATH, "traversals.txt"), "r") as f:
+            self.traversal_text = f.readlines()
+
+        self.all_rewards = np.load(os.path.join(PATH, "dsr_Nguyen-5_0_all_r.npy"))
+
+        pd_all_tinfo = pd.read_csv(os.path.join(PATH, "dsr_Nguyen-5_0.csv"))
+        self.all_training_info = pd_all_tinfo.to_numpy()
+
+
+    def addCallback(self, func):
+        self.callbacks[func] = 1
+
+
+    def delCallback(self, func):
+        del self.callbacks[func]
+
+
+    def _docallbacks(self):
+        for func in self.callbacks:
+             func(self.batch_rewards, self.best_programs[-1], self.training_info[-1])
+
+
+    def step(self):
         """Perform one iteration of DSR"""
-        pass
+
+        for _ in range(10):
+
+            # Read rewards from file
+            r = self.all_rewards[self.iteration]
+            self.batch_rewards.append(r)
+
+            # Read Program from file
+            p = U.make_program(self.traversal_text, self.iteration)
+            self.best_programs.append(p)
+
+            # Read training info from file
+            ti = self.all_training_info[self.iteration]
+            self.training_info.append(ti)
+
+            self.iteration += 1
+
+        self._docallbacks()
 
     # control <-> view
 
@@ -49,9 +94,7 @@ class View(tk.Tk):
     # controller, visulization, diagnostic
 
     def __init__(self, root):
-        # tk.Toplevel.__init__(self, master)
         self.root = root
-        # self.protocol('WM_DELETE_WINDOW', self.master.destroy)
         self.init_window()
 
     def init_window(self):
@@ -79,7 +122,7 @@ class View(tk.Tk):
         """ visualization,vis_zoom_in/out/reset """
         self._init_frame_vis(frame_vis) # missing: plot label
         """ best_equation """
-        self._init_frame_vis_info(frame_vis_info, equation= test_eq)
+        self._init_frame_vis_info(frame_vis_info)
 
         ############
         ### LEFT ###
@@ -97,26 +140,28 @@ class View(tk.Tk):
         #############
         ### RIGHT ###
         self.training_nmse = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
-        self.training = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
+        self.training_nmse.ax.set_ylim(0,0.3)
+        self.training_best_reward = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
+        self.training_best_reward.ax.set_ylim(0,1.1)
         self.distribution = Trace(content_right, colors=['brown'], figsize=(7,2), dpi=100)
 
         self.training_nmse.pack()
-        self.training.pack()
+        self.training_best_reward.pack()
         self.distribution.pack()
 
-    def update_plots(self, best_p, rewards): 
-        """ each iteration """
-        best_equation=None
-        self.visualization.plot_vis(best_equation)
+    # def update_plots(self, best_p, rewards): 
+    #     """ each iteration """
+    #     best_equation=None
+    #     self.visualization.plot_vis(best_equation)
 
-        self.equation.pack()
+    #     self.equation.pack()
 
-        self.training_nmse.plot
-        self.training.plot
+    #     self.training_nmse.plot
+    #     self.training_best_reward.plot
 
-    def update_distribution(self, data):
-        """ over several iterations """
-        self.distribution
+    # def update_distribution(self, data):
+    #     """ over several iterations """
+    #     self.distribution
         
     def _init_frame_vis(self, frame, min=-100, max=100):
         buttons = tk.Frame(frame)
@@ -133,7 +178,7 @@ class View(tk.Tk):
         self.visualization.data_points = None
 
         # include data points in range min,max
-        self.visualization.plot_vis()
+        # self.visualization.plot_vis()
 
         """ pack vis"""
         buttons.pack()
@@ -144,18 +189,22 @@ class View(tk.Tk):
         self.visualization.pack(fill=tk.BOTH)
         # frame.pack(expand=1)
 
-    def _init_frame_vis_info(self, frame, equation):
-        self.best_equation = tk.Label(frame, text=equation)
+    def _init_frame_vis_info(self, frame):
+        self.best_equation_var = tk.StringVar()
+        self.best_equation_var.set("N/A")
+
         # tk.Label(frame, image=tk.PhotoImage())
         
         tk.Label(frame, text="Best Equation:").pack(side=tk.LEFT)
-        self.best_equation.pack(side=tk.LEFT)
+        tk.Label(frame, textvariable=self.best_equation_var).pack(sid=tk.LEFT)
     
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start")
+        self.step_button = tk.Button(frame, text="Step")
         self.stop = tk.Button(frame, text="Stop")
 
         self.start_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
+        self.step_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
         self.stop.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X) 
 
     def _init_config(self, frame):
@@ -204,7 +253,7 @@ class View(tk.Tk):
 # If speedup is needed, can refactor so that a single Trace object has multiple subplots.
 class Trace(FigureCanvasTkAgg):
     def __init__(self, parent, colors=None, *args, **kwargs):
-        self.length = 411 # Length (in time steps) of the plot at any given time (411 maps to 48 hr)
+        self.length = 200 # Length (in time steps) of the plot at any given time (411 maps to 48 hr)
         self.shift = self.length/4 # How far (in time steps) to shift the plot when it jumps
 
         # HACK FOR NOW. It should find parent's time.
@@ -299,7 +348,7 @@ class Trace(FigureCanvasTkAgg):
                     if log_scale:
                         self.ymax = np.nanmax([2, 1 + new_ymax])
                     else:
-                        self.ymax = 100*(1 + ceil(new_ymax/100)) # Update to the next 100
+                        self.ymax = 100*(1 + np.ceil(new_ymax/100)) # Update to the next 100
                     # print self.ymax
                     self.ax.set_ylim(self.ymin, self.ymax)
                     blit = False
@@ -321,16 +370,26 @@ class Trace(FigureCanvasTkAgg):
         
         self.time += 1
         
-    def plot_vis(self, equation=None):
+    def plot_vis(self, p):
         """ visualization frame for equation plot """
+
+        self.ax.clear()
+        
+        # Plot real data
         xs = Program.X_train
         ys = Program.y_train
-
-        # xs=np.arange(self.min,self.max,0.3)
-        # ys = 2*np.sin(xs)
-        self.ax.set_xlim(auto=True)
-        self.ax.set_ylim(auto=True)
         self.ax.scatter(xs,ys)
+ 
+        # Plot expression       
+        n = 1000
+        xs = np.linspace(-2, 2, num=n).reshape(n, -1) # TBD: GENERATE FOR ALL INPUT VARIABLES
+        ys = p.execute(xs)
+        self.ax.plot(xs, ys)
+
+        self.ax.set_xlim(-1, 1)
+        self.ax.set_ylim(-2, 2)
+
+        self.figure.canvas.draw()
     
 
     def reset(self):
@@ -352,11 +411,40 @@ class Controller:
         self.model = Model()
         self.view = View(root)
 
+        self.model.addCallback(self.update_views)
+
+        self.view.step_button.config(command=self.step_model)
+        self.view.start_button.config(command=self.start_model)
+
     # interact w/ buttons
     # config: upload csv, set library, noise
     # control: start, stop, step, reset
     # self.view.start.config(command=self.startDSR)
     # def startDSR(self) ~~
+
+
+    def start_model(self):
+        while True:
+            self.model.step()
+            time.sleep(1)
+
+
+    def step_model(self):
+        self.model.step()
+
+
+    def update_views(self, batch_rewards, p, training_info):
+        self.view.visualization.plot_vis(p)
+        self.view.training_best_reward.plot(np.atleast_1d(p.r))
+        self.view.training_nmse.plot(np.atleast_1d(training_info[0]))
+
+        str_p=str(p)
+        try:
+            expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
+        except:
+            expression = "N/A????"
+
+        self.view.best_equation_var.set(expression)
 
 
 def main():
