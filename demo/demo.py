@@ -222,7 +222,7 @@ class View(tk.Tk):
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start", bg='green')
         self.step_button = tk.Button(frame, text="Step", bg='green')
-        self.stop = tk.Button(frame, text="Stop", bg='green')
+        self.stop_button = tk.Button(frame, text="Stop", bg='green')
 
         self.start_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
         self.step_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
@@ -449,28 +449,43 @@ class Controller:
 
         self.model.addCallback(self.update_views)
 
-        self.view.step_button.config(command=self.step_model)
-        self.view.start_button.config(command=self.start_model)
-        self.view.stop_button.config(command=self.stop_all)
+        self.stopped = True
 
-    # interact w/ buttons
-    # config: upload csv, set library, noise
-    # control: start, stop, step, reset
-    # self.view.start.config(command=self.startDSR)
-    # def startDSR(self) ~~
+        self.view.step_button.config(command=self.step)
+        self.view.start_button.config(command=self.init_start)
+        self.view.stop_button.config(command=self.stop)
 
 
-    def start_model(self):
-        self.step_model()
-        self.root.after(0, self.start_model)
+    def init_start(self):
+        """Called once when Start is clicked."""
+
+        if self.stopped:
+            self.stopped = False
+            self.start()
+
+        else:
+            return
 
 
-    def step_model(self):
+    def start(self):
+        """Called repeatedly after Start is clicked."""
+
+        self.step()
+
+        if not self.stopped:
+            self.root.after(0, self.start)
+
+
+    def step(self):
         self.model.step()
 
     def stop_all(self):
         screenshot=pyautogui.screenshot()
         screenshot.save("screenshot.png")
+
+
+    def stop(self):
+        self.stopped = True
 
 
     def update_views(self, batch_rewards, p, training_info):
