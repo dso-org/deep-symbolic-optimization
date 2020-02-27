@@ -217,7 +217,7 @@ class View(tk.Tk):
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start", bg='green')
         self.step_button = tk.Button(frame, text="Step", bg='green')
-        self.stop_button = tk.Button(frame, text="Stop", bg='green')
+        self.stop_button = tk.Button(frame, text="Stop", bg='green', state="disabled")
 
         self.start_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
         self.step_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
@@ -456,6 +456,9 @@ class Controller:
 
         if self.stopped:
             self.stopped = False
+            self.view.start_button["state"] = "disabled"
+            self.view.step_button["state"] = "disabled"
+            self.view.stop_button["state"] = "normal"
             self.start()
 
         else:
@@ -468,7 +471,7 @@ class Controller:
         self.step()
 
         if not self.stopped:
-            self.root.after(0, self.start)
+            self.root.after(100, self.start)
 
 
     def step(self):
@@ -480,6 +483,9 @@ class Controller:
 
 
     def stop(self):
+        self.view.start_button["state"] = "normal"
+        self.view.step_button["state"] = "normal"
+        self.view.stop_button["state"] = "disabled"
         self.stopped = True
 
 
