@@ -1,9 +1,13 @@
+import os
+
 """Demonstration of deep symbolic regression."""
 import numpy as np
 from sympy.parsing.latex import parse_latex
 # from sympy import init_printing
 # from sympy import preview
 # init_printing(use_latex='mathjax')
+
+import time
 
 
 import matplotlib
@@ -24,19 +28,60 @@ import utils as U
 """ test static data """
 test_eq = parse_latex(r"\frac {1 + \sqrt {\a}} {\b}")
 
+PATH = "./data"
+
 # Configure the Program class from config file
-U.configure_program("./data/demo.json")
+U.configure_program(os.path.join(PATH, "demo.json"))
 
 
 class Model:
     """Class for the DSR backend."""
 
     def __init__(self):
-        pass
 
-    def step():
+        self.callbacks = {}
+
+        # Data
+        self.batch_rewards = [] # List of np.ndarrays of size (batch_size,)
+        self.best_programs = [] # List of best Programs
+        self.iteration = 0
+
+        # Load offline data files
+        with open(os.path.join(PATH, "traversals.txt"), "r") as f:
+            self.traversal_text = f.readlines()
+
+        self.all_rewards = np.load(os.path.join(PATH, "dsr_Nguyen-5_0_all_r.npy"))
+
+
+    def addCallback(self, func):
+        self.callbacks[func] = 1
+
+
+    def delCallback(self, func):
+        del self.callbacks[func]
+
+
+    def _docallbacks(self):
+        for func in self.callbacks:
+             func(self.best_programs[-1])
+
+
+    def step(self):
         """Perform one iteration of DSR"""
-        pass
+
+        for _ in range(100):
+
+            # Read rewards from file
+            r = self.all_rewards[self.iteration]
+            self.batch_rewards.append(r)
+
+            # Read Program from file
+            p = U.make_program(self.traversal_text, self.iteration)
+            self.best_programs.append(p)
+
+            self.iteration += 1
+
+        self._docallbacks()
 
     # control <-> view
 
@@ -132,7 +177,7 @@ class View(tk.Tk):
         self.visualization.data_points = None
 
         # include data points in range min,max
-        self.visualization.plot_vis()
+        # self.visualization.plot_vis()
 
         """ pack vis"""
         buttons.pack()
@@ -152,9 +197,11 @@ class View(tk.Tk):
     
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start")
+        self.step_button = tk.Button(frame, text="Step")
         self.stop = tk.Button(frame, text="Stop")
 
         self.start_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
+        self.step_button.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X)
         self.stop.pack(ipadx=50, ipady=20, side=tk.LEFT, fill=tk.X) 
 
     def _init_config(self, frame):
@@ -320,16 +367,28 @@ class Trace(FigureCanvasTkAgg):
         
         self.time += 1
         
-    def plot_vis(self, equation=None):
+    def plot_vis(self, p):
         """ visualization frame for equation plot """
+
+        self.ax.clear()
+        
+        # Plot real data
         xs = Program.X_train
         ys = Program.y_train
-
-        # xs=np.arange(self.min,self.max,0.3)
-        # ys = 2*np.sin(xs)
-        self.ax.set_xlim(auto=True)
-        self.ax.set_ylim(auto=True)
         self.ax.scatter(xs,ys)
+ 
+        # Plot expression       
+        n = 1000
+        xs = np.linspace(-2, 2, num=n).reshape(n, -1) # TBD: GENERATE FOR ALL INPUT VARIABLES
+        ys = p.execute(xs)
+        self.ax.plot(xs, ys)
+
+        self.ax.set_xlim(-1, 1)
+        self.ax.set_ylim(-2, 2)
+
+        print(p, p.r)
+
+        self.figure.canvas.draw()
     
 
     def reset(self):
@@ -351,11 +410,30 @@ class Controller:
         self.model = Model()
         self.view = View(root)
 
+        self.model.addCallback(self.update_views)
+
+        self.view.step_button.config(command=self.step_model)
+        self.view.start_button.config(command=self.start_model)
+
     # interact w/ buttons
     # config: upload csv, set library, noise
     # control: start, stop, step, reset
     # self.view.start.config(command=self.startDSR)
     # def startDSR(self) ~~
+
+
+    def start_model(self):
+        while True:
+            self.model.step()
+            time.sleep(1)
+
+
+    def step_model(self):
+        self.model.step()
+
+
+    def update_views(self, p):
+        self.view.visualization.plot_vis(p)
 
 
 def main():
