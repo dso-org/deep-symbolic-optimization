@@ -29,6 +29,11 @@ U.configure_program(os.path.join(PATH, "demo.json"))
 
 """ color set """
 COLOR_CONFIG="red"
+COLOR_VISINFO="red"
+
+""" window pixel """
+WIN_W = 1500
+WIN_WH = 700
 
 class Model:
     """Class for the DSR backend."""
@@ -101,9 +106,9 @@ class View(tk.Tk):
         self.init_window()
 
     def init_window(self):
-        content_left = tk.Frame(self.root, width=450, height=700)
-        content_mid = tk.Frame(self.root, width=450, height=700)
-        content_right = tk.Frame(self.root, width=450, height=700)
+        content_left = tk.Frame(self.root, width=800)
+        content_mid = tk.Frame(self.root, width=1000)
+        content_right = tk.Frame(self.root, width=800)
 
         content_left.pack(side=tk.LEFT)
         content_mid.pack(side=tk.LEFT)
@@ -111,10 +116,10 @@ class View(tk.Tk):
 
         ###########
         ### MID ###
-        frame_vis = tk.Frame(content_mid, borderwidth=20, width=720, height=500)
-        frame_vis_info = tk.Frame(content_mid, borderwidth=20, width=720, height=500)
-        frame_vis.pack()
-        frame_vis_info.pack()
+        frame_vis = tk.Frame(content_mid)
+        frame_vis_info = tk.Frame(content_mid)
+        frame_vis.pack(fill=tk.X, expand=1)
+        frame_vis_info.pack(fill=tk.Y, expand=1)
 
         """ visualization,vis_zoom_in/out/reset """
         self._init_frame_vis(frame_vis) # missing: plot label
@@ -201,13 +206,13 @@ class View(tk.Tk):
         self.best_nmse.set("0.00E+00")
 
         # tk.Label(frame, image=tk.PhotoImage(eq_file))
-        tk.Label(frame, text="Training timesteps:", fg="red").grid(column=0, row=0)
+        tk.Label(frame, text="Training timesteps:", fg=COLOR_VISINFO).grid(column=0, row=0)
         tk.Label(frame, textvariable=self.time_step).grid(column=1, row=0)
-        tk.Label(frame, text="Best Equation:", fg="red").grid(column=0, row=1)
+        tk.Label(frame, text="Best Equation:", fg=COLOR_VISINFO).grid(column=0, row=1)
         tk.Label(frame, textvariable=self.best_equation_var).grid(column=1, row=1)
-        tk.Label(frame, text="Best Reward:", fg="red").grid(column=0, row=2)
+        tk.Label(frame, text="Best Reward:", fg=COLOR_VISINFO).grid(column=0, row=2)
         tk.Label(frame, textvariable=self.best_reward_var).grid(column=1, row=2)
-        tk.Label(frame, text="Best NMSE:", fg="red").grid(column=0, row=3)
+        tk.Label(frame, text="Best NMSE:", fg=COLOR_VISINFO).grid(column=0, row=3)
         tk.Label(frame, textvariable=self.best_nmse).grid(column=1, row=3)
 
     def _init_control(self, frame):
@@ -229,7 +234,7 @@ class View(tk.Tk):
         fr_sliders.pack()
 
         ### upload ### 
-        tk.Label(fr_upload, text="Import Data", fg="red").pack(side=tk.LEFT)
+        tk.Label(fr_upload, text="Import Data", fg=COLOR_CONFIG).pack(side=tk.LEFT)
         self.data_input = tk.Entry(fr_upload)
         self.data_input_button = tk.Button(fr_upload, text="UPLOAD")
 
@@ -257,11 +262,11 @@ class View(tk.Tk):
         self.slide_batch = tk.Scale(fr_sliders, from_=10, to=1000, resolution=30, orient=tk.HORIZONTAL, length=200)
         self.slide_lr = tk.Scale(fr_sliders, from_=0.0001, to=0.1, resolution=0.001, orient=tk.HORIZONTAL, length=200)
 
-        tk.Label(fr_sliders, text="Number of Variables",  fg="red").grid(row=0, column=0)
-        tk.Label(fr_sliders, text="Noise Level",  fg="red").grid(row=1, column=0)
-        tk.Label(fr_sliders, text="Length of Equation", fg="red").grid(row=2, column=0)
-        tk.Label(fr_sliders, text="Batch Size",  fg="red").grid(row=3, column=0)
-        tk.Label(fr_sliders, text="Learning Rate",  fg="red").grid(row=4, column=0)
+        tk.Label(fr_sliders, text="Number of Variables",  fg=COLOR_CONFIG).grid(row=0, column=0)
+        tk.Label(fr_sliders, text="Noise Level",  fg=COLOR_CONFIG).grid(row=1, column=0)
+        tk.Label(fr_sliders, text="Length of Equation", fg=COLOR_CONFIG).grid(row=2, column=0)
+        tk.Label(fr_sliders, text="Batch Size",  fg=COLOR_CONFIG).grid(row=3, column=0)
+        tk.Label(fr_sliders, text="Learning Rate",  fg=COLOR_CONFIG).grid(row=4, column=0)
         self.slide_num_var.grid(row=0, column=1, columnspan=2)
         self.slide_noise.grid(row=1, column=1)
         self.slide_len_eq.grid(row=2, column=1)
