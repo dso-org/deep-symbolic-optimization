@@ -42,7 +42,7 @@ def configure_program(config_filename):
 def make_program(traversal_text, i):
     traversal = traversal_text[i].strip()
     traversal = traversal.split(",")
-    traversal = Program.convert(traversal)   
+    traversal = Program.convert(traversal)    
     p = from_tokens(traversal, optimize=False)
     return p
 
