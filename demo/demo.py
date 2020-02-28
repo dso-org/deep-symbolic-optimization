@@ -154,6 +154,22 @@ class View(tk.Tk):
         self.training_best_reward.pack()
         self.distribution.pack()
 
+        top_choices = ["Choose Top Plot","training curve"]
+        bot_choices = ["Choose Bottom Plot","reward distribution"]
+        self.dropdown_top_var = tk.StringVar(content_right)
+        self.dropdown_bot_var = tk.StringVar(content_right)
+
+        self.dropdown_top_var.set(top_choices[0])
+        self.dropdown_bot_var.set(bot_choices[0])
+
+        menu_top = tk.OptionMenu(content_right, self.dropdown_top_var, *top_choices)
+        menu_bot = tk.OptionMenu(content_right, self.dropdown_bot_var, *bot_choices)
+        menu_top.config(width=30)
+        menu_bot.config(width=30)
+        menu_top.pack(side=tk.TOP)
+        menu_bot.pack(side=tk.TOP)
+
+
     # def update_plots(self, best_p, rewards): 
     #     """ each iteration """
     #     best_equation=None
