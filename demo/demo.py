@@ -6,7 +6,7 @@ import pandas as pd
 from sympy.parsing.latex import parse_latex
 
 import time
-import pyautogui
+# import pyautogui
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -235,7 +235,7 @@ class View(tk.Tk):
         ### upload ### 
         tk.Label(fr_upload, text="Data", font=FONT_CONFIG).pack(side=tk.LEFT)
         self.data_input = tk.Entry(fr_upload)
-        self.data_input_button = tk.Button(fr_upload, text="UPLOAD")
+        self.data_input_button = tk.Button(fr_upload, text="Upload...")
 
         self.data_input.pack(side=tk.LEFT)
         self.data_input_button.pack(side=tk.LEFT)
@@ -255,22 +255,22 @@ class View(tk.Tk):
                 button.grid(column=col+1, row=row, sticky=tk.W)
 
         ### sliders ###
-        self.slide_explore = tk.Scale(fr_sliders, from_=0, to=1, resolution=0.1, orient=tk.HORIZONTAL,  length=200)
-        self.slide_noise = tk.Scale(fr_sliders, from_=0.0, to=1.0, resolution=0.1, orient=tk.HORIZONTAL, length=200) 
-        self.slide_len_eq = tk.Scale(fr_sliders, from_=0, to=100, resolution=10, orient=tk.HORIZONTAL, length=200)
-        self.slide_batch = tk.Scale(fr_sliders, from_=10, to=1000, resolution=30, orient=tk.HORIZONTAL, length=200)
-        self.slide_lr = tk.Scale(fr_sliders, from_=0.0001, to=0.1, resolution=0.001, orient=tk.HORIZONTAL, length=200)
+        self.slide_explore = tk.Scale(fr_sliders, from_=0, to=1, resolution=0.01, orient=tk.HORIZONTAL,  length=200)
+        self.slide_noise = tk.Scale(fr_sliders, from_=0.0, to=1.0, resolution=0.01, orient=tk.HORIZONTAL, length=200) 
+        self.slide_len_eq = tk.Scale(fr_sliders, from_=0, to=100, resolution=1, orient=tk.HORIZONTAL, length=200)
+        self.slide_batch = tk.Scale(fr_sliders, from_=50, to=1000, resolution=50, orient=tk.HORIZONTAL, length=200)
+        self.slide_lr = tk.Scale(fr_sliders, from_=0.0001, to=0.01, resolution=0.0001, orient=tk.HORIZONTAL, length=200)
 
-        tk.Label(fr_sliders, text="Exploration",  font=FONT_CONFIG).grid(row=0, column=0, rowspan=2, sticky=tk.E+tk.S)
-        tk.Label(fr_sliders, text="Noise Level",  font=FONT_CONFIG).grid(row=2, column=0, rowspan=2, sticky=tk.E+tk.S)
-        tk.Label(fr_sliders, text="Length of Equation", font=FONT_CONFIG).grid(row=4, column=0, rowspan=2, sticky=tk.E+tk.S)
-        tk.Label(fr_sliders, text="Batch Size",  font=FONT_CONFIG).grid(row=6, column=0, rowspan=2, sticky=tk.E+tk.S)
-        tk.Label(fr_sliders, text="Learning Rate",  font=FONT_CONFIG).grid(row=8, column=0, rowspan=2, sticky=tk.E+tk.S)
-        self.slide_explore.grid(row=0, column=1)
-        self.slide_noise.grid(row=2, column=1)
-        self.slide_len_eq.grid(row=4, column=1)
-        self.slide_batch.grid(row=6, column=1)
-        self.slide_lr.grid(row=8, column=1)
+        tk.Label(fr_sliders, text="Batch size",  font=FONT_CONFIG).grid(row=0, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Learning rate",  font=FONT_CONFIG).grid(row=2, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Exploration",  font=FONT_CONFIG).grid(row=4, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Noise level",  font=FONT_CONFIG).grid(row=6, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Max length", font=FONT_CONFIG).grid(row=8, column=0, rowspan=2, sticky=tk.E+tk.S)
+        self.slide_batch.grid(row=0, column=1)
+        self.slide_lr.grid(row=2, column=1)
+        self.slide_explore.grid(row=4, column=1)
+        self.slide_noise.grid(row=6, column=1)
+        self.slide_len_eq.grid(row=8, column=1)
 
 ##### PLOT TIME STEPS #####
 # Prints time series information
@@ -477,9 +477,9 @@ class Controller:
     def step(self):
         self.model.step()
 
-    def stop_all(self):
-        screenshot=pyautogui.screenshot()
-        screenshot.save("screenshot.png")
+    # def stop_all(self):
+    #     screenshot=pyautogui.screenshot()
+    #     screenshot.save("screenshot.png")
 
 
     def stop(self):
@@ -494,7 +494,7 @@ class Controller:
         self.view.visualization.plot_vis(p)
         # vis_info
         expression = p.sympy_expr
-        self.view.best_equation_var.set(expression)
+        self.view.best_equation_var.set("TBD")
 
         # training plots (nmse, best_reward)
         self.view.training_nmse.plot(np.atleast_1d(training_info[0]))
@@ -503,7 +503,7 @@ class Controller:
 
 def main():
     root = tk.Tk()
-    root.title("DSR VIS")
+    root.title("Deep symbolic regression")
     # root.withdraw()
     # root.attributes('-fullscreen', True)
     root.geometry("1500x700")
