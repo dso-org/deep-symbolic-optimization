@@ -152,8 +152,8 @@ class View(tk.Tk):
         self.training_best_reward.pack()
         self.distribution.pack()
 
-        top_choices = ["Choose Top Plot","training curve"]
-        bot_choices = ["Choose Bottom Plot","reward distribution"]
+        top_choices = ["Choose Top Plot","Training curve"]
+        bot_choices = ["Choose Bottom Plot","Reward distribution"]
         self.dropdown_top_var = tk.StringVar(content_right)
         self.dropdown_bot_var = tk.StringVar(content_right)
 
@@ -162,9 +162,9 @@ class View(tk.Tk):
 
         menu_top = tk.OptionMenu(content_right, self.dropdown_top_var, *top_choices)
         menu_bot = tk.OptionMenu(content_right, self.dropdown_bot_var, *bot_choices)
-        menu_top.config(width=30)
-        menu_bot.config(width=30)
-        menu_top.pack(side=tk.TOP)
+        menu_top.config(width=15)
+        menu_bot.config(width=15)
+        menu_top.pack(side=tk.TOP, pady=30) 
         menu_bot.pack(side=tk.TOP)
 
 
