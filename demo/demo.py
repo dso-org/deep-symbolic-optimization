@@ -2,10 +2,11 @@
 import os
 
 import numpy as np
+import pandas as pd
 from sympy.parsing.latex import parse_latex
 
 import time
-import pandas as pd
+import pyautogui
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -28,7 +29,7 @@ U.configure_program(os.path.join(PATH, "demo.json"))
 
 
 """ color set """
-COLOR_CONFIG="red"
+FONT_CONFIG=("arial 13 bold")
 COLOR_VISINFO="red"
 
 """ window pixel """
@@ -218,11 +219,11 @@ class View(tk.Tk):
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start", bg='green')
         self.step_button = tk.Button(frame, text="Continue", bg='green')
-        self.stop = tk.Button(frame, text="Stop", bg='green')
+        self.stop_button = tk.Button(frame, text="Stop", bg='green')
 
         self.start_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
         self.step_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
-        self.stop.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X) 
+        self.stop_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X) 
 
     def _init_config(self, frame):
         fr_upload = tk.Frame(frame)
@@ -234,7 +235,7 @@ class View(tk.Tk):
         fr_sliders.pack()
 
         ### upload ### 
-        tk.Label(fr_upload, text="Import Data", fg=COLOR_CONFIG).pack(side=tk.LEFT)
+        tk.Label(fr_upload, text="Data", font=FONT_CONFIG).pack(side=tk.LEFT)
         self.data_input = tk.Entry(fr_upload)
         self.data_input_button = tk.Button(fr_upload, text="UPLOAD")
 
@@ -250,28 +251,28 @@ class View(tk.Tk):
         # one = tk.Checkbutton(fr_library, text="add", variable=onevar, onvalue=True)
 
         """ pack""" 
-        tk.Label(fr_library, text="Library", fg=COLOR_CONFIG).grid(column=0, row=0, rowspan=len(token_library))
+        tk.Label(fr_library, text="Library", font=FONT_CONFIG).grid(column=0, row=0, rowspan=len(token_library))
         for row, button_set in enumerate(self.buttons_lib):
             for col, button in enumerate(button_set):
-                button.grid(column=col+1, row=row)
+                button.grid(column=col+1, row=row, sticky=tk.W)
 
         ### sliders ###
-        self.slide_num_var = tk.Scale(fr_sliders, from_=1, to=5, orient=tk.HORIZONTAL,  length=200)
+        self.slide_explore = tk.Scale(fr_sliders, from_=0, to=1, resolution=0.1, orient=tk.HORIZONTAL,  length=200)
         self.slide_noise = tk.Scale(fr_sliders, from_=0.0, to=1.0, resolution=0.1, orient=tk.HORIZONTAL, length=200) 
         self.slide_len_eq = tk.Scale(fr_sliders, from_=0, to=100, resolution=10, orient=tk.HORIZONTAL, length=200)
         self.slide_batch = tk.Scale(fr_sliders, from_=10, to=1000, resolution=30, orient=tk.HORIZONTAL, length=200)
         self.slide_lr = tk.Scale(fr_sliders, from_=0.0001, to=0.1, resolution=0.001, orient=tk.HORIZONTAL, length=200)
 
-        tk.Label(fr_sliders, text="Number of Variables",  fg=COLOR_CONFIG).grid(row=0, column=0)
-        tk.Label(fr_sliders, text="Noise Level",  fg=COLOR_CONFIG).grid(row=1, column=0)
-        tk.Label(fr_sliders, text="Length of Equation", fg=COLOR_CONFIG).grid(row=2, column=0)
-        tk.Label(fr_sliders, text="Batch Size",  fg=COLOR_CONFIG).grid(row=3, column=0)
-        tk.Label(fr_sliders, text="Learning Rate",  fg=COLOR_CONFIG).grid(row=4, column=0)
-        self.slide_num_var.grid(row=0, column=1, columnspan=2)
-        self.slide_noise.grid(row=1, column=1)
-        self.slide_len_eq.grid(row=2, column=1)
-        self.slide_batch.grid(row=3, column=1)
-        self.slide_lr.grid(row=4, column=1)
+        tk.Label(fr_sliders, text="Exploration",  font=FONT_CONFIG).grid(row=0, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Noise Level",  font=FONT_CONFIG).grid(row=2, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Length of Equation", font=FONT_CONFIG).grid(row=4, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Batch Size",  font=FONT_CONFIG).grid(row=6, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Learning Rate",  font=FONT_CONFIG).grid(row=8, column=0, rowspan=2, sticky=tk.E+tk.S)
+        self.slide_explore.grid(row=0, column=1)
+        self.slide_noise.grid(row=2, column=1)
+        self.slide_len_eq.grid(row=4, column=1)
+        self.slide_batch.grid(row=6, column=1)
+        self.slide_lr.grid(row=8, column=1)
 
 ##### PLOT TIME STEPS #####
 # Prints time series information
@@ -447,6 +448,7 @@ class Controller:
 
         self.view.step_button.config(command=self.step_model)
         self.view.start_button.config(command=self.start_model)
+        self.view.stop_button.config(command=self.stop_all)
 
     # interact w/ buttons
     # config: upload csv, set library, noise
@@ -463,6 +465,10 @@ class Controller:
 
     def step_model(self):
         self.model.step()
+
+    def stop_all(self):
+        screenshot=pyautogui.screenshot()
+        screenshot.save("screenshot.png")
 
 
     def update_views(self, batch_rewards, p, training_info):
