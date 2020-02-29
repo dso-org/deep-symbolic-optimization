@@ -154,7 +154,7 @@ class View(tk.Tk):
         self.training_best_reward.pack()
         self.distribution.pack()
 
-        top_choices = ["Choose Top Plot","Training curve"]
+        top_choices = ["Choose Top Plot","Training curves"]
         bot_choices = ["Choose Bottom Plot","Reward distribution"]
         self.dropdown_top_var = tk.StringVar(content_right)
         self.dropdown_bot_var = tk.StringVar(content_right)
@@ -164,8 +164,8 @@ class View(tk.Tk):
 
         menu_top = tk.OptionMenu(content_right, self.dropdown_top_var, *top_choices)
         menu_bot = tk.OptionMenu(content_right, self.dropdown_bot_var, *bot_choices)
-        menu_top.config(width=15)
-        menu_bot.config(width=15)
+        menu_top.config(width=20)
+        menu_bot.config(width=20)
         menu_top.pack(side=tk.TOP, pady=30) 
         menu_bot.pack(side=tk.TOP)
 
@@ -277,7 +277,7 @@ class View(tk.Tk):
 
         ### sliders ###
         self.slide_explore = tk.Scale(fr_sliders, from_=0, to=1, resolution=0.01, orient=tk.HORIZONTAL,  length=200)
-        self.slide_risk = tk.Scale(fr_sliders, from_=0.0, to=1.0, resolution=0.01, orient=tk.HORIZONTAL, length=200) 
+        self.slide_risk = tk.Scale(fr_sliders, from_=0.0, to=0.5, resolution=0.01, orient=tk.HORIZONTAL, length=200) 
         self.slide_len_eq = tk.Scale(fr_sliders, from_=0, to=100, resolution=1, orient=tk.HORIZONTAL, length=200)
         self.slide_batch = tk.Scale(fr_sliders, from_=50, to=1000, resolution=50, orient=tk.HORIZONTAL, length=200)
         self.slide_lr = tk.Scale(fr_sliders, from_=0.0001, to=0.01, resolution=0.0001, orient=tk.HORIZONTAL, length=200)
@@ -285,7 +285,7 @@ class View(tk.Tk):
         tk.Label(fr_sliders, text="Batch size",  font=FONT_CONFIG).grid(row=0, column=0, rowspan=2, sticky=tk.E+tk.S)
         tk.Label(fr_sliders, text="Learning rate",  font=FONT_CONFIG).grid(row=2, column=0, rowspan=2, sticky=tk.E+tk.S)
         tk.Label(fr_sliders, text="Exploration",  font=FONT_CONFIG).grid(row=4, column=0, rowspan=2, sticky=tk.E+tk.S)
-        tk.Label(fr_sliders, text="Risk Factor",  font=FONT_CONFIG).grid(row=6, column=0, rowspan=2, sticky=tk.E+tk.S)
+        tk.Label(fr_sliders, text="Risk factor",  font=FONT_CONFIG).grid(row=6, column=0, rowspan=2, sticky=tk.E+tk.S)
         tk.Label(fr_sliders, text="Max length", font=FONT_CONFIG).grid(row=8, column=0, rowspan=2, sticky=tk.E+tk.S)
         self.slide_batch.grid(row=0, column=1)
         self.slide_lr.grid(row=2, column=1)
