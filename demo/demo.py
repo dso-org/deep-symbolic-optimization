@@ -6,7 +6,6 @@ import pandas as pd
 from sympy.parsing.latex import parse_latex
 
 import time
-# import pyautogui
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -143,8 +142,8 @@ class View(tk.Tk):
         self._init_config(frame_config)
 
         #############
-        ### RIGHT ###
-        self.training_nmse = Trace( content_right,  xlabel='timestep', ylabel='Best NMSE',  colors=['brown'], figsize=(4,1.7), dpi=100)
+        ### RIGHT ### : 
+        self.training_nmse = Trace(content_right,  xlabel='timestep', ylabel='Best NMSE',  colors=['brown'], figsize=(4,1.7), dpi=100)
         self.training_nmse.ax.set_ylim(0,0.6)
         self.training_best_reward = Trace(content_right, xlabel='timestep', ylabel='Best Reward',colors=['brown'], figsize=(4,1.7), dpi=100)
         self.training_best_reward.ax.set_ylim(0,1.1)
@@ -169,21 +168,6 @@ class View(tk.Tk):
         menu_top.pack(side=tk.TOP, pady=30) 
         menu_bot.pack(side=tk.TOP)
 
-
-    # def update_plots(self, best_p, rewards): 
-    #     """ each iteration """
-    #     best_equation=None
-    #     self.visualization.plot_vis(best_equation)
-
-    #     self.equation.pack()
-
-    #     self.training_nmse.plot
-    #     self.training_best_reward.plot
-
-    # def update_distribution(self, data):
-    #     """ over several iterations """
-    #     self.distribution
-        
     def _init_frame_vis(self, frame, min=-100, max=100):
 
         self.visualization = Trace(frame, xlabel='X1', ylabel='X2', title='DSR results', colors=['brown'], figsize=(3.9,3.9), dpi=100)
@@ -223,6 +207,7 @@ class View(tk.Tk):
         self.best_nmse = tk.StringVar()
         self.best_nmse.set("0.00E+00")
 
+        """ pack vis_info """
         # tk.Label(frame, image=tk.PhotoImage(eq_file))
         tk.Label(frame, text="Training timesteps:", fg=COLOR_VISINFO).grid(column=0, row=0)
         tk.Label(frame, textvariable=self.time_step).grid(column=1, row=0)
@@ -240,6 +225,7 @@ class View(tk.Tk):
         self.step_button = tk.Button(frame, text="Step", bg='green')
         self.stop_button = tk.Button(frame, text="Stop", bg='green', state="disabled")
 
+        """ pack control """
         self.start_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
         self.step_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X)
         self.stop_button.pack(ipadx=25, ipady=10, side=tk.LEFT, fill=tk.X) 
@@ -249,10 +235,12 @@ class View(tk.Tk):
         fr_library = tk.Frame(frame)
         fr_sliders = tk.Frame(frame)
 
-        fr_upload.pack()
-        fr_library.pack()
+        """ pack config """
+        fr_upload.pack(pady=10)
+        fr_library.pack(pady=20)
         fr_sliders.pack()
 
+        """ config: upload/library/sliders """
         ### upload ### 
         tk.Label(fr_upload, text="Data", font=FONT_CONFIG).pack(side=tk.LEFT)
         self.data_input = tk.Entry(fr_upload)
@@ -269,7 +257,7 @@ class View(tk.Tk):
         # onevar.set(True)
         # one = tk.Checkbutton(fr_library, text="add", variable=onevar, onvalue=True)
 
-        """ pack""" 
+        """ pack config 2: library""" 
         tk.Label(fr_library, text="Library", font=FONT_CONFIG).grid(column=0, row=0, rowspan=len(token_library))
         for row, button_set in enumerate(self.buttons_lib):
             for col, button in enumerate(button_set):
@@ -497,10 +485,6 @@ class Controller:
 
     def step(self):
         self.model.step()
-
-    # def stop_all(self):
-    #     screenshot=pyautogui.screenshot()
-    #     screenshot.save("screenshot.png")
 
 
     def stop(self):
