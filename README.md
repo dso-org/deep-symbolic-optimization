@@ -1,7 +1,5 @@
 # Deep symbolic regression
 
-*Authors: Brenden Petersen*
-
 Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regression--recovering tractable mathematical expressions from an input dataset. The package `dsr` contains the code for DSR, including a single-point, parallelized launch script (`dsr/run.py`), baseline genetic programming-based symbolic regression algorithm, and scripts to reproduce results and figures from the paper.
 
 This code supports the paper [Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients](https://arxiv.org/abs/1912.04871).
@@ -93,7 +91,7 @@ Top-level key "training" specifies the training hyperparameters for DSR. See doc
 
 Top-level key "controller" specifies the RNN controller hyperparameters for DSR. See docs for in `controller.py` for details.
 
-Top-level key "deap" specifies the hyperparameters for GP using `deap`. See docs for `dsr.baselines.deap.GP` for details.
+Top-level key "gp" specifies the hyperparameters for GP. See docs for `dsr.baselines.gspr.GP` for details.
 
 ## Launching runs
 
@@ -126,7 +124,7 @@ python -m dsr.run config.json --b=Nguyen --num_cores=12
 ### Train 2 independent runs of GP on Nguyen-1
 
 ```
-python -m dsr.run config.json --method=deap --b=Nguyen-1 --mc=2 --num_cores=2
+python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --num_cores=2
 ```
 
 ### Train DSR on Nguyen-1 and Nguyen-4
