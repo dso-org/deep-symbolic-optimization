@@ -129,7 +129,7 @@ class GP():
             # Objective function for evaluating constants
             def obj(consts):                
                 for i, const in zip(const_idxs, consts):
-                    individual[i] = Terminal(const, False, object)
+                    individual[i] = gp.Terminal(const, False, object)
                     individual[i].name = "const" # For good measure
                 f = self.toolbox.compile(expr=individual)
                 y_hat = f(*X)
@@ -140,7 +140,7 @@ class GP():
             x0 = np.ones(len(const_idxs))
             optimized_consts = self.const_opt(obj, x0)
             for i, const in zip(const_idxs, optimized_consts):
-                individual[i] = Terminal(const, False, object)
+                individual[i] = gp.Terminal(const, False, object)
                 individual[i].name = "const" # This is necessary to ensure the constant is re-optimized in the next generation
 
         f = self.toolbox.compile(expr=individual)
