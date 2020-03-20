@@ -63,7 +63,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_lmodel, c
     with tf.Session() as sess:        
 
         # Instantiate the controller w/ language model
-        lmodel = LModel(dataset.function_set, dataset.n_input_var, **config_lmodel)
+        lmodel = LModel(dataset.function_set, dataset.n_input_var, **config_lmodel) if config_controller["use_language_model_prior"] else None
         controller = Controller(sess, lmodel, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
 
         # Train the controller

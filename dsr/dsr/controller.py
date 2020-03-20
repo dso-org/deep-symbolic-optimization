@@ -159,7 +159,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, lmodel, debug=0, summary=True,
+    def __init__(self, sess, lmodel=None, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
                  cell='lstm',
@@ -183,6 +183,7 @@ class Controller(object):
                  constrain_min_len=True,
                  constrain_max_len=True,
                  constrain_num_const=False,
+                 use_language_model_prior=True,
                  min_length=2,
                  max_length=30,
                  max_const=None,
@@ -214,6 +215,7 @@ class Controller(object):
         self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
         self.constrain_num_const = constrain_num_const
+        self.use_language_model_prior = use_language_model_prior
         self.min_length = min_length
         self.max_length = max_length
         self.max_const = max_const
@@ -408,7 +410,8 @@ class Controller(object):
                     prior += make_prior(constraints, Program.terminal_tokens, Program.L)
 
                 # Language Model prior
-                prior += self.lmodel.get_lm_prior(action)
+                if self.use_language_model_prior:
+                    prior += self.lmodel.get_lm_prior(action)
 
                 return action, parent, sibling, prior, dangling
 
