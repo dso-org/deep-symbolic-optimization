@@ -21,7 +21,6 @@ class DynRNNLanguageModel(object):
         elif mode == 'predict':
             self.lm_input = self.x[:,:]
             self.seq_len = tf.reduce_sum(tf.sign(self.lm_input), 1)
-        # self.seq_len = tf.reduce_sum(tf.sign(self.lm_input), 1)
 
         self.logits=tf.Variable(2.0, name="logits")
 

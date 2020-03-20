@@ -1,9 +1,4 @@
-"""
-first input??
-try grouping
-"""
-
-# Load lang model
+# Load language model
 
 import os
 import time
@@ -12,7 +7,6 @@ import pickle
 import argparse
 import numpy as np
 import tensorflow as tf
-# from lm_utils import build_dataset_no_eos, batch_iter
 from dsr.language_model.lm_utils import build_dataset_with_eos_padding, batch_iter
 
 from dsr.language_model.model.model_dyn_rnn import DynRNNLanguageModel
@@ -33,8 +27,6 @@ class LModel(object):
         self.lmodel = DynRNNLanguageModel(len(self.lm_token2idx), embedding_size, num_layers, num_hidden, mode='predict')
         self.lsess = self.load_model(saved_lmodel_path)
         self.next_state = None
-
-        # def _state_after_initial():
 
     def load_model(self, saved_lmodel_path):
         sess = tf.compat.v1.Session()
@@ -79,11 +71,7 @@ class LModel(object):
 
             # sharing probability among same tokens (e.g., TERMINAL to multiple variables)
             if self.prob_sharing is True:
-                # A
-                # continue
-                # B
                 logit[:,:,self.lm_token2idx['TERMINAL']] = logit[:,:,self.lm_token2idx['TERMINAL']] - np.log(self.dsr_n_input_var)
-                # C
                 # logit[:,:,self.lm_token2idx['TERMINAL']] = logit[:,:,self.lm_token2idx['TERMINAL']] - np.log((self.dsr_n_input_var-1)*np.exp(logit[:,:,self.lm_token2idx['TERMINAL']])+self.dsr_n_input_var)
 
             prior = logit[0,:,self.dsr2lm]
@@ -108,18 +96,8 @@ class LModel(object):
 ### model test
 def predict(saved_path, predict_data, vocabulary_size, embedding_size=32, num_layers=1, num_hidden=256, batch_size=1):
     with tf.compat.v1.Session() as sess:
-        
-        # if args.model == "rnn":
-        #     model = RNNLanguageModel(vocabulary_size, args)
-        # elif args.model == "birnn":
-        #     model = BiRNNLanguageModel(vocabulary_size, args)
-        # elif args.model == "dynrnn":
-        #     model = DynRNNLanguageModel(vocabulary_size, args)
-        # else:
-        #     raise ValueError("Not Implemented {}.".format(args.model))
 
         model = DynRNNLanguageModel(vocabulary_size, embedding_size, num_layers, num_hidden, mode='predict')
-
 
         # Load model
         saver = tf.train.Saver()
@@ -150,21 +128,12 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=1, help="batch size.")
     parser.add_argument("--num_epochs", type=int, default=30, help="number of epochs.")
 
-    parser.add_argument("--saved_path", type=str, default="/Users/kim102/OneDrive - LLNL/git/equation_language_model/results/dynrnn-(ep_10,la_1,kp_0.5,bs_64)-2001251717/saved_model", help="trained model")
+    parser.add_argument("--saved_path", type=str, default="./model/saved_model", help="trained model")
     args = parser.parse_args()
 
-
-    # log_print(args)
-
     predict_data = np.array([[2,1], [2]])
-    # train_file = "ptb_data/ptb.train.txt"
-    # train_data, test_data = build_dataset(train_file, word_dict)
 
-    # predict_, _, word_dict = build_dataset_no_eos(predict_input=predict_data, test_size=0.01)
     predict_, _, word_dict = build_dataset_with_eos_padding(predict_input=predict_data, test_size=0.01)
     
-    # log_print(predict_.shape)
-
-
     predict(os.path.join(args.saved_path,'saved_model'), predict_, len(word_dict), args.embedding_size, args.num_layers, args.num_hidden, args.batch_size)
     
