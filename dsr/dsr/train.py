@@ -420,7 +420,7 @@ def main():
     config_dataset = config["dataset"]          # Problem specification hyperparameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
-    config_lmodel = config["lmodel"]
+    config_lmodel = config["lmodel"]            # Language model hyperparameters
 
     # Define the dataset and library
     dataset = Dataset(**config_dataset)
@@ -431,7 +431,7 @@ def main():
     with tf.Session() as sess:
         # Instantiate the controller
         lmodel = LModel(dataset.function_set, dataset.n_input_var, **config_lmodel)
-        controller = Controller(sess, lmodel, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], lmodel=lmodel, **config_controller)
         learn(sess, controller, **config_training)
 
 

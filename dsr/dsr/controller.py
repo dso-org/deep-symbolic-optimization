@@ -127,6 +127,13 @@ class Controller(object):
         constrain_num_const=True. If None or constrain_num_const=False,
         expressions may have any number of constants.
 
+    use_language_model_prior : bool
+        Use loaded mathematical language model as prior?
+        If lmodel is None, it will be ignored.
+
+    lmodel: LModel object or None
+        Loaded mathematical language model.
+
     entropy_weight : float
         Coefficient for entropy bonus.
 
@@ -159,7 +166,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, lmodel=None, debug=0, summary=True,
+    def __init__(self, sess, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
                  cell='lstm',
@@ -183,10 +190,12 @@ class Controller(object):
                  constrain_min_len=True,
                  constrain_max_len=True,
                  constrain_num_const=False,
-                 use_language_model_prior=True,
                  min_length=2,
                  max_length=30,
                  max_const=None,
+                 # Language model hyperparameters
+                 use_language_model_prior=False,
+                 lmodel=None,
                  # Loss hyperparameters
                  entropy_weight=0.0,
                  # PPO hyperparameters
@@ -202,7 +211,6 @@ class Controller(object):
                  pqt_use_pg=False):
 
         self.sess = sess
-        self.lmodel = lmodel
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
@@ -215,10 +223,11 @@ class Controller(object):
         self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
         self.constrain_num_const = constrain_num_const
-        self.use_language_model_prior = use_language_model_prior
         self.min_length = min_length
         self.max_length = max_length
         self.max_const = max_const
+        self.use_language_model_prior = use_language_model_prior
+        self.lmodel=lmodel
         self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -262,6 +271,10 @@ class Controller(object):
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
                                              self.constrain_const])
+
+        if self.use_language_model_prior and lmodel is None:
+            print("Warning: use_language_model_prior=True will be ignored because language model is not configured (null).")
+            self.use_languae_model_priot=False
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -410,7 +423,7 @@ class Controller(object):
                     prior += make_prior(constraints, Program.terminal_tokens, Program.L)
 
                 # Language Model prior
-                if self.use_language_model_prior:
+                if self.use_language_model_prior and self.lmodel is not None:
                     prior += self.lmodel.get_lm_prior(action)
 
                 return action, parent, sibling, prior, dangling

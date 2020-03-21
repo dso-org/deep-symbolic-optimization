@@ -63,8 +63,11 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_lmodel, c
     with tf.Session() as sess:        
 
         # Instantiate the controller w/ language model
-        lmodel = LModel(dataset.function_set, dataset.n_input_var, **config_lmodel) if config_controller["use_language_model_prior"] else None
-        controller = Controller(sess, lmodel, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
+        if config_controller["use_language_model_prior"] and config_lmodel is not None:
+            lmodel = LModel(dataset.function_set, dataset.n_input_var, **config_lmodel)
+        else:
+            lmodel = None
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], lmodel=lmodel, **config_controller)
 
         # Train the controller
         result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
@@ -162,7 +165,10 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
+    if "lmodel" in config:
         config_lmodel = config["lmodel"]            # Language model hyperparameters
+    else:
+        config_lmodel = None
     if "gp" in config:
         config_gp = config["gp"]                    # GP hyperparameters
 

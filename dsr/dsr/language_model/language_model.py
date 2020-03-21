@@ -13,7 +13,8 @@ from dsr.language_model.model.model_dyn_rnn import DynRNNLanguageModel
 
 class LModel(object):
     def __init__(self, dsr_function_set, dsr_n_input_var, 
-                saved_lmodel_path, saved_lmodel_lib,
+                saved_lmodel_path="./language_model/model/saved_model", 
+                saved_lmodel_lib="./language_model/model/saved_model/word_dict.pkl",
                 embedding_size=32, num_layers=1, num_hidden=256,
                 prob_sharing=True
                 ):
