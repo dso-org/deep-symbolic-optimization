@@ -12,7 +12,31 @@ from dsr.language_model.lm_utils import build_dataset_with_eos_padding, batch_it
 from dsr.language_model.model.model_dyn_rnn import DynRNNLanguageModel
 
 class LModel(object):
-    def __init__(self, dsr_function_set, dsr_n_input_var, 
+    """
+    Parameters
+    ----------
+    dsr_function_set: list of functions
+        Function set used in main dsr model
+
+    dsr_n_input_var: int
+        Number of variables used in main model
+
+    saved_lmodel_path: str
+        Path to separately trained mathematical language model to use as prior
+
+    saved_lmodel_lib: str
+        Path to token library of mathematical language model
+
+    embedding_size: int
+    num_layers: int
+    num_hidden: int
+        Model architecture of loaded mathematical language model
+
+    prob_sharing: bool
+        Share probabilities among terminal tokens?
+    """
+
+     def __init__(self, dsr_function_set, dsr_n_input_var, 
                 saved_lmodel_path="./language_model/model/saved_model", 
                 saved_lmodel_lib="./language_model/model/saved_model/word_dict.pkl",
                 embedding_size=32, num_layers=1, num_hidden=256,
