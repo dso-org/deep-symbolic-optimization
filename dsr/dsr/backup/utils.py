@@ -2,28 +2,8 @@
 
 import heapq
 import functools
+
 import numpy as np
-# Modules required to run dsp branch
-import gym
-from stable_baselines import DDPG
-from stable_baselines.ddpg.policies import LnMlpPolicy
-
-
-def load_anchor():
-    global model
-
-    model_dir = "model_1M/"
-    model_file = 'ddpg_lunarlander_1200k.zip'
-    env_name = "LunarLanderContinuous-v2"
-    env = gym.make("LunarLanderContinuous-v2") 
-
-    observation = env.reset()
-    action = env.action_space.sample()
-    model = DDPG(LnMlpPolicy, env, verbose=1)
-    model = DDPG.load(model_dir + model_file)
-
-    print("Loaded model {}".format(model_file))
-
 
 class cached_property(object):
     """

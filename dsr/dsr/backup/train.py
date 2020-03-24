@@ -346,21 +346,17 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
                 if p_r_best == p_base_r_best:
                     print("\nNew best overall")
                     p_r_best.print_stats()
-                    p_r_best.post_anal(step)
                 else:
                     print("\nNew best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
                     p_base_r_best.print_stats()
-                   
             elif new_r_best:
                 print("\nNew best reward")
                 p_r_best.print_stats()
-                p_r_best.post_anal(step)
             elif new_base_r_best:
                 print("\nNew best base reward")
                 p_base_r_best.print_stats()
-                p_r_best.post_anal(step)
 
         # Early stopping
         if early_stopping and p_base_r_best.nmse < threshold:

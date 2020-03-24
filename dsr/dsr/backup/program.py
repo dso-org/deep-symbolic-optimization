@@ -9,20 +9,6 @@ from sympy import pretty
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-import utils as U
-U.load_anchor()
-
-import gym
-from monitor import Monitor
-import stable_baselines
-from stable_baselines.ddpg.policies import LnMlpPolicy
-from stable_baselines.bench import Monitor
-from stable_baselines.results_plotter import load_results, ts2xy
-from stable_baselines import DDPG
-from stable_baselines.ddpg import AdaptiveParamNoiseSpec
-from stable_baselines import results_plotter
-
-
 
 
 def from_tokens(tokens, optimize):
@@ -95,8 +81,8 @@ class Program(object):
         str ("const")) encoding the pre-order traversal of the expression tree.
 
     tokens : np.ndarry (dtype: int)
-        Array of integers whose values correspond to indices
-
+        Array of integers whose values correspond to indices 
+        
     const_pos : list of int
         A list of indicies of constant placeholders along the traversal.
 
@@ -133,7 +119,7 @@ class Program(object):
     cache = {}
 
     # Additional derived static variables
-    L = None                # Length of library
+    L = None                # Length of library    
     terminal_tokens = None  # Tokens corresponding to terminals
     unary_tokens = None     # Tokens corresponding to unary operators
     binary_tokens = None    # Tokens corresponding to binary operators
@@ -142,13 +128,6 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
 
-    # DSP related static variables
-    env_name = "LunarLanderContinuous-v2" # if it is None: dsr
-    if env_name != None:
-        env = gym.make(env_name)
-        dim_of_state = env.observation_space.shape[0] # TO DO: We should move this to config.json later
-        num_of_episode_train = 5
-        num_of_episode_test = 100
 
     def __init__(self, tokens, optimize):
         """
@@ -172,7 +151,7 @@ class Program(object):
         X : array-like, shape = [n_samples, n_features]
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
-
+        
         Returns
         -------
         y_hats : array-like, shape = [n_samples]
@@ -213,7 +192,7 @@ class Program(object):
         assert False, "Function should never get here!"
         return None
 
-
+    
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -237,7 +216,7 @@ class Program(object):
             y_hat = self.execute(Program.X_train)
             obj = np.mean((Program.y_train - y_hat)**2)
             return obj
-
+        
         if len(self.const_pos) > 0:
             # Do the optimization
             x0 = np.ones(len(self.const_pos)) # Initial guess
@@ -286,109 +265,69 @@ class Program(object):
         Program.const_optimizer = const_optimizer
 
 
-
-
     @classmethod
     def set_reward_function(cls, name, *params):
         """Sets the class' reward function"""
 
-        # dsr reward function
-        def dsr(p):
-            if "nmse" in name or "nrmse" in name:
-                var_y = np.var(Program.y_train)
+        if "nmse" in name or "nrmse" in name:
+            var_y = np.var(Program.y_train)
 
+        all_functions = {
+            # Negative mean squared error
+            # Range: [-inf, 0]
+            # Value = -var(y) when y_hat == mean(y)
+            "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
+                            0),
 
-            all_functions = {
-                # Negative mean squared error
-                # Range: [-inf, 0]
-                # Value = -var(y) when y_hat == mean(y)
-                "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
-                                0),
+            # Negative normalized mean squared error
+            # Range: [-inf, 0]
+            # Value = -1 when y_hat == mean(y)
+            "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
+                            0),
 
-                # Negative normalized mean squared error
-                # Range: [-inf, 0]
-                # Value = -1 when y_hat == mean(y)
-                "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
-                                0),
+            # Negative normalized root mean squared error
+            # Range: [-inf, 0]
+            # Value = -1 when y_hat == mean(y)
+            "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
+                            0),
 
-                # Negative normalized root mean squared error
-                # Range: [-inf, 0]
-                # Value = -1 when y_hat == mean(y)
-                "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
-                                0),
+            # (Protected) inverse mean squared error
+            # Range: [0, 1]
+            # Value = 1/(1 + var(y)) when y_hat == mean(y)
+            "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
+                            0),
 
-                # (Protected) inverse mean squared error
-                # Range: [0, 1]
-                # Value = 1/(1 + var(y)) when y_hat == mean(y)
-                "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
-                                0),
+            # (Protected) inverse normalized mean squared error
+            # Range: [0, 1]
+            # Value = 0.5 when y_hat == mean(y)
+            "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
+                            0),
 
-                # (Protected) inverse normalized mean squared error
-                # Range: [0, 1]
-                # Value = 0.5 when y_hat == mean(y)
-                "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
-                                0),
+            # (Protected) inverse normalized root mean squared error
+            # Range: [0, 1]
+            # Value = 0.5 when y_hat == mean(y)
+            "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
+                            0),
 
-                # (Protected) inverse normalized root mean squared error
-                # Range: [0, 1]
-                # Value = 0.5 when y_hat == mean(y)
-                "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
-                                0),
+            # Fraction of predicted points within p0*abs(y) + p1 band of the true value
+            # Range: [0, 1]
+            "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
+                            2),
 
-                # Fraction of predicted points within p0*abs(y) + p1 band of the true value
-                # Range: [0, 1]
-                "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
-                                2),
+            # Pearson correlation coefficient
+            # Range: [0, 1]
+            "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
+                            0),
 
-                # Pearson correlation coefficient
-                # Range: [0, 1]
-                "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
-                                0),
+            # Spearman correlation coefficient
+            # Range: [0, 1]
+            "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
+                            0)
+        }
 
-                # Spearman correlation coefficient
-                # Range: [0, 1]
-                "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
-                                0)
-
-            }
-
-            assert name in all_functions, "Unrecognized reward function name"
-            assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
-
-            return all_functions[name][0]
-
-
-        #dsp rewaard
-        def dsp(p):
-            """GYM: Set one episdoe per one program"""
-            r = 0
-            for i in range(p.num_of_episode_train):
-                base_reward = 0
-                gym_states =  p.env.reset()
-                done = False
-                for j in range(1000):
-                    action, _states = U.model.predict(gym_states)
-                    action_0 = p.execute(np.asarray([gym_states]))[0]
-                    action_1 = action[1]
-                    gym_action = np.asarray([action_0, action_1], dtype=np.float32)
-                    gym_states, r, done, info =  p.env.step(gym_action) # Do it multiples
-                    base_reward+=r
-                    if done:
-                        break
-                p.env.close()
-                r= r+base_reward
-            r =  r /float(p.num_of_episode_train)
-            return r
-
-        #reward
-        if Program.env_name != None:
-            Program.reward_function = dsp
-        else:
-            Program.reward_function = dsr
-
-
-
-
+        assert name in all_functions, "Unrecognized reward function name"
+        assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
+        Program.reward_function = all_functions[name][0]
 
 
     @classmethod
@@ -404,7 +343,7 @@ class Program(object):
         }
 
         assert name in all_functions, "Unrecognzied complexity penalty name"
-
+        
         if weight == 0:
             Program.complexity_penalty = lambda p : 0.0
         else:
@@ -418,11 +357,6 @@ class Program(object):
         # Add input variables
         Program.library = list(range(n_input_var))
         Program.arities = [0] * n_input_var
-
-        # set input variable in case of dsp
-        if Program.env_name != None:
-            n_input_var = Program.dim_of_state
-
 
         # Add operators
         operators = [op.lower() if isinstance(op, str) else op for op in operators]
@@ -498,49 +432,43 @@ class Program(object):
     def base_r(self):
         """Evaluates and returns the base reward of the program on the training
         set"""
-        if Program.env_name != None: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_train)
-            return Program.reward_function(self)(Program.y_train, y_hat)
+
+        y_hat = self.execute(Program.X_train)
+        return Program.reward_function(Program.y_train, y_hat)
+
 
     @cached_property
     def base_r_test(self):
         """Evaluates and returns the base reward of the program on the test
         set"""
-        if Program.env_name != None: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_test)
-            return Program.reward_function(self)(Program.y_test, y_hat)
+
+        y_hat = self.execute(Program.X_test)
+        return Program.reward_function(Program.y_test, y_hat)
 
 
     @cached_property
     def base_r_noiseless(self):
         """Evaluates and returns the base reward of the program on the noiseless
         training set"""
-        if Program.env_name != None: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_train)
-            return Program.reward_function(self)(Program.y_train_noiseless, y_hat)
+
+        y_hat = self.execute(Program.X_train)
+        return Program.reward_function(Program.y_train_noiseless, y_hat)
 
 
     @cached_property
     def base_r_test_noiseless(self):
         """Evaluates and returns the base reward of the program on the noiseless
         test set"""
-        if Program.env_name != None: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_test)
-            return Program.reward_function(self)(Program.y_test_noiseless, y_hat)
+
+        y_hat = self.execute(Program.X_test)
+        return Program.reward_function(Program.y_test_noiseless, y_hat)
 
 
     @cached_property
     def r(self):
         """Evaluates and returns the reward of the program on the training
         set"""
+
         return self.base_r - self.complexity
 
 
@@ -609,71 +537,7 @@ class Program(object):
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
 
-
-
-
     
-    def post_anal(self, step_num):
-        """GYM: Set one episdoe per one program"""
-        from gym import Wrapper
-        gym_states =  Program.env.reset()
-        num_of_suc = 0
-        step_in = 0
-        r = 0
-        done = False
-        f_stat = open("./dsp_best_expression/output_stat_"+str(step_num)+".txt", 'w+')
-
-        for i in range(Program.num_of_episode_test):
-            found_ans = 0
-            base_reward = 0
-            sum_of_reward = 0
-            # one episode
-            while(step_in < 1001): #if it survive for 1000 times, it means succeed.
-                action, _states = U.model.predict(gym_states)
-                action_0_gt = action[0]
-                action_1 = action[1]
-                action_0 = self.execute(np.asarray([gym_states]))
-                gym_action = np.asarray([action_0[0], action_1], dtype=np.float32)
-                gym_states, r, done, info =  env.step(gym_action) # Do it multiples
-                step_in +=1
-                base_reward += r
-                if (base_reward>200.0 or base_reward ==200 ) and (found_ans ==0) : #found solution
-                    found_ans = step_in
-                    f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(base_reward))+"\n")
-                    print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(base_reward)))
-                    num_of_suc = num_of_suc + 1
-                    env.reset()
-                if  done==True:
-                    print("\tFailed at " + str(step_in) +" th  steps, sum of reward per episode reward : "+ str(float(base_reward))+"\n")
-                    env.reset()
-                    break
-            sum_of_reward =  sum_of_reward + base_reward
-            env.close()
-        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
-        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
-        #print stat as well
-        print("\tReward: {}".format(self.r))
-        print("\tBase reward: {}".format(self.base_r))
-        print("\tCount: {}".format(self.count))
-        print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        f_stat.write("\nReward: {}".format(self.r))
-        f_stat.write("\nBase reward: {}".format(self.base_r))
-        f_stat.write("\nCount: {}".format(self.count))
-        f_stat.write("\nTraversal: {}".format(self))
-        f_stat.write("\nExpression:")
-        equations = self.pretty()
-        count = 1
-        for equ in equations:
-            print("Action "+str(count)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-            f_stat.write("\nAction "+str(count)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-            count +=1
-        f_stat.close()
-
-
-
-
-
     def __repr__(self):
         """Prints the program's traversal"""
 
@@ -713,7 +577,7 @@ def build_tree(traversal, order="preorder"):
             val = op.name
             if val in capital:
                 val = val.capitalize()
-            n_children = op.arity
+            n_children = op.arity            
         elif isinstance(op, int):
             val = "x{}".format(op + 1)
             n_children = 0
