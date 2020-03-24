@@ -2,6 +2,7 @@
 
 from textwrap import indent
 
+import os
 import numpy as np
 from numba import jit
 from sympy.parsing.sympy_parser import parse_expr
@@ -11,7 +12,7 @@ import array
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-from .         import cyfunc
+
 
 def from_tokens(tokens, optimize):
     """
@@ -130,32 +131,33 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     arities_numba = None    # Numba Dict of token to arity
     parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
+    have_cython = None      # Do we have cython installed
+    execute = None          # link to execute. Either cython or python
+    cyfunc  = None
         
     def __init__(self, tokens, optimize):
         """
         Builds the program from a list of tokens, optimizes the constants
         against training data, and evalutes the reward.
         """
-
+    
         self.traversal      = [Program.library[t] for t in tokens]
-        self.new_traversal  = [Program.library[t] for t in tokens]
-        self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
-        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]     
-        self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
-                
-        self.len_traversal  = len(self.traversal)
+        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]  
         
-        assert(self.len_traversal > 1)
+        if self.have_cython:
+            self.new_traversal  = [Program.library[t] for t in tokens]
+            self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
+            self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
+            self.len_traversal  = len(self.traversal)
+            assert(self.len_traversal > 1)
         
         self.tokens = tokens
         if optimize:
             _ = self.optimize()
         self.count = 1
-    
-       
-    def execute(self, X):
-                
-        """Executes the program according to X.
+        
+    def cython_execute(self, X):
+        """Executes the program according to X using Cython.
 
         Parameters
         ----------
@@ -169,8 +171,57 @@ class Program(object):
             The result of executing the program on X.
         """
         
-        return cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos, self.is_function)
+        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos, self.is_function)
+    
+    def python_execute(self, X):
+        """Executes the program according to X using Python.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
         
+        Returns
+        -------
+        y_hats : array-like, shape = [n_samples]
+            The result of executing the program on X.
+        """
+
+        # Check for single-node programs
+        node = self.traversal[0]
+        if isinstance(node, float):
+            return np.repeat(node, X.shape[0])
+        if isinstance(node, int):
+            return X[:, node]
+
+        apply_stack = []
+
+        for node in self.traversal:
+
+            if isinstance(node, _Function):
+                apply_stack.append([node])
+            else:
+                # Lazily evaluate later
+                apply_stack[-1].append(node)
+
+            while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+                # Apply functions that have sufficient arguments
+                function = apply_stack[-1][0]
+                terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
+                             else X[:, t] if isinstance(t, int)
+                             else t for t in apply_stack[-1][1:]]
+                intermediate_result = function(*terminals)
+                if len(apply_stack) != 1:
+                    apply_stack.pop()
+                    apply_stack[-1].append(intermediate_result)
+                else:
+                    return intermediate_result
+
+        # We should never get here
+        assert False, "Function should never get here!"
+        return None    
+    
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -326,6 +377,24 @@ class Program(object):
         else:
             Program.complexity_penalty = lambda p : weight * all_functions[name](p)
 
+    @classmethod
+    def set_execute(cls):
+        """Sets which execute method to use"""
+        
+        """
+        If cython ran, we will have a 'c' file generated. The dynamic libary can be 
+        given different names, so it's not reliable for testing if cython ran.
+        """
+        cpath = os.path.join(os.path.dirname(__file__),'cyfunc.c')
+        
+        if os.path.isfile(cpath):
+            from .         import cyfunc
+            Program.cyfunc          = cyfunc
+            Program.execute         = Program.cython_execute
+            Program.have_cython     = True
+        else:
+            Program.execute         = Program.python_execute
+            Program.have_cython     = False
 
     @classmethod
     def set_library(cls, operators, n_input_var):
