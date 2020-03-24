@@ -49,7 +49,7 @@
       "constrain_min_len": true,
       "constrain_max_len": true,
       "constrain_num_const": false,
-      "use_language_model_prior": true,
+      "use_language_model_prior": false,
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,

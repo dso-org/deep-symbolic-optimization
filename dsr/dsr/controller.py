@@ -672,6 +672,10 @@ class Controller(object):
 
     def sample(self, n):
         """Sample batch of n expressions"""
+        
+        # initialize lmodel
+        if self.use_language_model_prior and self.lmodel is not None:
+            self.lmodel.next_state = None
 
         feed_dict = {self.batch_size : n}
 
