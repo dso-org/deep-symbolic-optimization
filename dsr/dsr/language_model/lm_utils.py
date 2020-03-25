@@ -8,7 +8,7 @@ MAX = 31
 
 data_token_library={
     '<end>':0,
-    'TERMINAL':1, #symbol, integer
+    'TERMINAL':1, #symbols, constants
     'add':2,
     'sub':3,
     'mul':4,

@@ -5,3 +5,4 @@ sympy
 pandas
 click
 -e dsr
+scikit-learn

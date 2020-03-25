@@ -274,7 +274,7 @@ class Controller(object):
 
         if self.use_language_model_prior and lmodel is None:
             print("Warning: use_language_model_prior=True will be ignored because language model is not configured (null).")
-            self.use_languae_model_priot=False
+            self.use_languae_model_prior = False
 
         # Build controller RNN
         with tf.name_scope("controller"):
