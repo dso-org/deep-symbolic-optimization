@@ -52,6 +52,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     Program.clear_cache()
     Program.set_training_data(dataset)
     Program.set_library(dataset.function_set, dataset.n_input_var)
+    Program.set_execute()
         
     tf.reset_default_graph()
 

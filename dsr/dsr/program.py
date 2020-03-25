@@ -5,6 +5,8 @@ from textwrap import indent
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
+import array
+import os
 
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
@@ -117,7 +119,7 @@ class Program(object):
     y_test_noiseless = None
     var_y_test = None
     cache = {}
-
+    
     # Additional derived static variables
     L = None                # Length of library    
     terminal_tokens = None  # Tokens corresponding to terminals
@@ -126,25 +128,53 @@ class Program(object):
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
-    parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
-
-
+    parent_adjust = None    # np.ndarray to transform library key to non-terminal sub-library key
+    have_cython = None      # Do we have cython installed
+    execute = None          # Link to execute. Either cython or python
+    cyfunc = None           # Link to cyfunc lib since we do an include inline
+        
     def __init__(self, tokens, optimize):
         """
         Builds the program from a list of tokens, optimizes the constants
         against training data, and evalutes the reward.
         """
-
-        self.traversal = [Program.library[t] for t in tokens]
-        self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token]
+    
+        self.traversal      = [Program.library[t] for t in tokens]
+        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]  
+        
+        if self.have_cython:
+            self.new_traversal  = [Program.library[t] for t in tokens]
+            self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
+            self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
+            self.len_traversal  = len(self.traversal)
+            assert self.len_traversal > 1, "Single token instances not supported"
+        
         self.tokens = tokens
         if optimize:
             _ = self.optimize()
         self.count = 1
+        
+        
+    def cython_execute(self, X):
+        """Executes the program according to X using Cython.
 
-
-    def execute(self, X):
-        """Executes the program according to X.
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        
+        Returns
+        -------
+        y_hats : array-like, shape = [n_samples]
+            The result of executing the program on X.
+        """
+        
+        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.var_pos, self.is_function)
+    
+    
+    def python_execute(self, X):
+        """Executes the program according to X using Python.
 
         Parameters
         ----------
@@ -190,8 +220,8 @@ class Program(object):
 
         # We should never get here
         assert False, "Function should never get here!"
-        return None
-
+        return None    
+    
     
     def optimize(self):
         """
@@ -217,6 +247,8 @@ class Program(object):
             obj = np.mean((Program.y_train - y_hat)**2)
             return obj
         
+        assert self.execute is not None, "set_execute needs to be called first"
+        
         if len(self.const_pos) > 0:
             # Do the optimization
             x0 = np.ones(len(self.const_pos)) # Initial guess
@@ -228,7 +260,6 @@ class Program(object):
             optimized_constants = []
 
         return optimized_constants
-
 
     def set_constants(self, consts):
         """Sets the program's constants to the given values"""
@@ -348,6 +379,26 @@ class Program(object):
             Program.complexity_penalty = lambda p : 0.0
         else:
             Program.complexity_penalty = lambda p : weight * all_functions[name](p)
+
+
+    @classmethod
+    def set_execute(cls):
+        """Sets which execute method to use"""
+        
+        """
+        If cython ran, we will have a 'c' file generated. The dynamic libary can be 
+        given different names, so it's not reliable for testing if cython ran.
+        """
+        cpath = os.path.join(os.path.dirname(__file__),'cyfunc.c')
+        
+        if os.path.isfile(cpath):
+            from .                  import cyfunc
+            Program.cyfunc          = cyfunc
+            Program.execute         = Program.cython_execute
+            Program.have_cython     = True
+        else:
+            Program.execute         = Program.python_execute
+            Program.have_cython     = False
 
 
     @classmethod
