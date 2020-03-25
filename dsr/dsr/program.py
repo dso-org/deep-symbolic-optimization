@@ -142,13 +142,13 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
 
-    # DSP related static variables
-    env_name = "LunarLanderContinuous-v2" # if it is None: dsr
-    if env_name != None:
-        env = gym.make(env_name)
-        dim_of_state = env.observation_space.shape[0] # TO DO: We should move this to config.json later
-        num_of_episode_train = 5
-        num_of_episode_test = 100
+#    # DSP related static variables
+#    env_name = "LunarLanderContinuous-v2" # if it is None: dsr
+#    if env_name != None:
+#        env = gym.make(env_name)
+#        dim_of_state = env.observation_space.shape[0] # TO DO: We should move this to config.json later
+#        num_of_episode_train = 5
+#        num_of_episode_test = 100
 
     def __init__(self, tokens, optimize):
         """
@@ -287,6 +287,20 @@ class Program(object):
 
 
 
+    @classmethod
+    def set_env_params(cls, config):
+        """Sets the class' environment parameters"""
+        params = config['env_params']
+        Program.env_name = params['env_name']
+        Program.env = gym.make(Program.env_name)
+        Program.dim_of_state = Program.env.observation_space.shape[0]
+        Program.anchor = params['anchor']
+        Program.actions = params['actions']
+        Program.num_of_episode_test = params['num_of_episode_test']
+        Program.num_of_episode_train = params['num_of_episode_train']
+        Program.dsp_function_lib = params['dsp_function_lib']
+        Program.success_score = params['success_score']
+
 
     @classmethod
     def set_reward_function(cls, name, *params):
@@ -364,19 +378,29 @@ class Program(object):
             r = 0
             for i in range(p.num_of_episode_train):
                 base_reward = 0
-                gym_states =  p.env.reset()
+                gym_states = p.env.reset()
                 done = False
                 for j in range(1000):
                     action, _states = U.model.predict(gym_states)
-                    action_0 = p.execute(np.asarray([gym_states]))[0]
-                    action_1 = action[1]
-                    gym_action = np.asarray([action_0, action_1], dtype=np.float32)
-                    gym_states, r, done, info =  p.env.step(gym_action) # Do it multiples
-                    base_reward+=r
+                    actions = [0 for i in range(len(p.actions))]
+                    for k in range(len(p.actions)):
+                        key = "action_"+str(k)
+                        if p.actions[key] is None: # learning with rl
+                            actions[k] = p.execute(np.asarray([gym_states]))[0]
+                        elif p.actions[key] == "anchor":  # get action from anchor model
+                            actions[k] = action[k]
+                        else: # get traverse of token as action
+                            tokens = p.actions[k]
+                            tokens = Program.convert(tokens)
+                            p0 = from_tokens(tokens, 1, [i for i in range(len(tokens)) ], optimize=False)
+                            actions[k] = p0.execute(np.asarray([gym_states]))[0]
+                    actions = np.asarray(actions, dtype=np.float32)
+                    gym_states, r, done, info =  p.env.step(actions)
+                    base_reward += r
                     if done:
                         break
                 p.env.close()
-                r= r+base_reward
+                r = r + base_reward
             r =  r /float(p.num_of_episode_train)
             return r
 
@@ -419,13 +443,12 @@ class Program(object):
         Program.library = list(range(n_input_var))
         Program.arities = [0] * n_input_var
 
-        # set input variable in case of dsp
-        if Program.env_name != None:
+        if Program.env_name is not None: #dsp
             n_input_var = Program.dim_of_state
+            operators = Program.dsp_function_lib
+        else: #dsr
+            operators = [op.lower() if isinstance(op, str) else op for op in operators]
 
-
-        # Add operators
-        operators = [op.lower() if isinstance(op, str) else op for op in operators]
         for i, op in enumerate(operators):
 
             # Function
@@ -503,6 +526,7 @@ class Program(object):
         else:  #dsr
             y_hat = self.execute(Program.X_train)
             return Program.reward_function(self)(Program.y_train, y_hat)
+
 
     @cached_property
     def base_r_test(self):
@@ -612,43 +636,64 @@ class Program(object):
 
 
 
-    
+
     def post_anal(self, step_num):
-        """GYM: Set one episdoe per one program"""
+        """Evaluate learned symbolic policy in current program.
+        We repeat episodes as num_of_episode_test times,
+        and calculate rate of success.
+        The evaluation results including learned simbolic policy and success rate
+        is printed as output file.
+
+        Parameters
+        ----------
+        step_num : integer
+            Current training step to evaluate.
+
+        """
         from gym import Wrapper
         gym_states =  Program.env.reset()
         num_of_suc = 0
         step_in = 0
         r = 0
         done = False
-        f_stat = open("./dsp_best_expression/output_stat_"+str(step_num)+".txt", 'w+')
+        f_stat = open("./dsp_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
 
         for i in range(Program.num_of_episode_test):
-            found_ans = 0
+            found_ans = False
             base_reward = 0
             sum_of_reward = 0
-            # one episode
-            while(step_in < 1001): #if it survive for 1000 times, it means succeed.
+            while not done:  # one episode
                 action, _states = U.model.predict(gym_states)
-                action_0_gt = action[0]
-                action_1 = action[1]
-                action_0 = self.execute(np.asarray([gym_states]))
-                gym_action = np.asarray([action_0[0], action_1], dtype=np.float32)
-                gym_states, r, done, info =  env.step(gym_action) # Do it multiples
-                step_in +=1
+                actions = [0 for i in range(len(Program.actions))]
+                for k in range(len(Program.actions)):
+                    key = "action_"+str(k)
+                    if Program.actions[key] is None: # learning with rl
+                        actions[k] = Program.execute(np.asarray([gym_states]))[0]
+                        action_number = k
+                    elif Program.actions[key] == "anchor":  # get action from anchor model
+                        actions[k] = action[k]
+                    else: # get traverse of token as action
+                        tokens = Program.actions[k]
+                        tokens = Program.convert(tokens)
+                        p0 = from_tokens(tokens, 1, [i for i in range(len(tokens)) ], optimize=False)
+                        actions[k] = p0.execute(np.asarray([gym_states]))[0]
+                actions = np.asarray(actions, dtype=np.float32)
+                gym_states, r, done, info =  Program.env.step(actions)
                 base_reward += r
-                if (base_reward>200.0 or base_reward ==200 ) and (found_ans ==0) : #found solution
-                    found_ans = step_in
+                step_in += 1
+                base_reward += r
+                if (base_reward > Program.success_score or base_reward == Program.success_score ) and (found_ans is False) : #found solution
+                    found_ans = True
                     f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(base_reward))+"\n")
                     print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(base_reward)))
                     num_of_suc = num_of_suc + 1
-                    env.reset()
-                if  done==True:
-                    print("\tFailed at " + str(step_in) +" th  steps, sum of reward per episode reward : "+ str(float(base_reward))+"\n")
-                    env.reset()
+                    Program.env.reset()
                     break
+            if base_reward < Program.success_score:
+                print("\tFailed at " + str(step_in) +" th  steps, sum of reward per episode reward : "+ str(float(base_reward))+"\n")
+                Program.env.reset()
             sum_of_reward =  sum_of_reward + base_reward
-            env.close()
+
         print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
         f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
         #print stat as well
@@ -663,11 +708,9 @@ class Program(object):
         f_stat.write("\nTraversal: {}".format(self))
         f_stat.write("\nExpression:")
         equations = self.pretty()
-        count = 1
         for equ in equations:
-            print("Action "+str(count)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-            f_stat.write("\nAction "+str(count)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-            count +=1
+            print(" Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
+            f_stat.write("\n Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
         f_stat.close()
 
 
