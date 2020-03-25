@@ -3,7 +3,6 @@
 from textwrap import indent
 
 import numpy as np
-from numba import jit
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import array
@@ -129,7 +128,7 @@ class Program(object):
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
-    parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
+    parent_adjust = None    # np.ndarray to transform library key to non-terminal sub-library key
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
@@ -247,6 +246,8 @@ class Program(object):
             y_hat = self.execute(Program.X_train)
             obj = np.mean((Program.y_train - y_hat)**2)
             return obj
+        
+        assert self.execute is not None, "set_execute needs to be called first"
         
         if len(self.const_pos) > 0:
             # Do the optimization
