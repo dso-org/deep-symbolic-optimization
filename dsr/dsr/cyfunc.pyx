@@ -78,7 +78,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
         while stack_count[sp] == arity:
             intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) #>>> 85% of overhead
 
-            # I think we can get rid of this line ...
+            # I think we can get rid of this line, but will require a major rewrite.
             if sp == 0:
                 return intermediate_result
             
