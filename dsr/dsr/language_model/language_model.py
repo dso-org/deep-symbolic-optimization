@@ -105,13 +105,12 @@ class LModel(object):
 
             return prior
 
-        feed_dict = {self.lmodel.x: _prep(next_input), self.lmodel.keep_prob: 1.0}
-        
+        # set feed_dict
         if self.next_state is None: # first input 
             """For dynamic_rnn, not passing lmodel.initial_state == passing zero_state.
                Here, explicitly pass zero_state"""
             self.next_state = np.atleast_2d(self._zero_state) # initialize the cell
-        feed_dict.update({self.lmodel.initial_state: self.next_state})
+        feed_dict = {self.lmodel.x: _prep(next_input), self.lmodel.keep_prob: 1.0, self.lmodel.initial_state: self.next_state}
 
         self.next_state, lm_logit = self.lsess.run([self.lmodel.last_state, self.lmodel.logits], feed_dict=feed_dict)
         
