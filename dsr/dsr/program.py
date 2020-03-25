@@ -2,12 +2,12 @@
 
 from textwrap import indent
 
-import os
 import numpy as np
 from numba import jit
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import array
+import os
 
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
@@ -129,11 +129,10 @@ class Program(object):
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
-    arities_numba = None    # Numba Dict of token to arity
     parent_adjust = None    # Numba Dict to transform library key to non-terminal sub-library key
     have_cython = None      # Do we have cython installed
-    execute = None          # link to execute. Either cython or python
-    cyfunc  = None
+    execute = None          # Link to execute. Either cython or python
+    cyfunc = None           # Link to cyfunc lib since we do an include inline
         
     def __init__(self, tokens, optimize):
         """
@@ -147,14 +146,15 @@ class Program(object):
         if self.have_cython:
             self.new_traversal  = [Program.library[t] for t in tokens]
             self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
-            self.int_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
+            self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
             self.len_traversal  = len(self.traversal)
-            assert(self.len_traversal > 1)
+            assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
         if optimize:
             _ = self.optimize()
         self.count = 1
+        
         
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
@@ -171,7 +171,8 @@ class Program(object):
             The result of executing the program on X.
         """
         
-        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.int_pos, self.is_function)
+        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.var_pos, self.is_function)
+    
     
     def python_execute(self, X):
         """Executes the program according to X using Python.
@@ -221,6 +222,7 @@ class Program(object):
         # We should never get here
         assert False, "Function should never get here!"
         return None    
+    
     
     def optimize(self):
         """
@@ -377,6 +379,7 @@ class Program(object):
         else:
             Program.complexity_penalty = lambda p : weight * all_functions[name](p)
 
+
     @classmethod
     def set_execute(cls):
         """Sets which execute method to use"""
@@ -388,13 +391,14 @@ class Program(object):
         cpath = os.path.join(os.path.dirname(__file__),'cyfunc.c')
         
         if os.path.isfile(cpath):
-            from .         import cyfunc
+            from .                  import cyfunc
             Program.cyfunc          = cyfunc
             Program.execute         = Program.cython_execute
             Program.have_cython     = True
         else:
             Program.execute         = Program.python_execute
             Program.have_cython     = False
+
 
     @classmethod
     def set_library(cls, operators, n_input_var):

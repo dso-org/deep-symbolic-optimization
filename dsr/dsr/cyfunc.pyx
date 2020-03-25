@@ -21,7 +21,7 @@ cdef int *stack_count   = <int *> malloc(1024 * sizeof(int))
 
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function  
-def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal, list const_pos, list int_pos, int[:] is_function):    
+def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal, list const_pos, list var_pos, int[:] is_function):    
             
     """Executes the program according to X.
 
@@ -53,7 +53,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     for n in const_pos:
         new_traversal[n] = np.repeat(traversal[n], Xs) #>>> 5% of overhead
         
-    for n in int_pos:
+    for n in var_pos:
         new_traversal[n] = X[:, traversal[n]] 
                    
     for i in range(len_traversal):
