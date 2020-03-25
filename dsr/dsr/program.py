@@ -10,7 +10,6 @@ from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import utils as U
-U.load_anchor()
 
 import gym
 from monitor import Monitor
@@ -296,10 +295,19 @@ class Program(object):
         Program.dim_of_state = Program.env.observation_space.shape[0]
         Program.anchor = params['anchor']
         Program.actions = params['actions']
+        for k in range(len(Program.actions)):
+            key = "action_"+str(k)
+            # convert toekn item as program instance
+            if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
+                tokens = Program.actions[key]
+                tokens = Program.convert(tokens)
+                p0 = from_tokens(tokens, 1, [i for i in range(len(tokens)) ], optimize=False)
+                Program.actions[key] = p0
         Program.num_of_episode_test = params['num_of_episode_test']
         Program.num_of_episode_train = params['num_of_episode_train']
         Program.dsp_function_lib = params['dsp_function_lib']
         Program.success_score = params['success_score']
+        U.load_anchor( Program.anchor, Program.env_name )
 
 
     @classmethod
@@ -372,7 +380,7 @@ class Program(object):
             return all_functions[name][0]
 
 
-        #dsp rewaard
+        #dsp reward
         def dsp(p):
             """GYM: Set one episdoe per one program"""
             r = 0
@@ -381,21 +389,19 @@ class Program(object):
                 gym_states = p.env.reset()
                 done = False
                 for j in range(1000):
-                    action, _states = U.model.predict(gym_states)
-                    actions = [0 for i in range(len(p.actions))]
+                    action_model, _states = U.model.predict(gym_states)
+                    action_dsp = [0 for i in range(len(p.actions))]
                     for k in range(len(p.actions)):
                         key = "action_"+str(k)
                         if p.actions[key] is None: # learning with rl
-                            actions[k] = p.execute(np.asarray([gym_states]))[0]
+                            action_dsp[k] = p.execute(np.asarray([gym_states]))[0]
                         elif p.actions[key] == "anchor":  # get action from anchor model
-                            actions[k] = action[k]
+                            action_dsp[k] = action_model[k]
                         else: # get traverse of token as action
-                            tokens = p.actions[k]
-                            tokens = Program.convert(tokens)
-                            p0 = from_tokens(tokens, 1, [i for i in range(len(tokens)) ], optimize=False)
-                            actions[k] = p0.execute(np.asarray([gym_states]))[0]
-                    actions = np.asarray(actions, dtype=np.float32)
-                    gym_states, r, done, info =  p.env.step(actions)
+                            p0 = p.actions[key]
+                            action_dsp[k] = p0.execute(np.asarray([gym_states]))[0]
+                    action_dsp = np.asarray(action_dsp, dtype=np.float32)
+                    gym_states, r, done, info =  p.env.step(action_dsp)
                     base_reward += r
                     if done:
                         break
@@ -663,22 +669,20 @@ class Program(object):
             base_reward = 0
             sum_of_reward = 0
             while not done:  # one episode
-                action, _states = U.model.predict(gym_states)
-                actions = [0 for i in range(len(Program.actions))]
+                action_model, _states = U.model.predict(gym_states)
+                action_dsp = [0 for i in range(len(Program.actions))]
                 for k in range(len(Program.actions)):
                     key = "action_"+str(k)
                     if Program.actions[key] is None: # learning with rl
-                        actions[k] = Program.execute(np.asarray([gym_states]))[0]
+                        action_dsp[k] = Program.execute(np.asarray([gym_states]))[0]
                         action_number = k
                     elif Program.actions[key] == "anchor":  # get action from anchor model
-                        actions[k] = action[k]
+                        action_dsp[k] = action_model[k]
                     else: # get traverse of token as action
-                        tokens = Program.actions[k]
-                        tokens = Program.convert(tokens)
-                        p0 = from_tokens(tokens, 1, [i for i in range(len(tokens)) ], optimize=False)
-                        actions[k] = p0.execute(np.asarray([gym_states]))[0]
-                actions = np.asarray(actions, dtype=np.float32)
-                gym_states, r, done, info =  Program.env.step(actions)
+                        p0 = Program.actions[key]
+                        action_dsp[k] = p0.execute(np.asarray([gym_states]))[0]
+                action_dsp = np.asarray(action_dsp, dtype=np.float32)
+                gym_states, r, done, info =  Program.env.step(action_dsp)
                 base_reward += r
                 step_in += 1
                 base_reward += r
@@ -712,7 +716,6 @@ class Program(object):
             print(" Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
             f_stat.write("\n Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
         f_stat.close()
-
 
 
 
