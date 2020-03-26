@@ -20,12 +20,13 @@ from sympy import srepr
 from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import gpsr
+from dsr.task import make_task
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
+def train_dsr(name_and_seed, config_task, config_controller, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     name, seed = name_and_seed
@@ -47,13 +48,15 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     # Rename the output file
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
 
-    # Define the dataset and library
-    dataset = get_dataset(name, config_dataset)
-    Program.clear_cache()
-    Program.set_training_data(dataset)
-    Program.set_library(dataset.function_set, dataset.n_input_var)
+    # Define the task
+    config_task["dataset"]["name"] = name # Set the name
+    reward_function, function_set, n_input_var = make_task(**config_task)    
+    Program.set_reward_function(reward_function)
+    Program.set_library(function_set, n_input_var)
+
+    # Setup
     Program.set_execute()
-        
+    Program.clear_cache()
     tf.reset_default_graph()
 
     # Shift actual seed by checksum to ensure it's different across different benchmarks
@@ -74,7 +77,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
         return result
 
 
-def train_gp(name_and_seed, logdir, config_dataset, config_gp):
+def train_gp(name_and_seed, logdir, config_task, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
 
     name, seed = name_and_seed
@@ -83,7 +86,9 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     start = time.time()
 
     # Load the dataset
-    dataset = get_dataset(name, config_dataset)
+    config_dataset = config_task["dataset"]
+    config_dataset["name"] = name
+    dataset = Dataset(**config_dataset)
 
     # Fit the GP
     gp = gpsr.GP(dataset=dataset, **config_gp)
@@ -133,14 +138,6 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     return result
 
 
-def get_dataset(name, config_dataset):
-    """Creates and returns the dataset"""
-
-    config_dataset["name"] = name
-    dataset = Dataset(**config_dataset)
-    return dataset
-
-
 @click.command()
 @click.argument('config_template', default="config.json")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
@@ -156,7 +153,10 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
-    config_dataset = config["dataset"]              # Problem specification parameters
+    config_task = config["task"]                    # Task specification parameters
+
+    assert "dataset" in config_task, "Currently only supporting 'regression' task with 'dataset' specification."
+    config_dataset = config_task["dataset"]         # Dataset specification hyperparameters
     config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
@@ -186,7 +186,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Load raw dataset from external directory in config
     if "extra_data_dir" in config_dataset:
-        if not config_dataset["extra_data_dir"] == None:
+        if config_dataset["extra_data_dir"] is not None:
             for f in os.listdir(config_dataset["extra_data_dir"]):
                 if f.endswith(".csv"):
                     names.append(f.split('.')[0])
@@ -231,9 +231,9 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
+        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
+        work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
     columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]

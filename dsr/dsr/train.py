@@ -16,6 +16,7 @@ from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.dataset import Dataset
 from dsr.utils import MaxUniquePriorityQueue
+from dsr.task import make_task
 
 
 # Ignore TensorFlow warnings
@@ -30,10 +31,11 @@ def work(p):
     return p.optimize()
 
 
-def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_size=1000,
-          reward="neg_mse", reward_params=None, complexity="length",
-          complexity_weight=0.001, const_optimizer="minimize",
-          const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
+def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
+          batch_size=1000,
+          complexity="length", complexity_weight=0.001,
+          const_optimizer="minimize", const_params=None,
+          alpha=0.1, epsilon=0.01, num_cores=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
           threshold=1e-12, debug=0):
@@ -45,9 +47,9 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
     sess : tf.Session
         TenorFlow Session object.
     
-    controller : Controller
-        Controller object.
-    
+    controller : dsr.controller.Controller
+        Controller object used to generate Programs.
+
     logdir : str, optional
         Name of log directory.
     
@@ -60,12 +62,6 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
     
     batch_size : int, optional
         Number of sampled expressions per epoch.
-    
-    reward : str, optional
-        Reward function name.
-    
-    reward_params : list of str, optional
-        List of reward function parameters.
     
     complexity : str, optional
         Complexity penalty name.
@@ -152,11 +148,11 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
             # r_avg_sub : Average across this iteration's epsilon-subset batch
             f.write("nmse_best,nmse_min,nmse_avg_full,nmse_avg_sub,base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma\n")
 
-    # Set the reward and complexity functions
-    reward_params = reward_params if reward_params is not None else []
-    Program.set_reward_function(reward, *reward_params)
+    # TBD: REFACTOR
+    # Set the complexity functions
     Program.set_complexity_penalty(complexity, complexity_weight)
 
+    # TBD: REFACTOR
     # Set the constant optimizer
     const_params = const_params if const_params is not None else {}
     Program.set_const_optimizer(const_optimizer, **const_params)
@@ -224,7 +220,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
                 p.set_constants(optimized_constants)
 
         # Retrieve metrics
-        nmse = np.array([p.nmse for p in programs])
+        nmse = np.array([p.nmse for p in programs]) # NOTE: This adds execute() computation that might not be needed
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])        
         l = np.array([len(p.traversal) for p in programs])
@@ -256,9 +252,8 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
             r = r[keep]
             l = l[keep]
 
-        # Clip lower bound of rewards to prevent NaNs in gradient descent
-        if reward in ["neg_mse", "neg_nmse", "neg_nrmse"]:
-            r = np.clip(r, -1e6, np.inf)
+        # Clip bounds of rewards to prevent NaNs in gradient descent
+        r = np.clip(r, -1e6, 1e6)
 
         # Compute baseline
         if baseline == "ewma_R":
@@ -405,9 +400,10 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
     return result
 
 
+# TBD: Should add a test instead of a main function
 def main():
     """
-    Loads the config file, creates the library and controller, and starts the
+    Loads the config file, creates the task and controller, and starts the
     training loop.
     """
 
@@ -416,15 +412,16 @@ def main():
     with open(config_filename, encoding='utf-8') as f:
         config = json.load(f)
 
-    config_dataset = config["dataset"]          # Problem specification hyperparameters
+    config_task = config["task"]                # Task specification hyperparameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
 
-    # Define the dataset and library
-    dataset = Dataset(**config_dataset)
-    Program.set_training_data(dataset)
-    Program.set_library(dataset.function_set, dataset.n_input_var)
-    print("Ground truth expression:\n{}".format(indent(dataset.pretty(), '\t')))
+    # Define the task
+    reward_function, function_set, n_input_var = make_task(**config_task)
+    Program.set_reward_function(reward_function)
+    Program.set_library(function_set, n_input_var)
+    Program.set_execute()
+    # print("Ground truth expression:\n{}".format(indent(task.dataset.pretty(), '\t')))
 
     with tf.Session() as sess:
         # Instantiate the controller

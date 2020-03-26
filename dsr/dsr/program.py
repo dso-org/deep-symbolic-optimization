@@ -111,13 +111,6 @@ class Program(object):
     arities = None          # Array of arities for each token
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
-    X_train = None
-    y_train = None
-    X_test = None
-    y_test = None
-    y_train_noiseless = None
-    y_test_noiseless = None
-    var_y_test = None
     cache = {}
     
     # Additional derived static variables
@@ -276,89 +269,11 @@ class Program(object):
 
 
     @classmethod
-    def set_training_data(cls, dataset):
-        """Sets the class' training and testing data"""
-
-        cls.X_train = dataset.X_train
-        cls.y_train = dataset.y_train
-        cls.X_test = dataset.X_test
-        cls.y_test = dataset.y_test
-        cls.y_train_noiseless = dataset.y_train_noiseless
-        cls.y_test_noiseless = dataset.y_test_noiseless
-        cls.var_y_test = np.var(dataset.y_test)
-
-
-    @classmethod
     def set_const_optimizer(cls, name, **kwargs):
         """Sets the class' constant optimizer"""
 
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
-
-
-    @classmethod
-    def set_reward_function(cls, name, *params):
-        """Sets the class' reward function"""
-
-        if "nmse" in name or "nrmse" in name:
-            var_y = np.var(Program.y_train)
-
-        all_functions = {
-            # Negative mean squared error
-            # Range: [-inf, 0]
-            # Value = -var(y) when y_hat == mean(y)
-            "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
-                            0),
-
-            # Negative normalized mean squared error
-            # Range: [-inf, 0]
-            # Value = -1 when y_hat == mean(y)
-            "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
-                            0),
-
-            # Negative normalized root mean squared error
-            # Range: [-inf, 0]
-            # Value = -1 when y_hat == mean(y)
-            "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
-                            0),
-
-            # (Protected) inverse mean squared error
-            # Range: [0, 1]
-            # Value = 1/(1 + var(y)) when y_hat == mean(y)
-            "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
-                            0),
-
-            # (Protected) inverse normalized mean squared error
-            # Range: [0, 1]
-            # Value = 0.5 when y_hat == mean(y)
-            "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
-                            0),
-
-            # (Protected) inverse normalized root mean squared error
-            # Range: [0, 1]
-            # Value = 0.5 when y_hat == mean(y)
-            "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
-                            0),
-
-            # Fraction of predicted points within p0*abs(y) + p1 band of the true value
-            # Range: [0, 1]
-            "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
-                            2),
-
-            # Pearson correlation coefficient
-            # Range: [0, 1]
-            "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
-                            0),
-
-            # Spearman correlation coefficient
-            # Range: [0, 1]
-            "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
-                            0)
-        }
-
-        assert name in all_functions, "Unrecognized reward function name"
-        assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
-        Program.reward_function = all_functions[name][0]
 
 
     @classmethod
@@ -402,8 +317,15 @@ class Program(object):
 
 
     @classmethod
+    def set_reward_function(cls, reward_function):
+        """Sets the class reward function."""
+
+        Program.reward_function = reward_function
+
+
+    @classmethod
     def set_library(cls, operators, n_input_var):
-        """Sets the class library and arities"""
+        """Sets the class library and arities."""
 
         # Add input variables
         Program.library = list(range(n_input_var))
@@ -484,8 +406,7 @@ class Program(object):
         """Evaluates and returns the base reward of the program on the training
         set"""
 
-        y_hat = self.execute(Program.X_train)
-        return Program.reward_function(Program.y_train, y_hat)
+        return self.reward_function(test=False)
 
 
     @cached_property
@@ -493,26 +414,7 @@ class Program(object):
         """Evaluates and returns the base reward of the program on the test
         set"""
 
-        y_hat = self.execute(Program.X_test)
-        return Program.reward_function(Program.y_test, y_hat)
-
-
-    @cached_property
-    def base_r_noiseless(self):
-        """Evaluates and returns the base reward of the program on the noiseless
-        training set"""
-
-        y_hat = self.execute(Program.X_train)
-        return Program.reward_function(Program.y_train_noiseless, y_hat)
-
-
-    @cached_property
-    def base_r_test_noiseless(self):
-        """Evaluates and returns the base reward of the program on the noiseless
-        test set"""
-
-        y_hat = self.execute(Program.X_test)
-        return Program.reward_function(Program.y_test_noiseless, y_hat)
+        return self.reward_function(test=True)
 
 
     @cached_property
@@ -528,31 +430,6 @@ class Program(object):
         """Evaluates and returns the reward of the program on the test set"""
 
         return self.base_r_test - self.complexity
-
-
-    @cached_property
-    def r_noiseless(self):
-        """Evaluates and returns the reward of the program on the noiseless
-        training set"""
-
-        return self.base_r_noiseless - self.complexity
-
-
-    @cached_property
-    def r_test_noiseless(self):
-        """Evaluates and returns the reward of the program on the noiseless
-        test set"""
-
-        return self.base_r_test_noiseless - self.complexity
-
-
-    @cached_property
-    def nmse(self):
-        """Evaluates and returns the normalized mean squared error of the
-        program on the test set (used as final performance metric)"""
-
-        y_hat = self.execute(Program.X_test)
-        return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
 
 
     @cached_property
