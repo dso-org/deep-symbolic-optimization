@@ -1,11 +1,9 @@
-import numpy as np
+"""Model architecture of default (saved) LanguageModel"""
 
 import tensorflow as tf
 from tensorflow.contrib import rnn
-# from tensorflow.nn.rnn_cell import GRUCell
 
-
-class DynRNNLanguageModel(object):
+class LanguageModel(object):
     def __init__(self, vocabulary_size, embedding_size, num_layers, num_hidden, mode='train'):
         self.embedding_size = embedding_size
         self.num_layers = num_layers

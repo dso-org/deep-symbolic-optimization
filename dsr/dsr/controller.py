@@ -8,8 +8,7 @@ from scipy import signal
 from numba import jit, prange
 
 from dsr.program import Program
-
-from dsr.language_model.language_model import LModel
+from dsr.language_model.language_model import LanguageModelPrior
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
@@ -129,10 +128,10 @@ class Controller(object):
 
     use_language_model_prior : bool
         Use loaded mathematical language model as prior?
-        If lmodel is None, it will be ignored.
+        If language_model_prior is None, it will be ignored.
 
-    lmodel: LModel object or None
-        Loaded mathematical language model.
+    language_model_prior: LanguageModelPrior object or None
+        Loaded mathematical language model to get prior.
 
     entropy_weight : float
         Coefficient for entropy bonus.
@@ -195,7 +194,7 @@ class Controller(object):
                  max_const=None,
                  # Language model hyperparameters
                  use_language_model_prior=False,
-                 lmodel=None,
+                 language_model_prior=None,
                  # Loss hyperparameters
                  entropy_weight=0.0,
                  # PPO hyperparameters
@@ -227,7 +226,7 @@ class Controller(object):
         self.max_length = max_length
         self.max_const = max_const
         self.use_language_model_prior = use_language_model_prior
-        self.lmodel=lmodel
+        self.language_model_prior=language_model_prior
         self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -272,9 +271,9 @@ class Controller(object):
                                              self.observe_sibling,
                                              self.constrain_const])
 
-        if self.use_language_model_prior and lmodel is None:
+        if self.use_language_model_prior and language_model_prior is None:
             print("Warning: use_language_model_prior=True will be ignored because language model is not configured (null).")
-            self.use_languae_model_prior = False
+            self.use_language_model_prior = False
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -423,8 +422,8 @@ class Controller(object):
                     prior += make_prior(constraints, Program.terminal_tokens, Program.L)
 
                 # Language Model prior
-                if self.use_language_model_prior and self.lmodel is not None:
-                    prior += self.lmodel.get_lm_prior(action)
+                if self.use_language_model_prior and self.language_model_prior is not None:
+                    prior += self.language_model_prior.get_lm_prior(action)
 
                 return action, parent, sibling, prior, dangling
 
@@ -673,9 +672,9 @@ class Controller(object):
     def sample(self, n):
         """Sample batch of n expressions"""
         
-        # initialize lmodel
-        if self.use_language_model_prior and self.lmodel is not None:
-            self.lmodel.next_state = None
+        # initialize language_model_prior
+        if self.use_language_model_prior and self.language_model_prior is not None:
+            self.language_model_prior.next_state = None
 
         feed_dict = {self.batch_size : n}
 
