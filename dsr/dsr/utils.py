@@ -9,20 +9,16 @@ from stable_baselines import DDPG
 from stable_baselines.ddpg.policies import LnMlpPolicy
 
 
-def load_anchor():
+def load_anchor(model_path, env_name):
     global model
 
-    model_dir = "model_1M/"
-    model_file = 'ddpg_lunarlander_1200k.zip'
-    env_name = "LunarLanderContinuous-v2"
-    env = gym.make("LunarLanderContinuous-v2") 
-
+    env = gym.make(env_name) 
     observation = env.reset()
     action = env.action_space.sample()
     model = DDPG(LnMlpPolicy, env, verbose=1)
-    model = DDPG.load(model_dir + model_file)
+    model = DDPG.load(model_path)
 
-    print("Loaded model {}".format(model_file))
+    print("Loaded model {}".format(model_path))
 
 
 class cached_property(object):

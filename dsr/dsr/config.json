@@ -9,9 +9,9 @@
    },
    "training": {
       "logdir": "./log",
-      "n_epochs": null,
-      "n_samples": 2000000,
-      "batch_size": 500,
+      "n_epochs": 100,
+      "n_samples": null,
+      "batch_size": 5,
       "reward": "neg_mse",
       "reward_params": [],
       "complexity": "length",
@@ -20,7 +20,7 @@
       "const_params": {},
       "alpha": 0.5,
       "epsilon": 0.1,
-      "verbose": false,
+      "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
       "num_cores": 1,
@@ -32,7 +32,7 @@
       "threshold": 1e-12,
       "env_params": {
         "env_name": "LunarLanderContinuous-v2",
-        "anchor" : "model.pkl",
+        "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
         "actions" : {
           "action_0" : null,
           "action_1" : "anchor"
@@ -79,7 +79,7 @@
    "gp": {
       "population_size": 1000,
       "generations": null,
-      "n_samples" : 2000000,
+      "n_samples" : null,
       "tournament_size": 2,
       "metric": "nmse",
       "const_range": [

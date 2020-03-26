@@ -5,3 +5,7 @@ sympy
 pandas
 click
 -e dsr
+deap
+gym
+gym[box2d]
+stable-baselines[mpi]

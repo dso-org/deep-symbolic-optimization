@@ -12,6 +12,7 @@ from dsr.utils import cached_property
 import utils as U
 
 import gym
+import os
 from monitor import Monitor
 import stable_baselines
 from stable_baselines.ddpg.policies import LnMlpPolicy
@@ -290,24 +291,45 @@ class Program(object):
     def set_env_params(cls, config):
         """Sets the class' environment parameters"""
         params = config['env_params']
+        Program.dsp_function_lib = params['dsp_function_lib']
         Program.env_name = params['env_name']
         Program.env = gym.make(Program.env_name)
         Program.dim_of_state = Program.env.observation_space.shape[0]
         Program.anchor = params['anchor']
         Program.actions = params['actions']
-        for k in range(len(Program.actions)):
-            key = "action_"+str(k)
-            # convert toekn item as program instance
-            if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
-                tokens = Program.actions[key]
-                tokens = Program.convert(tokens)
-                p0 = from_tokens(tokens, 1, [i for i in range(len(tokens)) ], optimize=False)
-                Program.actions[key] = p0
         Program.num_of_episode_test = params['num_of_episode_test']
         Program.num_of_episode_train = params['num_of_episode_train']
-        Program.dsp_function_lib = params['dsp_function_lib']
         Program.success_score = params['success_score']
-        U.load_anchor( Program.anchor, Program.env_name )
+        if Program.env_name is not None:
+            Program.anchor = params['anchor']
+            Program.actions = params['actions']
+            load_anchor_model = False
+            for k in range(len(Program.actions)):
+                key = "action_"+str(k)
+                if Program.actions[key] == "anchor":
+                    load_anchor_model = True
+                    # If there is no "anchor" in Program.actions parameter
+                    # Do not need to load anchor
+                    U.load_anchor( Program.anchor, Program.env_name)
+            Program.load_anchor_model = load_anchor_model
+            os.mkdir("./"+str(Program.env_name)+"_best_expressions/")
+
+
+    @classmethod
+    def set_action_params(cls, config):
+        """Sets toeknized action as program"""
+        params = config['env_params']
+        if Program.env_name is not None:
+            for k in range(len(Program.actions)):
+                key = "action_"+str(k)
+                # convert toekn item as program instance
+                if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
+                    tokens = Program.actions[key]
+                    tokens = Program.convert_token(tokens)
+                    p0 = from_tokens(tokens, optimize = False)
+                    Program.actions[key] = p0
+
+
 
 
     @classmethod
@@ -389,7 +411,8 @@ class Program(object):
                 gym_states = p.env.reset()
                 done = False
                 for j in range(1000):
-                    action_model, _states = U.model.predict(gym_states)
+                    if p.load_anchor_model:
+                        action_model, _states = U.model.predict(gym_states)
                     action_dsp = [0 for i in range(len(p.actions))]
                     for k in range(len(p.actions)):
                         key = "action_"+str(k)
@@ -445,15 +468,15 @@ class Program(object):
     def set_library(cls, operators, n_input_var):
         """Sets the class library and arities"""
 
-        # Add input variables
-        Program.library = list(range(n_input_var))
-        Program.arities = [0] * n_input_var
-
         if Program.env_name is not None: #dsp
             n_input_var = Program.dim_of_state
             operators = Program.dsp_function_lib
         else: #dsr
             operators = [op.lower() if isinstance(op, str) else op for op in operators]
+
+        # Add input variables
+        Program.library = list(range(n_input_var))
+        Program.arities = [0] * n_input_var
 
         for i, op in enumerate(operators):
 
@@ -509,12 +532,25 @@ class Program(object):
 
 
     @staticmethod
-    def convert(traversal):
+    def convert_token(traversal):
         """Converts a string traversal to an int traversal"""
-
-        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        #dsp Error: TypeError: 'NoneType' object is not iterable
+        #str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        if Program.env_name != None: #dsp
+            n_input_var = Program.dim_of_state
+            input_var = ["x"+str(j) for j in range(n_input_var)]
+            operators = Program.dsp_function_lib
+            str_library = input_var + operators
+        else:  #dsr
+            str_library = [f if isinstance(f, str) else f.name for f in Program.library]
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
+
+    @staticmethod
+    def convert(traversal):
+        """Converts a string traversal to an int traversal"""
+        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
     @cached_property
     def complexity(self):
@@ -601,7 +637,6 @@ class Program(object):
     def nmse(self):
         """Evaluates and returns the normalized mean squared error of the
         program on the test set (used as final performance metric)"""
-
         y_hat = self.execute(Program.X_test)
         return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
 
@@ -662,19 +697,20 @@ class Program(object):
         step_in = 0
         r = 0
         done = False
-        f_stat = open("./dsp_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
+        f_stat = open("./"+str(Program.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
 
         for i in range(Program.num_of_episode_test):
             found_ans = False
             base_reward = 0
             sum_of_reward = 0
             while not done:  # one episode
-                action_model, _states = U.model.predict(gym_states)
+                if self.load_anchor_model:
+                    action_model, _states = U.model.predict(gym_states)
                 action_dsp = [0 for i in range(len(Program.actions))]
                 for k in range(len(Program.actions)):
                     key = "action_"+str(k)
                     if Program.actions[key] is None: # learning with rl
-                        action_dsp[k] = Program.execute(np.asarray([gym_states]))[0]
+                        action_dsp[k] = self.execute(np.asarray([gym_states]))[0]
                         action_number = k
                     elif Program.actions[key] == "anchor":  # get action from anchor model
                         action_dsp[k] = action_model[k]
@@ -711,10 +747,9 @@ class Program(object):
         f_stat.write("\nCount: {}".format(self.count))
         f_stat.write("\nTraversal: {}".format(self))
         f_stat.write("\nExpression:")
-        equations = self.pretty()
-        for equ in equations:
-            print(" Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-            f_stat.write("\n Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
+        equ = self.pretty()
+        print(" Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
+        f_stat.write("\n Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
         f_stat.close()
 
 
