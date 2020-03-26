@@ -272,7 +272,7 @@ class Controller(object):
                                              self.constrain_const])
 
         if self.use_language_model_prior and language_model_prior is None:
-            print("Warning: use_language_model_prior=True will be ignored because language model is not configured (null).")
+            print("Warning: use_language_model_prior=True will be ignored because LanguageModelPrior is not configured (null).")
             self.use_language_model_prior = False
 
         # Build controller RNN
