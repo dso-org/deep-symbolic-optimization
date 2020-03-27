@@ -291,16 +291,16 @@ class Program(object):
     def set_env_params(cls, config):
         """Sets the class' environment parameters"""
         params = config['env_params']
-        Program.dsp_function_lib = params['dsp_function_lib']
         Program.env_name = params['env_name']
-        Program.env = gym.make(Program.env_name)
-        Program.dim_of_state = Program.env.observation_space.shape[0]
-        Program.anchor = params['anchor']
-        Program.actions = params['actions']
-        Program.num_of_episode_test = params['num_of_episode_test']
-        Program.num_of_episode_train = params['num_of_episode_train']
-        Program.success_score = params['success_score']
         if Program.env_name is not None:
+            Program.dsp_function_lib = params['dsp_function_lib']
+            Program.env = gym.make(Program.env_name)
+            Program.dim_of_state = Program.env.observation_space.shape[0]
+            Program.anchor = params['anchor']
+            Program.actions = params['actions']
+            Program.num_of_episode_test = params['num_of_episode_test']
+            Program.num_of_episode_train = params['num_of_episode_train']
+            Program.success_score = params['success_score']
             Program.anchor = params['anchor']
             Program.actions = params['actions']
             load_anchor_model = False
@@ -336,8 +336,8 @@ class Program(object):
     def set_reward_function(cls, name, *params):
         """Sets the class' reward function"""
 
-        # dsr reward function
         def dsr(p):
+            """Sets dsr's reward function"""
             if "nmse" in name or "nrmse" in name:
                 var_y = np.var(Program.y_train)
 
@@ -398,42 +398,36 @@ class Program(object):
 
             assert name in all_functions, "Unrecognized reward function name"
             assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
-
             return all_functions[name][0]
 
 
-        #dsp reward
         def dsp(p):
-            """GYM: Set one episdoe per one program"""
+            """Sets dsp's reward function"""
             r = 0
             for i in range(p.num_of_episode_train):
                 base_reward = 0
-                gym_states = p.env.reset()
+                obs = p.env.reset()
                 done = False
-                for j in range(1000):
+                while not done:
                     if p.load_anchor_model:
-                        action_model, _states = U.model.predict(gym_states)
+                        action_model, _states = U.model.predict(obs)
                     action_dsp = [0 for i in range(len(p.actions))]
                     for k in range(len(p.actions)):
                         key = "action_"+str(k)
                         if p.actions[key] is None: # learning with rl
-                            action_dsp[k] = p.execute(np.asarray([gym_states]))[0]
+                            action_dsp[k] = p.execute(np.asarray([obs]))[0]
                         elif p.actions[key] == "anchor":  # get action from anchor model
                             action_dsp[k] = action_model[k]
                         else: # get traverse of token as action
                             p0 = p.actions[key]
-                            action_dsp[k] = p0.execute(np.asarray([gym_states]))[0]
+                            action_dsp[k] = p0.execute(np.asarray([obs]))[0]
                     action_dsp = np.asarray(action_dsp, dtype=np.float32)
-                    gym_states, r, done, info =  p.env.step(action_dsp)
-                    base_reward += r
-                    if done:
-                        break
-                p.env.close()
-                r = r + base_reward
-            r =  r /float(p.num_of_episode_train)
+                    obs, r_ep, done, info =  p.env.step(action_dsp)
+                    base_reward += r_ep
+                r += base_reward
+            r /= float(p.num_of_episode_train)
             return r
-
-        #reward
+        # Define reward_function as classmethod
         if Program.env_name != None:
             Program.reward_function = dsp
         else:
@@ -660,13 +654,11 @@ class Program(object):
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-
         return pretty(self.sympy_expr)
 
 
     def print_stats(self):
         """Prints the statistics of the program"""
-
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
@@ -678,65 +670,61 @@ class Program(object):
 
 
 
-    def post_anal(self, step_num):
-        """Evaluate learned symbolic policy in current program.
+    def dsp_evaluation(self, step_num):
+        """Evaluate learned deep symbolic policy in current program.
         We repeat episodes as num_of_episode_test times,
-        and calculate rate of success.
+        Then, we calculate rate of success.
         The evaluation results including learned simbolic policy and success rate
         is printed as output file.
-
         Parameters
         ----------
         step_num : integer
             Current training step to evaluate.
-
         """
         from gym import Wrapper
-        gym_states =  Program.env.reset()
+        obs =  self.env.reset()
         num_of_suc = 0
         step_in = 0
         r = 0
         done = False
-        f_stat = open("./"+str(Program.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
-
-        for i in range(Program.num_of_episode_test):
+        f_stat = open("./"+str(self.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
+        for i in range(self.num_of_episode_test):
             found_ans = False
             base_reward = 0
             sum_of_reward = 0
             while not done:  # one episode
                 if self.load_anchor_model:
-                    action_model, _states = U.model.predict(gym_states)
-                action_dsp = [0 for i in range(len(Program.actions))]
-                for k in range(len(Program.actions)):
+                    action_model, _states = U.model.predict(obs)
+                action_dsp = [0 for i in range(len(self.actions))]
+                for k in range(len(self.actions)):
                     key = "action_"+str(k)
-                    if Program.actions[key] is None: # learning with rl
-                        action_dsp[k] = self.execute(np.asarray([gym_states]))[0]
+                    if self.actions[key] is None: # learning with rl
+                        action_dsp[k] = self.execute(np.asarray([obs]))[0]
                         action_number = k
-                    elif Program.actions[key] == "anchor":  # get action from anchor model
+                    elif self.actions[key] == "anchor":  # get action from anchor model
                         action_dsp[k] = action_model[k]
                     else: # get traverse of token as action
-                        p0 = Program.actions[key]
-                        action_dsp[k] = p0.execute(np.asarray([gym_states]))[0]
+                        p0 = self.actions[key]
+                        action_dsp[k] = p0.execute(np.asarray([obs]))[0]
                 action_dsp = np.asarray(action_dsp, dtype=np.float32)
-                gym_states, r, done, info =  Program.env.step(action_dsp)
+                obs, r, done, info =  self.env.step(action_dsp)
                 base_reward += r
                 step_in += 1
                 base_reward += r
-                if (base_reward > Program.success_score or base_reward == Program.success_score ) and (found_ans is False) : #found solution
+                # Evenif  done is False, we terminate episode when we achieve success_score
+                if (base_reward > self.success_score or base_reward == self.success_score ) and (found_ans is False) : #found solution
                     found_ans = True
                     f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(base_reward))+"\n")
                     print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(base_reward)))
                     num_of_suc = num_of_suc + 1
-                    Program.env.reset()
+                    self.env.reset()
                     break
-            if base_reward < Program.success_score:
-                print("\tFailed at " + str(step_in) +" th  steps, sum of reward per episode reward : "+ str(float(base_reward))+"\n")
-                Program.env.reset()
-            sum_of_reward =  sum_of_reward + base_reward
-
+            if base_reward < self.success_score:
+                self.env.reset()
+            sum_of_reward += base_reward
+        # below here: printing and writing output files in [env]_best_expressions folder
         print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
         f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
-        #print stat as well
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))

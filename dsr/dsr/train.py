@@ -232,7 +232,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
                 p.set_constants(optimized_constants)
 
         # Retrieve metrics
-        if dsp is False:
+        if not dsp:
             nmse = np.array([p.nmse for p in programs])
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
@@ -240,7 +240,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
         all_r[step] = base_r
 
         # Collect full-batch statistics
-        if dsp is False:
+        if not dsp:
             nmse_min = np.min(nmse)
             nmse_best = min(nmse_min, nmse_best)
             nmse_avg_full = np.mean(nmse)
@@ -261,14 +261,14 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
             obs = [o[keep, :] for o in obs]
             priors = priors[keep, :, :]
             programs = list(compress(programs, keep))
-            if dsp is False:
+            if not dsp:
                 nmse = nmse[keep]
             base_r = base_r[keep]
             r = r[keep]
             l = l[keep]
 
         # Clip lower bound of rewards to prevent NaNs in gradient descent
-        if dsp is False:
+        if not dsp:
             if reward in ["neg_mse", "neg_nmse", "neg_nrmse"]:
                  r = np.clip(r, -1e6, np.inf)
 
@@ -288,12 +288,12 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
-            if dsp is False:
+            if not dsp:
                 nmse_avg_sub = np.mean(nmse)
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            if dsp is False:
+            if not dsp:
                 stats = np.array([[
                              nmse_best,
                              nmse_min,
@@ -375,27 +375,23 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
                     print("\nNew best overall")
                     p_r_best.print_stats()
                     if dsp :
-                        p_r_best.post_anal(step)
+                        p_r_best.dsp_evaluation(step)
                 else:
                     print("\nNew best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
-                    if dsp:
-                        p_base_r_best.print_stats()
 
             elif new_r_best:
                 print("\nNew best reward")
                 p_r_best.print_stats()
-                if dsp:
-                    p_r_best.post_anal(step)
+
             elif new_base_r_best:
                 print("\nNew best base reward")
                 p_base_r_best.print_stats()
-                if dsp:
-                    p_r_best.post_anal(step)
+
 
         # Early stopping only in dsr
-        if dsp is None:
+        if not dsp:
             if early_stopping and p_base_r_best.nmse < threshold:
                 all_r = all_r[:(step + 1)]
                 print("Fitness exceeded threshold; breaking early.")

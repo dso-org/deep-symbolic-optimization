@@ -34,8 +34,8 @@
         "env_name": "LunarLanderContinuous-v2",
         "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
         "actions" : {
-          "action_0" : null,
-          "action_1" : "anchor"
+          "action_0" : "anchor",
+          "action_1" : null
           },
         "num_of_episode_test" : 1000,
         "num_of_episode_train" : 5,
