@@ -1,7 +1,5 @@
 """Factory functions for generating symbolic search tasks."""
 
-from functools import partial
-
 import numpy as np
 import gym
 
