@@ -1,1 +1,1 @@
-from .language_model import LanguageModelPrior
+from .language_model_prior import LanguageModelPrior
