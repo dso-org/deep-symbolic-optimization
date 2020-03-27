@@ -20,7 +20,7 @@ from sympy import srepr
 from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import gpsr
-from dsr.language_model.language_model import LanguageModelPrior
+from dsr.language_model import LanguageModelPrior
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)

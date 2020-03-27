@@ -8,7 +8,7 @@ from scipy import signal
 from numba import jit, prange
 
 from dsr.program import Program
-from dsr.language_model.language_model import LanguageModelPrior
+from dsr.language_model import LanguageModelPrior
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """

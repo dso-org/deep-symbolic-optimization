@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import tensorflow as tf
 
-from dsr.language_model.model.model_dyn_rnn import LanguageModel
+from .model.model_dyn_rnn import LanguageModel
 
 class LanguageModelPrior(object):
     """

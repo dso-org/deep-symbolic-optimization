@@ -16,7 +16,7 @@ from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.dataset import Dataset
 from dsr.utils import MaxUniquePriorityQueue
-from dsr.language_model.language_model import LanguageModelPrior
+from dsr.language_model import LanguageModelPrior
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
