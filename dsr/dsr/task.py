@@ -1,7 +1,6 @@
 """Factory functions for generating symbolic search tasks."""
 
 import numpy as np
-import gym
 
 from dsr.dataset import Dataset
 from dsr.program import Program

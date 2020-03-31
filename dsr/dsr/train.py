@@ -14,7 +14,6 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.dataset import Dataset
 from dsr.utils import MaxUniquePriorityQueue
 from dsr.task import make_task
 
