@@ -2,14 +2,14 @@
    "task": {
       "name" : "regression",
       "dataset" : {
-          "file": "benchmarks.csv",
-          "name" : null,
-          "noise": null,
-          "extra_data_dir": null,
-          "function_lib": null
-        },
-        "metric" : "inv_nrmse",
-        "metric_params" : []
+         "file": "benchmarks.csv",
+         "name" : null,
+         "noise": null,
+         "extra_data_dir": null,
+         "function_lib": null
+      },
+      "metric" : "inv_nrmse",
+      "metric_params" : []
    },
    "training": {
       "logdir": "./log",
