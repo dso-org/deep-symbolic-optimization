@@ -29,10 +29,10 @@ def make_task(name, **config_task):
         Reward function mapping program.Program object to scalar.
 
     function_set : list
-        List of allowable functions
+        List of allowable functions (see functions.py for supported functions).
 
     n_input_var : int
-        Number of input variables
+        Number of input variables.
     """
 
     task_dict = {
