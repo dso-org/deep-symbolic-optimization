@@ -142,13 +142,7 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
 
-#    # DSP related static variables
-#    env_name = "LunarLanderContinuous-v2" # if it is None: dsr
-#    if env_name != None:
-#        env = gym.make(env_name)
-#        dim_of_state = env.observation_space.shape[0] # TO DO: We should move this to config.json later
-#        num_of_episode_train = 5
-#        num_of_episode_test = 100
+
 
     def __init__(self, tokens, optimize):
         """
@@ -298,8 +292,8 @@ class Program(object):
             Program.dim_of_state = Program.env.observation_space.shape[0]
             Program.anchor = params['anchor']
             Program.actions = params['actions']
-            Program.num_of_episode_test = params['num_of_episode_test']
-            Program.num_of_episode_train = params['num_of_episode_train']
+            Program.n_episodes_test = params['n_episodes_test']
+            Program.n_episodes_train = params['n_episodes_train']
             Program.success_score = params['success_score']
             Program.anchor = params['anchor']
             Program.actions = params['actions']
@@ -404,7 +398,7 @@ class Program(object):
         def dsp(p):
             """Sets dsp's reward function"""
             r = 0
-            for i in range(p.num_of_episode_train):
+            for i in range(p.n_episodes_train):
                 base_reward = 0
                 obs = p.env.reset()
                 done = False
@@ -425,10 +419,10 @@ class Program(object):
                     obs, r_ep, done, info =  p.env.step(action_dsp)
                     base_reward += r_ep
                 r += base_reward
-            r /= float(p.num_of_episode_train)
+            r /= float(p.n_episodes_train)
             return r
         # Define reward_function as classmethod
-        if Program.env_name != None:
+        if Program.env_name is not None:
             Program.reward_function = dsp
         else:
             Program.reward_function = dsr
@@ -530,7 +524,7 @@ class Program(object):
         """Converts a string traversal to an int traversal"""
         #dsp Error: TypeError: 'NoneType' object is not iterable
         #str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        if Program.env_name != None: #dsp
+        if Program.env_name is not None: #dsp
             n_input_var = Program.dim_of_state
             input_var = ["x"+str(j) for j in range(n_input_var)]
             operators = Program.dsp_function_lib
@@ -557,7 +551,7 @@ class Program(object):
     def base_r(self):
         """Evaluates and returns the base reward of the program on the training
         set"""
-        if Program.env_name != None: #dsp
+        if Program.env_name is not None: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_train)
@@ -568,7 +562,7 @@ class Program(object):
     def base_r_test(self):
         """Evaluates and returns the base reward of the program on the test
         set"""
-        if Program.env_name != None: #dsp
+        if Program.env_name is not None: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_test)
@@ -579,7 +573,7 @@ class Program(object):
     def base_r_noiseless(self):
         """Evaluates and returns the base reward of the program on the noiseless
         training set"""
-        if Program.env_name != None: #dsp
+        if Program.env_name is not None: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_train)
@@ -590,7 +584,7 @@ class Program(object):
     def base_r_test_noiseless(self):
         """Evaluates and returns the base reward of the program on the noiseless
         test set"""
-        if Program.env_name != None: #dsp
+        if Program.env_name is not None: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_test)
@@ -672,7 +666,7 @@ class Program(object):
 
     def dsp_evaluation(self, step_num):
         """Evaluate learned deep symbolic policy in current program.
-        We repeat episodes as num_of_episode_test times,
+        We repeat episodes as n_episodes_test times,
         Then, we calculate rate of success.
         The evaluation results including learned simbolic policy and success rate
         is printed as output file.
@@ -688,7 +682,7 @@ class Program(object):
         r = 0
         done = False
         f_stat = open("./"+str(self.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
-        for i in range(self.num_of_episode_test):
+        for i in range(self.n_episodes_test):
             found_ans = False
             base_reward = 0
             sum_of_reward = 0
@@ -710,7 +704,6 @@ class Program(object):
                 obs, r, done, info =  self.env.step(action_dsp)
                 base_reward += r
                 step_in += 1
-                base_reward += r
                 # Evenif  done is False, we terminate episode when we achieve success_score
                 if (base_reward > self.success_score or base_reward == self.success_score ) and (found_ans is False) : #found solution
                     found_ans = True
@@ -723,8 +716,8 @@ class Program(object):
                 self.env.reset()
             sum_of_reward += base_reward
         # below here: printing and writing output files in [env]_best_expressions folder
-        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
-        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/100.0)) +" %\n")
+        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/float(self.n_episodes_test))) +" %\n")
+        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/float(self.n_episodes_test))) +" %\n")
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))

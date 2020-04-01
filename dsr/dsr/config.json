@@ -37,8 +37,8 @@
           "action_0" : "anchor",
           "action_1" : null
           },
-        "num_of_episode_test" : 1000,
-        "num_of_episode_train" : 5,
+        "n_episodes_test" : 1000,
+        "n_episodes_train" : 5,
         "dsp_function_lib" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
         "success_score": 200.0
       }

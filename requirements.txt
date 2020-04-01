@@ -6,6 +6,6 @@ pandas
 click
 -e dsr
 deap
-gym
+mpi4py
 gym[box2d]
 stable-baselines[mpi]
