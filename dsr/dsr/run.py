@@ -21,12 +21,13 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.train import learn
+from dsr.language_model import LanguageModelPrior
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-def train_dsr(name_and_seed, config_dataset, config_controller, config_training):
+def train_dsr(name_and_seed, config_dataset, config_controller, config_language_model_prior, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     name, seed = name_and_seed
@@ -47,6 +48,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
 
     # Rename the output file
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
+    
 
     # Define the dataset, dsp parameters and library
     dataset = get_dataset(name, config_dataset)
@@ -57,16 +59,22 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_training)
     Program.set_library(dataset.function_set, dataset.n_input_var)
     if "env_params" in config_training:
         Program.set_action_params(config_training)
+    Program.set_execute()
 
     tf.reset_default_graph()
 
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
-
+  
     with tf.Session() as sess:
 
-        # Instantiate the controller
-        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
+        # Instantiate the controller w/ language model
+        if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
+            language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
+        else:
+            language_model_prior = None
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
+
         # Train the controller
         result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
         result["name"] = name
@@ -163,6 +171,10 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
+    if "language_model_prior" in config:
+        config_language_model_prior = config["language_model_prior"]            # Language model hyperparameters
+    else:
+        config_language_model_prior = None
     if "gp" in config:
         config_gp = config["gp"]                    # GP hyperparameters
 
@@ -234,7 +246,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_training=config_training)
+        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
 

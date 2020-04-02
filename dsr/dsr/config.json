@@ -62,6 +62,7 @@
       "constrain_min_len": true,
       "constrain_max_len": true,
       "constrain_num_const": false,
+      "use_language_model_prior": false,
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,
@@ -95,5 +96,13 @@
       "early_stopping": true,
       "threshold": 1e-12,
       "verbose": false
-   }
+   },
+   "language_model_prior": {
+        "saved_language_model_path": "./language_model/model/saved_model",
+        "saved_language_model_lib" : "./language_model/model/saved_model/word_dict.pkl",
+        "embedding_size":32, 
+        "num_layers":1, 
+        "num_hidden":256,
+        "prob_sharing": true
+    }
 }

@@ -1,3 +1,5 @@
+cython
+numpy
 tensorflow==1.14
 gplearn
 numba
@@ -9,3 +11,4 @@ deap
 mpi4py
 gym[box2d]
 stable-baselines[mpi]
+scikit-learn
