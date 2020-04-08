@@ -20,7 +20,6 @@ from sympy import srepr
 from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import gpsr
-from dsr.train import learn
 from dsr.language_model import LanguageModelPrior
 
 import warnings

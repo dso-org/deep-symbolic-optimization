@@ -15,7 +15,6 @@ import utils as U
 
 import gym
 import os
-from monitor import Monitor
 import stable_baselines
 from stable_baselines.ddpg.policies import LnMlpPolicy
 from stable_baselines.bench import Monitor
