@@ -428,9 +428,9 @@ class Program(object):
 
         def dsp(p):
             """Sets dsp's reward function"""
-            r = 0
+            total_r = 0
             for i in range(p.n_episodes_train):
-                base_reward = 0
+                episodic_r = 0
                 obs = p.env.reset()
                 done = False
                 while not done:
@@ -447,11 +447,11 @@ class Program(object):
                             p0 = p.actions[key]
                             action_dsp[k] = p0.execute(np.asarray([obs]))[0]
                     action_dsp = np.asarray(action_dsp, dtype=np.float32)
-                    obs, r_ep, done, info =  p.env.step(action_dsp)
-                    base_reward += r_ep
-                r += base_reward
-            r /= float(p.n_episodes_train)
-            return r
+                    obs, r, done, info =  p.env.step(action_dsp)
+                    episodic_r += r
+                total_r += episodic_r
+            total_r /= float(p.n_episodes_train)
+            return total_r
         # Define reward_function as classmethod
         if Program.set_dsp:
             Program.reward_function = dsp
@@ -724,13 +724,12 @@ class Program(object):
         obs =  self.env.reset()
         num_of_suc = 0
         step_in = 0
-        r = 0
         done = False
         f_stat = open("./"+str(self.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
-        sum_of_reward = 0
+        total_r = 0
         for i in range(self.n_episodes_test):
             found_ans = False
-            base_reward = 0
+            episodic_r = 0
             while not done:  # one episode
                 if self.load_anchor_model:
                     action_model, _states = U.model.predict(obs)
@@ -747,22 +746,22 @@ class Program(object):
                         action_dsp[k] = p0.execute(np.asarray([obs]))[0]
                 action_dsp = np.asarray(action_dsp, dtype=np.float32)
                 obs, r, done, info =  self.env.step(action_dsp)
-                base_reward += r
+                episodic_r += r
                 step_in += 1
                 # Evenif  done is False, we terminate episode when we achieve success_score
-                if (base_reward > self.success_score or base_reward == self.success_score ) and (found_ans is False) : #found solution
+                if (episodic_r > self.success_score or episodic_r == self.success_score ) and (found_ans is False) : #found solution
                     found_ans = step_in
-                    f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(base_reward))+"\n")
-                    print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(base_reward)))
+                    f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(episodic_r))+"\n")
+                    print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(episodic_r)))
                     num_of_suc = num_of_suc + 1
                     self.env.reset()
                     break
-            if base_reward < self.success_score:
+            if episodic_r < self.success_score:
                 self.env.reset()
-            sum_of_reward += base_reward
+            total_r += episodic_r
         # below here: printing and writing output files in [env]_best_expressions folder
-        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/float(self.n_episodes_test))) +" %\n")
-        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(sum_of_reward/float(self.n_episodes_test))) +" %\n")
+        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(total_r/float(self.n_episodes_test))) +" %\n")
+        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(total_r/float(self.n_episodes_test))) +" %\n")
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
