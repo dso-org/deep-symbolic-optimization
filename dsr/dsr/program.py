@@ -15,7 +15,6 @@ import utils as U
 
 import gym
 import os
-import stable_baselines
 from stable_baselines.ddpg.policies import LnMlpPolicy
 from stable_baselines.bench import Monitor
 from stable_baselines.results_plotter import load_results, ts2xy
@@ -313,49 +312,47 @@ class Program(object):
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
 
+    @classmethod
+    def turn_on_dsp(cls, config):
+        Program.set_dsp = config['env_params']['set_dsp']
 
 
     @classmethod
     def set_env_params(cls, config):
-        """Sets the class' environment parameters"""
+        """Sets the class' environment, library. and action parameters"""
+        #(1) set environment parameters
         params = config['env_params']
         Program.env_name = params['env_name']
-        if Program.env_name is not None:
-            Program.dsp_function_lib = params['dsp_function_lib']
-            Program.env = gym.make(Program.env_name)
-            Program.dim_of_state = Program.env.observation_space.shape[0]
-            Program.anchor = params['anchor']
-            Program.actions = params['actions']
-            Program.n_episodes_test = params['n_episodes_test']
-            Program.n_episodes_train = params['n_episodes_train']
-            Program.success_score = params['success_score']
-            Program.anchor = params['anchor']
-            Program.actions = params['actions']
-            load_anchor_model = False
-            for k in range(len(Program.actions)):
-                key = "action_"+str(k)
-                if Program.actions[key] == "anchor":
-                    load_anchor_model = True
-                    # If there is no "anchor" in Program.actions parameter
-                    # Do not need to load anchor
-                    U.load_anchor( Program.anchor, Program.env_name)
-            Program.load_anchor_model = load_anchor_model
-            os.mkdir("./"+str(Program.env_name)+"_best_expressions/")
-
-
-    @classmethod
-    def set_action_params(cls, config):
-        """Sets toeknized action as program"""
-        params = config['env_params']
-        if Program.env_name is not None:
-            for k in range(len(Program.actions)):
-                key = "action_"+str(k)
-                # convert toekn item as program instance
-                if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
-                    tokens = Program.actions[key]
-                    tokens = Program.convert_token(tokens)
-                    p0 = from_tokens(tokens, optimize = False)
-                    Program.actions[key] = p0
+        Program.dsp_function_lib = params['dsp_function_lib']
+        Program.env = gym.make(Program.env_name)
+        Program.dim_of_state = Program.env.observation_space.shape[0]
+        Program.anchor = params['anchor']
+        Program.actions = params['actions']
+        Program.n_episodes_test = params['n_episodes_test']
+        Program.n_episodes_train = params['n_episodes_train']
+        Program.success_score = params['success_score']
+        Program.anchor = params['anchor']
+        Program.actions = params['actions']
+        load_anchor_model = False
+        for k in range(len(Program.actions)):
+            key = "action_"+str(k)
+            if Program.actions[key] == "anchor":
+                load_anchor_model = True
+                # If there is no "anchor" in Program.actions parameter
+                # Do not need to load anchor
+                U.load_anchor( Program.anchor, Program.env_name)
+        Program.load_anchor_model = load_anchor_model
+        os.mkdir("./"+str(Program.env_name)+"_best_expressions/")
+        #(2) set library parameters
+        Program.set_library(Program.dsp_function_lib, Program.dim_of_state)
+        #(3) set action parameters
+        for k in range(len(Program.actions)):
+            key = "action_"+str(k)
+            # convert toekn item as program instance
+            if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
+                tokens = Program.actions[key]
+                tokens = Program.convert_token(tokens)
+                Program.actions[key] = from_tokens(tokens, optimize = False)
 
 
 
@@ -456,7 +453,7 @@ class Program(object):
             r /= float(p.n_episodes_train)
             return r
         # Define reward_function as classmethod
-        if Program.env_name is not None:
+        if Program.set_dsp:
             Program.reward_function = dsp
         else:
             Program.reward_function = dsr
@@ -509,12 +506,7 @@ class Program(object):
     @classmethod
     def set_library(cls, operators, n_input_var):
         """Sets the class library and arities"""
-
-        if Program.env_name is not None: #dsp
-            n_input_var = Program.dim_of_state
-            operators = Program.dsp_function_lib
-        else: #dsr
-            operators = [op.lower() if isinstance(op, str) else op for op in operators]
+        operators = [op.lower() if isinstance(op, str) else op for op in operators]
 
         # Add input variables
         Program.library = list(range(n_input_var))
@@ -605,7 +597,7 @@ class Program(object):
     def base_r(self):
         """Evaluates and returns the base reward of the program on the training
         set"""
-        if Program.env_name is not None: #dsp
+        if Program.set_dsp: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_train)
@@ -616,7 +608,7 @@ class Program(object):
     def base_r_test(self):
         """Evaluates and returns the base reward of the program on the test
         set"""
-        if Program.env_name is not None: #dsp
+        if Program.set_dsp: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_test)
@@ -627,7 +619,7 @@ class Program(object):
     def base_r_noiseless(self):
         """Evaluates and returns the base reward of the program on the noiseless
         training set"""
-        if Program.env_name is not None: #dsp
+        if Program.set_dsp: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_train)
@@ -638,7 +630,7 @@ class Program(object):
     def base_r_test_noiseless(self):
         """Evaluates and returns the base reward of the program on the noiseless
         test set"""
-        if Program.env_name is not None: #dsp
+        if Program.set_dsp: #dsp
             return Program.reward_function(self)
         else:  #dsr
             y_hat = self.execute(Program.X_test)
@@ -729,17 +721,16 @@ class Program(object):
         step_num : integer
             Current training step to evaluate.
         """
-        from gym import Wrapper
         obs =  self.env.reset()
         num_of_suc = 0
         step_in = 0
         r = 0
         done = False
         f_stat = open("./"+str(self.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
+        sum_of_reward = 0
         for i in range(self.n_episodes_test):
             found_ans = False
             base_reward = 0
-            sum_of_reward = 0
             while not done:  # one episode
                 if self.load_anchor_model:
                     action_model, _states = U.model.predict(obs)
@@ -760,7 +751,7 @@ class Program(object):
                 step_in += 1
                 # Evenif  done is False, we terminate episode when we achieve success_score
                 if (base_reward > self.success_score or base_reward == self.success_score ) and (found_ans is False) : #found solution
-                    found_ans = True
+                    found_ans = step_in
                     f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(base_reward))+"\n")
                     print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(base_reward)))
                     num_of_suc = num_of_suc + 1

@@ -11,13 +11,9 @@ from stable_baselines.ddpg.policies import LnMlpPolicy
 
 def load_anchor(model_path, env_name):
     global model
-
     env = gym.make(env_name) 
-    observation = env.reset()
-    action = env.action_space.sample()
     model = DDPG(LnMlpPolicy, env, verbose=1)
     model = DDPG.load(model_path)
-
     print("Loaded model {}".format(model_path))
 
 

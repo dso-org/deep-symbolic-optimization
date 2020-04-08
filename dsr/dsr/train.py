@@ -203,7 +203,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
     #Trun on or off dsp option
-    if Program.env_name is not None:
+    if Program.set_dsp:
         dsp = True
     else:
         dsp = False
@@ -380,6 +380,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
                     print("\nNew best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
+                    p_base_r_best.print_stats()
 
             elif new_r_best:
                 print("\nNew best reward")

@@ -53,11 +53,11 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_language_
     dataset = get_dataset(name, config_dataset)
     Program.clear_cache()
     Program.set_training_data(dataset)
-    if "env_params" in config_training:
+    Program.turn_on_dsp(config_training)
+    if config_training['env_params']['set_dsp']: #dsp
         Program.set_env_params(config_training)
-    Program.set_library(dataset.function_set, dataset.n_input_var)
-    if "env_params" in config_training:
-        Program.set_action_params(config_training)
+    else: #dsr
+        Program.set_library(dataset.function_set, dataset.n_input_var)
     Program.set_execute()
 
     tf.reset_default_graph()
