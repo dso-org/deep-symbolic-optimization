@@ -660,6 +660,8 @@ class Program(object):
     def nmse(self):
         """Evaluates and returns the normalized mean squared error of the
         program on the test set (used as final performance metric)"""
+        if Program.set_dsp: #dsp
+            return None
         y_hat = self.execute(Program.X_test)
         return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
 
