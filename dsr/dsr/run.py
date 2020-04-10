@@ -47,20 +47,25 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_language_
 
     # Rename the output file
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
+    
 
-    # Define the dataset and library
+    # Define the dataset, dsp parameters and library
     dataset = get_dataset(name, config_dataset)
     Program.clear_cache()
     Program.set_training_data(dataset)
-    Program.set_library(dataset.function_set, dataset.n_input_var)
+    Program.turn_on_dsp(config_training)
+    if config_training['env_params']['set_dsp']: #dsp
+        Program.set_env_params(config_training)
+    else: #dsr
+        Program.set_library(dataset.function_set, dataset.n_input_var)
     Program.set_execute()
-        
+
     tf.reset_default_graph()
 
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
-    
-    with tf.Session() as sess:        
+  
+    with tf.Session() as sess:
 
         # Instantiate the controller w/ language model
         if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
@@ -156,7 +161,7 @@ def get_dataset(name, config_dataset):
 @click.option('--benchmark', '--b', '--only', multiple=True, type=str, help="Benchmark or benchmark prefix to include")
 def main(config_template, method, mc, output_filename, num_cores, seed_shift, benchmark):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
-    
+
      # Load the config file
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
@@ -213,7 +218,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     names = [n for k,n in zip(keep, names) if k]
     unique_names = names.copy()
     names *= mc
-    
+
     # When passed to RNGs, these seeds will actually be added to checksums on the name
     seeds = (np.arange(mc) + seed_shift).repeat(len(unique_names)).tolist()
     names_and_seeds = list(zip(names, seeds))
@@ -248,7 +253,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]
     pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
     if num_cores > 1:
-        pool = multiprocessing.Pool(num_cores)    
+        pool = multiprocessing.Pool(num_cores)
         for result in pool.imap_unordered(work, names_and_seeds):
             pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))

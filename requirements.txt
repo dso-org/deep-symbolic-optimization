@@ -7,4 +7,8 @@ sympy
 pandas
 click
 -e dsr
+deap
+mpi4py
+gym[box2d]
+stable-baselines[mpi]
 scikit-learn
