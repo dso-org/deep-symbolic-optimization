@@ -26,7 +26,8 @@ def make_task(name, **config_task):
     -------
 
     reward_function : function
-        Reward function mapping program.Program object to scalar.
+        Reward function mapping program.Program object to scalar. Includes
+        test argument for train vs test evaluation.
 
     function_set : list
         List of allowable functions (see functions.py for supported functions).
@@ -35,12 +36,14 @@ def make_task(name, **config_task):
         Number of input variables.
     """
 
+    # Dictionary from task name to task factory function
     task_dict = {
         "regression" : make_regression_task,
         # "control" : make_control_task
     }
     
-    return task_dict[name](**config_task)
+    reward_function, function_set, n_input_var = task_dict[name](**config_task)
+    return reward_function, function_set, n_input_var
 
 
 def make_regression_task(metric, metric_params, dataset):
