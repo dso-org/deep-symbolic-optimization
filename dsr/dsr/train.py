@@ -15,8 +15,8 @@ import numpy as np
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.utils import MaxUniquePriorityQueue
+from dsr.language_model import LanguageModelPrior
 from dsr.task import make_task
-
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -37,7 +37,8 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
           alpha=0.1, epsilon=0.01, num_cores=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
-          threshold=1e-12, debug=0):
+          threshold=1e-12, debug=0, env_params=None):
+
     """
     Executes the main training loop.
 
@@ -51,17 +52,17 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
     logdir : str, optional
         Name of log directory.
-    
+
     n_epochs : int or None, optional
         Number of epochs to train when n_samples is None.
 
     n_samples : int or None, optional
         Total number of expressions to sample when n_epochs is None. In this
         case, n_epochs = int(n_samples / batch_size).
-    
+
     batch_size : int, optional
         Number of sampled expressions per epoch.
-    
+
     complexity : str, optional
         Complexity penalty name.
 
@@ -70,20 +71,20 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
     const_optimizer : str or None, optional
         Name of constant optimizer.
-    
+
     const_params : dict, optional
         Dict of constant optimizer kwargs.
-    
+
     alpha : float, optional
         Coefficient of exponentially-weighted moving average of baseline.
-    
+
     epsilon : float, optional
         Fraction of top expressions used for training.
 
     num_cores : int, optional
         Number of cores to use for optimizing programs. If -1, uses
         multiprocessing.cpu_count().
-    
+
     verbose : bool, optional
         Whether to print progress.
 
@@ -195,6 +196,12 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
+    #Trun on or off dsp option
+    if Program.set_dsp:
+        dsp = True
+    else:
+        dsp = False
+
     for step in range(n_epochs):
 
         # Sample batch of expressions from controller
@@ -221,14 +228,15 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         # Retrieve metrics
         nmse = np.array([p.nmse for p in programs]) # NOTE: This adds execute() computation that might not be needed
         base_r = np.array([p.base_r for p in programs])
-        r = np.array([p.r for p in programs])        
+        r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         all_r[step] = base_r
 
         # Collect full-batch statistics
-        nmse_min = np.min(nmse)
-        nmse_best = min(nmse_min, nmse_best)
-        nmse_avg_full = np.mean(nmse)
+        if not dsp:
+            nmse_min = np.min(nmse)
+            nmse_best = min(nmse_min, nmse_best)
+            nmse_avg_full = np.mean(nmse)
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
@@ -246,7 +254,8 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             obs = [o[keep, :] for o in obs]
             priors = priors[keep, :, :]
             programs = list(compress(programs, keep))
-            nmse = nmse[keep]
+            if not dsp:
+                nmse = nmse[keep]
             base_r = base_r[keep]
             r = r[keep]
             l = l[keep]
@@ -270,15 +279,31 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
-            nmse_avg_sub = np.mean(nmse)
+            if not dsp:
+                nmse_avg_sub = np.mean(nmse)
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            stats = np.array([[
+            if not dsp:
+                stats = np.array([[
                              nmse_best,
                              nmse_min,
                              nmse_avg_full,
                              nmse_avg_sub,
+                             base_r_best,
+                             base_r_max,
+                             base_r_avg_full,
+                             base_r_avg_sub,
+                             r_best,
+                             r_max,
+                             r_avg_full,
+                             r_avg_sub,
+                             l_avg_full,
+                             l_avg_sub,
+                             ewma
+                             ]], dtype=np.float32)
+            else:
+                stats = np.array([[
                              base_r_best,
                              base_r_max,
                              base_r_avg_full,
@@ -340,23 +365,29 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
                 if p_r_best == p_base_r_best:
                     print("\nNew best overall")
                     p_r_best.print_stats()
+                    if dsp :
+                        p_r_best.dsp_evaluation(step)
                 else:
                     print("\nNew best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
                     p_base_r_best.print_stats()
+
             elif new_r_best:
                 print("\nNew best reward")
                 p_r_best.print_stats()
+
             elif new_base_r_best:
                 print("\nNew best base reward")
                 p_base_r_best.print_stats()
 
-        # Early stopping
-        if early_stopping and p_base_r_best.nmse < threshold:
-            all_r = all_r[:(step + 1)]
-            print("Fitness exceeded threshold; breaking early.")
-            break
+
+        # Early stopping only in dsr
+        if not dsp:
+            if early_stopping and p_base_r_best.nmse < threshold:
+                all_r = all_r[:(step + 1)]
+                print("Fitness exceeded threshold; breaking early.")
+                break
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
@@ -414,6 +445,7 @@ def main():
     config_task = config["task"]                # Task specification hyperparameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
+    config_language_model_prior = config["language_model"]            # Language model hyperparameters
 
     # Define the task
     reward_function, function_set, n_input_var = make_task(**config_task)
@@ -424,12 +456,13 @@ def main():
 
     with tf.Session() as sess:
         # Instantiate the controller
-        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], **config_controller)
+        language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
         learn(sess, controller, **config_training)
 
 
 if __name__ == "__main__":
-    
+
     if len(sys.argv) > 1 and int(sys.argv[1]) == 1:
         import cProfile
         cProfile.run('main()', sort='cumtime')

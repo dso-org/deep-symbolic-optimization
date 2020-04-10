@@ -64,6 +64,13 @@ python setup_noise.py # Generate config files and shell scripts to run noise and
 ./run_noise_gp.sh # Run GP for various noise levels and dataset sizes
 ```
 
+To execute DSP (Deep Symbolic Policy) algorithm:
+In config.json, set "training"->"env_params"->"set_dsp" as true
+
+```
+./run_dsp.exe # Run DSP for gym environment defined as in config.json
+```
+
 Figures and tables from the paper can be reproduced using the following scripts after having run the relevant experiments:
 
 ```
