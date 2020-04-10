@@ -81,7 +81,7 @@
    "gp": {
       "population_size": 1000,
       "generations": null,
-      "n_samples" : null,
+      "n_samples" : 2000000,
       "tournament_size": 2,
       "metric": "nmse",
       "const_range": [
