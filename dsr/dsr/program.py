@@ -1,22 +1,18 @@
 """Class for symbolic expression object or program."""
 
+import array
+import os
 from textwrap import indent
 
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
-import array
-import os
+import gym
 
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import utils as U
-
-import gym
-import os
-from stable_baselines.ddpg.policies import LnMlpPolicy
-
 
 def from_tokens(tokens, optimize):
     """
