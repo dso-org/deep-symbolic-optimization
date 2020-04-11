@@ -1,10 +1,12 @@
 """Factory functions for generating symbolic search tasks."""
 
 import numpy as np
+import gym
 
 from dsr.dataset import Dataset
-from dsr.program import Program
+from dsr.program import Program, from_tokens
 from dsr.utils import cached_property
+import dsr.utils as U
 
 
 def make_task(name, **config_task):
@@ -39,7 +41,7 @@ def make_task(name, **config_task):
     # Dictionary from task name to task factory function
     task_dict = {
         "regression" : make_regression_task,
-        # "control" : make_control_task
+        "control" : make_control_task
     }
     
     reward_function, function_set, n_input_var = task_dict[name](**config_task)
@@ -141,63 +143,144 @@ def make_regression_task(metric, metric_params, dataset):
     return regression_reward, dataset.function_set, dataset.n_input_var
 
 
-# Below: Example code for control task. This does not work.
-# def make_control_task(self, function_set, env, anchor, action_spec,
-#     n_episodes_train=5, n_episodes_test=1000):
-#     """
-#     Factory function for reinforcement learning environment episodic rewards.
-#     This includes closures for an environment and anchor model.
+def make_control_task(function_set, env_name, anchor, action_spec,
+    n_episodes_train=5, n_episodes_test=1000, success_score=None, dataset=None):
+    """
+    Factory function for episodic reward function of a reinforcement learning
+    environment with continuous actions. This includes closures for the
+    environment, an anchor model, and fixed symbolic actions.
 
-#     Parameters
-#     ----------
+    Parameters
+    ----------
 
-#     function_set : list
-#         List of allowable functions.
+    function_set : list
+        List of allowable functions.
 
-#     env : str
-#         Gym environment name.
+    env_name : str
+        Gym environment name.
 
-#     anchor : str
-#         Path to anchor model.
+    anchor : str or None
+        Path to anchor model, or None if not using an anchor.
 
-#     action_spec : dict
-#         Dictionary from action dimension to either None, "anchor", or a list of
-#         tokens.
+    action_spec : dict
+        Dictionary from action dimension to either None, "anchor", or a list of
+        tokens.
 
-#     n_episodes_train : int
-#         Number of episodes to run during training.
+    n_episodes_train : int
+        Number of episodes to run during training.
 
-#     n_episodes_test : int
-#         Number of episodes to run during testing.
+    n_episodes_test : int
+        Number of episodes to run during testing.
 
-#     Returns
-#     -------
+    Returns
+    -------
 
-#     See make_task().
-#     """
+    See make_task().
+    """
 
-#     # Define closures for environment and anchor model
-#     env = gym.make(env)
-#     anchor = LOAD_ANCHOR
+    # Define closures for environment and anchor model
+    env = gym.make(env_name)
 
-#     def gym_reward(p, test=False):
+    # Configuration assertions
+    assert len(env.observation_space.shape) == 1, "Only support vector observation spaces."
+    assert isinstance(env.action_space, gym.spaces.Box), "Only supports continuous action spaces."
+    n_actions = env.action_space.shape[0]
+    assert n_actions == len(action_spec), "Received specifications for {} action dimensions; expected {}.".format(len(action_spec), n_actions)
+    assert len([v for v in action_spec.values() if v is None]) == 1, "Exactly 1 action_spec value must be None."
+    int_keys = [int(k.split('_')[-1]) for k in action_spec.keys()]
+    assert set(int_keys) == set(range(n_actions)), "Expected keys ending with 0, 1, ..., n_actions."
 
-#         # Select number of episodes to run
-#         n_episodes = n_episodes_test if test else n_episodes_train
+    # Replace action_spec with ordered list
+    for k in list(action_spec.keys()):
+        int_key = int(k.split('_')[-1])
+        action_spec[int_key] = action_spec.pop(k)
+    action_spec = [action_spec[i] for i in range(n_actions)] 
+
+    # Load the anchor model (if applicable)
+    if "anchor" in action_spec:
+        assert anchor is not None, "At least one action uses anchor, but anchor model not specified."
+        U.load_anchor(anchor, env_name)
+        anchor = U.model
+    else:
+        anchor = None
+
+    # Generate symbolic policies and determine action dimension
+    symbolic_actions = {}
+    for i, spec in enumerate(action_spec):
+
+        # Action dimnension being learned
+        if spec is None:
+            action_dim = i
+
+        # Pre-specified symbolic policy
+        elif isinstance(spec, list):
+            tokens = None # Convert str to ints
+            p = from_tokens(tokens, optimize=False)
+            symbolic_actions[i] = p
+
+        else:
+            assert spec == "anchor", "Action specifications must be None, a list of tokens, or 'anchor'."
+
+
+    def get_action(p, obs):
+        """Helper function to get an action from Program p according to obs,
+        since Program.execute() requires 2D arrays but we only want 1D."""
         
-#         # Run the episodes and return the average episodic reward
-#         r_total = 0.0
-#         for i in range(n_episodes):
-#             obs = self.env.reset()
-#             done = False
-#             while not done:
-#                 action = self.anchor(obs)
-#                 action[self.action_dim] = self.p.execute(obs)
-#                 obs, r, done, _ = self.env.step(action)
-#                 r_total += r
-#         return r_total / n_episodes
+        return p.execute(np.array([obs]))[0]
 
-#     return gym_reward
+
+    def gym_reward(p, test=False):
+
+        # Select number of episodes to run
+        n_episodes = n_episodes_test if test else n_episodes_train
+        
+        # Run the episodes and return the average episodic reward
+        r_total = 0 # Accumulated reward across all episodes
+        r_episode = 0 # Accumulated reward for current episode
+        n_success = 0 # Number of successful episodes
+        for i in range(n_episodes):
+            obs = env.reset()
+            done = False
+            while not done:
+
+                # Compute anchor actions
+                if anchor is not None:
+                    action, _ = anchor.predict(obs)
+                else:
+                    action = np.zeros(env.action_space.shape, dtype=np.float32)
+
+                # Replace fixed symbolic actions
+                for i, fixed_p in symbolic_actions.items():
+                    action[i] = get_action(fixed_p, obs)
+
+                # Replace symbolic action with current program
+                action[action_dim] = get_action(p, obs)
+                
+                obs, r, done, _ = env.step(action)
+                r_episode += r
+
+            r_total += r_episode
+            if r_episode > success_score:
+                n_success += 1
+
+        if test:
+            print("Success rate: {:.1%}".format(n_success / n_episodes))
+        
+        return r_total / n_episodes
+
+    n_input_var = env.observation_space.shape[0]
+
+    ##### HACK #####
+    # It might help for each task to have its own task-specific set of metrics
+    # other than reward. This would take some refactoring in run.py and
+    # train.py.
+    Program.nmse = 0
+    Program.r_noiseless = 0
+    Program.base_r_noiseless = 0
+    Program.r_test_noiseless = 0
+    Program.base_r_test_noiseless = 0
+
+    return gym_reward, function_set, n_input_var
 
 
 def make_regression_metric(name, y_train, *args):

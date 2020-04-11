@@ -1,0 +1,119 @@
+{
+   "task" : {
+      "name" : "control",
+      "env_name": "LunarLanderContinuous-v2",
+      "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
+      "action_spec" : {
+         "action_0" : "anchor",
+         "action_1" : null
+      },
+      "n_episodes_train" : 5,
+      "n_episodes_test" : 10,      
+      "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
+      "success_score": 200.0,
+      "dataset" : {
+         "file": "benchmarks.csv",
+         "name" : null,
+         "noise": null,
+         "extra_data_dir": null,
+         "function_lib": null
+      }
+   },
+   "training": {
+      "logdir": "./log",
+      "n_epochs": null,
+      "n_samples": 200,
+      "batch_size": 5,
+      "complexity": "length",
+      "complexity_weight": 0.0,
+      "const_optimizer": "scipy",
+      "const_params": {},
+      "alpha": 0.5,
+      "epsilon": 0.1,
+      "verbose": true,
+      "baseline": "R_e",
+      "b_jumpstart": false,
+      "num_cores": 1,
+      "summary": false,
+      "debug": 0,
+      "output_file": null,
+      "save_all_r": false,
+      "early_stopping": false,
+      "threshold": null,
+      "env_params": {
+        "set_dsp": null,
+        "env_name": "LunarLanderContinuous-v2",
+        "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
+        "actions" : {
+          "action_0" : "anchor",
+          "action_1" : null
+          },
+        "n_episodes_test" : 1000,
+        "n_episodes_train" : 5,
+        "dsp_function_lib" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
+        "success_score": 200.0
+      }
+   },
+
+   "controller": {
+      "cell": "lstm",
+      "num_layers": 1,
+      "num_units": 32,
+      "initializer": "zeros",
+      "embedding": false,
+      "embedding_size": 8,
+      "optimizer": "adam",
+      "learning_rate": 0.001,
+      "observe_action": false,
+      "observe_parent": true,
+      "observe_sibling": true,
+      "constrain_const": true,
+      "constrain_trig": true,
+      "constrain_inv": true,
+      "constrain_min_len": true,
+      "constrain_max_len": true,
+      "constrain_num_const": false,
+      "use_language_model_prior": false,
+      "min_length": 4,
+      "max_length": 30,
+      "max_const": 3,
+      "entropy_weight": 0.1,
+      "ppo": false,
+      "ppo_clip_ratio": 0.2,
+      "ppo_n_iters": 10,
+      "ppo_n_mb": 4,
+      "pqt": false,
+      "pqt_k": 10,
+      "pqt_batch_size": 1,
+      "pqt_weight": 200.0,
+      "pqt_use_pg": false
+   },
+   "gp": {
+      "population_size": 1000,
+      "generations": null,
+      "n_samples" : 2000000,
+      "tournament_size": 2,
+      "metric": "nmse",
+      "const_range": [
+         -1.0,
+         1.0
+      ],
+      "p_crossover": 0.95,
+      "p_mutate": 0.03,
+      "max_depth": null,
+      "max_len": 30,
+      "max_const": 3,
+      "seed": 0,
+      "early_stopping": true,
+      "threshold": 1e-12,
+      "verbose": false
+   },
+   "language_model_prior": {
+        "saved_language_model_path": "./language_model/model/saved_model",
+        "saved_language_model_lib" : "./language_model/model/saved_model/word_dict.pkl",
+        "embedding_size":32, 
+        "num_layers":1, 
+        "num_hidden":256,
+        "prob_sharing": true
+    }
+}
