@@ -67,7 +67,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
         # Instantiate the controller w/ language model
         if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
-            language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
+            language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
         else:
             language_model_prior = None
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
