@@ -124,9 +124,7 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
 
-
-
-    parent_adjust = None    # np.ndarray to transform library key to non-terminal sub-library key
+    # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
@@ -281,50 +279,6 @@ class Program(object):
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
 
-    @classmethod
-    def turn_on_dsp(cls, config):
-        Program.set_dsp = config['env_params']['set_dsp']
-
-
-    @classmethod
-    def set_env_params(cls, config):
-        """Sets the class' environment, library. and action parameters"""
-        #(1) set environment parameters
-        params = config['env_params']
-        Program.env_name = params['env_name']
-        Program.dsp_function_lib = params['dsp_function_lib']
-        Program.env = gym.make(Program.env_name)
-        Program.dim_of_state = Program.env.observation_space.shape[0]
-        Program.anchor = params['anchor']
-        Program.actions = params['actions']
-        Program.n_episodes_test = params['n_episodes_test']
-        Program.n_episodes_train = params['n_episodes_train']
-        Program.success_score = params['success_score']
-        Program.anchor = params['anchor']
-        Program.actions = params['actions']
-        load_anchor_model = False
-        for k in range(len(Program.actions)):
-            key = "action_"+str(k)
-            if Program.actions[key] == "anchor":
-                load_anchor_model = True
-                # If there is no "anchor" in Program.actions parameter
-                # Do not need to load anchor
-                U.load_anchor( Program.anchor, Program.env_name)
-        Program.load_anchor_model = load_anchor_model
-        os.mkdir("./"+str(Program.env_name)+"_best_expressions/")
-        #(2) set library parameters
-        Program.set_library(Program.dsp_function_lib, Program.dim_of_state)
-        #(3) set action parameters
-        for k in range(len(Program.actions)):
-            key = "action_"+str(k)
-            # convert toekn item as program instance
-            if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
-                tokens = Program.actions[key]
-                tokens = Program.convert_token(tokens)
-                Program.actions[key] = from_tokens(tokens, optimize = False)
-
-
-
 
     @classmethod
     def set_complexity_penalty(cls, name, weight):
@@ -455,6 +409,7 @@ class Program(object):
         str_library = [f if isinstance(f, str) else f.name for f in Program.library]
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
+
     @cached_property
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
@@ -522,79 +477,6 @@ class Program(object):
         print("\tTraversal: {}".format(self))
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
-
-
-
-
-
-    def dsp_evaluation(self, step_num):
-        """Evaluate learned deep symbolic policy in current program.
-        We repeat episodes as n_episodes_test times,
-        Then, we calculate rate of success.
-        The evaluation results including learned simbolic policy and success rate
-        is printed as output file.
-        Parameters
-        ----------
-        step_num : integer
-            Current training step to evaluate.
-        """
-        obs =  self.env.reset()
-        num_of_suc = 0
-        step_in = 0
-        done = False
-        f_stat = open("./"+str(self.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
-        total_r = 0
-        for i in range(self.n_episodes_test):
-            found_ans = False
-            episodic_r = 0
-            while not done:  # one episode
-                if self.load_anchor_model:
-                    action_model, _states = U.model.predict(obs)
-                action_dsp = [0 for i in range(len(self.actions))]
-                for k in range(len(self.actions)):
-                    key = "action_"+str(k)
-                    if self.actions[key] is None: # learning with rl
-                        action_dsp[k] = self.execute(np.asarray([obs]))[0]
-                        action_number = k
-                    elif self.actions[key] == "anchor":  # get action from anchor model
-                        action_dsp[k] = action_model[k]
-                    else: # get traverse of token as action
-                        p0 = self.actions[key]
-                        action_dsp[k] = p0.execute(np.asarray([obs]))[0]
-                action_dsp = np.asarray(action_dsp, dtype=np.float32)
-                obs, r, done, info =  self.env.step(action_dsp)
-                episodic_r += r
-                step_in += 1
-                # Evenif  done is False, we terminate episode when we achieve success_score
-                if (episodic_r > self.success_score or episodic_r == self.success_score ) and (found_ans is False) : #found solution
-                    found_ans = step_in
-                    f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(episodic_r))+"\n")
-                    print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(episodic_r)))
-                    num_of_suc = num_of_suc + 1
-                    self.env.reset()
-                    break
-            if episodic_r < self.success_score:
-                self.env.reset()
-            total_r += episodic_r
-        # below here: printing and writing output files in [env]_best_expressions folder
-        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(total_r/float(self.n_episodes_test))) +" %\n")
-        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(total_r/float(self.n_episodes_test))) +" %\n")
-        print("\tReward: {}".format(self.r))
-        print("\tBase reward: {}".format(self.base_r))
-        print("\tCount: {}".format(self.count))
-        print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        f_stat.write("\nReward: {}".format(self.r))
-        f_stat.write("\nBase reward: {}".format(self.base_r))
-        f_stat.write("\nCount: {}".format(self.count))
-        f_stat.write("\nTraversal: {}".format(self))
-        f_stat.write("\nExpression:")
-        equ = self.pretty()
-        print(" Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-        f_stat.write("\n Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-        f_stat.close()
-
-
 
 
     def __repr__(self):

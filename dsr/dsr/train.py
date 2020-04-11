@@ -37,7 +37,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
           alpha=0.1, epsilon=0.01, num_cores=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
-          threshold=1e-12, debug=0, env_params=None):
+          threshold=1e-12, debug=0):
 
     """
     Executes the main training loop.
@@ -196,11 +196,6 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
-    #Trun on or off dsp option
-    if Program.set_dsp:
-        dsp = True
-    else:
-        dsp = False
 
     for step in range(n_epochs):
 
@@ -233,10 +228,9 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         all_r[step] = base_r
 
         # Collect full-batch statistics
-        if not dsp:
-            nmse_min = np.min(nmse)
-            nmse_best = min(nmse_min, nmse_best)
-            nmse_avg_full = np.mean(nmse)
+        nmse_min = np.min(nmse)
+        nmse_best = min(nmse_min, nmse_best)
+        nmse_avg_full = np.mean(nmse)
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
@@ -254,8 +248,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             obs = [o[keep, :] for o in obs]
             priors = priors[keep, :, :]
             programs = list(compress(programs, keep))
-            if not dsp:
-                nmse = nmse[keep]
+            nmse = nmse[keep]
             base_r = base_r[keep]
             r = r[keep]
             l = l[keep]
@@ -279,43 +272,27 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
-            if not dsp:
-                nmse_avg_sub = np.mean(nmse)
+            nmse_avg_sub = np.mean(nmse)
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            if not dsp:
-                stats = np.array([[
-                             nmse_best,
-                             nmse_min,
-                             nmse_avg_full,
-                             nmse_avg_sub,
-                             base_r_best,
-                             base_r_max,
-                             base_r_avg_full,
-                             base_r_avg_sub,
-                             r_best,
-                             r_max,
-                             r_avg_full,
-                             r_avg_sub,
-                             l_avg_full,
-                             l_avg_sub,
-                             ewma
-                             ]], dtype=np.float32)
-            else:
-                stats = np.array([[
-                             base_r_best,
-                             base_r_max,
-                             base_r_avg_full,
-                             base_r_avg_sub,
-                             r_best,
-                             r_max,
-                             r_avg_full,
-                             r_avg_sub,
-                             l_avg_full,
-                             l_avg_sub,
-                             ewma
-                             ]], dtype=np.float32)
+            stats = np.array([[
+                         nmse_best,
+                         nmse_min,
+                         nmse_avg_full,
+                         nmse_avg_sub,
+                         base_r_best,
+                         base_r_max,
+                         base_r_avg_full,
+                         base_r_avg_sub,
+                         r_best,
+                         r_max,
+                         r_avg_full,
+                         r_avg_sub,
+                         l_avg_full,
+                         l_avg_sub,
+                         ewma
+                         ]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
@@ -365,8 +342,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
                 if p_r_best == p_base_r_best:
                     print("\nNew best overall")
                     p_r_best.print_stats()
-                    if dsp :
-                        p_r_best.dsp_evaluation(step)
+                    # TBD: Here, DSP does an eval run. Should we add callbacks, e.g. on_new_best()?
                 else:
                     print("\nNew best reward")
                     p_r_best.print_stats()
@@ -383,11 +359,10 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
 
         # Early stopping only in dsr
-        if not dsp:
-            if early_stopping and p_base_r_best.nmse < threshold:
-                all_r = all_r[:(step + 1)]
-                print("Fitness exceeded threshold; breaking early.")
-                break
+        if early_stopping and p_base_r_best.nmse < threshold:
+            all_r = all_r[:(step + 1)]
+            print("Fitness exceeded threshold; breaking early.")
+            break
 
         # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:

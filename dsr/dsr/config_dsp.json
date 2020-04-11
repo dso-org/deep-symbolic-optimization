@@ -8,7 +8,7 @@
          "action_1" : null
       },
       "n_episodes_train" : 5,
-      "n_episodes_test" : 10,      
+      "n_episodes_test" : 10,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
       "success_score": 200.0,
       "dataset" : {
@@ -22,7 +22,7 @@
    "training": {
       "logdir": "./log",
       "n_epochs": null,
-      "n_samples": 200,
+      "n_samples": 20,
       "batch_size": 5,
       "complexity": "length",
       "complexity_weight": 0.0,
@@ -39,20 +39,7 @@
       "output_file": null,
       "save_all_r": false,
       "early_stopping": false,
-      "threshold": null,
-      "env_params": {
-        "set_dsp": null,
-        "env_name": "LunarLanderContinuous-v2",
-        "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
-        "actions" : {
-          "action_0" : "anchor",
-          "action_1" : null
-          },
-        "n_episodes_test" : 1000,
-        "n_episodes_train" : 5,
-        "dsp_function_lib" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
-        "success_score": 200.0
-      }
+      "threshold": null
    },
 
    "controller": {

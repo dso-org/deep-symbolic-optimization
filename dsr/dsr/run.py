@@ -56,7 +56,6 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     Program.set_library(function_set, n_input_var)
 
     # Setup
-    Program.turn_on_dsp(config_training)
     Program.set_execute()
     Program.clear_cache()
     tf.reset_default_graph()
