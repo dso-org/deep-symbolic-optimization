@@ -678,8 +678,11 @@ class Program(object):
         tree = self.traversal.copy()
         tree = build_tree(tree)
         tree = convert_to_sympy(tree)
-        expr = parse_expr(tree.__repr__()) # SymPy expression
-
+        try:
+            expr = parse_expr(tree.__repr__()) # SymPy expression
+        except:
+            expr = "N/A"
+            
         return expr
 
 
