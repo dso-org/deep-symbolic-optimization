@@ -19,7 +19,7 @@ from dsr.program import Program
 import utils as U
 
 """ test static data """
-test_eq = parse_latex(r"\frac {1 + \sqrt {\a}} {\b}")
+Total_timesteps=2000
 
 PATH = "./data"
 
@@ -112,10 +112,6 @@ class View(tk.Tk):
         content_mid.pack(side=tk.LEFT)
         content_right.pack(side=tk.LEFT)
 
-        # content_left.grid(column=0)
-        # content_mid.grid(column=1)
-        # content_right.grid(column=2)
-
         ###########
         ### MID ###
         frame_vis = tk.Frame(content_mid)
@@ -145,8 +141,10 @@ class View(tk.Tk):
         ### RIGHT ### : 
         self.training_nmse = Trace(content_right,  xlabel='timestep', ylabel='Best NMSE',  colors=['brown'], figsize=(4,1.7), dpi=100)
         self.training_nmse.ax.set_ylim(0,0.6)
+
         self.training_best_reward = Trace(content_right, xlabel='timestep', ylabel='Best Reward',colors=['brown'], figsize=(4,1.7), dpi=100)
         self.training_best_reward.ax.set_ylim(0,1.1)
+
         self.distribution = Trace(content_right, xlabel='timestep', ylabel='Reward Dist',colors=['brown'], figsize=(4,1.7), dpi=100)
 
         self.training_nmse.pack()
@@ -170,7 +168,7 @@ class View(tk.Tk):
 
     def _init_frame_vis(self, frame, min=-100, max=100):
 
-        self.visualization = Trace(frame, xlabel='X1', ylabel='X2', title='DSR results', colors=['brown'], figsize=(3.9,3.9), dpi=100)
+        self.visualization = Trace(frame, xlabel='X', ylabel='Y', title='DSR results', colors=['brown'], figsize=(3.9,3.9), dpi=100)
 
         buttons = tk.Frame(frame)
         self.vis_zoom_in = tk.Button(buttons, text="+", bg="green")
@@ -203,7 +201,6 @@ class View(tk.Tk):
         self.time_step.set("2000")
         self.best_reward_var = tk.StringVar()
         self.best_reward_var.set("1.00E+00")
-
         self.best_nmse = tk.StringVar()
         self.best_nmse.set("0.00E+00")
 
@@ -218,8 +215,6 @@ class View(tk.Tk):
         tk.Label(frame, text="Best NMSE:", fg=COLOR_VISINFO).grid(column=0, row=3)
         tk.Label(frame, textvariable=self.best_nmse).grid(column=1, row=3)
 
-
-    
     def _init_control(self, frame):
         self.start_button = tk.Button(frame, text="Start", bg='green')
         self.step_button = tk.Button(frame, text="Step", bg='green')
@@ -495,6 +490,7 @@ class Controller:
 
 
     def update_views(self, batch_rewards, p, training_info):
+        # vis
         self.view.visualization.plot_vis(p)
         # vis_info
         expression = p.sympy_expr
@@ -503,15 +499,6 @@ class Controller:
         # training plots (nmse, best_reward)
         self.view.training_nmse.plot(np.atleast_1d(training_info[0]))
         self.view.training_best_reward.plot(np.atleast_1d(p.r))
-        self.view.training_nmse.plot(np.atleast_1d(training_info[0]))
-
-        str_p=str(p)
-        try:
-            expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
-        except:
-            expression = "N/A????"
-
-        self.view.best_equation_var.set(expression)
 
 def main():
     root = tk.Tk()
