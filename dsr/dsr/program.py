@@ -12,7 +12,7 @@ import gym
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-import utils as U
+import dsr.utils as U
 
 def from_tokens(tokens, optimize):
     """
