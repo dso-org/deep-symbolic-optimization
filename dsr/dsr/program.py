@@ -328,6 +328,13 @@ class Program(object):
 
 
     @classmethod
+    def set_eval_function(cls, eval_function):
+        """Sets the class eval function."""
+
+        Program.eval_function = eval_function
+
+
+    @classmethod
     def set_library(cls, operators, n_input_var):
         """Sets the class library and arities."""
 
@@ -422,15 +429,7 @@ class Program(object):
         """Evaluates and returns the base reward of the program on the training
         set"""
 
-        return self.reward_function(test=False)
-
-
-    @cached_property
-    def base_r_test(self):
-        """Evaluates and returns the base reward of the program on the test
-        set"""
-
-        return self.reward_function(test=True)
+        return self.reward_function()
 
 
     @cached_property
@@ -441,10 +440,10 @@ class Program(object):
 
 
     @cached_property
-    def r_test(self):
-        """Evaluates and returns the reward of the program on the test set"""
+    def evaluate(self):
+        """Evaluates and returns the evaluation metrics of the program."""
 
-        return self.base_r_test - self.complexity
+        return self.eval_function()
 
 
     @cached_property

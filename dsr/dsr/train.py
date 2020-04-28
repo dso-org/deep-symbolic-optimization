@@ -37,7 +37,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
           alpha=0.1, epsilon=0.01, num_cores=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
-          threshold=1e-12, debug=0):
+          debug=0):
 
     """
     Executes the main training loop.
@@ -112,10 +112,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         iteration. If False, the EWMA starts at 0.0.
 
     early_stopping : bool, optional
-        Whether to stop early if a threshold is reached.
-
-    threshold : float, optional
-        NMSE threshold to stop early if a threshold is reached.
+        Whether to stop early if stopping criteria is reached.
 
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
@@ -146,7 +143,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            f.write("nmse_best,nmse_min,nmse_avg_full,nmse_avg_sub,base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma\n")
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma\n")
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -188,7 +185,6 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         print_var_means()
 
     # Main training loop
-    nmse_best = np.inf
     base_r_best = -np.inf
     r_best = -np.inf
     prev_r_best = None
@@ -221,16 +217,12 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
                 p.set_constants(optimized_constants)
 
         # Retrieve metrics
-        nmse = np.array([p.nmse for p in programs]) # NOTE: This adds execute() computation that might not be needed
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         all_r[step] = base_r
 
         # Collect full-batch statistics
-        nmse_min = np.min(nmse)
-        nmse_best = min(nmse_min, nmse_best)
-        nmse_avg_full = np.mean(nmse)
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
@@ -248,7 +240,6 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             obs = [o[keep, :] for o in obs]
             priors = priors[keep, :, :]
             programs = list(compress(programs, keep))
-            nmse = nmse[keep]
             base_r = base_r[keep]
             r = r[keep]
             l = l[keep]
@@ -272,15 +263,10 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
-            nmse_avg_sub = np.mean(nmse)
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
             stats = np.array([[
-                         nmse_best,
-                         nmse_min,
-                         nmse_avg_full,
-                         nmse_avg_sub,
                          base_r_best,
                          base_r_max,
                          base_r_avg_full,
@@ -342,7 +328,6 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
                 if p_r_best == p_base_r_best:
                     print("\nNew best overall")
                     p_r_best.print_stats()
-                    # TBD: Here, DSP does an eval run. Should we add callbacks, e.g. on_new_best()?
                 else:
                     print("\nNew best reward")
                     p_r_best.print_stats()
@@ -357,17 +342,14 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
                 print("\nNew best base reward")
                 p_base_r_best.print_stats()
 
-
-        # Early stopping only in dsr
-        if early_stopping and p_base_r_best.nmse < threshold:
+        # Stop if early stopping criteria is met
+        if early_stopping and p_base_r_best.evaluate.get("success"):
             all_r = all_r[:(step + 1)]
-            print("Fitness exceeded threshold; breaking early.")
+            print("Early stopping criteria met; breaking early.")
             break
 
-        # print("Step: {}, Loss: {:.6f}, baseline: {:.6f}, r: {:.6f}".format(step, loss, b, np.mean(r)))
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
-            # print("Neglogp of ground truth action:", controller.neglogp(ground_truth_actions, ground_truth_mask)[0])
 
         if debug >= 2:
             print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
@@ -380,28 +362,17 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     if pool is not None:
         pool.close()
 
+    # Return statistics of best Program
     p = p_base_r_best
     result = {
-            # "p_r_best.r" : p_r_best.r,
-            # "p_r_best.base_r" : p_r_best.base_r
-            # "p_r_best_expression" : repr(p_r_best.sympy_expr),
-            # "p_r_best_traversal" : repr(p_r_best),
-            # "p_base_r_best.r" : p_base_r_best.r,
-            # "p_base_r_best.base_r" : p_base_r_best.base_r
-            # "p_base_r_best_expression" : repr(p_base_r_best.sympy_expr),
-            # "p_base_r_best_traversal" : repr(p_base_r_best),
-            "nmse" : p.nmse, # Final performance metric
-            "r" : p.r,
-            "base_r" : p.base_r,
-            "r_test" : p.r_test,
-            "base_r_test" : p.base_r_test,
-            "r_noiseless" : p.r_noiseless,
-            "base_r_noiseless" : p.base_r_noiseless,
-            "r_test_noiseless" : p.r_test_noiseless,
-            "base_r_test_noiseless" : p.base_r_test_noiseless,
-            "expression" : repr(p.sympy_expr),
-            "traversal" : repr(p)
-            }
+        "r" : p.r,
+        "base_r" : p.base_r,
+    }
+    result.update(p.evaluate)
+    result.update({
+        "expression" : repr(p.sympy_expr),
+        "traversal" : repr(p)
+        })
     return result
 
 
@@ -420,18 +391,18 @@ def main():
     config_task = config["task"]                # Task specification hyperparameters
     config_training = config["training"]        # Training hyperparameters
     config_controller = config["controller"]    # Controller hyperparameters
-    config_language_model_prior = config["language_model"]            # Language model hyperparameters
+    config_language_model_prior = config["language_model_prior"]            # Language model hyperparameters
 
     # Define the task
-    reward_function, function_set, n_input_var = make_task(**config_task)
+    reward_function, eval_function, function_set, n_input_var = make_task(**config_task)
     Program.set_reward_function(reward_function)
+    Program.set_eval_function(eval_function)
     Program.set_library(function_set, n_input_var)
     Program.set_execute()
-    # print("Ground truth expression:\n{}".format(indent(task.dataset.pretty(), '\t')))
 
     with tf.Session() as sess:
         # Instantiate the controller
-        language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
+        language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
         learn(sess, controller, **config_training)
 

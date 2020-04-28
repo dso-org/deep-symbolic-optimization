@@ -3,13 +3,14 @@
       "name" : "regression",
       "dataset" : {
          "file": "benchmarks.csv",
-         "name" : null,
+         "name" : "Nguyen-1",
          "noise": null,
          "extra_data_dir": null,
          "function_lib": null
       },
       "metric" : "inv_nrmse",
-      "metric_params" : []
+      "metric_params" : [],
+      "threshold" : 1e-12
    },
    "training": {
       "logdir": "./log",
@@ -22,7 +23,7 @@
       "const_params": {},
       "alpha": 0.5,
       "epsilon": 0.1,
-      "verbose": false,
+      "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
       "num_cores": 1,
@@ -30,8 +31,7 @@
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
-      "early_stopping": true,
-      "threshold": 1e-12
+      "early_stopping": true
    },
 
    "controller": {

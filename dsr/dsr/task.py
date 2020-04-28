@@ -31,6 +31,11 @@ def make_task(name, **config_task):
         Reward function mapping program.Program object to scalar. Includes
         test argument for train vs test evaluation.
 
+    eval_function : function
+        Evaluation function mapping program.Program object to a dict of task-
+        specific evaluation metrics (primitives). Special optional key "success"
+        is used for determining early stopping during training.
+
     function_set : list
         List of allowable functions (see functions.py for supported functions).
 
@@ -44,11 +49,11 @@ def make_task(name, **config_task):
         "control" : make_control_task
     }
     
-    reward_function, function_set, n_input_var = task_dict[name](**config_task)
-    return reward_function, function_set, n_input_var
+    reward_function, eval_function, function_set, n_input_var = task_dict[name](**config_task)
+    return reward_function, eval_function, function_set, n_input_var
 
 
-def make_regression_task(metric, metric_params, dataset):
+def make_regression_task(metric, metric_params, dataset, threshold=1e-12):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -81,66 +86,43 @@ def make_regression_task(metric, metric_params, dataset):
     y_train_noiseless = dataset.y_train_noiseless
     y_test_noiseless = dataset.y_test_noiseless
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
+    var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
     metric = make_regression_metric(metric, y_train, *metric_params)
 
 
-    def regression_reward(p, test=False, noiseless=False):        
-
-        # Select train or test data, noiseless or not
-        X = X_test if test else X_train
-        if noiseless:
-            y = y_test_noiseless if test else y_train_noiseless
-        else:            
-            y = y_test if test else y_train
+    def reward(p):
 
         # Compute estimated values
-        y_hat = p.execute(X)
+        y_hat = p.execute(X_train)
 
         # Return metric
-        r = metric(y, y_hat)
+        r = metric(y_train, y_hat)
         return r
 
 
-    ##### Additional regression-specific functions to be used by Programs #####
+    def evaluate(p):
 
-    @cached_property
-    def nmse(p):
-        """
-        Evaluates and returns the normalized mean squared error of the
-        program on the test set (used as final performance metric).
-        """
+        # Compute predictions on test data
         y_hat = p.execute(X_test)
-        return np.mean((y_test - y_hat)**2) / var_y_test
+
+        # NMSE on test data (used to report final error)
+        nmse_test = np.mean((y_test - y_hat)**2) / var_y_test
+
+        # NMSE on noiseless test data (used to determine recovery)
+        nmse_test_noiseless = np.mean((y_test_noiseless - y_hat)**2) / var_y_test_noiseless
+
+        # Success is defined by NMSE on noiseless test data below a threshold
+        success = nmse_test_noiseless < threshold
+
+        info = {
+            "nmse_test" : nmse_test,
+            "nmse_test_noiseless" : nmse_test_noiseless,
+            "success" : success
+        }
+        return info
 
 
-    @cached_property
-    def base_r_noiseless(p):
-        return regression_reward(p, test=False, noiseless=True)
-
-
-    @cached_property
-    def base_r_test_noiseless(p):
-        return regression_reward(p, test=True, noiseless=True)
-
-
-    @cached_property
-    def r_noiseless(p):
-        return regression_reward(p, test=False , noiseless=True) - p.complexity
-
-
-    @cached_property
-    def r_test_noiseless(p):
-        return regression_reward(p, test=True, noiseless=True) - p.complexity
-    
-
-    # Add to Program to be used as cached properties
-    Program.nmse = nmse
-    Program.base_r_noiseless = base_r_noiseless
-    Program.base_r_test_noiseless = base_r_test_noiseless
-    Program.r_noiseless = r_noiseless
-    Program.r_test_noiseless = r_test_noiseless
-
-    return regression_reward, dataset.function_set, dataset.n_input_var
+    return reward, evaluate, dataset.function_set, dataset.n_input_var
 
 
 def make_control_task(function_set, env_name, anchor, action_spec,
@@ -229,15 +211,11 @@ def make_control_task(function_set, env_name, anchor, action_spec,
         return p.execute(np.array([obs]))[0]
 
 
-    def gym_reward(p, test=False):
-
-        # Select number of episodes to run
-        n_episodes = n_episodes_test if test else n_episodes_train
+    def run_episodes(p, n_episodes):
+        """Runs n_episodes episodes and returns each episodic reward."""
         
         # Run the episodes and return the average episodic reward
-        r_total = 0 # Accumulated reward across all episodes
-        r_episode = 0 # Accumulated reward for current episode
-        n_success = 0 # Number of successful episodes
+        r_episodes = np.zeros(n_episodes, dtype=np.float32) # Episodic rewards for each episode
         for i in range(n_episodes):
             obs = env.reset()
             done = False
@@ -257,30 +235,42 @@ def make_control_task(function_set, env_name, anchor, action_spec,
                 action[action_dim] = get_action(p, obs)
                 
                 obs, r, done, _ = env.step(action)
-                r_episode += r
+                r_episodes[i] += r
 
-            r_total += r_episode
-            if r_episode > success_score:
-                n_success += 1
+        return r_episodes
 
-        if test:
-            print("Success rate: {:.1%}".format(n_success / n_episodes))
-        
-        return r_total / n_episodes
+
+    def reward(p):
+
+        # Run the episodes
+        r_episodes = run_episodes(p, n_episodes_train)
+
+        # Return the mean
+        r_avg = np.mean(r_episodes)
+        return r_avg
+
+
+    def evaluate(p):
+
+        # Run the episodes
+        r_episodes = run_episodes(p, n_episodes_test)
+
+        # Compute eval statistics
+        r_avg_test = np.mean(r_episodes)
+        success_rate = np.mean(r_episodes > success_score)
+        success = success_rate == 1.0
+
+        info = {
+            "r_avg_test" : r_avg_test,
+            "success_rate" : success_rate,
+            "success" : success
+        }
+        return info
+
 
     n_input_var = env.observation_space.shape[0]
 
-    ##### HACK #####
-    # It might help for each task to have its own task-specific set of metrics
-    # other than reward. This would take some refactoring in run.py and
-    # train.py.
-    Program.nmse = 0
-    Program.r_noiseless = 0
-    Program.base_r_noiseless = 0
-    Program.r_test_noiseless = 0
-    Program.base_r_test_noiseless = 0
-
-    return gym_reward, function_set, n_input_var
+    return reward, evaluate, function_set, n_input_var
 
 
 def make_regression_metric(name, y_train, *args):

@@ -38,8 +38,7 @@
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
-      "early_stopping": false,
-      "threshold": null
+      "early_stopping": true
    },
 
    "controller": {

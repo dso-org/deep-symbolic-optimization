@@ -51,8 +51,9 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     
     # Define the task
     config_task["dataset"]["name"] = name # Set the name
-    reward_function, function_set, n_input_var = make_task(**config_task)    
+    reward_function, eval_function, function_set, n_input_var = make_task(**config_task)    
     Program.set_reward_function(reward_function)
+    Program.set_eval_function(eval_function)
     Program.set_library(function_set, n_input_var)
 
     # Setup
@@ -73,11 +74,9 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
 
         # Train the controller
-        result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
-        result["name"] = name
-        result["t"] = time.time() - start
-
-        result["seed"] = seed
+        result = {"name" : name, "seed" : seed} # Name and seed are listed first
+        result.update(learn(sess, controller, **config_training))
+        result["t"] = time.time() - start # Time listed last
 
         return result
 
@@ -245,17 +244,20 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
         work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
-    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]
-    pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
+    # columns = ["name", "base_r", "r", "expression", "traversal", "t", "seed"]
+    # pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
+    write_header = True
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)
         for result in pool.imap_unordered(work, names_and_seeds):
-            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
+            write_header = False
     else:
         for name_and_seed in names_and_seeds:
             result = work(name_and_seed)
-            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
+            write_header = False
 
 
 if __name__ == "__main__":
