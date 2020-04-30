@@ -1,7 +1,7 @@
 {
    "task" : {
-      "name" : "control",
-      "env_name": "LunarLanderContinuous-v2",
+      "type" : "control",
+      "name": "LunarLanderContinuous-v2",
       "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
       "action_spec" : {
          "action_0" : "anchor",
@@ -9,15 +9,8 @@
       },
       "n_episodes_train" : 5,
       "n_episodes_test" : 10,
-      "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
       "success_score": 200.0,
-      "dataset" : {
-         "file": "benchmarks.csv",
-         "name" : null,
-         "noise": null,
-         "extra_data_dir": null,
-         "function_lib": null
-      }
+      "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
    },
    "training": {
       "logdir": "./log",
@@ -40,7 +33,6 @@
       "save_all_r": false,
       "early_stopping": true
    },
-
    "controller": {
       "cell": "lstm",
       "num_layers": 1,
