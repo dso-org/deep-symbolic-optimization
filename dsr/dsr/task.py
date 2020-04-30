@@ -9,20 +9,22 @@ from dsr.utils import cached_property
 import dsr.utils as U
 
 
-def make_task(name, **config_task):
+def make_task(task_type, **config_task):
     """
     Factory function for reward function that maps a Progarm to a scalar.
 
     Parameters
     ----------
 
-    name : str
-        Name of task:
-        "regression" : Regression task.
-        "control" : Episodic reinforcement learning task
+    task_type : str
+        Type of task:
+        "regression" : Symbolic regression task.
+        "control" : Episodic reinforcement learning task.
 
     config_task : kwargs
-        Task-specific arguments. See specifications of task_dict.
+        Task-specific arguments. See specifications of task_dict. Special key
+        "name" is required, which defines the benchmark (i.e. dataset for
+        regression; environment for control).
 
     Returns
     -------
@@ -49,11 +51,11 @@ def make_task(name, **config_task):
         "control" : make_control_task
     }
     
-    reward_function, eval_function, function_set, n_input_var = task_dict[name](**config_task)
+    reward_function, eval_function, function_set, n_input_var = task_dict[task_type](**config_task)
     return reward_function, eval_function, function_set, n_input_var
 
 
-def make_regression_task(metric, metric_params, dataset, threshold=1e-12):
+def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -78,6 +80,7 @@ def make_regression_task(metric, metric_params, dataset, threshold=1e-12):
     """
     
     # Define closures for dataset and metric
+    dataset["name"] = name # TBD: Refactor to not have two instances of "name"
     dataset = Dataset(**dataset)
     X_train = dataset.X_train
     y_train = dataset.y_train
@@ -125,7 +128,7 @@ def make_regression_task(metric, metric_params, dataset, threshold=1e-12):
     return reward, evaluate, dataset.function_set, dataset.n_input_var
 
 
-def make_control_task(function_set, env_name, anchor, action_spec,
+def make_control_task(function_set, name, anchor, action_spec,
     n_episodes_train=5, n_episodes_test=1000, success_score=None, dataset=None):
     """
     Factory function for episodic reward function of a reinforcement learning
@@ -138,8 +141,8 @@ def make_control_task(function_set, env_name, anchor, action_spec,
     function_set : list
         List of allowable functions.
 
-    env_name : str
-        Gym environment name.
+    name : str
+        Name of Gym environment.
 
     anchor : str or None
         Path to anchor model, or None if not using an anchor.
@@ -161,7 +164,7 @@ def make_control_task(function_set, env_name, anchor, action_spec,
     """
 
     # Define closures for environment and anchor model
-    env = gym.make(env_name)
+    env = gym.make(name)
 
     # Configuration assertions
     assert len(env.observation_space.shape) == 1, "Only support vector observation spaces."
@@ -181,7 +184,7 @@ def make_control_task(function_set, env_name, anchor, action_spec,
     # Load the anchor model (if applicable)
     if "anchor" in action_spec:
         assert anchor is not None, "At least one action uses anchor, but anchor model not specified."
-        U.load_anchor(anchor, env_name)
+        U.load_anchor(anchor, name)
         anchor = U.model
     else:
         anchor = None
