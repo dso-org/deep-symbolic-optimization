@@ -21,12 +21,13 @@ from dsr.program import Program
 from dsr.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
+from dsr.task import make_task
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-def train_dsr(name_and_seed, config_dataset, config_controller, config_language_model_prior, config_training):
+def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     name, seed = name_and_seed
@@ -48,18 +49,16 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_language_
     # Rename the output file
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
     
+    # Define the task
+    config_task["dataset"]["name"] = name # Set the name
+    reward_function, eval_function, function_set, n_input_var = make_task(**config_task)    
+    Program.set_reward_function(reward_function)
+    Program.set_eval_function(eval_function)
+    Program.set_library(function_set, n_input_var)
 
-    # Define the dataset, dsp parameters and library
-    dataset = get_dataset(name, config_dataset)
-    Program.clear_cache()
-    Program.set_training_data(dataset)
-    Program.turn_on_dsp(config_training)
-    if config_training['env_params']['set_dsp']: #dsp
-        Program.set_env_params(config_training)
-    else: #dsr
-        Program.set_library(dataset.function_set, dataset.n_input_var)
+    # Setup
     Program.set_execute()
-
+    Program.clear_cache()
     tf.reset_default_graph()
 
     # Shift actual seed by checksum to ensure it's different across different benchmarks
@@ -69,22 +68,20 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_language_
 
         # Instantiate the controller w/ language model
         if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
-            language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
+            language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
         else:
             language_model_prior = None
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
 
         # Train the controller
-        result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
-        result["name"] = name
-        result["t"] = time.time() - start
-
-        result["seed"] = seed
+        result = {"name" : name, "seed" : seed} # Name and seed are listed first
+        result.update(learn(sess, controller, **config_training))
+        result["t"] = time.time() - start # Time listed last
 
         return result
 
 
-def train_gp(name_and_seed, logdir, config_dataset, config_gp):
+def train_gp(name_and_seed, logdir, config_task, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
 
     name, seed = name_and_seed
@@ -93,7 +90,9 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     start = time.time()
 
     # Load the dataset
-    dataset = get_dataset(name, config_dataset)
+    config_dataset = config_task["dataset"]
+    config_dataset["name"] = name
+    dataset = Dataset(**config_dataset)
 
     # Fit the GP
     gp = gpsr.GP(dataset=dataset, **config_gp)
@@ -143,14 +142,6 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     return result
 
 
-def get_dataset(name, config_dataset):
-    """Creates and returns the dataset"""
-
-    config_dataset["name"] = name
-    dataset = Dataset(**config_dataset)
-    return dataset
-
-
 @click.command()
 @click.argument('config_template', default="config.json")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
@@ -166,7 +157,10 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
-    config_dataset = config["dataset"]              # Problem specification parameters
+    config_task = config["task"]                    # Task specification parameters
+
+    assert "dataset" in config_task, "Currently only supporting 'regression' task with 'dataset' specification."
+    config_dataset = config_task["dataset"]         # Dataset specification hyperparameters
     config_training = config["training"]            # Training hyperparameters
     if "controller" in config:
         config_controller = config["controller"]    # Controller hyperparameters
@@ -200,7 +194,7 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Load raw dataset from external directory in config
     if "extra_data_dir" in config_dataset:
-        if not config_dataset["extra_data_dir"] == None:
+        if config_dataset["extra_data_dir"] is not None:
             for f in os.listdir(config_dataset["extra_data_dir"]):
                 if f.endswith(".csv"):
                     names.append(f.split('.')[0])
@@ -245,22 +239,25 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
+        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
+        work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
-    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]
-    pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
+    # columns = ["name", "base_r", "r", "expression", "traversal", "t", "seed"]
+    # pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
+    write_header = True
     if num_cores > 1:
         pool = multiprocessing.Pool(num_cores)
         for result in pool.imap_unordered(work, names_and_seeds):
-            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
+            write_header = False
     else:
         for name_and_seed in names_and_seeds:
             result = work(name_and_seed)
-            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
+            write_header = False
 
 
 if __name__ == "__main__":
