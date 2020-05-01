@@ -3,7 +3,7 @@
 import numpy as np
 import gym
 
-from dsr.dataset import Dataset
+from dsr.task.regression.dataset import Dataset
 from dsr.program import Program, from_tokens
 from dsr.utils import cached_property
 import dsr.utils as U

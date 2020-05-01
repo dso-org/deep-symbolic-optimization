@@ -18,7 +18,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
 
 from dsr.program import Program
-from dsr.dataset import Dataset
+from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
 from dsr.task import make_task
