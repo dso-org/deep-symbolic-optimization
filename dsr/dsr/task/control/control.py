@@ -1,8 +1,8 @@
 import gym
 import numpy as np
 
-import dsr.utils as U
 from dsr.program import Program, from_tokens
+from . import utils as U
 
 
 def make_control_task(function_set, name, anchor, action_spec,
