@@ -61,7 +61,7 @@ class Dataset(object):
                  dataset_size_multiplier=None, **kwargs):
 
         # Read in benchmark dataset information
-        root = resource_filename("dsr", "data/")
+        root = resource_filename("dsr.task", "regression/data/")
         benchmark_path = os.path.join(root, file)
         df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
 
@@ -166,7 +166,7 @@ class Dataset(object):
 
         # If root has changed
         if root_changed:
-            root = resource_filename("dsr", "data/")
+            root = resource_filename("dsr.task", "regression/data/")
             
         # Create the function set (list of str)
         function_set_path = os.path.join(root, "function_sets.csv")
@@ -263,7 +263,7 @@ def main(file, noise):
 
     from matplotlib import pyplot as plt
 
-    data_path = resource_filename("dsr", "data/")
+    data_path = resource_filename("dsr.task", "regression/data/")
     benchmark_path = os.path.join(data_path, file)
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
