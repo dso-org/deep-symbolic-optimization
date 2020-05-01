@@ -1,9 +1,10 @@
 {
    "task": {
-      "name" : "regression",
+      "task_type" : "regression",
+      "name" : "Nguyen-1",
       "dataset" : {
          "file": "benchmarks.csv",
-         "name" : "Nguyen-1",
+         "name" : null,
          "noise": null,
          "extra_data_dir": null,
          "function_lib": null
@@ -33,7 +34,6 @@
       "save_all_r": false,
       "early_stopping": true
    },
-
    "controller": {
       "cell": "lstm",
       "num_layers": 1,
