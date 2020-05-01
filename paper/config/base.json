@@ -1,6 +1,6 @@
 {
    "task" : {
-      "type" : "regression",
+      "task_type" : "regression",
       "name" : null,
       "dataset" : {
          "file" : "benchmarks.csv",

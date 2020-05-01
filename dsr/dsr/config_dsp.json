@@ -1,6 +1,6 @@
 {
    "task" : {
-      "type" : "control",
+      "task_type" : "control",
       "name": "LunarLanderContinuous-v2",
       "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
       "action_spec" : {

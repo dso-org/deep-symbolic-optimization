@@ -1,6 +1,6 @@
 {
    "task": {
-      "type" : "regression",
+      "task_type" : "regression",
       "name" : "Nguyen-1",
       "dataset" : {
          "file": "benchmarks.csv",

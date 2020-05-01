@@ -50,7 +50,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
     
     # Define the task
-    config_task["name"] = name # Set the benchmark name
+    config_task["name"] = name # Override the benchmark name
     reward_function, eval_function, function_set, n_input_var = make_task(**config_task)    
     Program.set_reward_function(reward_function)
     Program.set_eval_function(eval_function)
