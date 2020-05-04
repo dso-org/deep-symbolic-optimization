@@ -189,11 +189,31 @@
 
             <!--Middle panel: Visualization (Main plot)-->
             <div class="col-xs-12 col-md-6">
-                <div id="main_plot" class="chart">
-                    <!-- <script>
-                        var graphs = {{plot|safe}};
-                    </script> -->
+                <div id="main_plot" class="col-xs-12 col-md-12">
                 </div>
+                <table id="table_exprs" class="table table-hover">
+                    <thead>
+
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="checkAll">
+                                <label class="form-check-label" for="checkAll">#</label>
+                            </th>
+                            <th>Expression</th>
+                            <th>Fitness</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="checkbox" id="checkExpr1">
+                                <label class="form-check-label" for="checkExpr1">1</label>
+                            </td>
+                            <td>sin(x*2)</td>
+                            <td>0.7</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
             
             <!--Right panel: Diagnostics-->

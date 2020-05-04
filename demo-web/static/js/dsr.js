@@ -100,9 +100,8 @@ function bringBestExpr(){
         },
         error: function(error){
             console.log(error);
-            // console.log("stop requesting");
-            // break;
-            // break requestLoop;
+            resetButtons();
+            // console.log("Stop requesting");
         }
     }).done(function(){
         if (done != true && ajaxCall < 300){
@@ -157,11 +156,11 @@ var layout = {
         b: 100
     },
     hovermode: 'closest',
-    config: { responsive: true }, // re
+    config: { responsive: true }, // not working..
     // plot_bgcolor:"white",
     // paper_bgcolor:"white",
-    // showlegend: false,
-    legend: {"orientation": "h"},
+    showlegend: false,
+    // legend: {orientation: "h"},
     // legend: {
     //     x: 1,
     //     xanchor: 'right',
@@ -169,7 +168,7 @@ var layout = {
     //   }
     xaxis: {
         showgrid: false,
-        zeroline: true,
+        zeroline: false,
         showline: true,
         mirror: 'ticks',
         // gridcolor: '#bdbdbd',
@@ -183,7 +182,7 @@ var layout = {
       },
     yaxis: {
         showgrid: false,
-        zeroline: true,
+        zeroline: false,
         showline: true,
         mirror: 'ticks',
         // gridcolor: '#bdbdbd',
@@ -195,7 +194,20 @@ var layout = {
         // range: [-2,2]
         autorange: true
     },
-    title: 'Title'
+    title: {
+        text: 'Best expression: ',
+        xref: 'paper', 
+        yref: 'paper', 
+        x: 0, 
+        y: 1.2,
+        xanchor: 'left', 
+        yanchor: 'bottom',
+        font:{
+            family: 'Arial',
+            size: 15,
+            color: 'rgb(37,37,37)'},
+        showarrow: false
+    }
 
 };
 Plotly.newPlot(divMainPlot, blank_data, layout, {responsive: true});
@@ -205,11 +217,12 @@ var new_style = {
 }
 Plotly.restyle(divMainPlot, new_style)
 
-var new_best_exp = 'sinx'
+// 
+// var new_best_exp = 'sinx'
 
-var update_best_info = {
-    title: 'Best expression: ' + new_best_exp
-}
+// var update_best_info = {
+//     title: 'Best expression: ' + new_best_exp
+// }
 
 
 
