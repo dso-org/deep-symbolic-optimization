@@ -1,4 +1,6 @@
-var done = true;
+var done = false;
+var bestFound = false;
+var bestExprs = 0;
 var step = 0;
 var ajaxCall = 0;
 
@@ -14,8 +16,10 @@ function resetPlot(graphDiv){
 
 function resetButtons(){
     $('#btn_start').parent().show();
+    $('#btn_step').parent().show();
     $('#btn_stop').parent().hide();
     $('#btn_pause').parent().hide();
+
 }
 
 var layout_fix_range = {
@@ -23,45 +27,61 @@ var layout_fix_range = {
     'yaxis.autorange': false
     };
 
+function plotDataPoints(){
+    $.ajax({
+        url: '/data_points',
+        type: 'POST',
+        data: 'training data',
+        dataType: "json",
+        success: function(response){
+            console.log("Plot data points.");
+            resetPlot(divMainPlot)
+            Plotly.addTraces(divMainPlot, response);
+            Plotly.relayout(divMainPlot, layout_fix_range)
+        },
+        error: function(error){
+            console.log(error);
+        }
+    });
+}
+
 /* Plot data points */
 $(function(){
     $('#btn_data').on('click', function(){
-        $.ajax({
-            url: '/data_points',
-            type: 'POST',
-            data: 'training data',
-            dataType: "json",
-            success: function(response){
-                console.log("Plot data points.");
-                resetPlot(divMainPlot)
-                Plotly.addTraces(divMainPlot, response);
-                Plotly.relayout(divMainPlot, layout_fix_range)
-            },
-            error: function(error){
-                console.log(error);
-            }
-        });
+        plotDataPoints();
         return false;
     });
 });
 
-/* Stop running */
+/* Stop running: Button STOP */
 $(function(){
     $('#btn_stop').on('click', function(){
         done = true;
-        step = 0;
+        
         resetButtons();
-    });
-});
-/* Pause running */
-$(function(){
-    $('#btn_pause').on('click', function(){
-        done = true;
-        $(this).button('<span class="glyphicon glyphicon-play" aria-hidden="true"></span>RESUME')
+        plotDataPoints();
+
+        bestFound = false;
+        bestExprs = 0;
+        step = 0;
+        ajaxCall = 0;
     });
 });
 
-function bringBestExpr(){
+/* Pause running: Button PAUSE */
+$(function(){
+    $('#btn_pause').on('click', function(){
+        done = true;
+        
+        $('#btn_start').parent().show();
+        $(this).parent().hide();
+        $(this).blur();
+        // $(this).button('<span class="glyphicon glyphicon-play" aria-hidden="true"></span>RESUME')
+        // change button -> RESUME
+    });
+});
+
+function bringBestExpr(caller){
     $.ajax({
         url: '/main_lines',
         type: 'POST',
@@ -81,8 +101,9 @@ function bringBestExpr(){
                     console.log(ajaxCall)
                 }
                 
-                if (response.update == true){
+                if (response.update == true && done != true){
                     /* Plot new best expression */
+                    bestFound = true;
                     // validness = Plotly.validate(response.plot)
                     // console.log(validness[0].msg)
                     Plotly.addTraces(divMainPlot, JSON.parse(response.plot));
@@ -104,16 +125,40 @@ function bringBestExpr(){
             // console.log("Stop requesting");
         }
     }).done(function(){
-        if (done != true && ajaxCall < 300){
-            // bringBestExpr();
-            setTimeout(bringBestExpr, 500);
-            step += 10;
-            ajaxCall++;
+        if (caller == 'start'){
+            if (done != true && ajaxCall < 300){
+                // bringBestExpr();
+                setTimeout(bringBestExpr.bind(null,'start'), 500);
+                step += 10;
+                ajaxCall++;
             }
+        } else if (caller == 'step'){
+            if (bestFound == false && done != true && ajaxCall < 300){
+                // bringBestExpr();
+                setTimeout(bringBestExpr.bind(null,'step'), 500);
+                step += 10;
+                ajaxCall++;
+            }
+        }
     });
 }
 
-/* Plot expression */
+/* Plot expression: Button STEP (Finds next best expression, then pause) */
+$(function(){
+    $('#btn_step').on('click', function(){
+        $('#btn_stop').parent().show();
+        $('#btn_start').parent().show();
+        $(this).blur();
+
+        done = false;
+        bestFound = false;
+
+        bringBestExpr('step');
+        // change button -> RESUME
+    });
+});
+
+/* Plot expression: Button START */
 $(function(){
     $('#btn_start').on('click', function(){
         console.log("Start");
@@ -123,16 +168,13 @@ $(function(){
         $('#btn_pause').parent().show();
         $(this).parent().hide();
         $(this).blur();
-        
-        done = false;
-        step = 0;
-        bestExprs = 0;
-
-        ajaxCall = 0;
 
         /* continue plotting */
         // requestLoop:
-        bringBestExpr();
+
+        done = false;
+
+        bringBestExpr('start');
 
         return false;
     });
@@ -217,13 +259,10 @@ var new_style = {
 }
 Plotly.restyle(divMainPlot, new_style)
 
-// 
-// var new_best_exp = 'sinx'
-
-// var update_best_info = {
-//     title: 'Best expression: ' + new_best_exp
-// }
-
+/* JS tooltip opt-in */
+$(function () {
+    $('[data-toggle="tooltip"]').tooltip()
+  })
 
 
 
@@ -255,7 +294,6 @@ Plotly.restyle(divMainPlot, new_style)
 // #525252
 // #252525
 // #000000
-
 
 
 /*
