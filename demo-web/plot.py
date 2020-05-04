@@ -9,69 +9,69 @@ from dsr.program import Program
 from data import demo_utils
 
 
-def create_plot(): # example 
+# def create_plot(): # example 
 
-    # Plot data points
-    N = 40
-    x = np.linspace(-2, 2, N)
-    y = np.exp(x)
-    df = pd.DataFrame({'x': x, 'y': y}) # creating a sample dataframe
+#     # Plot data points
+#     N = 40
+#     x = np.linspace(-2, 2, N)
+#     y = np.exp(x)
+#     df = pd.DataFrame({'x': x, 'y': y}) # creating a sample dataframe
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-            x=df['x'],
-            y=x,
-            mode='lines',
-            name='x',
-            line=dict(color='rgb(189,189,189)', width=2),
-            # hovertemplate = "%{label}"
-        ))
-    fig.add_trace(go.Scatter(
-            x=df['x'],
-            y=np.sin(x),
-            mode='lines',
-            name='sin',
-            line=dict(color='rgb(115,115,115)', width=2)
-        ))
-    fig.add_trace(go.Scatter(
-            x=df['x'],
-            y=2*np.sin(x),
-            mode='lines',
-            name='2sin',
-            line=dict(color='rgb(67,67,67)', width=2)
-        ))
+#     fig = go.Figure()
+#     fig.add_trace(go.Scatter(
+#             x=df['x'],
+#             y=x,
+#             mode='lines',
+#             name='x',
+#             line=dict(color='rgb(189,189,189)', width=2),
+#             # hovertemplate = "%{label}"
+#         ))
+#     fig.add_trace(go.Scatter(
+#             x=df['x'],
+#             y=np.sin(x),
+#             mode='lines',
+#             name='sin',
+#             line=dict(color='rgb(115,115,115)', width=2)
+#         ))
+#     fig.add_trace(go.Scatter(
+#             x=df['x'],
+#             y=2*np.sin(x),
+#             mode='lines',
+#             name='2sin',
+#             line=dict(color='rgb(67,67,67)', width=2)
+#         ))
 
-    annotations = []
-    # Title
-    annotations.append(dict(xref='paper', yref='paper', x=-0.05, y=1.1,
-                                xanchor='left', yanchor='bottom',
-                                text='Best expression: ',
-                                font=dict(family='Arial',
-                                            size=15,
-                                            color='rgb(37,37,37)'),
-                                showarrow=False))
+#     annotations = []
+#     # Title
+#     annotations.append(dict(xref='paper', yref='paper', x=-0.05, y=1.1,
+#                                 xanchor='left', yanchor='bottom',
+#                                 text='Best expression: ',
+#                                 font=dict(family='Arial',
+#                                             size=15,
+#                                             color='rgb(37,37,37)'),
+#                                 showarrow=False))
     
-    fig.update_xaxes(showline=True, linewidth=2, linecolor='black', mirror=True)
-    fig.update_yaxes(showline=True, linewidth=2, linecolor='black', mirror=True)
+#     fig.update_xaxes(showline=True, linewidth=2, linecolor='black', mirror=True)
+#     fig.update_yaxes(showline=True, linewidth=2, linecolor='black', mirror=True)
     
-    fig.update_layout(annotations=annotations)
-    # fig.update_layout(showlegend=False)
-    fig.update_layout(legend_orientation="h")
-    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)')
-    fig.update_layout(plot_bgcolor='rgba(0,0,0,0)')
+#     fig.update_layout(annotations=annotations)
+#     # fig.update_layout(showlegend=False)
+#     fig.update_layout(legend_orientation="h")
+#     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)')
+#     fig.update_layout(plot_bgcolor='rgba(0,0,0,0)')
 
-    # data = [
-    #     go.Scatter(
-    #         x=df['x'],
-    #         y=df['y'],
-    #         mode='lines',
-    #         name='exp'
-    #     )
-    # ]
+#     # data = [
+#     #     go.Scatter(
+#     #         x=df['x'],
+#     #         y=df['y'],
+#     #         mode='lines',
+#     #         name='exp'
+#     #     )
+#     # ]
 
-    graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+#     graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
 
-    return graphJSON
+#     return graphJSON
 
 class MainPlot:
     def __init__(self):
