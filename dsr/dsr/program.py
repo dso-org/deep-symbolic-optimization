@@ -12,7 +12,7 @@ import gym
 from dsr.functions import _function_map, _Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-import utils as U
+import dsr.utils as U
 
 def from_tokens(tokens, optimize):
     """
@@ -572,7 +572,15 @@ class Program(object):
     @staticmethod
     def convert(traversal):
         """Converts a string traversal to an int traversal"""
-        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        # str_library = [f if isinstance(f, str) else f.name for f in Program.library]
+        str_library = []
+        for f in Program.library:
+            if isinstance(f, int):
+                str_library.append("x{}".format(f+1))
+            elif isinstance(f, str):
+                str_library.append(f)
+            else:
+                str_library.append(f.name)
         return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
     @cached_property

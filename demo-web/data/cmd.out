@@ -1,0 +1,1 @@
+/Users/petersen33/repositories/hypothesis_testing/dsr/dsr/run.py config/demo.json --b=Nguyen-5 --mc=1 --num_cores=1

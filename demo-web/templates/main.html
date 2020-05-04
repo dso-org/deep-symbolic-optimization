@@ -7,10 +7,12 @@
 	
     <meta name="author" content="htvai">
     <meta name="description" content="Visualization of deep symbolic regression">
-    <!-- <link rel="icon" href=""> -->
+    <link rel="icon" type="image/png" sizes="16x16" href="static/image/favicon-16x16.png">
 	
     <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="static/css/dsr.css">
+    <script type="text/javascript" src="static/js/plotly-1.53.0.min.js"></script>
+
     <stype>
         body {
             padding-top: 75px;
@@ -47,8 +49,40 @@
         </div>
 
         <div class="row">
-            <!--Left panel-->
+            <!--Left panel: Control-->
             <div class="col-xs-12 col-md-3">
+                <!-- <div class="panel panel-default"> -->
+                        <!-- <div class="panel-body"> -->
+                            <div class="table">
+                                <div class= "btn-group btn-group-justified" role="group">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-default" id="btn_start">
+                                            <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                                            START 
+                                        </button>
+                                    </div>
+                                    <div class="btn-group" role="group" style="display: none;">
+                                        <button type="button" class="btn btn-default" id="btn_stop">
+                                            <span class="glyphicon glyphicon-stop" aria-hidden="true"></span>
+                                            STOP 
+                                        </button>
+                                    </div>
+                                    <div class="btn-group" role="group" style="display: none;">
+                                        <button type="button" class="btn btn-default" id="btn_pause">
+                                            <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
+                                            PAUSE 
+                                        </button>
+                                    </div>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-default" id="btn_step">
+                                            <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                                            STEP
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                    <!-- </div> -->
+                <!-- </div> -->
                 <div class="panel panel-default">
                     <div class="panel-heading">
                         <h3 class="panel-title">Control</h3>
@@ -57,16 +91,17 @@
                         <!--control-->
                         <!--upload-->
                         <label for="uploadDataFile">Data</label>
-                        <form class="form-inline">
+                        <form class="form-inline" action="/data_points" method="post">
                             <div class="form-group">
                                 <input type="file" class="form-control-file col-md-9" id="uploadDataFile">
-                                <button type="submit" class="btn btn-primary btn-xs col-md-3">Upload</button>
+                                <button type="submit" class="btn btn-primary btn-xs col-md-3" id="btn_data">Upload</button>
                             </div>
                         </form>
                         <div class="alert alert-warning" style="margin-bottom: 5px">
                             <span class="glyphicon glyphicon-gift" aria-hidden="true"></span> Click here to use our dataset!
                         </div>
-                        <!--Validate uploaded dataset, send back info, e.g., # variables, range, # datapoints, etc.-->
+                        <!--TODO: Validate uploaded dataset, send back info, e.g., # variables, range, # datapoints, etc.-->
+                        <!--TODO: plot training data points (scatter marker)-->
                     <!-- </div>
                     <div class="panel-body"> -->
                         <!--operators-->
@@ -108,7 +143,7 @@
                             <form class="form-inline" sytpe="margin-bottom:5px;">
                                 <div class="form-group">
                                     <input type="file" class="form-control-file col-md-10" id="uploadConfig" accept=".json">
-                                    <button type="submit" class="btn btn-primary btn-xs col-md-2">Set</button>
+                                    <button type="submit" class="btn btn-primary btn-xs col-md-2" id="btn_config">Set</button>
                                 </div>
                             </form>
                             <div class="row">
@@ -152,18 +187,21 @@
                 </div>
             </div>
 
-            <!--Middle panel-->
+            <!--Middle panel: Visualization (Main plot)-->
             <div class="col-xs-12 col-md-5">
-                <p class="bg-info">
-                    Plot expression
-                </p>
+                <div id="main_plot" class="chart">
+                    <script>
+                        var graphs = {{plot|safe}};
+                    </script>
+                </div>
             </div>
             
-            <!--Right panel-->
+            <!--Right panel: Diagnostics-->
             <div class="col-xs-12 col-md-4">
                 <p class="bg-warning">
                     Plot training info
                 </p> 
+                <!--extendTraces-->
             </div>
             
         </div>
@@ -172,7 +210,7 @@
         
             <!-- footer -->
             <footer class="footer" style="margin-top: 30px; text-align: right">
-            <div class="container">
+            <div class="container-fluid">
                 <p class="text-muted">2020 International Joint Conference on Artificial Intelligence::Demonstrations Track</p>
             </div>
             </footer>
@@ -180,5 +218,10 @@
     </div>
     
     <script type="text/javascript" src="static/js/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <script type="text/javascript" src="static/js/dsr.js"></script>
 </body>
 </html>
+
+<!-- TODO: separate templates -->
+<!-- TODO: make plotly size responsive -->
