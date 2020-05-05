@@ -204,7 +204,7 @@ var layout = {
     margin: { 
         t: 50, 
         l: 50, 
-        r: 50, 
+        r: 20, 
         b: 50
     },
     hovermode: 'closest',
@@ -260,7 +260,8 @@ var layout = {
             color: 'rgb(37,37,37)'},
         showarrow: false
     },
-    width: 800
+    width: 800,
+    height: 500
 
 };
 Plotly.newPlot(divMainPlot, blankData, layout, {responsive: true});
@@ -437,7 +438,12 @@ $(function () {
 
 
 /*
-TODO: model done -> reset numbers
+TODO: 
+    - model done -> reset numbers
+    - stop: force quit model
+        - stop plotting
+        - reset button
+            - remove plot
 
 Need to receive from server: 
 
@@ -465,4 +471,7 @@ Front:
 
 ### diagnostics:
 - axes match 
+
+Extra
+
 */
