@@ -5,8 +5,8 @@ from dsr.program import Program, from_tokens
 from . import utils as U
 
 
-def make_control_task(function_set, name, anchor, action_spec,
-    n_episodes_train=5, n_episodes_test=1000, success_score=None, dataset=None):
+def make_control_task(function_set, name, action_spec, algorithm=None,
+    anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -21,12 +21,17 @@ def make_control_task(function_set, name, anchor, action_spec,
     name : str
         Name of Gym environment.
 
-    anchor : str or None
-        Path to anchor model, or None if not using an anchor.
-
     action_spec : dict
         Dictionary from action dimension to either None, "anchor", or a list of
         tokens.
+
+    algorithm : str or None
+        Name of algorithm corresponding to anchor path, or None to use default
+        anchor for given environment.
+
+    anchor : str or None
+        Path to anchor model, or None to use default anchor for given
+        environment.
 
     n_episodes_train : int
         Number of episodes to run during training.
@@ -51,6 +56,7 @@ def make_control_task(function_set, name, anchor, action_spec,
     assert len([v for v in action_spec.values() if v is None]) == 1, "Exactly 1 action_spec value must be None."
     int_keys = [int(k.split('_')[-1]) for k in action_spec.keys()]
     assert set(int_keys) == set(range(n_actions)), "Expected keys ending with 0, 1, ..., n_actions."
+    assert int(algorithm is None) + int(anchor is None) in [0, 2], "Either none or both of (algorithm, anchor) must be None."
 
     # Replace action_spec with ordered list
     for k in list(action_spec.keys()):
@@ -60,8 +66,12 @@ def make_control_task(function_set, name, anchor, action_spec,
 
     # Load the anchor model (if applicable)
     if "anchor" in action_spec:
-        assert anchor is not None, "At least one action uses anchor, but anchor model not specified."
-        U.load_anchor(anchor, name)
+        # Load custom anchor, if provided, otherwise load default
+        if algorithm is not None and anchor_path is not None:
+            U.load_model(algorithm, anchor_path)
+        else:
+            U.load_default_model(name)
+
         anchor = U.model
     else:
         anchor = None
