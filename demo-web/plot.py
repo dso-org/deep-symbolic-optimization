@@ -128,7 +128,7 @@ class MainPlot:
                 y=df['y'],
                 mode='lines',
                 name=str(expr_program.sympy_expr),
-                line=dict(color='rgb(67,67,67)', width=2)
+                line=dict(color='rgb(67,67,67)', width=2.5)
             )
         ]
 

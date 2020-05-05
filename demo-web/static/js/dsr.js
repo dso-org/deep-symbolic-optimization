@@ -106,9 +106,16 @@ function bringBestExpr(caller){
                     bestFound = true;
                     // validness = Plotly.validate(response.plot)
                     // console.log(validness[0].msg)
-                    Plotly.addTraces(divMainPlot, JSON.parse(response.plot));
-                    // restyle existing plots
-                    // Div.data.length
+                    var ii;
+                    for (ii = 0; ii < divMainPlot.data.length-1; ii++){
+                        Plotly.restyle(divMainPlot, {
+                            'line.width': 2,
+                            opacity: Math.pow(0.8, divMainPlot.data.length-1-ii)
+                        },ii)
+                    }
+                    
+                    Plotly.addTraces(divMainPlot, JSON.parse(response.plot),divMainPlot.data.length-1);
+                    
                     bestExprs++;
                 }
                 
