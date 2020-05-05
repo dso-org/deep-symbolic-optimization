@@ -3,10 +3,31 @@
     top:15px;
     left:15px; */
     text-align: right;
-    font-size:10px;
-    font-weight:500;
-    color:#959595;
-    text-transform:uppercase;
-    letter-spacing:0.5px;
-    padding:0px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #959595;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0px;
+}
+
+.nav>li>a {
+    /* font-family: 'Jost', sans-serif; */
+    font-weight: 500;
+    color: #000000;
+}
+
+.dropdown-menu>li>a {
+    /* font-family: 'Jost', sans-serif; */
+    font-weight: 400;
+    color: #000000;
+}
+
+.navbar-nav>li>a {
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.subplot {
+    margin-bottom: 5px;
 }

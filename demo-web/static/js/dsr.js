@@ -5,6 +5,8 @@ var step = 0;
 var ajaxCall = 0;
 
 divMainPlot = document.getElementById('main_plot');
+divSubplot = document.getElementById('subplot');
+divSubplot2 = document.getElementById('subplot2');
 
 function resetPlot(graphDiv){
     /* remove all traces */
@@ -190,7 +192,7 @@ $(function(){
 
 
 
-var blank_data = [{
+var blankData = [{
     x: [0],
     y: [0],
     mode: 'marker',
@@ -203,7 +205,7 @@ var layout = {
         t: 50, 
         l: 50, 
         r: 50, 
-        b: 100
+        b: 50
     },
     hovermode: 'closest',
     config: { responsive: true }, // not working..
@@ -257,15 +259,145 @@ var layout = {
             size: 15,
             color: 'rgb(37,37,37)'},
         showarrow: false
-    }
+    },
+    width: 800
 
 };
-Plotly.newPlot(divMainPlot, blank_data, layout, {responsive: true});
+Plotly.newPlot(divMainPlot, blankData, layout, {responsive: true});
 
 var new_style = {
     'line.color': ['rgb(115,115,115)']
 }
 Plotly.restyle(divMainPlot, new_style)
+
+/*** Subplots ***/
+// not using plotly subplotting
+
+var trace1 = {
+    x: [0, 1, 2],
+    y: [10, 11, 12],
+    type: 'scatter'
+};
+
+var trace2 = {
+    x: [2, 3, 4],
+    y: [100, 110, 120],
+    type: 'scatter'
+};
+
+var layoutSubplot = {
+    autosize: false,
+    margin: { 
+        t: 0, 
+        l: 80, 
+        r: 100, 
+        b: 10
+    },
+    legend: {orientation: "h"},
+    xaxis: {
+        automargin: true,
+        title: {
+            text: "Iterations",
+            font:{
+                size: 12
+            }
+        },
+        tickfont: {
+            // family: 'Old Standard TT, serif',
+            size: 10,
+            color: 'black'
+        },
+        showgrid: false,
+        zeroline: false,
+        showline: true,
+        mirror: 'ticks',
+        linecolor: '#636363',
+        linewidth: 1.5
+      },
+    yaxis: {
+        title: {
+            text: "Reward",
+            font:{
+                size: 12
+            },
+        },
+        tickfont: {
+            // family: 'Old Standard TT, serif',
+            size: 10,
+            color: 'black'
+        },
+        showgrid: false,
+        zeroline: false,
+        showline: true,
+        mirror: 'ticks',
+        linecolor: '#636363',
+        linewidth: 1.5
+    //     // range: [-2,2]
+    //     autorange: false
+    },
+    width: 580,
+    height: 200
+};
+
+var layoutSubplot2 = {
+    autosize: false,
+    margin: { 
+        t: 0, 
+        l: 80, 
+        r: 100, 
+        b: 10
+    },
+    legend: {orientation: "h"},
+    xaxis: {
+        automargin: true,
+        title: {
+            text: "Reward",
+            font:{
+                size: 12
+            }
+        },
+        tickfont: {
+            // family: 'Old Standard TT, serif',
+            size: 10,
+            color: 'black'
+        },
+        showgrid: false,
+        zeroline: false,
+        showline: true,
+        mirror: 'ticks',
+        linecolor: '#636363',
+        linewidth: 1.5
+    //     range: [-2,2],
+    //     autorange: false
+      },
+    yaxis: {
+        title: {
+            text: "Density",
+            font:{
+                size: 12
+            }
+        },
+        tickfont: {
+            // family: 'Old Standard TT, serif',
+            size: 10,
+            color: 'black'
+        },
+        showgrid: false,
+        zeroline: false,
+        showline: true,
+        mirror: 'ticks',
+        linecolor: '#636363',
+        linewidth: 1.5
+    //     // range: [-2,2]
+    //     autorange: false
+    },
+    width: 580,
+    height: 200
+};
+
+Plotly.newPlot(divSubplot, [trace1], layoutSubplot)
+Plotly.newPlot(divSubplot2, [trace2], layoutSubplot2)
+
 
 /* JS tooltip opt-in */
 $(function () {
@@ -305,6 +437,8 @@ $(function () {
 
 
 /*
+TODO: model done -> reset numbers
+
 Need to receive from server: 
 
 - Fill in templates
