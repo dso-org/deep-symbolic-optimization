@@ -103,10 +103,15 @@ class MainPlot:
 
         scatter_data = [
             go.Scatter(
-                x = data_x,
-                y = data_y,
-                mode = 'markers',
-                marker_color = '#8c6bb1'
+                x=data_x,
+                y=data_y,
+                mode='markers',
+                marker=dict(
+                    color='#8c6bb1',
+                    size=7,
+                    line=dict(width=1.5,
+                        color='#efedf5')
+                )
             )
         ]
 
@@ -128,7 +133,7 @@ class MainPlot:
                 y=df['y'],
                 mode='lines',
                 name=str(expr_program.sympy_expr),
-                line=dict(color='rgb(67,67,67)', width=2.5)
+                line=dict(color='#3f007d', width=2.5)
             )
         ]
 

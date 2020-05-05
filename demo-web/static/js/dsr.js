@@ -110,6 +110,7 @@ function bringBestExpr(caller){
                     for (ii = 0; ii < divMainPlot.data.length-1; ii++){
                         Plotly.restyle(divMainPlot, {
                             'line.width': 2,
+                            'line.color': '#000000',
                             opacity: Math.pow(0.8, divMainPlot.data.length-1-ii)
                         },ii)
                     }
