@@ -147,7 +147,7 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
-@click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
+@click.option('--num_cores', default=1, help="Number of cores to use")
 @click.option('--seed_shift', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
 @click.option('--b', multiple=True, type=str, help="Name of benchmark or benchmark prefix")
 def main(config_template, method, mc, output_filename, num_cores, seed_shift, b):
@@ -192,6 +192,9 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, b)
     seeds = (np.arange(mc) + seed_shift).repeat(len(unique_benchmarks)).tolist()
     names_and_seeds = list(zip(benchmarks, seeds))
 
+    # Edit num_cores across and within tasks
+    if num_cores == -1:
+        num_cores = multiprocessing.cpu_count()
     if num_cores > len(benchmarks):
         print("Setting 'num_cores' to {} for batch because there are only {} benchmarks.".format(len(benchmarks), len(benchmarks)))
         num_cores = len(benchmarks)
