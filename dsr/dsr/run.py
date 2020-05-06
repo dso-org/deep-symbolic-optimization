@@ -147,10 +147,10 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
-@click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
+@click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--seed_shift', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
 @click.option('--b', multiple=True, type=str, help="Name of benchmark or benchmark prefix")
-def main(config_template, method, mc, output_filename, num_cores, seed_shift, b):
+def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
      # Load the config file
@@ -192,16 +192,19 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, b)
     seeds = (np.arange(mc) + seed_shift).repeat(len(unique_benchmarks)).tolist()
     names_and_seeds = list(zip(benchmarks, seeds))
 
-    if num_cores > len(benchmarks):
-        print("Setting 'num_cores' to {} for batch because there are only {} benchmarks.".format(len(benchmarks), len(benchmarks)))
-        num_cores = len(benchmarks)
+    # Edit n_cores_task and/or n_cores_batch
+    if n_cores_task == -1:
+        n_cores_task = multiprocessing.cpu_count()
+    if n_cores_task > len(benchmarks):
+        print("Setting 'n_cores_task' to {} for batch because there are only {} benchmarks.".format(len(benchmarks), len(benchmarks)))
+        n_cores_task = len(benchmarks)
     if method == "dsr":
-        if config_training["verbose"] and num_cores > 1:
+        if config_training["verbose"] and n_cores_task > 1:
             print("Setting 'verbose' to False for parallelized run.")
             config_training["verbose"] = False
-        if config_training["num_cores"] != 1 and num_cores > 1:
-            print("Setting 'num_cores' to 1 for training (i.e. constant optimization) to avoid nested child processes.")
-            config_training["num_cores"] = 1
+        if config_training["n_cores_batch"] != 1 and n_cores_task > 1:
+            print("Setting 'n_cores_batch' to 1 to avoid nested child processes.")
+            config_training["n_cores_batch"] = 1
     print("Running {} for n={} on benchmarks {}".format(method, mc, unique_benchmarks))
 
     # Write terminal command and config.json into log directory
@@ -220,8 +223,8 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, b)
 
     # Farm out the work
     write_header = True
-    if num_cores > 1:
-        pool = multiprocessing.Pool(num_cores)
+    if n_cores_task > 1:
+        pool = multiprocessing.Pool(n_cores_task)
         for result in pool.imap_unordered(work, names_and_seeds):
             pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))

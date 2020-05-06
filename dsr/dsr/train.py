@@ -25,16 +25,17 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # Set TensorFlow seed
 tf.random.set_random_seed(0)
 
-# Work for multiprocessing pool
+# Work for multiprocessing pool: optimize constants and compute reward
 def work(p):
-    return p.optimize()
+    optimized_constants = p.optimize()
+    return optimized_constants, p.base_r
 
 
 def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000,
           complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None,
-          alpha=0.1, epsilon=0.01, num_cores=1,
+          alpha=0.1, epsilon=0.01, n_cores_batch=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
           debug=0):
@@ -81,9 +82,9 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     epsilon : float, optional
         Fraction of top expressions used for training.
 
-    num_cores : int, optional
-        Number of cores to use for optimizing programs. If -1, uses
-        multiprocessing.cpu_count().
+    n_cores_batch : int, optional
+        Number of cores to spread out over the batch for constant optimization
+        and evaluating reward. If -1, uses multiprocessing.cpu_count().
 
     verbose : bool, optional
         Whether to print progress.
@@ -166,11 +167,10 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Create the pool of workers
     pool = None
-    if "const" in Program.library:
-        if num_cores == -1:
-            num_cores = multiprocessing.cpu_count()
-        if num_cores > 1:
-            pool = multiprocessing.Pool(num_cores)
+    if n_cores_batch == -1:
+        n_cores_batch = multiprocessing.cpu_count()
+    if n_cores_batch > 1:
+        pool = multiprocessing.Pool(n_cores_batch)
 
     # Create the priority queue
     k = controller.pqt_k
@@ -206,15 +206,21 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             programs = [from_tokens(a, optimize=True) for a in actions]
         else:
             # To prevent interfering with the cache, un-optimized programs are
-            # first generated serially. The resulting set is optimized in
-            # parallel. Since multiprocessing operates on copies of programs,
-            # we manually set the optimized constants and base reward after the
-            # pool joins.
+            # first generated serially. Programs that need optimizing are
+            # optimized optimized in parallel. Since multiprocessing operates on
+            # copies of programs, we manually set the optimized constants and
+            # base reward after the pool joins.
             programs = [from_tokens(a, optimize=False) for a in actions]
-            programs_to_optimize = list(set([p for p in programs if p.base_r is None]))
+
+            # Filter programs that have not yet computed base_r
+            # TBD: Refactor with needs_optimizing flag or similar?
+            programs_to_optimize = list(set([p for p in programs if "base_r" not in p.__dict__]))
+            
+            # Optimize and compute base_r
             results = pool.map(work, programs_to_optimize)
-            for optimized_constants, p in zip(results, programs_to_optimize):
+            for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
+                p.base_r = base_r
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])

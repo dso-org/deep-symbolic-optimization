@@ -23,7 +23,7 @@ def main():
 
     benchmarks = [4, 5]
     mc = 8
-    num_cores = 16
+    n_cores_task = 16
 
     sweep_dsr = {
         "training" : {
@@ -84,7 +84,7 @@ def main():
         
             with open(run_file, 'a') as f:
                 only = " ".join(["--b=Nguyen-{}".format(b) for b in benchmarks])
-                cmd = "time python -m dsr.run {} --method={} {} --mc={} --num_cores={}\n".format(path, method, only, mc, num_cores)
+                cmd = "time python -m dsr.run {} --method={} {} --mc={} --n_cores_task={}\n".format(path, method, only, mc, num_cores)
                 f.write(cmd)
 
         # Make the run file executable
