@@ -186,3 +186,26 @@ class MaxUniquePriorityQueue(object):
 
     def __str__(self):
         return repr(self)
+
+
+# Entropy computation in batch
+def entropy(labels):
+
+    n_labels = len(labels)
+
+    if n_labels <= 1:
+        return 0
+
+    value,counts = np.unique(labels, return_counts=True)
+    probs = counts / n_labels
+    n_classes = np.count_nonzero(probs)
+
+    if n_classes <= 1:
+        return 0
+
+    ent = 0.
+    # Compute entropy
+    for i in probs:
+        ent -= i * np.log(i)
+
+    return ent
