@@ -80,6 +80,7 @@ class MainPlot:
         
         self.done = False
         self.step = 0
+        self.step_before = 0
         self.best_expr = None
         # self.diagnostics = []
 
@@ -109,7 +110,7 @@ class MainPlot:
                 marker=dict(
                     color='#8c6bb1',
                     size=7,
-                    line=dict(width=1.5,
+                    line=dict(width=1.2,
                         color='#efedf5')
                 )
             )
@@ -118,7 +119,6 @@ class MainPlot:
         graphJSON = json.dumps(scatter_data, cls=plotly.utils.PlotlyJSONEncoder)
 
         return graphJSON
-
 
     def line_expression(self, expr_program):
         # Plot data points
@@ -141,6 +141,31 @@ class MainPlot:
 
         return graphJSON
 
+    def data_subplot(self):
+        rng = range(self.step_before, self.step+1)
+        # training = self.all_training_info[rng,0] # nmse
+        training = self.all_training_info[rng,4] # r_best
+        reward = self.all_rewards[rng] # (n,500)
+
+        return {
+            'subplot1': [{
+                'training': {
+                    'data': {
+                        'x': [list(rng)],
+                        'y': [training.tolist()]
+                    }
+                }
+            }],
+            'subplot2': [{
+                'reward': {
+                    'data': {
+                        'x': [],
+                        'y': [reward.tolist()]
+                    }
+                }
+            }]
+        }
+        
     def plot_main_lines(self):
         try:
             if self.best_expr != self.traversal_text[self.step]:
@@ -169,5 +194,8 @@ class MainPlot:
                 'plot': None,
                 'update': False
             }
+
+        response['subplot'] = self.data_subplot()
+        self.step_before = self.step
 
         return json.dumps(response)

@@ -37,7 +37,7 @@ function plotDataPoints(){
         dataType: "json",
         success: function(response){
             console.log("Plot data points.");
-            resetPlot(divMainPlot)
+            resetPlot(divMainPlot);
             Plotly.addTraces(divMainPlot, response);
             Plotly.relayout(divMainPlot, layout_fix_range)
         },
@@ -51,6 +51,8 @@ function plotDataPoints(){
 $(function(){
     $('#btn_data').on('click', function(){
         plotDataPoints();
+        resetPlot(divSubplot);
+        resetPlot(divSubplot2);
         return false;
     });
 });
@@ -60,8 +62,11 @@ $(function(){
     $('#btn_stop').on('click', function(){
         done = true;
         
+        /* Reset */
         resetButtons();
         plotDataPoints();
+        resetPlot(divSubplot);
+        resetPlot(divSubplot2);
 
         bestFound = false;
         bestExprs = 0;
@@ -82,6 +87,12 @@ $(function(){
         // change button -> RESUME
     });
 });
+
+var subplotBlankData = [{
+    x: [],
+    y: [],
+    type: 'scatter'
+}];
 
 function bringBestExpr(caller){
     $.ajax({
@@ -121,8 +132,24 @@ function bringBestExpr(caller){
                     
                     bestExprs++;
                 }
-                
-                
+
+                /* update training curves */
+                /* Init subplots */
+                for (let [key, value] of Object.entries(response.subplot)) {
+                    if (key == 'subplot1'){
+                        if (step == 0){
+                            Plotly.addTraces(divSubplot, subplotBlankData)
+                        }
+                        Plotly.extendTraces(divSubplot, value[0].training.data, [0])
+
+                    } else if (key == 'subplot2'){
+                        if (step == 0){
+                            Plotly.addTraces(divSubplot2, subplotBlankData)
+                        }
+                        // Plotly.extendTraces(divSubplot2, subplotData.reward, [0])
+                    }
+                }
+
                 if (response.done == true){
                     done = true;
                     resetButtons();
@@ -193,8 +220,8 @@ $(function(){
 
 
 var blankData = [{
-    x: [0],
-    y: [0],
+    x: [],
+    y: [],
     mode: 'marker',
     type: 'scatter'
 }];
@@ -275,14 +302,14 @@ Plotly.restyle(divMainPlot, new_style)
 // not using plotly subplotting
 
 var trace1 = {
-    x: [0, 1, 2],
-    y: [10, 11, 12],
+    x: [0, 10, 20, 30, 40],
+    y: [10, 11, 12, 13, 14],
     type: 'scatter'
 };
 
 var trace2 = {
-    x: [2, 3, 4],
-    y: [100, 110, 120],
+    x: [0, 10, 20, 30, 40],
+    y: [100, 110, 120, 130, 140],
     type: 'scatter'
 };
 
