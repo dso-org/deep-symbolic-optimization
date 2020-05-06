@@ -196,6 +196,7 @@ class Controller(object):
                  use_language_model_prior=False,
                  language_model_prior=None,
                  # Loss hyperparameters
+                 entropy_type=1,
                  entropy_weight=0.0,
                  # PPO hyperparameters
                  ppo=False,
@@ -227,6 +228,7 @@ class Controller(object):
         self.max_const = max_const
         self.use_language_model_prior = use_language_model_prior
         self.language_model_prior=language_model_prior
+        self.entropy_type = entropy_type
         self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -555,23 +557,37 @@ class Controller(object):
                                               inputs=get_input(obs),
                                               sequence_length=lengths,
                                               dtype=tf.float32)
-            logits += priors
+            logits += tf.clip_by_value(priors, -2.4e38, 0) # Avoid multiplying zero by -inf
             
+            probs = tf.nn.softmax(logits)
+            logprobs = tf.nn.log_softmax(logits)
+            
+            # Efficient computation of neglogp_per_step
             # Negative log probabilities of sequences
-            neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-                                                                              labels=actions)
-            neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
+            # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
+            # neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
 
             # NOTE: The above implementation is the same as the one below, with a few caveats:
             #   Exactly equivalent when removing priors.
             #   Equivalent up to precision when including clipped prior.
             #   Crashes when prior is not clipped due to multiplying zero by -inf.
-            # actions_one_hot = tf.one_hot(self.actions_ph, depth=n_choices, axis=-1, dtype=tf.float32)
-            # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(self.priors_ph, -2.4e38, 0)) * actions_one_hot
-            # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
-            # neglogp = self.neglogp = tf.reduce_sum(neglogp_per_step * self.mask_ph, axis=1) # Sum over time
+            actions_one_hot = tf.one_hot(actions, depth=n_choices, axis=-1, dtype=tf.float32)    
+            neglogp_per_step = - logprobs * actions_one_hot
+            neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
+            neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
+            
+            # NOTE: If self.entropy_type == 1 is not supported we can get rid of neglogp_per_step and do
+            # neglogp = tf.reduce_sum(-logprobs * actions_one_hot * masks_3d , axis=[1, 2])
 
-            return neglogp, neglogp_per_step
+            if self.entropy_type == 1: # Old approach, sum_T(-Log(p_a) p_a) with p_a probability of selected action
+                entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
+                entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time
+            else : # Entropy of the distribution over actions
+                masks_3d = tf.expand_dims(masks, 2)
+                entropy_per_step = - logprobs * probs
+                entropy = tf.reduce_sum(entropy_per_step * masks_3d, axis=[1, 2]) # Sum over action space and time
+
+            return neglogp, entropy
 
 
         # On policy batch (used for REINFORCE/PPO)
@@ -584,12 +600,9 @@ class Controller(object):
         # Setup losses
         with tf.name_scope("losses"):
 
-            neglogp, neglogp_per_step = make_neglogp(**self.sampled_batch)
+            neglogp, entropy = make_neglogp(**self.sampled_batch)
 
             # Entropy loss
-            # Entropy = neglogp * p = neglogp * exp(-neglogp)
-            entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-            entropy = tf.reduce_sum(entropy_per_step * self.sampled_batch["masks"], axis=1) # Sum over time
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
 
@@ -894,4 +907,3 @@ def parents_siblings(tokens, arities, parent_adjust):
                 siblings[r] = tokens[r, L - c]
                 break
     return adj_parents, siblings
-
