@@ -35,7 +35,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000,
           complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None,
-          alpha=0.1, epsilon=0.01, num_cores=1,
+          alpha=0.1, epsilon=0.01, n_cores_batch=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
           debug=0):
@@ -82,9 +82,9 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     epsilon : float, optional
         Fraction of top expressions used for training.
 
-    num_cores : int, optional
-        Number of cores to use for optimizing programs. If -1, uses
-        multiprocessing.cpu_count().
+    n_cores_batch : int, optional
+        Number of cores to spread out over the batch for constant optimization
+        and evaluating reward. If -1, uses multiprocessing.cpu_count().
 
     verbose : bool, optional
         Whether to print progress.
@@ -167,10 +167,10 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Create the pool of workers
     pool = None
-    if num_cores == -1:
-        num_cores = multiprocessing.cpu_count()
-    if num_cores > 1:
-        pool = multiprocessing.Pool(num_cores)
+    if n_cores_batch == -1:
+        n_cores_batch = multiprocessing.cpu_count()
+    if n_cores_batch > 1:
+        pool = multiprocessing.Pool(n_cores_batch)
 
     # Create the priority queue
     k = controller.pqt_k
