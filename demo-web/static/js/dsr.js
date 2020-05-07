@@ -94,6 +94,7 @@ var subplotBlankData = [{
     type: 'scatter'
 }];
 
+var ji = 0; // 
 function bringBestExpr(caller){
     $.ajax({
         url: '/main_lines',
@@ -144,13 +145,13 @@ function bringBestExpr(caller){
                         Plotly.extendTraces(divSubplot, value[0].training.data, [0])
 
                     } else if (key == 'subplot2'){
-                        // if (step == 0){
-                        //     Plotly.addTraces(divSubplot2, subplotBlankData)
-                        // }
                         var jj;
-                        for (jj = 0; jj < divSubplot2.data.length-1; jj++){
+                        for (jj = ji; jj < divSubplot2.data.length-1; jj++){
                             var opa = Math.pow(0.9,divSubplot2.data.length-jj);
-                            opa = opa < 0.2 ? 0.2 : opa;
+                            if (opa < 0.2){
+                                opa = 0.2;
+                                ji = jj;
+                            }
                             Plotly.restyle(divSubplot2, {
                                 'line.width': 1.2,
                                 'line.color': '#000000',
