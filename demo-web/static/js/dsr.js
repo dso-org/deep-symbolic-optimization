@@ -149,10 +149,12 @@ function bringBestExpr(caller){
                         // }
                         var jj;
                         for (jj = 0; jj < divSubplot2.data.length-1; jj++){
+                            var opa = Math.pow(0.9,divSubplot2.data.length-jj);
+                            opa = opa < 0.2 ? 0.2 : opa;
                             Plotly.restyle(divSubplot2, {
                                 'line.width': 1.2,
                                 'line.color': '#000000',
-                                opacity: Math.pow(0.9,divSubplot2.data.length-jj)
+                                opacity: opa
                             },jj)
                         }
                         

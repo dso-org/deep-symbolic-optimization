@@ -58,6 +58,16 @@
     margin-top: 0.7em;
 }
 
+
+/* CENTER */
+#expressionsTitle{
+    background-color: white;
+    /* border-right-style: none;
+    border-left-style: none;
+    border-bottom-style: none; */
+}
+
+/* RIGHT */
 .nav>li>a {
     /* font-family: 'Jost', sans-serif; */
     font-weight: 500;
