@@ -190,31 +190,81 @@
 
             <!--Middle panel: Visualization (Main plot)-->
             <div class="col-xs-12 col-md-6">
-                <div id="main_plot" class="col-xs-12 col-md-12">
+                <div class="panel-body">
+                    <div id="main_plot" class="col-xs-12 col-md-12">
+                    </div>
                 </div>
-                <table id="table_exprs" class="table table-hover">
-                    <thead>
-
-                        <tr>
-                            <th>
-                                <input type="checkbox" id="checkAll">
-                                <label class="form-check-label" for="checkAll">#</label>
-                            </th>
-                            <th>Expression</th>
-                            <th>Fitness</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <input type="checkbox" id="checkExpr1">
-                                <label class="form-check-label" for="checkExpr1">1</label>
-                            </td>
-                            <td>sin(x*2)</td>
-                            <td>0.7</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="panel-group col-xs-12 col-md-7" id="expressions" style="margin-left: 3%;">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">
+                                <a data-toggle="collapse" data-parent="#expressions" href="#exprTable">
+                                    <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+                                    Dicovered Expressions
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="exprTable" class="panel-collapse collapse">
+                            <div class="panel-body">
+                                <table id="table_exprs" class="table table-hover">
+                                    <thead>
+                
+                                        <tr>
+                                            <th>
+                                                <input type="checkbox" id="checkAll">
+                                                <label class="form-check-label" for="checkAll">#</label>
+                                            </th>
+                                            <th>Expression</th>
+                                            <th>Fitness</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" id="checkExpr1">
+                                                <label class="form-check-label" for="checkExpr1">1</label>
+                                            </td>
+                                            <td>sin(x*2)</td>
+                                            <td>0.7</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">
+                                <a data-toggle="collapse" data-parent="#expressions" href="#exprQueue">
+                                    <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+                                    Expressions in Priority Queue
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="exprQueue" class="panel-collapse collapse">
+                            <div class="panel-body">
+                                List of expressions in priority queue.
+                            </div>
+                        </div>
+                    </div> -->
+                </div>
+                <div class="panel-group col-xs-12 col-md-5" id="expressionsRight" style="margin-left: -3%;">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">
+                                <a data-toggle="collapse" data-parent="#expressionsRight" href="#exprQueue">
+                                    <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+                                    Expressions in Priority Queue
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="exprQueue" class="panel-collapse collapse">
+                            <div class="panel-body">
+                                List of expressions in priority queue.
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!--Right panel: Diagnostics-->
