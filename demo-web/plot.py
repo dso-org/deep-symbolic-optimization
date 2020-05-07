@@ -155,6 +155,17 @@ class MainPlot:
         reward_dist_x = np.linspace(0, 1, RESOLUTION)
         reward_dist_y = kernel(reward_dist_x)
 
+        reward_dist_line = [
+            go.Scatter(
+                x=reward_dist_x,
+                y=reward_dist_y,
+                mode='lines',
+                name=self.step,
+                line=dict(color='#000', width=1.3)
+            )
+        ]
+        graphJSON_reward_dist_line = json.dumps(reward_dist_line, cls=plotly.utils.PlotlyJSONEncoder)
+
         return {
             'subplot1': [{
                 'training': {
@@ -168,7 +179,8 @@ class MainPlot:
                 'reward': {
                     'data': {
                         'x': [reward_dist_x.tolist()],
-                        'y': [reward_dist_y.tolist()]
+                        'y': [reward_dist_y.tolist()],
+                        'line': graphJSON_reward_dist_line
                     }
                 }
             }]

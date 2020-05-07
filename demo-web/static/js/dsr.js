@@ -139,14 +139,24 @@ function bringBestExpr(caller){
                     if (key == 'subplot1'){
                         if (step == 0){
                             Plotly.addTraces(divSubplot, subplotBlankData)
+                            Plotly.restyle(divSubplot, {'line.color':'#000'})
                         }
                         Plotly.extendTraces(divSubplot, value[0].training.data, [0])
 
                     } else if (key == 'subplot2'){
-                        if (step == 0){
-                            Plotly.addTraces(divSubplot2, subplotBlankData)
+                        // if (step == 0){
+                        //     Plotly.addTraces(divSubplot2, subplotBlankData)
+                        // }
+                        var jj;
+                        for (jj = 0; jj < divSubplot2.data.length-1; jj++){
+                            Plotly.restyle(divSubplot2, {
+                                'line.width': 1.2,
+                                'line.color': '#000000',
+                                opacity: Math.pow(0.9,divSubplot2.data.length-jj)
+                            },jj)
                         }
-                        // Plotly.extendTraces(divSubplot2, subplotData.reward, [0])
+                        
+                        Plotly.addTraces(divSubplot2, JSON.parse(value[0].reward.data.line));
                     }
                 }
 
@@ -321,7 +331,8 @@ var layoutSubplot = {
         r: 100, 
         b: 10
     },
-    legend: {orientation: "h"},
+    showlegend: false,
+    // legend: {orientation: "h"},
     xaxis: {
         automargin: true,
         title: {
@@ -375,7 +386,8 @@ var layoutSubplot2 = {
         r: 100, 
         b: 10
     },
-    legend: {orientation: "h"},
+    showlegend: false,
+    // legend: {orientation: "h"},
     xaxis: {
         automargin: true,
         title: {
@@ -500,5 +512,6 @@ Front:
 - axes match 
 
 Extra
+- Restart
 
 */
