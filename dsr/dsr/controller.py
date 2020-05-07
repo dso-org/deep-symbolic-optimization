@@ -133,6 +133,9 @@ class Controller(object):
     language_model_prior: LanguageModelPrior object or None
         Loaded mathematical language model to get prior.
 
+    use_old_entropy : bool
+        Use old entropy.
+
     entropy_weight : float
         Coefficient for entropy bonus.
 
@@ -549,6 +552,9 @@ class Controller(object):
 
             return dict_
 
+        def safe_cross_entropy(p, logq, axis=-1):
+            safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
+            return - tf.reduce_sum(p * safe_logq, axis)
 
         # Generates tensor for neglogp of a batch given actions, obs, priors, masks, and lengths
         def make_neglogp_and_entropy(actions, obs, priors, masks, lengths):
@@ -557,32 +563,33 @@ class Controller(object):
                                               inputs=get_input(obs),
                                               sequence_length=lengths,
                                               dtype=tf.float32)
-            
-            logits += tf.clip_by_value(priors, -2.4e38, 0) # Avoid multiplying zero by -inf            
+            logits += priors
             
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
-            
-            # Efficient computation of neglogp_per_step
+
             # Negative log probabilities of sequences
+            actions_one_hot = tf.one_hot(actions, depth=n_choices, axis=-1, dtype=tf.float32)
+            neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
+            neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time dim
+
+            # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
             # neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
-            # NOTE: The above implementation is the same as the one below, with a few caveats:
+            # NOTE 2: The above implementation is also the same as the one below, with a few caveats:
             #   Exactly equivalent when removing priors.
             #   Equivalent up to precision when including clipped prior.
             #   Crashes when prior is not clipped due to multiplying zero by -inf.
-            
+            # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
+            # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
+            # neglogp = tf.reduce_sum(neglogp_per_step *masks, axis=1) # Sum over time
+
             if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
-                actions_one_hot = tf.one_hot(actions, depth=n_choices, axis=-1, dtype=tf.float32)    
-                neglogp_per_step = tf.reduce_sum(- logprobs * actions_one_hot, axis=2) # Sum over action dim
-                neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time dim
                 entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
                 entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time dim
             else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
-                actions_one_hot = tf.one_hot(actions, depth=n_choices, axis=-1, dtype=tf.float32)
-                masks_3d = tf.expand_dims(masks, 2)
-                neglogp = tf.reduce_sum(- logprobs * actions_one_hot * masks_3d , axis=[1, 2]) # Sum over action and time dim
-                entropy = tf.reduce_sum(- logprobs * probs * masks_3d, axis=[1, 2]) # Sum over action and time dim
+                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
+                entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time dim
 
             return neglogp, entropy
 

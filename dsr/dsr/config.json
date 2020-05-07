@@ -56,7 +56,7 @@
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,
-      "entropy_type": 2,
+      "use_old_entropy": false,
       "entropy_weight": 0.005,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
