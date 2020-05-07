@@ -145,22 +145,25 @@ function bringBestExpr(caller){
                         Plotly.extendTraces(divSubplot, value[0].training.data, [0])
 
                     } else if (key == 'subplot2'){
-                        var jj;
-                        for (jj = ji; jj < divSubplot2.data.length-1; jj++){
-                            var opa = Math.pow(0.9,divSubplot2.data.length-jj);
-                            if (opa < 0.2){
-                                opa = 0.2;
-                                ji = jj;
+                        if (step % 50 == 0){
+                            var jj;
+
+                            for (jj = ji; jj < divSubplot2.data.length-1; jj++){
+                                var opa = Math.pow(0.8,divSubplot2.data.length-jj);
+                                if (opa < 0.2){
+                                    opa = 0.2;
+                                    ji = jj;
+                                }
+                                Plotly.restyle(divSubplot2, {
+                                    'line.width': 1.2,
+                                    'line.color': '#000000',
+                                    opacity: opa
+                                },jj)
                             }
-                            Plotly.restyle(divSubplot2, {
-                                'line.width': 1.2,
-                                'line.color': '#000000',
-                                opacity: opa
-                            },jj)
+                            
+                            Plotly.addTraces(divSubplot2, JSON.parse(value[0].reward.data.line));
                         }
-                        
-                        Plotly.addTraces(divSubplot2, JSON.parse(value[0].reward.data.line));
-                    }
+                        }
                 }
 
                 if (response.done == true){
@@ -179,14 +182,14 @@ function bringBestExpr(caller){
             if (done != true && ajaxCall < 300){
                 // bringBestExpr();
                 setTimeout(bringBestExpr.bind(null,'start'), 500);
-                step += 10;
+                step += 20;
                 ajaxCall++;
             }
         } else if (caller == 'step'){
             if (bestFound == false && done != true && ajaxCall < 300){
                 // bringBestExpr();
                 setTimeout(bringBestExpr.bind(null,'step'), 500);
-                step += 10;
+                step += 20;
                 ajaxCall++;
             }
         }

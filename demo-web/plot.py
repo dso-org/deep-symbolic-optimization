@@ -9,7 +9,7 @@ from scipy.stats import gaussian_kde
 from dsr.program import Program
 from data import demo_utils
 
-RESOLUTION = 100 # Number of points in KDE estimate
+RESOLUTION = 50 # Number of points in KDE estimate
 
 
 # def create_plot(): # example 
