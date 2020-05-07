@@ -4,9 +4,12 @@ import numpy as np
 import pandas as pd
 import plotly
 import plotly.graph_objs as go
+from scipy.stats import gaussian_kde
 
 from dsr.program import Program
 from data import demo_utils
+
+RESOLUTION = 100 # Number of points in KDE estimate
 
 
 # def create_plot(): # example 
@@ -145,7 +148,12 @@ class MainPlot:
         rng = range(self.step_before, self.step+1)
         # training = self.all_training_info[rng,0] # nmse
         training = self.all_training_info[rng,4] # r_best
-        reward = self.all_rewards[rng] # (n,500)
+        reward = self.all_rewards[self.step] # Shape: (batch_size,)
+
+        # Compute KDE for reward distribution
+        kernel = gaussian_kde(reward, bw_method=0.25)
+        reward_dist_x = np.linspace(0, 1, RESOLUTION)
+        reward_dist_y = kernel(reward_dist_x)
 
         return {
             'subplot1': [{
@@ -159,8 +167,8 @@ class MainPlot:
             'subplot2': [{
                 'reward': {
                     'data': {
-                        'x': [],
-                        'y': [reward.tolist()]
+                        'x': [reward_dist_x.tolist()],
+                        'y': [reward_dist_y.tolist()]
                     }
                 }
             }]
