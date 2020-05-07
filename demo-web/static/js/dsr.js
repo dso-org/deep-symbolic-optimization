@@ -182,14 +182,14 @@ function bringBestExpr(caller){
             if (done != true && ajaxCall < 300){
                 // bringBestExpr();
                 setTimeout(bringBestExpr.bind(null,'start'), 500);
-                step += 20;
+                step += 10;
                 ajaxCall++;
             }
         } else if (caller == 'step'){
             if (bestFound == false && done != true && ajaxCall < 300){
                 // bringBestExpr();
                 setTimeout(bringBestExpr.bind(null,'step'), 500);
-                step += 20;
+                step += 10;
                 ajaxCall++;
             }
         }
