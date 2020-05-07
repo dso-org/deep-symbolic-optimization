@@ -51,31 +51,31 @@
 
         <div class="row">
             <!--Left panel: Control-->
-            <div class="col-xs-12 col-md-2">
+            <div class="col-xs-12 col-md-2" style="padding-right: 0%;">
                 <!-- <div class="panel panel-default"> -->
                         <!-- <div class="panel-body"> -->
                             <div class="table">
                                 <div class= "btn-group btn-group-justified" role="group">
                                     <div class="btn-group" role="group" style="display: none;">
-                                        <button type="button" class="btn btn-default" id="btn_stop">
+                                        <button type="button" class="btn btn-default play-button" id="btn_stop">
                                             <span class="glyphicon glyphicon-stop" aria-hidden="true"></span>
                                             STOP 
                                         </button>
                                     </div>
                                     <div class="btn-group" role="group" style="display: none;">
-                                        <button type="button" class="btn btn-default" id="btn_pause">
+                                        <button type="button" class="btn btn-default play-button" id="btn_pause">
                                             <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
                                             PAUSE 
                                         </button>
                                     </div>
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-default" id="btn_start">
+                                        <button type="button" class="btn btn-default play-button" id="btn_start">
                                             <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
                                             START 
                                         </button>
                                     </div>
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-default" id="btn_step" data-toggle="tooltip" data-placement="top" title="Find next best!">
+                                        <button type="button" class="btn btn-default play-button" id="btn_step" data-toggle="tooltip" data-placement="top" title="Find next best!">
                                             <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
                                             STEP
                                         </button>
@@ -88,27 +88,29 @@
                     <div class="panel-heading">
                         <h3 class="panel-title">Control</h3>
                     </div>
-                    <div class="panel-body">
+                    <div class="list-group">
                         <!--control-->
                         <!--upload-->
-                        <label for="uploadDataFile">Data</label>
-                        <form class="form-inline" action="/data_points" method="post">
-                            <div class="form-group">
-                                <input type="file" class="form-control-file col-md-9" id="uploadDataFile">
-                                <button type="submit" class="btn btn-primary btn-xs col-md-3" id="btn_data">Upload</button>
-                            </div>
-                        </form>
-                        <div class="alert alert-warning" style="margin-bottom: 5px">
-                            <span class="glyphicon glyphicon-gift" aria-hidden="true"></span> Click here to use our dataset!
+                        <div id="upload" class="list-group-item">
+                            <label for="uploadDataFile">Data</label>
+                            <form class="form-inline" action="/data_points" method="post">
+                                <div class="form-group">
+                                    <input type="file" class="form-control-file col-md-12 control-file" id="uploadDataFile">
+                                    <button type="submit" class="btn btn-primary btn-xs col-md-12 control-button" id="btn_data" style="margin-top: 1%;">Upload</button>
+                                </div>
+                            </form>
+                            <!-- <div class="alert alert-warning" style="margin-bottom: 5px">
+                                <span class="glyphicon glyphicon-gift" aria-hidden="true"></span> Click here to use our dataset!
+                            </div> -->
+                            <!--TODO: Validate uploaded dataset, send back info, e.g., # variables, range, # datapoints, etc.-->
+                            <!--TODO: plot training data points (scatter marker)-->
                         </div>
-                        <!--TODO: Validate uploaded dataset, send back info, e.g., # variables, range, # datapoints, etc.-->
-                        <!--TODO: plot training data points (scatter marker)-->
-                    <!-- </div>
-                    <div class="panel-body"> -->
+                        <!-- <div class="panel-body"> -->
+
                         <!--operators-->
-                        <div id="operators">
-                            <label>Operators</label>
-                            <div class="btn-group btn-group-justified" role="group">
+                        <div id="operators" class="list-group-item">
+                                <label>Operators</label>
+                                <div class="btn-group btn-group-justified" role="group">
                                 <div class="btn-group" role="group">
                                     <button type="button" class="btn btn-default btn-sm active">Add</button>
                                 </div>
@@ -139,50 +141,135 @@
                         </div>
 
                         <!--sliders-->
-                        <div id="sliders" style="margin-top:7px;">
+                        <div id="sliders" class="list-group-item">
                             <label>Hyperparameters</label>
-                            <form class="form-inline" sytpe="margin-bottom:5px;">
-                                <div class="form-group">
-                                    <input type="file" class="form-control-file col-md-10" id="uploadConfig" accept=".json">
-                                    <button type="submit" class="btn btn-primary btn-xs col-md-2" id="btn_config">Set</button>
+                            <div class="form-group">
+                                <form class="form-inline" style="margin-top:5px; margin-bottom:5px;">
+                                    <div class="form-group">
+                                        <input type="file" class="form-control-file col-md-12 control-file" id="uploadConfig" accept=".json">
+                                    </div>
+                                </form>
+                                <!-- <div class="row">
+                                    <label class="col-md-3 slider-name">Batch Size</label>
+                                    <div class="col-md-7">
+                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
+                                    </div>
                                 </div>
-                            </form>
-                            <div class="row">
-                                <label class="col-md-3 slider_names">Batch Size</label>
-                                <div class="col-md-7">
-                                    <input type="range" id="batch_size" min="50" max="200" value="64" step="20">
+                                <div class="row">
+                                    <label class="col-md-3 slider-name">Learning Rate</label>
+                                    <div class="col-md-7">
+                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row">
-                                <label class="col-md-3 slider_names">Learning Rate</label>
-                                <div class="col-md-7">
-                                    <input type="range" id="batch_size" min="50" max="200" value="64" step="20">
+                                <div class="row">
+                                    <label class="col-md-3 slider-name">Entropy weight</label>
+                                    <div class="col-md-7">
+                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row">
-                                <label class="col-md-3 slider_names">Exploration</label>
-                                <div class="col-md-7">
-                                    <input type="range" id="batch_size" min="50" max="200" value="64" step="20">
+                                <div class="row">
+                                    <label class="col-md-3 slider-name">Risk Factor</label>
+                                    <div class="col-md-7">
+                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row">
-                                <label class="col-md-3 slider_names">Risk Factor</label>
-                                <div class="col-md-7">
-                                    <input type="range" id="batch_size" min="50" max="200" value="64" step="20">
+                                <div class="row">
+                                    <label class="col-md-3 slider-name">Max Length</label>
+                                    <div class="col-md-7">
+                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
+                                    </div>
+                                </div> -->
+                                <!-- <label class="col-md-12 slider-name">Batch Size</label>
+                                <div class="col-md-9">
+                                    <input type="range" id="batchSize" class="slider" min="50" max="200" value="64" step="20">
                                 </div>
-                            </div>
-                            <div class="row">
-                                <label class="col-md-3 slider_names">Max Length</label>
-                                <div class="col-md-7">
-                                    <input type="range" id="batch_size" min="50" max="200" value="64" step="20">
+                                <label class="col-md-12 slider-name">Learning Rate</label>
+                                <div class="col-md-9">
+                                    <input type="range" id="learningRate" class="slider" min="50" max="200" value="64" step="20">
                                 </div>
-                            </div>
-                            <!-- TODO: Show selected number on the right, as a text input -->
-                            <!-- TODO: Remove margin of sliders -->
-                            <!-- TODO: better w/ table? -->
-                            <!-- mouse over, explain what each term means -->
+                                <label class="col-md-12 slider-name">Entropy weight</label>
+                                <div class="col-md-9">
+                                    <input type="range" id="entropyWeight" class="slider" min="50" max="200" value="64" step="20">
+                                </div>
+                                <label class="col-md-12 slider-name">Risk Factor</label>
+                                <div class="col-md-9">
+                                    <input type="range" id="riskFactor" class="slider" min="50" max="200" value="64" step="20">
+                                </div>
+                                <label class="col-md-12 slider-name">Max Length</label>
+                                <div class="col-md-9">
+                                    <input type="range" id="maxLength" class="slider" min="50" max="200" value="64" step="20">
+                                </div> -->
+                                <table id="tableSliders" class="table table-condensed table-hover">
+                                    <colgroup>
+                                        <col span="1" style="width: 15%;">
+                                        <col span="1" style="width: 70%;">
+                                        <col span="1" style="width: 20%;">
+                                    </colgroup>
+                                    <tbody>
 
-
+                                    <tr>
+                                        <td class="slider-name">
+                                            <label class="col-md-1 slider-name">Batch Size</label>
+                                        </td>
+                                        <td>
+                                            <input type="range" id="batchSize" class="slider" min="50" max="200" value="64" step="20">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control input-sm" placeholder="">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="slider-name">
+                                            <label class="col-md-1 slider-name">Learning Rate</label>
+                                        </td>
+                                        <td>
+                                            <input type="range" id="learningRate" class="slider" min="50" max="200" value="64" step="20">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control input-sm" placeholder="">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="slider-name">
+                                            <label class="col-md-1 slider-name">Entropy weight</label>
+                                        </td>
+                                        <td>
+                                            <input type="range" id="entropyWeight" class="slider" min="50" max="200" value="64" step="20">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control input-sm" placeholder="">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="slider-name">
+                                            <label class="col-md-1 slider-name">Risk Factor</label>
+                                        </td>
+                                        <td>
+                                            <input type="range" id="riskFactor" class="slider" min="50" max="200" value="64" step="20">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control input-sm" placeholder="">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="slider-name">
+                                            <label class="col-md-1 slider-name">Max Length</label>
+                                        </td>
+                                        <td>
+                                            <input type="range" id="maxLength" class="slider" min="50" max="200" value="64" step="20">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control input-sm" placeholder="">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                </table>
+                                <!-- TODO: Show selected number on the right, as a text input -->
+                                <!-- TODO: Remove margin of sliders -->
+                                <!-- TODO: better w/ table? -->
+                                <!-- mouse over, explain what each term means -->
+                                <button type="submit" class="btn btn-primary btn-xs col-md-12 control-button" id="btn_config">Set</button>
+                            </div>
                         </div>
                     </div>
                 </div>
