@@ -14,7 +14,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, entropy
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
 from dsr.language_model import LanguageModelPrior
 from dsr.task import make_task
 
@@ -144,7 +144,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
             # a_unique_* : Different sequences per batch
-            # a_ent_* : Average entropy across   
+            # a_ent_* : Empirical positional entropy across sequences averaged over positions 
             f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,a_unique_full,a_unique_sub,a_ent_full,a_ent_sub\n")
 
     # TBD: REFACTOR
@@ -238,7 +238,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_unique_full = len(np.unique(actions, axis=0))
-        a_ent_full = np.mean(np.apply_along_axis(entropy, 0, actions))
+        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -276,7 +276,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
             a_unique_sub = len(np.unique(actions, axis=0))
-            a_ent_sub = np.mean(np.apply_along_axis(entropy, 0, actions))
+            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
             stats = np.array([[
                          base_r_best,
                          base_r_max,

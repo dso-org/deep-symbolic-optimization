@@ -189,7 +189,7 @@ class MaxUniquePriorityQueue(object):
 
 
 # Entropy computation in batch
-def entropy(labels):
+def empirical_entropy(labels):
 
     n_labels = len(labels)
 
