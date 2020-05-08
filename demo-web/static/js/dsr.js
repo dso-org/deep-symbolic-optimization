@@ -51,8 +51,8 @@ function plotDataPoints(){
 $(function(){
     $('#btn_data').on('click', function(){
         plotDataPoints();
-        resetPlot(divSubplot);
-        resetPlot(divSubplot2);
+        // resetPlot(divSubplot); //TODO: reset logic
+        // resetPlot(divSubplot2);
         return false;
     });
 });
@@ -83,8 +83,6 @@ $(function(){
         $('#btn_start').parent().show();
         $(this).parent().hide();
         $(this).blur();
-        // $(this).button('<span class="glyphicon glyphicon-play" aria-hidden="true"></span>RESUME')
-        // change button -> RESUME
     });
 });
 
@@ -118,8 +116,7 @@ function bringBestExpr(caller){
                 if (response.update == true && done != true){
                     /* Plot new best expression */
                     bestFound = true;
-                    // validness = Plotly.validate(response.plot)
-                    // console.log(validness[0].msg)
+
                     var ii;
                     for (ii = 0; ii < divMainPlot.data.length-1; ii++){
                         Plotly.restyle(divMainPlot, {
@@ -138,11 +135,12 @@ function bringBestExpr(caller){
                 /* Init subplots */
                 for (let [key, value] of Object.entries(response.subplot)) {
                     if (key == 'subplot1'){
-                        if (step == 0){
-                            Plotly.addTraces(divSubplot, subplotBlankData)
-                            Plotly.restyle(divSubplot, {'line.color':'#000'})
-                        }
-                        Plotly.extendTraces(divSubplot, value[0].training.data, [0])
+                        // if (step == 0){
+                            // Plotly.addTraces(divSubplot, [value.Best.data])
+                            // Plotly.restyle(divSubplot, {'line.color':'#000'})
+                        // } else{
+                        Plotly.extendTraces(divSubplot, value.data, [0, 1, 2])
+                        // }
 
                     } else if (key == 'subplot2'){
                         if (step % 50 == 0){
@@ -155,8 +153,6 @@ function bringBestExpr(caller){
                                     ji = jj;
                                 }
                                 Plotly.restyle(divSubplot2, {
-                                    'line.width': 1.2,
-                                    'line.color': '#000000',
                                     opacity: opa
                                 },jj)
                             }
@@ -222,11 +218,9 @@ $(function(){
         $(this).parent().hide();
         $(this).blur();
 
-        /* continue plotting */
-        // requestLoop:
-
         done = false;
-
+        
+        /* continue plotting */
         bringBestExpr('start');
 
         return false;
@@ -239,7 +233,10 @@ var blankData = [{
     x: [],
     y: [],
     mode: 'marker',
-    type: 'scatter'
+    type: 'scatter',
+    line: {
+        color: 'rgb(115,115,115)'
+    }
 }];
 
 var layout = {
@@ -256,11 +253,6 @@ var layout = {
     // paper_bgcolor:"white",
     showlegend: false,
     // legend: {orientation: "h"},
-    // legend: {
-    //     x: 1,
-    //     xanchor: 'right',
-    //     y: 1
-    //   }
     xaxis: {
         showgrid: false,
         zeroline: false,
@@ -309,25 +301,43 @@ var layout = {
 };
 Plotly.newPlot(divMainPlot, blankData, layout, {responsive: true});
 
-var new_style = {
-    'line.color': ['rgb(115,115,115)']
-}
-Plotly.restyle(divMainPlot, new_style)
-
 /*** Subplots ***/
 // not using plotly subplotting
-
-var trace1 = {
-    x: [0, 10, 20, 30, 40],
-    y: [10, 11, 12, 13, 14],
-    type: 'scatter'
+var blankDataSub11 = {
+    x: [],
+    y: [],
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Best',
+    line: {
+        dash: 'solid'
+    }
 };
-
-var trace2 = {
-    x: [0, 10, 20, 30, 40],
-    y: [100, 110, 120, 130, 140],
-    type: 'scatter'
+var blankDataSub12 = {
+    x: [],
+    y: [],
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Top e',
+    line: {
+        dash: 'dash'
+    }
 };
+var blankDataSub13 = {
+    x: [],
+    y: [],
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Mean',
+    line: {
+        dash: 'dot'
+    }
+};
+var blankDataSub2 = [{
+    x: [],
+    y: [],
+    type: 'scatter'
+}];
 
 var layoutSubplot = {
     autosize: false,
@@ -337,8 +347,15 @@ var layoutSubplot = {
         r: 100, 
         b: 10
     },
-    showlegend: false,
-    // legend: {orientation: "h"},
+    // showlegend: false,
+    legend: { //TODO: legend blocks lowest line
+        orientation: "h",
+        xanchor: 'right',
+        // xanchor: 'left',
+        yanchor: 'bottom',
+        x: 1,
+        y: 0,
+      },
     xaxis: {
         automargin: true,
         title: {
@@ -441,8 +458,8 @@ var layoutSubplot2 = {
     height: 200
 };
 
-Plotly.newPlot(divSubplot, [trace1], layoutSubplot)
-Plotly.newPlot(divSubplot2, [trace2], layoutSubplot2)
+Plotly.newPlot(divSubplot, [blankDataSub11, blankDataSub12, blankDataSub13], layoutSubplot)
+Plotly.newPlot(divSubplot2, blankDataSub2, layoutSubplot2)
 
 
 /* JS tooltip opt-in */
