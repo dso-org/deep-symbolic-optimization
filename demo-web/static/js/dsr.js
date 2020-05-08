@@ -92,19 +92,33 @@ var subplotBlankData = [{
     type: 'scatter'
 }];
 
+
+
 function updateExprTable(info){
     var tbl = document.getElementById('tableBodyExprs')
     var row = tbl.insertRow(0);
-    
-    var index = '# '+tbl.rows.length;
+
+    var index = tbl.rows.length-1;
     var expression = info.expression
     var fitness = info.fitness
     
-    row.insertCell(0).innerHTML = index;
+    row.insertCell(0).innerHTML = '# '+index;
     row.insertCell(1).innerHTML = expression;
     row.insertCell(2).innerHTML = Number.parseFloat(fitness).toFixed(3);
     row.insertCell(3).innerHTML = '<input type="checkbox" id="checkExpr'+index+'">';
     // row.insertCell(3).innerHTML = 'Remove'.link("#");
+
+    $(function(){
+        $('#checkExpr'+index).on('change',function(){
+            if ($(this).is(':checked')){
+                $(this).parent().parent().addClass('removed-expr')
+                // row.insertCell(4).innerHTML = 'Remove'
+            } 
+            else{
+                $(this).parent().parent().removeClass('removed-expr')
+            }
+        });
+    });
 }
 
 var ji = 0; // 
