@@ -52,6 +52,9 @@
         <div class="row">
             <!--Left panel: Control-->
             <div class="col-xs-12 col-md-2" style="padding-right: 0%;">
+                <p id="pageTitle">Deep Symbolic Regression</p>
+                <hr>
+
                 <!-- <div class="panel panel-default"> -->
                         <!-- <div class="panel-body"> -->
                             <div class="table">
@@ -84,11 +87,13 @@
                             </div>
                     <!-- </div> -->
                 <!-- </div> -->
+                <!-- <hr> -->
+                <!-- <hr style="margin-top: 10px; margin-bottom: 10px;"> -->
                 <div class="panel panel-default">
                     <div class="panel-heading">
                         <h3 class="panel-title">Control</h3>
                     </div>
-                    <div class="list-group">
+                    <div id="controlPanel" class="list-group">
                         <!--control-->
                         <!--upload-->
                         <div id="upload" class="list-group-item">
@@ -96,7 +101,7 @@
                             <form class="form-inline" action="/data_points" method="post">
                                 <div class="form-group">
                                     <input type="file" class="form-control-file col-md-12 control-file" id="uploadDataFile">
-                                    <button type="submit" class="btn btn-primary btn-xs col-md-12 control-button" id="btn_data" style="margin-top: 1%;">Upload</button>
+                                    <button type="submit" class="btn btn-primary btn-sm col-md-12 control-button" id="btn_data">Upload</button>
                                 </div>
                             </form>
                             <!-- <div class="alert alert-warning" style="margin-bottom: 5px">
@@ -149,56 +154,6 @@
                                         <input type="file" class="form-control-file col-md-12 control-file" id="uploadConfig" accept=".json">
                                     </div>
                                 </form>
-                                <!-- <div class="row">
-                                    <label class="col-md-3 slider-name">Batch Size</label>
-                                    <div class="col-md-7">
-                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <label class="col-md-3 slider-name">Learning Rate</label>
-                                    <div class="col-md-7">
-                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <label class="col-md-3 slider-name">Entropy weight</label>
-                                    <div class="col-md-7">
-                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <label class="col-md-3 slider-name">Risk Factor</label>
-                                    <div class="col-md-7">
-                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <label class="col-md-3 slider-name">Max Length</label>
-                                    <div class="col-md-7">
-                                        <input type="range" id="batch_size" class="slider" min="50" max="200" value="64" step="20">
-                                    </div>
-                                </div> -->
-                                <!-- <label class="col-md-12 slider-name">Batch Size</label>
-                                <div class="col-md-9">
-                                    <input type="range" id="batchSize" class="slider" min="50" max="200" value="64" step="20">
-                                </div>
-                                <label class="col-md-12 slider-name">Learning Rate</label>
-                                <div class="col-md-9">
-                                    <input type="range" id="learningRate" class="slider" min="50" max="200" value="64" step="20">
-                                </div>
-                                <label class="col-md-12 slider-name">Entropy weight</label>
-                                <div class="col-md-9">
-                                    <input type="range" id="entropyWeight" class="slider" min="50" max="200" value="64" step="20">
-                                </div>
-                                <label class="col-md-12 slider-name">Risk Factor</label>
-                                <div class="col-md-9">
-                                    <input type="range" id="riskFactor" class="slider" min="50" max="200" value="64" step="20">
-                                </div>
-                                <label class="col-md-12 slider-name">Max Length</label>
-                                <div class="col-md-9">
-                                    <input type="range" id="maxLength" class="slider" min="50" max="200" value="64" step="20">
-                                </div> -->
                                 <table id="tableSliders" class="table table-condensed table-hover">
                                     <colgroup>
                                         <col span="1" style="width: 15%;">
@@ -268,7 +223,7 @@
                                 <!-- TODO: Remove margin of sliders -->
                                 <!-- TODO: better w/ table? -->
                                 <!-- mouse over, explain what each term means -->
-                                <button type="submit" class="btn btn-primary btn-xs col-md-12 control-button" id="btn_config">Set</button>
+                                <button type="submit" class="btn btn-primary btn-sm col-md-12 control-button" id="btn_config">Set</button>
                             </div>
                         </div>
                     </div>
@@ -276,7 +231,7 @@
             </div>
 
             <!--Middle panel: Visualization (Main plot)-->
-            <div class="col-xs-12 col-md-6">
+            <div class="col-xs-12 col-md-6 rightPanel">
                 <div class="panel-body">
                     <div id="main_plot" class="col-xs-12 col-md-12">
                     </div>
@@ -301,7 +256,7 @@
             </div>
             
             <!--Right panel: Diagnostics-->
-            <div class="col-xs-12 col-md-4">
+            <div class="col-xs-12 col-md-4 rightPanel">
                 <div id="subplot_menu" class="col-xs-12 col-md-12">
                     <div class="collapse navbar-collapse">
                         <ul class="nav navbar-nav navbar-right">
@@ -319,7 +274,7 @@
                 </div>
                 <div id="subplot" class="col-xs-12 col-md-12 subplot">
                 </div>
-                <div id="subplot2_menu" class="col-xs-12 col-md-12">
+                <div id="subplot2_menu" class="col-xs-12 col-md-12" style="margin-top: 15px;">
                     <div class="collapse navbar-collapse">
                         <ul class="nav navbar-nav navbar-right">
                             <li class="dropdown">
@@ -339,9 +294,9 @@
                 <!--extendTraces-->
             </div>
 
-            <div class="panel-group col-xs-12 col-md-9" id="expressions" style="margin-left: 3em;margin-right: -0.5em;">
-                <hr style="margin: 0px;">
-                <h4>Dicovered Expression</h4>
+            <div class="panel-group col-xs-12 col-md-10 rightPanel" id="expressions" style="margin-left: 3em;margin-right: -3em; padding-right: 5em;">
+                <hr style="margin: 0px; margin-top: -5px;">
+                <!-- <h4>Dicovered Expression</h4> -->
                 <!-- <div class="panel panel-default">
                     <div class="panel-heading" id="expressionsTitle">
                         <h5 class="panel-title">

@@ -1,8 +1,32 @@
-/* .play-button{
-    color: #ffffff;
-    background: #6a51a3;
-    border-color: #ffffff;
-} */
+#pageTitle{
+    margin-top: 20px;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -1px;
+    text-align: center;
+}
+
+body {
+    padding-top: 15px;
+    /* padding-top: 75px; */
+}
+  
+.play-button{
+    /* color: #ffffff; */
+    /* background: #6a51a3; */
+    border-color: #424242;
+    border-width: 1px;
+    padding-top: 0.6em;
+    padding-bottom: 0.6em;
+}
+
+#controlPanel>div{
+    padding-bottom: 20px;
+}
+#controlPanel>div>label{
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
 
 .control-file{
     margin-bottom: 0.5em;
@@ -12,14 +36,12 @@
     color: #000000;
     background: #dadaeb;
     border-color: #c5c5d6;
+    margin-top: 5%;
 }
 
 #tableSliders{
+    margin-top: 10px;
     margin-bottom: 0px;
-}
-
-#tableSliders>tbody>tr>td{
-    padding: 0px;
 }
 
 #tableSliders>tbody>tr>td>input.input-sm{
@@ -28,11 +50,11 @@
     padding-left: 3px;
     margin-left: 1em;
     margin-right: 0px;
-    margin-top: 3px;
+    margin-top: 5px;
 }
 
 #sliders>div{
-    padding-bottom: 20px;
+    padding-bottom: 23px;
 }
 #sliders>div>button{
     margin-top: 1em;
@@ -49,13 +71,19 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 0px;
-    padding-top: 0.2em;
+    padding-top: 0.5em;
+    padding-bottom: 0.2em;
     padding-left: 1em;
 }
 
 .slider{
     margin: 0.5em;
-    margin-top: 0.7em;
+    margin-top: 0.9em;
+}
+
+#tableSliders>tbody>tr>td{
+    padding: 0px;
+    padding-top: 5px;
 }
 
 
@@ -100,4 +128,8 @@ th{
 
 .subplot {
     margin-bottom: 15px;
+}
+
+.rightPanel{
+    padding-left: 0px;
 }

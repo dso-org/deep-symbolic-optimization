@@ -271,7 +271,7 @@ var blankData = [{
 var layout = {
     autosize: false, /* long tick labels automatically grow the figure margins */
     margin: { 
-        t: 50, 
+        t: 10, 
         l: 50, 
         r: 20, 
         b: 50
@@ -310,20 +310,20 @@ var layout = {
         // range: [-2,2]
         autorange: true
     },
-    title: {
-        text: 'Best expression: ',
-        xref: 'paper', 
-        yref: 'paper', 
-        x: 0, 
-        y: 1.2,
-        xanchor: 'left', 
-        yanchor: 'bottom',
-        font:{
-            family: 'Arial',
-            size: 15,
-            color: 'rgb(37,37,37)'},
-        showarrow: false
-    },
+    // title: {
+    //     text: 'Best expression: ',
+    //     xref: 'paper', 
+    //     yref: 'paper', 
+    //     x: 0, 
+    //     y: 1.2,
+    //     xanchor: 'left', 
+    //     yanchor: 'bottom',
+    //     font:{
+    //         family: 'Arial',
+    //         size: 15,
+    //         color: 'rgb(37,37,37)'},
+    //     showarrow: false
+    // },
     width: 800,
     height: 500
 
