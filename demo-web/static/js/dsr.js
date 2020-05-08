@@ -102,7 +102,8 @@ function updateExprTable(info){
     var expression = info.expression
     var fitness = info.fitness
     
-    row.insertCell(0).innerHTML = '# '+index;
+    row.insertCell(0).innerHTML = 9-index; // TODO: rank
+    // row.insertCell(0).innerHTML = '# '+index;
     row.insertCell(1).innerHTML = expression;
     row.insertCell(2).innerHTML = Number.parseFloat(fitness).toFixed(3);
     row.insertCell(3).innerHTML = '<input type="checkbox" id="checkExpr'+index+'">';

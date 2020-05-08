@@ -47,10 +47,12 @@ class MainPlot:
                 y=data_y,
                 mode='markers',
                 marker=dict(
-                    color='#8c6bb1',
-                    size=7,
+                    # color='#8c6bb1',
+                    color='#1a76b3',
+                    size=12,
                     line=dict(width=1.2,
                         color='#efedf5')
+                        # color='#efedf5')
                 )
             )
         ]
@@ -76,7 +78,8 @@ class MainPlot:
                 # y=df['y'],
                 mode='lines',
                 name=self.expr_info['expression'],
-                line=dict(color='#3f007d', width=2.5)
+                line=dict(color='#000', width=3)
+                # line=dict(color='#3f007d', width=2.5)
             )
         ]
 
