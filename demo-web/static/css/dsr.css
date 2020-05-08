@@ -67,6 +67,14 @@
     border-bottom-style: none; */
 }
 
+/* CENTER - Expression table */
+th{
+    text-align: center;
+}
+#tableBodyExprs{
+    text-align: center;
+}
+
 /* RIGHT */
 .nav>li>a {
     /* font-family: 'Jost', sans-serif; */

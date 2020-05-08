@@ -92,6 +92,21 @@ var subplotBlankData = [{
     type: 'scatter'
 }];
 
+function updateExprTable(info){
+    var tbl = document.getElementById('tableBodyExprs')
+    var row = tbl.insertRow(0);
+    
+    var index = '# '+tbl.rows.length;
+    var expression = info.expression
+    var fitness = info.fitness
+    
+    row.insertCell(0).innerHTML = index;
+    row.insertCell(1).innerHTML = expression;
+    row.insertCell(2).innerHTML = Number.parseFloat(fitness).toFixed(3);
+    row.insertCell(3).innerHTML = '<input type="checkbox" id="checkExpr'+index+'">';
+    // row.insertCell(3).innerHTML = 'Remove'.link("#");
+}
+
 var ji = 0; // 
 function bringBestExpr(caller){
     $.ajax({
@@ -127,12 +142,12 @@ function bringBestExpr(caller){
                     }
                     
                     Plotly.addTraces(divMainPlot, JSON.parse(response.plot),divMainPlot.data.length-1);
-                    
+                    updateExprTable(response.info);
+
                     bestExprs++;
                 }
 
                 /* update training curves */
-                /* Init subplots */
                 for (let [key, value] of Object.entries(response.subplot)) {
                     if (key == 'subplot1'){
                         // if (step == 0){
@@ -318,7 +333,7 @@ var blankDataSub12 = {
     y: [],
     type: 'scatter',
     mode: 'lines',
-    name: 'Top e',
+    name: 'Top \u03B5',
     line: {
         dash: 'dash'
     }
