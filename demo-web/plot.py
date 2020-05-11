@@ -93,6 +93,7 @@ class MainPlot:
         top = self.all_training_info[rng,7] # r_best
         mean = self.all_training_info[rng,6] # r_best
         reward = self.all_rewards[self.step] # Shape: (batch_size,)
+        complexity = self.all_training_info[rng,12] # l_avg_full
 
         # Compute KDE for reward distribution
         kernel = gaussian_kde(reward, bw_method=0.25)
@@ -125,7 +126,13 @@ class MainPlot:
                         'line': graphJSON_reward_dist_line
                     }
                 }
-            }]
+            }],
+            'subplot3': {
+                'data': {
+                    'x': [list(rng)], 
+                    'y': [complexity.tolist()]
+                }
+            }
         }
         
     def plot_main_lines(self):

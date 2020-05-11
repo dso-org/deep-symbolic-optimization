@@ -104,7 +104,7 @@ th{
 }
 .removed-expr{
     color: #959595;
-    text-decoration: line-through;
+    /* text-decoration: line-through; */
     background-color: rgb(247, 247, 247);
 }
 
@@ -132,4 +132,9 @@ th{
 
 .rightPanel{
     padding-left: 0px;
+}
+
+.diag-name{
+    font-size: 15px;
+
 }

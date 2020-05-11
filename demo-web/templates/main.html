@@ -253,48 +253,8 @@
                         </div>
                     </div>
                 </div> -->
-            </div>
-            
-            <!--Right panel: Diagnostics-->
-            <div class="col-xs-12 col-md-4 rightPanel">
-                <div id="subplot_menu" class="col-xs-12 col-md-12">
-                    <div class="collapse navbar-collapse">
-                        <ul class="nav navbar-nav navbar-right">
-                            <li class="dropdown">
-                            <a class="dropdown-toggle py-0" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
-                                Training curves
-                                <span class="caret"></span>
-                            </a>
-                            <ul class="dropdown-menu" role="menu">
-                                <li role="presentation"><a role="menuitem" tabindex="-1">Training curves</a></li>
-                            </ul>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div id="subplot" class="col-xs-12 col-md-12 subplot">
-                </div>
-                <div id="subplot2_menu" class="col-xs-12 col-md-12" style="margin-top: 15px;">
-                    <div class="collapse navbar-collapse">
-                        <ul class="nav navbar-nav navbar-right">
-                            <li class="dropdown">
-                            <a class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
-                                    Reward Distribution
-                                <span class="caret"></span>
-                            </a>
-                            <ul class="dropdown-menu" role="menu">
-                                <li role="presentation"><a role="menuitem" tabindex="-1">Reward Distribution</a></li>
-                            </ul>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div id="subplot2" class="col-xs-12 col-md-12 subplot">
-                </div>
-                <!--extendTraces-->
-            </div>
-
-            <div class="panel-group col-xs-12 col-md-10 rightPanel" id="expressions" style="margin-left: 3em;margin-right: -3em; padding-right: 5em;">
+                <div class="panel-group col-xs-12 col-md-12" id="expressions" style="padding-left: 5em; padding-right: 0px;">
+            <!-- <div class="panel-group col-xs-12 col-md-10 rightPanel" id="expressions" style="margin-left: 3em;margin-right: -3em; padding-right: 5em;"> -->
                 <hr style="margin: 0px; margin-top: -5px;">
                 <!-- <h4>Dicovered Expression</h4> -->
                 <!-- <div class="panel panel-default">
@@ -307,7 +267,8 @@
                         </h5>
                     </div> -->
                     <div id="exprTable" class="panel-collapse collapse in">
-                        <div class="panel-body col-md-8">
+                        <div class="panel-body col-md-12">
+                        <!-- <div class="panel-body col-md-8"> -->
                             <table class="table table-hover table-condensed">
                                 <thead>
                                     <tr>
@@ -317,7 +278,7 @@
                                         Rank</th>
                                         <th>Expression</th>
                                         <th>Fitness</th>
-                                        <th>Select</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tableBodyExprs">
@@ -326,7 +287,7 @@
                                         <td></td>
                                         <td></td>
                                         <td>
-                                            <button type="submit" class="btn btn-primary btn-xs  control-button" id="" style="margin-top: 1%;">Update queue</button>
+                                            <!-- <button type="submit" class="btn btn-primary btn-xs  control-button" id="" style="margin-top: 1%;">Update queue</button> -->
                                         </td>
                                     </tr>
                                 </tbody>
@@ -358,6 +319,65 @@
                     </div>
                 </div> -->
             </div>
+            </div>
+            
+            <!--Right panel: Diagnostics-->
+            <div class="col-xs-12 col-md-4 rightPanel">
+                <div id="subplot_menu" class="col-xs-12 col-md-12" style="margin-top: 20px;">
+                    <div class="collapse navbar-collapse">
+                        <ul class="nav navbar-nav navbar-right">
+                            <li class="dropdown">
+                            <a class="dropdown-toggle diag-name" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
+                                Training curves
+                                <span class="caret"></span>
+                            </a>
+                            <ul class="dropdown-menu" role="menu">
+                                <li role="presentation"><a role="menuitem" tabindex="-1">Training curves</a></li>
+                            </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div id="subplot" class="col-xs-12 col-md-12 subplot">
+                </div>
+                <div id="subplot2_menu" class="col-xs-12 col-md-12" style="margin-top: 15px;">
+                    <div class="collapse navbar-collapse">
+                        <ul class="nav navbar-nav navbar-right">
+                            <li class="dropdown">
+                            <a class="dropdown-toggle diag-name" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
+                                    Reward distribution
+                                <span class="caret"></span>
+                            </a>
+                            <ul class="dropdown-menu" role="menu">
+                                <li role="presentation"><a role="menuitem" tabindex="-1">Reward Distribution</a></li>
+                            </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div id="subplot2" class="col-xs-12 col-md-12 subplot">
+                </div>
+                <div id="subplot3_menu" class="col-xs-12 col-md-12" style="margin-top: 15px;">
+                    <div class="collapse navbar-collapse">
+                        <ul class="nav navbar-nav navbar-right">
+                            <li class="dropdown">
+                            <a class="dropdown-toggle diag-name" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
+                                    Expressional complexity
+                                <span class="caret"></span>
+                            </a>
+                            <ul class="dropdown-menu" role="menu">
+                                <li role="presentation"><a role="menuitem" tabindex="-1">Expressional complexity</a></li>
+                            </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div id="subplot3" class="col-xs-12 col-md-12 subplot">
+                </div>
+                <!--extendTraces-->
+            </div>
+
+            
         </div>
 
 
