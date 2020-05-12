@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 
-from dsr.program import Program, from_tokens
+from dsr.program import from_tokens
 from . import utils as U
 
 
@@ -67,14 +67,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     # Load the anchor model (if applicable)
     if "anchor" in action_spec:
         # Load custom anchor, if provided, otherwise load default
-        if algorithm is not None and anchor_path is not None:
+        if algorithm is not None and anchor is not None:
             U.load_model(algorithm, anchor_path)
         else:
             U.load_default_model(name)
-
-        anchor = U.model
-    else:
-        anchor = None
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions = {}
@@ -86,7 +82,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Pre-specified symbolic policy
         elif isinstance(spec, list):
-            tokens = None # Convert str to ints
+            tokens = None # TBD: Convert str to ints
             p = from_tokens(tokens, optimize=False)
             symbolic_actions[i] = p
 
@@ -112,8 +108,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             while not done:
 
                 # Compute anchor actions
-                if anchor is not None:
-                    action, _ = anchor.predict(obs)
+                if U.model is not None:
+                    action, _ = U.model.predict(obs)
                 else:
                     action = np.zeros(env.action_space.shape, dtype=np.float32)
 
