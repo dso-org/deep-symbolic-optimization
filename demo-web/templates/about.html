@@ -1,25 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-	
-    <meta name="author" content="htvai">
-    <meta name="description" content="Visualization of deep symbolic regression">
-	
-    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+{% extends "layout.html" %}
+{% block body %}
 
-	<title>Deep Symbolic Regression</title>
-</head>
+<div class="jumbotron" style="text-align: center">	
+    <button type="button" class="btn btn-default btn-lg" onclick="location.href='https://arxiv.org/abs/1912.04871','_blank'">
+        <span class="glyphicon glyphicon-star" aria-hidden="true"><br>ArXiv</span>
+    </button>
+</div>
 
-<body>
-    <div class="jumbotron" style="text-align: center">	
-        <button type="button" class="btn btn-default btn-lg" onclick="location.href='https://arxiv.org/abs/1912.04871','_blank'">
-            <span class="glyphicon glyphicon-star" aria-hidden="true"><br>ArXiv</span>
-        </button>
-    </div>
-
-    <script type="text/javascript" src="static/js/jquery.min.js"></script>
-</body>
-</html>
+{% endblock %}

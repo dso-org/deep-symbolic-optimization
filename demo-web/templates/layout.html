@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	
+    <meta name="author" content="htvai">
+    <meta name="description" content="Visualization of deep symbolic regression">
+    <link rel="icon" type="image/png" sizes="32x32" href="static/image/favicon-32x32.png">
+	
+    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="static/css/dsr.css">
+    <script type="text/javascript" src="static/js/plotly-1.53.0.min.js"></script>
+
+    <style>
+        body {
+            margin-top: 30px;
+        }
+        @media (max-width: 980px) {
+            body {
+            padding-top: 50px;
+            }
+        }
+    </style>
+	<title>Deep Symbolic Regression</title>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-fixed-top navbar-inverse">
+        <div class="container bg-dark">
+            <a class="navbar-brand" href="/">DSR</a>
+            <ul class="nav navbar-nav navbar-right">
+                <li class="nav-item">
+                    <a class="nav-link" href="about">About</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="blank">Blank</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+
+    <!-- Main Content -->
+    {% block body %}{% endblock %}
+
+
+    <!-- footer -->
+    <footer class="footer" style="margin-top: 30px; text-align: right">
+            <div class="container-fluid">
+                <p class="text-muted">2020 International Joint Conference on Artificial Intelligence::Demonstrations Track</p>
+            </div>
+            </footer>
+
+    
+    <script type="text/javascript" src="static/js/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <script type="text/javascript" src="static/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="static/js/dsr.js"></script>
+</body>
+</html>

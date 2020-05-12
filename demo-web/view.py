@@ -9,10 +9,7 @@ main_plot = MainPlot()
 
 @app.route('/', methods=['GET'])
 def home():
-    # bar_plot = create_plot()
-    # return render_template('main.html', plot=bar_plot)
     return render_template('main.html')
-
   
 @app.route('/data_points', methods=['POST'])
 def data_points():
@@ -41,7 +38,7 @@ def about():
 
 @app.route('/blank')
 def blank():
-    return 'blank'
+    return render_template('blank.html')
 
 if __name__ == '__main__':
     app.run() # http://127.0.0.1:5000/
