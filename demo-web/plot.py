@@ -66,20 +66,16 @@ class MainPlot:
         N = 1000
         x = np.linspace(self.data_range[0]-self.data_range[2]*0.1, self.data_range[1]+self.data_range[2]*0.1, N)
         y = expr_program.execute(x.reshape(N, -1))
-        # df = pd.DataFrame({'x': x, 'y': y})
         self.expr_info['expression'] = repr(expr_program.sympy_expr)
         self.expr_info['fitness'] = expr_program.r
 
         line = [
             go.Scatter(
                 x=x,
-                # x=df['x'],
                 y=y,
-                # y=df['y'],
                 mode='lines',
                 name=self.expr_info['expression'],
-                line=dict(color='#000', width=3)
-                # line=dict(color='#3f007d', width=2.5)
+                line=dict(color='#3f007d', width=2.5)
             )
         ]
 

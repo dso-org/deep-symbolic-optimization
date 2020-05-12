@@ -11,8 +11,7 @@ divSubplot3 = document.getElementById('subplot3');
 
 function resetPlot(graphDiv){
     /* remove all traces */
-    while(graphDiv.data.length>0)
-    {
+    while(graphDiv.data.length>0){
         Plotly.deleteTraces(graphDiv, [0]);
     }
 }
@@ -104,18 +103,17 @@ function updateExprTable(info){
     var fitness = info.fitness
     
     row.insertCell(0).innerHTML = 9-index; // TODO: rank
-    // row.insertCell(0).innerHTML = '# '+index;
     row.insertCell(1).innerHTML = expression;
     row.insertCell(2).innerHTML = Number.parseFloat(fitness).toFixed(3);
-    // row.insertCell(3).innerHTML = '<input type="checkbox" id="checkExpr'+index+'"><small> IN</small>';
-    row.insertCell(3).innerHTML = '<input type="checkbox" id="checkExpr'+index+'">'+'Remove'.link("#");
+    row.insertCell(3).innerHTML = "Remove".link("#");
+    // row.insertCell(3).innerHTML = '<input type="checkbox" id="checkExpr'+index+'">'+'Remove'.link("#"); // TODO: remove add
 
     $(function(){
         $('#checkExpr'+index).on('change',function(){
             if ($(this).is(':checked')){
                 // row.insertCell(4).innerHTML = 'Remove'
                 $(this).parent().parent().addClass('removed-expr')
-                row.cells.item(3).innerHTML = 'Add'.link("#");
+                row.cells.item(3).innerHTML = "Add".link("#");
             } 
             else{
                 // $(this).parent().parent().addClass('removed-expr')
@@ -168,12 +166,7 @@ function bringBestExpr(caller){
                 /* update training curves */
                 for (let [key, value] of Object.entries(response.subplot)) {
                     if (key == 'subplot1'){
-                        // if (step == 0){
-                            // Plotly.addTraces(divSubplot, [value.Best.data])
-                            // Plotly.restyle(divSubplot, {'line.color':'#000'})
-                        // } else{
                         Plotly.extendTraces(divSubplot, value.data, [0, 1, 2])
-                        // }
 
                     } else if (key == 'subplot2'){
                         if (step % 50 == 0){
@@ -238,7 +231,7 @@ $(function(){
         bestFound = false;
 
         bringBestExpr('step');
-        // change button -> RESUME
+        // TODO: change button -> RESUME
     });
 });
 
@@ -283,7 +276,7 @@ var layout = {
         b: 50
     },
     hovermode: 'closest',
-    config: { responsive: true }, // not working..
+    config: { responsive: true }, // TODO: responsive not working..
     // plot_bgcolor:"white",
     // paper_bgcolor:"white",
     showlegend: false,
@@ -316,20 +309,6 @@ var layout = {
         // range: [-2,2]
         autorange: true
     },
-    // title: {
-    //     text: 'Best expression: ',
-    //     xref: 'paper', 
-    //     yref: 'paper', 
-    //     x: 0, 
-    //     y: 1.2,
-    //     xanchor: 'left', 
-    //     yanchor: 'bottom',
-    //     font:{
-    //         family: 'Arial',
-    //         size: 15,
-    //         color: 'rgb(37,37,37)'},
-    //     showarrow: false
-    // },
     width: 800,
     height: 500
 
@@ -379,7 +358,7 @@ var blankDataSub3 = [{
     type: 'scatter'
 }];
 
-var layoutSubplot = {
+var layoutSubplot1 = {
     autosize: false,
     margin: { 
         t: 3, 
@@ -387,14 +366,13 @@ var layoutSubplot = {
         r: 70, 
         b: 10
     },
-    // showlegend: false,
     legend: { //TODO: legend blocks lowest line
-        orientation: "h",
+        orientation: 'h',
         xanchor: 'right',
-        // xanchor: 'left',
         yanchor: 'bottom',
         x: 1,
         y: 0,
+        bgcolor: 'transparent'
       },
     xaxis: {
         automargin: true,
@@ -405,7 +383,6 @@ var layoutSubplot = {
             }
         },
         tickfont: {
-            // family: 'Old Standard TT, serif',
             size: 10,
             color: 'black'
         },
@@ -424,7 +401,6 @@ var layoutSubplot = {
             },
         },
         tickfont: {
-            // family: 'Old Standard TT, serif',
             size: 10,
             color: 'black'
         },
@@ -434,8 +410,6 @@ var layoutSubplot = {
         mirror: 'ticks',
         linecolor: '#636363',
         linewidth: 1.5
-    //     // range: [-2,2]
-    //     autorange: false
     },
     width: 580,
     height: 215
@@ -450,7 +424,6 @@ var layoutSubplot2 = {
         b: 10
     },
     showlegend: false,
-    // legend: {orientation: "h"},
     xaxis: {
         automargin: true,
         title: {
@@ -460,7 +433,6 @@ var layoutSubplot2 = {
             }
         },
         tickfont: {
-            // family: 'Old Standard TT, serif',
             size: 10,
             color: 'black'
         },
@@ -470,8 +442,6 @@ var layoutSubplot2 = {
         mirror: 'ticks',
         linecolor: '#636363',
         linewidth: 1.5
-    //     range: [-2,2],
-    //     autorange: false
       },
     yaxis: {
         title: {
@@ -481,7 +451,6 @@ var layoutSubplot2 = {
             }
         },
         tickfont: {
-            // family: 'Old Standard TT, serif',
             size: 10,
             color: 'black'
         },
@@ -491,8 +460,6 @@ var layoutSubplot2 = {
         mirror: 'ticks',
         linecolor: '#636363',
         linewidth: 1.5
-    //     // range: [-2,2]
-    //     autorange: false
     },
     width: 580,
     height: 215
@@ -507,7 +474,6 @@ var layoutSubplot3 = {
         b: 10
     },
     showlegend: false,
-    // legend: {orientation: "h"},
     xaxis: {
         automargin: true,
         title: {
@@ -517,7 +483,6 @@ var layoutSubplot3 = {
             }
         },
         tickfont: {
-            // family: 'Old Standard TT, serif',
             size: 10,
             color: 'black'
         },
@@ -527,8 +492,6 @@ var layoutSubplot3 = {
         mirror: 'ticks',
         linecolor: '#636363',
         linewidth: 1.5
-    //     range: [-2,2],
-    //     autorange: false
       },
     yaxis: {
         title: {
@@ -538,7 +501,6 @@ var layoutSubplot3 = {
             }
         },
         tickfont: {
-            // family: 'Old Standard TT, serif',
             size: 10,
             color: 'black'
         },
@@ -553,10 +515,9 @@ var layoutSubplot3 = {
     height: 215
 };
 
-Plotly.newPlot(divSubplot, [blankDataSub11, blankDataSub12, blankDataSub13], layoutSubplot)
+Plotly.newPlot(divSubplot, [blankDataSub11, blankDataSub12, blankDataSub13], layoutSubplot1)
 Plotly.newPlot(divSubplot2, blankDataSub2, layoutSubplot2)
 Plotly.newPlot(divSubplot3, blankDataSub3, layoutSubplot3)
-
 
 /* JS tooltip opt-in */
 $(function () {

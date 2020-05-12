@@ -11,7 +11,6 @@
 	
     <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="static/css/dsr.css">
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap" rel="stylesheet"> -->
     <script type="text/javascript" src="static/js/plotly-1.53.0.min.js"></script>
 
     <!-- <style>
@@ -28,8 +27,8 @@
 </head>
 
 <body>
-    <!-- Navigation -->
-    <!-- <nav class="navbar navbar-fixed-top navbar-inverse">
+    Navigation
+    <nav class="navbar navbar-fixed-top navbar-inverse">
         <div class="container bg-dark">
             <a class="navbar-brand" href="#">DSR</a>
             <ul class="nav navbar-nav navbar-right">
@@ -41,54 +40,47 @@
                 </li>
             </ul>
         </div>
-    </nav> -->
+    </nav>
 
       
     <div class="container-fluid"">	
-        <!-- <div class="page-header">
+        <div class="page-header">
             <h3>Deep Symbolic Regression</h3>
-        </div> -->
+        </div>
 
         <div class="row">
             <!--Left panel: Control-->
             <div class="col-xs-12 col-md-2" style="padding-right: 0%;">
                 <p id="pageTitle">Deep Symbolic Regression</p>
                 <hr>
-
-                <!-- <div class="panel panel-default"> -->
-                        <!-- <div class="panel-body"> -->
-                            <div class="table">
-                                <div class= "btn-group btn-group-justified" role="group">
-                                    <div class="btn-group" role="group" style="display: none;">
-                                        <button type="button" class="btn btn-default play-button" id="btn_stop">
-                                            <span class="glyphicon glyphicon-stop" aria-hidden="true"></span>
-                                            STOP 
-                                        </button>
-                                    </div>
-                                    <div class="btn-group" role="group" style="display: none;">
-                                        <button type="button" class="btn btn-default play-button" id="btn_pause">
-                                            <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
-                                            PAUSE 
-                                        </button>
-                                    </div>
-                                    <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-default play-button" id="btn_start">
-                                            <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
-                                            START 
-                                        </button>
-                                    </div>
-                                    <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-default play-button" id="btn_step" data-toggle="tooltip" data-placement="top" title="Find next best!">
-                                            <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
-                                            STEP
-                                        </button>
-                                    </div>
-                                </div>
+                    <div class="table">
+                        <div class= "btn-group btn-group-justified" role="group">
+                            <div class="btn-group" role="group" style="display: none;">
+                                <button type="button" class="btn btn-default play-button" id="btn_stop">
+                                    <span class="glyphicon glyphicon-stop" aria-hidden="true"></span>
+                                    STOP 
+                                </button>
                             </div>
-                    <!-- </div> -->
-                <!-- </div> -->
-                <!-- <hr> -->
-                <!-- <hr style="margin-top: 10px; margin-bottom: 10px;"> -->
+                            <div class="btn-group" role="group" style="display: none;">
+                                <button type="button" class="btn btn-default play-button" id="btn_pause">
+                                    <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
+                                    PAUSE 
+                                </button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default play-button" id="btn_start">
+                                    <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                                    START 
+                                </button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default play-button" id="btn_step" data-toggle="tooltip" data-placement="top" title="Find next best!">
+                                    <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                                    STEP
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 <div class="panel panel-default">
                     <div class="panel-heading">
                         <h3 class="panel-title">Control</h3>
@@ -254,7 +246,6 @@
                     </div>
                 </div> -->
                 <div class="panel-group col-xs-12 col-md-12" id="expressions" style="padding-left: 5em; padding-right: 0px;">
-            <!-- <div class="panel-group col-xs-12 col-md-10 rightPanel" id="expressions" style="margin-left: 3em;margin-right: -3em; padding-right: 5em;"> -->
                 <hr style="margin: 0px; margin-top: -5px;">
                 <!-- <h4>Dicovered Expression</h4> -->
                 <!-- <div class="panel panel-default">
@@ -273,8 +264,6 @@
                                 <thead>
                                     <tr>
                                         <th>
-                                            <!-- <input type="checkbox" id="checkAll"> -->
-                                            <!-- <label class="form-check-label" for="checkAll">#</label> -->
                                         Rank</th>
                                         <th>Expression</th>
                                         <th>Fitness</th>
@@ -302,23 +291,7 @@
                             </div>
                         </div>
                     </div>
-                <!-- </div> -->
-                <!-- <div class="panel panel-default">
-                    <div class="panel-heading">
-                        <h4 class="panel-title">
-                            <a data-toggle="collapse" data-parent="#expressions" href="#exprQueue">
-                                <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
-                                Expressions in Priority Queue
-                            </a>
-                        </h4>
-                    </div>
-                    <div id="exprQueue" class="panel-collapse collapse">
-                        <div class="panel-body">
-                            List of expressions in priority queue.
-                        </div>
-                    </div>
-                </div> -->
-            </div>
+                </div>
             </div>
             
             <!--Right panel: Diagnostics-->
