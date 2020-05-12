@@ -1,2 +1,0 @@
-name,nmse,base_r,r,base_r_test,r_test,base_r_noiseless,r_noiseless,base_r_test_noiseless,r_test_noiseless,expression,traversal,t,seed
-Nguyen-5,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,sin(x1**2)*cos(x1) - 1,"sub,mul,sin,mul,x1,x1,cos,x1,cos,sub,x1,x1",427.22272515296936,0
