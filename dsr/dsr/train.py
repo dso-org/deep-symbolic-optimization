@@ -37,7 +37,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
           alpha=0.1, epsilon=0.01, n_cores_batch=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
-          debug=0):
+          hof=10, debug=0):
 
     """
     Executes the main training loop.
@@ -114,6 +114,9 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     early_stopping : bool, optional
         Whether to stop early if stopping criteria is reached.
 
+    hof : int or None, optional
+        If not None, number of top Programs to evaluate after training.
+
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
@@ -138,6 +141,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         output_file = os.path.join(logdir, output_file)
         prefix, _ = os.path.splitext(output_file)
         all_r_output_file = "{}_all_r.npy".format(prefix)
+        hof_output_file = "{}_hof.csv".format(prefix)
         with open(output_file, 'w') as f:
             # r_best : Maximum across all iterations so far
             # r_max : Maximum across this iteration's batch
@@ -373,6 +377,29 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     if save_all_r:
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
+
+    # Save the hall of fame
+    if hof is not None and hof > 0:
+        programs = list(Program.cache.values()) # All unique Programs found during training
+        base_r = [p.base_r for p in programs]
+        i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
+        hof = [programs[i] for i in i_hof]
+
+        def hof_work(p):
+            return [p.r, p.base_r, repr(p.sympy_expr), repr(p), p.evaluate]
+
+        if verbose:
+            print("Evaluating the hall of fame...")
+        if pool is not None:
+            results = pool.map(hof_work, hof)
+        else:
+            results = list(map(hof_work, hof))
+
+        eval_keys = list(results[0][-1].keys())
+        columns = ["r", "base_r", "expression", "traversal"] + eval_keys
+        hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
+        df = pd.DataFrame(hof_results, columns=columns)
+        df.to_csv(hof_output_file, header=True, index=False)
 
     if pool is not None:
         pool.close()
