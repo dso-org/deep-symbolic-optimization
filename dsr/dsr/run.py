@@ -1,5 +1,9 @@
 """Parallelized, single-point launch script to run DSR or GP on a set of benchmarks."""
 
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 import os
 import sys
 import json
@@ -22,10 +26,6 @@ from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
 from dsr.task import set_task
-
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', category=FutureWarning)
 
 
 def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
