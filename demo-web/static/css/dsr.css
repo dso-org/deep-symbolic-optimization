@@ -1,16 +1,3 @@
-#pageTitle{
-    margin-top: 20px;
-    font-weight: 600;
-    font-size: 20px;
-    letter-spacing: -1px;
-    text-align: center;
-}
-
-body {
-    padding-top: 15px;
-    /* padding-top: 75px; */
-}
-  
 .play-button{
     /* color: #ffffff; */
     /* background: #6a51a3; */
@@ -109,21 +96,18 @@ th{
 }
 
 /* RIGHT */
-.nav>li>a {
+.nav-diagnostics>li>a {
     /* font-family: 'Jost', sans-serif; */
     font-weight: 500;
     color: #000000;
+    padding-top: 5px;
+    padding-bottom: 5px;
 }
 
 .dropdown-menu>li>a {
     /* font-family: 'Jost', sans-serif; */
     font-weight: 400;
     color: #000000;
-}
-
-.navbar-nav>li>a {
-    padding-top: 5px;
-    padding-bottom: 5px;
 }
 
 .subplot {
