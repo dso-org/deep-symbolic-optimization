@@ -35,27 +35,33 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     name, seed = name_and_seed
     config_task["name"] = name
 
+    # Try importing TensorFlow (with suppressed warnings), Controller, and learn
+    # When parallelizing across tasks, these will already be imported, hence try/except
+    try:
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        import tensorflow as tf
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+        from dsr.controller import Controller
+        from dsr.train import learn
+
+    except:
+        pass
+
+    # For some reason, for the control task, the environment needs to be instantiated
+    # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
+    if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
+        import gym
+        gym.make(name)
+
     # Create the pool and set the task for each worker
     n_cores_batch = config_training["n_cores_batch"]
     if n_cores_batch > 1:
         pool = multiprocessing.Pool(n_cores_batch, initializer=set_task, initargs=(config_task,))
     else:
         pool = None
-    
+
     # Set the task for the parent process    
     set_task(config_task)
-
-    try:
-        import tensorflow as tf
-        from dsr.controller import Controller
-        from dsr.train import learn
-
-        # Ignore TensorFlow warnings
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-    except:
-        pass
 
     start = time.time()
 
@@ -158,7 +164,10 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
-     # Load the config file
+    # Set the Program class execute function
+    Program.set_execute()
+
+    # Load the config file
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 

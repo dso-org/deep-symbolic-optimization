@@ -59,4 +59,3 @@ def set_task(config_task):
     Program.set_reward_function(reward_function)
     Program.set_eval_function(eval_function)
     Program.set_library(function_set, n_input_var)
-    Program.set_execute()
