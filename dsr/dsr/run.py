@@ -1,5 +1,9 @@
 """Parallelized, single-point launch script to run DSR or GP on a set of benchmarks."""
 
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 import os
 import sys
 import json
@@ -21,46 +25,53 @@ from dsr.program import Program
 from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
-from dsr.task import make_task
+from dsr.task import set_task
 
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', category=FutureWarning)
 
 def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
+    # Override the benchmark name
     name, seed = name_and_seed
+    config_task["name"] = name
 
+    # Try importing TensorFlow (with suppressed warnings), Controller, and learn
+    # When parallelizing across tasks, these will already be imported, hence try/except
     try:
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         import tensorflow as tf
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
         from dsr.controller import Controller
         from dsr.train import learn
 
-        # Ignore TensorFlow warnings
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
     except:
         pass
+
+    # For some reason, for the control task, the environment needs to be instantiated
+    # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
+    if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
+        import gym
+        gym.make(name)
+
+    # Create the pool and set the task for each worker
+    n_cores_batch = config_training["n_cores_batch"]
+    if n_cores_batch > 1:
+        pool = multiprocessing.Pool(n_cores_batch, initializer=set_task, initargs=(config_task,))
+    else:
+        pool = None
+
+    # Set the task for the parent process    
+    set_task(config_task)
 
     start = time.time()
 
     # Rename the output file
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
-    
-    # Define the task
-    config_task["name"] = name # Override the benchmark name
-    reward_function, eval_function, function_set, n_input_var = make_task(**config_task)    
-    Program.set_reward_function(reward_function)
-    Program.set_eval_function(eval_function)
-    Program.set_library(function_set, n_input_var)
 
-    # Setup
-    Program.set_execute()
+    # Reset cache and TensorFlow graph
     Program.clear_cache()
-    tf.reset_default_graph()
-
+    tf.reset_default_graph()        
+    
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
   
@@ -75,7 +86,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
         # Train the controller
         result = {"name" : name, "seed" : seed} # Name and seed are listed first
-        result.update(learn(sess, controller, **config_training))
+        result.update(learn(sess, controller, pool, **config_training))
         result["t"] = time.time() - start # Time listed last
 
         return result
@@ -153,7 +164,10 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
-     # Load the config file
+    # Set the Program class execute function
+    Program.set_execute()
+
+    # Load the config file
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 

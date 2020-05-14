@@ -16,7 +16,6 @@ from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
 from dsr.language_model import LanguageModelPrior
-from dsr.task import make_task
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -30,14 +29,17 @@ def work(p):
     optimized_constants = p.optimize()
     return optimized_constants, p.base_r
 
-def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
-          batch_size=1000,
-          complexity="length", complexity_weight=0.001,
-          const_optimizer="minimize", const_params=None,
-          alpha=0.1, epsilon=0.01, n_cores_batch=1,
-          verbose=True, summary=True, output_file=None, save_all_r=False,
-          baseline="ewma_R", b_jumpstart=True, early_stopping=False,
-          hof=10, debug=0):
+
+def hof_work(p):
+    return [p.r, p.base_r, repr(p.sympy_expr), repr(p), p.evaluate]
+
+
+def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
+          batch_size=1000, complexity="length", complexity_weight=0.001,
+          const_optimizer="minimize", const_params=None, alpha=0.1,
+          epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
+          output_file=None, save_all_r=False, baseline="ewma_R",
+          b_jumpstart=True, early_stopping=False, hof=10, debug=0):
 
     """
     Executes the main training loop.
@@ -49,6 +51,11 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
     
     controller : dsr.controller.Controller
         Controller object used to generate Programs.
+
+    pool : multiprocessing.Pool or None
+        Pool to parallelize reward computation. For the control task, each
+        worker should have its own TensorFlow model. If None, a Pool will be
+        generated if n_cores_batch > 1.
 
     logdir : str, optional
         Name of log directory.
@@ -170,12 +177,12 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
             for var, val in zip(tvars, tvars_vals):
                 print(var.name, val.mean())
 
-    # Create the pool of workers
-    pool = None
-    if n_cores_batch == -1:
-        n_cores_batch = multiprocessing.cpu_count()
-    if n_cores_batch > 1:
-        pool = multiprocessing.Pool(n_cores_batch)
+    # Create the pool of workers, if pool is not already given
+    if pool is None:
+        if n_cores_batch == -1:
+            n_cores_batch = multiprocessing.cpu_count()
+        if n_cores_batch > 1:
+            pool = multiprocessing.Pool(n_cores_batch)            
 
     # Create the priority queue
     k = controller.pqt_k
@@ -385,9 +392,6 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6,
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]
 
-        def hof_work(p):
-            return [p.r, p.base_r, repr(p.sympy_expr), repr(p), p.evaluate]
-
         if verbose:
             print("Evaluating the hall of fame...")
         if pool is not None:
@@ -436,6 +440,7 @@ def main():
     config_language_model_prior = config["language_model_prior"]            # Language model hyperparameters
 
     # Define the task
+    from dsr.task import set_task
     reward_function, eval_function, function_set, n_input_var = make_task(**config_task)
     Program.set_reward_function(reward_function)
     Program.set_eval_function(eval_function)

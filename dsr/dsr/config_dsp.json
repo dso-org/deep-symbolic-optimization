@@ -2,10 +2,7 @@
    "task" : {
       "task_type" : "control",
       "name": "LunarLanderContinuous-v2",
-      "action_spec" : {
-         "action_0" : "anchor",
-         "action_1" : null
-      },
+      "action_spec" : [null, "anchor"],
       "n_episodes_train" : 5,
       "n_episodes_test" : 10,
       "success_score": 200.0,
