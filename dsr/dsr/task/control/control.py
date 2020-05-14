@@ -1,4 +1,10 @@
 import gym
+
+try:
+    import pybullet_envs
+except ImportError:
+    pybullet_envs = None
+
 import numpy as np
 
 from dsr.program import Program, from_tokens
@@ -44,8 +50,16 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     See dsr.task.task.make_task().
     """
 
+    assert "Bullet" not in name or pybullet_envs is not None, "Must install pybullet_envs."
+
     # Define closures for environment and anchor model
     env = gym.make(name)
+
+    # HACK: Wrap pybullet envs in TimeFeatureWrapper
+    # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
+    # Note Zoo is not implemented as a package, which might make this tedious
+    if "Bullet" in name:
+        env = U.TimeFeatureWrapper(env)
 
     # Define the library (need to do this now in case there are symbolic actions)
     n_input_var = env.observation_space.shape[0]
