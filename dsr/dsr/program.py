@@ -340,6 +340,7 @@ class Program(object):
 
         # Add input variables
         Program.library = list(range(n_input_var))
+        Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
         Program.arities = [0] * n_input_var
 
         for i, op in enumerate(operators):
@@ -348,16 +349,19 @@ class Program(object):
             if op in _function_map:
                 op = _function_map[op]
                 Program.library.append(op)
+                Program.str_library.append(op.name)
                 Program.arities.append(op.arity)
 
             # Hard-coded floating-point constant
             elif isinstance(op, float):
                 Program.library.append(op)
+                Program.str_library.append(str(op))
                 Program.arities.append(0)
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
                 Program.library.append(op)
+                Program.str_library.append(op)
                 Program.arities.append(0)
                 Program.const_token = i + n_input_var
 
@@ -396,25 +400,10 @@ class Program(object):
 
 
     @staticmethod
-    def convert_token(traversal):
-        """Converts a string traversal to an int traversal"""
-        #dsp Error: TypeError: 'NoneType' object is not iterable
-        #str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        if Program.env_name is not None: #dsp
-            n_input_var = Program.dim_of_state
-            input_var = ["x"+str(j) for j in range(n_input_var)]
-            operators = Program.dsp_function_lib
-            str_library = input_var + operators
-        else:  #dsr
-            str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
-
-
-    @staticmethod
     def convert(traversal):
         """Converts a string traversal to an int traversal"""
-        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
+
+        return np.array([Program.str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
 
     @cached_property
