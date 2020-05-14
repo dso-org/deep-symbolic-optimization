@@ -12,6 +12,14 @@ source venv3/bin/activate # Activate the virtual environmnet
 pip install -r requirements.txt # Install Python dependencies
 ```
 
+To install additional dependencies only needed for running pybullet-gym environments:
+
+```
+# Recommended to cd outside repository root
+git clone https://github.com/benelot/pybullet-gym.git
+pip install -e ./pybullet-gym
+```
+
 To install additional dependencies only needed for reproducing figures from the paper:
 
 ```
