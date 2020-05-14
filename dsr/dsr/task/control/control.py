@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 
-from dsr.program import from_tokens
+from dsr.program import Program, from_tokens
 from . import utils as U
 
 
@@ -47,6 +47,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     # Define closures for environment and anchor model
     env = gym.make(name)
 
+    # Define the library (need to do this now in case there are symbolic actions)
+    n_input_var = env.observation_space.shape[0]
+    Program.set_library(function_set, n_input_var)
+
     # Configuration assertions
     assert len(env.observation_space.shape) == 1, "Only support vector observation spaces."
     assert isinstance(env.action_space, gym.spaces.Box), "Only supports continuous action spaces."
@@ -62,6 +66,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             U.load_model(algorithm, anchor_path)
         else:
             U.load_default_model(name)
+        model = U.model
+    else:
+        model = None
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions = {}
@@ -73,7 +80,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Pre-specified symbolic policy
         elif isinstance(spec, list):
-            tokens = None # TBD: Convert str to ints
+            tokens = Program.convert(spec) # Converts str to ints
             p = from_tokens(tokens, optimize=False)
             symbolic_actions[i] = p
 
@@ -99,8 +106,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             while not done:
 
                 # Compute anchor actions
-                if U.model is not None:
-                    action, _ = U.model.predict(obs)
+                if model is not None:
+                    action, _ = model.predict(obs)
                 else:
                     action = np.zeros(env.action_space.shape, dtype=np.float32)
 
@@ -143,8 +150,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             "success" : success
         }
         return info
-
-
-    n_input_var = env.observation_space.shape[0]
+    
 
     return reward, evaluate, function_set, n_input_var
