@@ -1,0 +1,124 @@
+.play-button{
+    /* color: #ffffff; */
+    /* background: #6a51a3; */
+    border-color: #424242;
+    border-width: 1px;
+    padding-top: 0.6em;
+    padding-bottom: 0.6em;
+}
+
+#controlPanel>div{
+    padding-bottom: 20px;
+}
+#controlPanel>div>label{
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.control-file{
+    margin-bottom: 0.5em;
+}
+
+.control-button{
+    color: #000000;
+    background: #dadaeb;
+    border-color: #c5c5d6;
+    margin-top: 5%;
+}
+
+#tableSliders{
+    margin-top: 10px;
+    margin-bottom: 0px;
+}
+
+#tableSliders>tbody>tr>td>input.input-sm{
+    width: 35px;
+    padding: 0px;
+    padding-left: 3px;
+    margin-left: 1em;
+    margin-right: 0px;
+    margin-top: 5px;
+}
+
+#sliders>div{
+    padding-bottom: 23px;
+}
+#sliders>div>button{
+    margin-top: 1em;
+}
+
+.slider-name{
+    /* position:relative;
+    top:15px;
+    left:15px; */
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    color: #959595;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0px;
+    padding-top: 0.5em;
+    padding-bottom: 0.2em;
+    padding-left: 1em;
+}
+
+.slider{
+    margin: 0.5em;
+    margin-top: 0.9em;
+}
+
+#tableSliders>tbody>tr>td{
+    padding: 0px;
+    padding-top: 5px;
+}
+
+
+/* CENTER */
+#expressionsTitle{
+    background-color: white;
+    /* border-right-style: none;
+    border-left-style: none;
+    border-bottom-style: none; */
+}
+
+/* CENTER - Expression table */
+th{
+    text-align: center;
+}
+#tableBodyExprs{
+    text-align: center;
+}
+.removed-expr{
+    color: #959595;
+    /* text-decoration: line-through; */
+    background-color: rgb(247, 247, 247);
+}
+
+/* RIGHT */
+.nav-diagnostics>li>a {
+    /* font-family: 'Jost', sans-serif; */
+    font-weight: 500;
+    color: #000000;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.dropdown-menu>li>a {
+    /* font-family: 'Jost', sans-serif; */
+    font-weight: 400;
+    color: #000000;
+}
+
+.subplot {
+    margin-bottom: 15px;
+}
+
+.rightPanel{
+    padding-left: 0px;
+}
+
+.diag-name{
+    font-size: 15px;
+
+}
