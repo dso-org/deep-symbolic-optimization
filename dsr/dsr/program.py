@@ -95,6 +95,10 @@ class Program(object):
     const_pos : list of int
         A list of indicies of constant placeholders along the traversal.
 
+    float_pos : list of float
+        A list of indices of constants placeholders or floating-point constants
+        along the traversal.
+
     sympy_expr : str
         The (lazily calculated) SymPy expression corresponding to the program.
         Used for pretty printing _only_.
@@ -144,8 +148,9 @@ class Program(object):
         against training data, and evalutes the reward.
         """
     
-        self.traversal      = [Program.library[t] for t in tokens]
-        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]  
+        self.traversal = [Program.library[t] for t in tokens]
+        self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
+        self.float_pos = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
         
         if self.have_cython:
             self.new_traversal  = [Program.library[t] for t in tokens]
@@ -176,7 +181,7 @@ class Program(object):
             The result of executing the program on X.
         """
         
-        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.var_pos, self.is_function)
+        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
     
     
     def python_execute(self, X):
@@ -245,6 +250,9 @@ class Program(object):
         optimized_constants : vector
             Array of optimized constants.
         """
+
+        # TBD: Should return np.float32
+        # TBD: Fix to work with task refactoring
 
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
@@ -370,7 +378,8 @@ class Program(object):
                 Program.arities.append(op.arity)
 
             # Hard-coded floating-point constant
-            elif isinstance(op, float):
+            elif isinstance(op, float) or isinstance(op, int):
+                op = np.float32(op)
                 Program.library.append(op)
                 Program.str_library.append(str(op))
                 Program.arities.append(0)
@@ -413,7 +422,7 @@ class Program(object):
         token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, _Function)}
         Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
-        print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
+        print("Library:\n\t{}".format(Program.str_library))
 
 
     @staticmethod
@@ -490,7 +499,7 @@ class Program(object):
     def __repr__(self):
         """Prints the program's traversal"""
 
-        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.traversal])
+        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) or isinstance(f, np.float32) else f.name for f in self.traversal])
 
 
 ###############################################################################
@@ -530,7 +539,7 @@ def build_tree(traversal, order="preorder"):
         elif isinstance(op, int):
             val = "x{}".format(op + 1)
             n_children = 0
-        elif isinstance(op, float):
+        elif isinstance(op, float) or isinstance(op, np.float32):
             val = str(op)
             n_children = 0
         else:

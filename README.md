@@ -4,12 +4,14 @@ Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regress
 
 # Installation
 
-Installation is straightforward in a python3 virtual environment using pip. From the repository root:
+From the repository root:
 
 ```
 python3 -m venv venv3 # Create a Python 3 virtual environment
 source venv3/bin/activate # Activate the virtual environmnet
 pip install -r requirements.txt # Install Python dependencies
+export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
+pip install -e ./dsr # Install DSR package
 ```
 
 To install additional dependencies only needed for running pybullet-gym environments:
