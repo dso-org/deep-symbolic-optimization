@@ -31,7 +31,7 @@ def work(p):
 
 
 def hof_work(p):
-    return [p.r, p.base_r, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
@@ -419,6 +419,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
             for p, base_r in zip(programs, vals):
                 p.base_r = np.mean(base_r)
+                p.count = len(base_r) # HACK
                 _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
 
         # For deterministic Programs, just use the cache
@@ -437,7 +438,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             results = list(map(hof_work, hof))
 
         eval_keys = list(results[0][-1].keys())
-        columns = ["r", "base_r", "expression", "traversal"] + eval_keys
+        columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
         df.to_csv(hof_output_file, header=True, index=False)
