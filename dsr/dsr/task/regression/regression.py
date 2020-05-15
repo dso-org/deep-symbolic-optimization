@@ -72,8 +72,10 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
         }
         return info
 
+    stochastic = False # Regression rewards are deterministic
 
-    return reward, evaluate, dataset.function_set, dataset.n_input_var
+
+    return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic
 
 
 def make_regression_metric(name, y_train, *args):

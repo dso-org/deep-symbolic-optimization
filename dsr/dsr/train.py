@@ -196,6 +196,14 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         print("\nInitial parameter means:")
         print_var_means()
 
+    # For stochastic Programs with hof, store each base_r computation for each unique traversal
+    if Program.stochastic and hof is not None and hof > 0:
+        base_r_history = {} # Dict from Program str to list of base_r values
+        # It's not really clear stochastic Programs with const should enter the hof
+        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs"
+    else:
+        base_r_history = None
+
     # Main training loop
     base_r_best = -np.inf
     r_best = -np.inf
@@ -239,6 +247,15 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         all_r[step] = base_r
+
+        # Update reward history
+        if base_r_history is not None:
+            for p in programs:
+                key = p.tokens.tostring()
+                if key in base_r_history:
+                    base_r_history[key].append(p.base_r)
+                else:
+                    base_r_history[key] = [p.base_r]
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
@@ -387,7 +404,27 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Save the hall of fame
     if hof is not None and hof > 0:
-        programs = list(Program.cache.values()) # All unique Programs found during training
+
+        # For stochastic Programs, average each unique Program's base_r_history,
+        if Program.stochastic:
+
+            # Define a helper function to generate a Program from its tostring() value
+            def from_token_string(str_tokens, optimize):
+                tokens = np.fromstring(str_tokens, dtype=np.int32)
+                return from_tokens(tokens, optimize=optimize)
+
+            # Generate each unique Program and manually set its base_r to the average of its base_r_history
+            keys = base_r_history.keys() # str_tokens for each unique Program
+            vals = base_r_history.values() # base_r histories for each unique Program
+            programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
+            for p, base_r in zip(programs, vals):
+                p.base_r = np.mean(base_r)
+                _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
+
+        # For deterministic Programs, just use the cache
+        else:
+            programs = list(Program.cache.values()) # All unique Programs found during training
+
         base_r = [p.base_r for p in programs]
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]

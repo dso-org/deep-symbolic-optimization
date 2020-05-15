@@ -48,16 +48,22 @@ def from_tokens(tokens, optimize):
     else:
         tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
 
-    # If the Program is in the cache, return it; otherwise, create a new one
-    key = tokens.tostring()
-    if key in Program.cache:
-        p = Program.cache[key]
-        p.count += 1
-        return p
-    else:
+    # For stochastic Programs, there is no cache; always generate a new Program.
+    # For deterministic Programs, if the Program is in the cache, return it;
+    # otherwise, create a new one and add it to the cache.
+    if Program.stochastic:
         p = Program(tokens, optimize=optimize)
-        Program.cache[key] = p
-        return p
+    else:
+        key = tokens.tostring()
+        if key in Program.cache:
+            p = Program.cache[key]
+            p.count += 1
+        else:
+            p = Program(tokens, optimize=optimize)
+            Program.cache[key] = p
+
+    return p
+
 
 
 class Program(object):
@@ -332,6 +338,13 @@ class Program(object):
         """Sets the class eval function."""
 
         Program.eval_function = eval_function
+
+
+    @classmethod
+    def set_stochastic(cls, stochastic):
+        """Sets the class stochasticity."""
+
+        Program.stochastic = stochastic
 
 
     @classmethod
