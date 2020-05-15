@@ -6,7 +6,6 @@ numba
 sympy
 pandas
 click
--e dsr
 deap
 mpi4py
 gym[box2d]
