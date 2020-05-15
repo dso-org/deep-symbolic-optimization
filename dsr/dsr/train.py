@@ -134,7 +134,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         A dict describing the best-fit expression (determined by base_r).
     """
 
+    # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
+    if batch_size * epsilon < 1:
+        print("WARNING: batch_size * epsilon < 1. Risk-seeking will not be used.")
 
     # Create the summary writer
     if summary:
