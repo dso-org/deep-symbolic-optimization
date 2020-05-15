@@ -111,6 +111,9 @@ class Program(object):
 
     count : int
         The number of times this Program has been sampled.
+
+    str : str
+        String representation of tokens. Useful as unique identifier.
     """
 
     # Static variables
@@ -152,6 +155,7 @@ class Program(object):
             assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
+        self.str = tokens.tostring()
         if optimize:
             _ = self.optimize()
         self.count = 1

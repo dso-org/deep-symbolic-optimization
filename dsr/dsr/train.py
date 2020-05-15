@@ -157,9 +157,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            # p_unique_* : Different programs per batch
+            # n_unique_* : Number of unique Programs in batch
+            # p_novel_* : Number of never-before-seen Programs per batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,p_unique_full,p_unique_sub,a_ent_full,a_ent_sub\n")
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,n_novel_full,n_novel_sub,a_ent_full,a_ent_sub\n")
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -218,6 +219,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     for step in range(n_epochs):
 
+        # Set of str representations for all Programs ever seen
+        s_history = set(base_r_history.keys() if Program.stochastic else Program.cache.keys())
+
         # Sample batch of expressions from controller
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
@@ -249,12 +253,12 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
+        s = [p.str for p in programs] # Str representations of Programs
         all_r[step] = base_r
 
         # Update reward history
         if base_r_history is not None:
-            for p in programs:
-                key = p.tokens.tostring()
+            for key in s:
                 if key in base_r_history:
                     base_r_history[key].append(p.base_r)
                 else:
@@ -269,10 +273,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-        if Program.stochastic:
-            p_unique_full = len(set([p.tokens.tostring() for p in programs]))
-        else:
-            p_unique_full = len(set(programs))
+        n_unique_full = len(set(s))
+        n_novel_full = len(set(s).difference(s_history))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -286,6 +288,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             base_r = base_r[keep]
             r = r[keep]
             l = l[keep]
+            s = list(compress(s, keep))
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
@@ -310,10 +313,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-            if Program.stochastic:
-                p_unique_sub = len(set([p.tokens.tostring() for p in programs]))
-            else:
-                p_unique_sub = len(set(programs))
+            n_unique_sub = len(set(s))
+            n_novel_sub = len(set(s).difference(s_history))
             stats = np.array([[
                          base_r_best,
                          base_r_max,
@@ -326,8 +327,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
-                         p_unique_full,
-                         p_unique_sub,
+                         n_unique_full,
+                         n_unique_sub,
+                         n_novel_full,
+                         n_novel_sub,
                          a_ent_full,
                          a_ent_sub
                          ]], dtype=np.float32)
