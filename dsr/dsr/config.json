@@ -1,50 +1,40 @@
 {
-   "dataset": {
-      "file": "benchmarks.csv",
-      "name" : null,
-      "extra_input_var": 0,
-      "noise": null,
-      "extra_data_dir": null,
-      "function_lib": null
+   "task": {
+      "task_type" : "regression",
+      "name" : "Nguyen-1",
+      "dataset" : {
+         "file": "benchmarks.csv",
+         "name" : null,
+         "noise": null,
+         "extra_data_dir": null,
+         "function_lib": null
+      },
+      "metric" : "inv_nrmse",
+      "metric_params" : [],
+      "threshold" : 1e-12
    },
    "training": {
       "logdir": "./log",
       "n_epochs": null,
       "n_samples": 2000000,
       "batch_size": 500,
-      "reward": "inv_nrmse",
-      "reward_params": [],
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
       "const_params": {},
       "alpha": 0.5,
       "epsilon": 0.1,
-      "verbose": false,
+      "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
-      "num_cores": 1,
+      "n_cores_batch": 1,
       "summary": false,
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "threshold": 1e-12,
-      "env_params": {
-        "set_dsp": null,
-        "env_name": "LunarLanderContinuous-v2",
-        "anchor" : "./model_1M/ddpg_lunarlander_1200k.zip",
-        "actions" : {
-          "action_0" : "anchor",
-          "action_1" : null
-          },
-        "n_episodes_test" : 1000,
-        "n_episodes_train" : 5,
-        "dsp_function_lib" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"],
-        "success_score": 200.0
-      }
+      "hof" : 100
    },
-
    "controller": {
       "cell": "lstm",
       "num_layers": 1,
@@ -67,7 +57,8 @@
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,
-      "entropy_weight": 0.1,
+      "use_old_entropy": false,
+      "entropy_weight": 0.005,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

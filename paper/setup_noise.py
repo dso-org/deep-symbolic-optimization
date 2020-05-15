@@ -55,9 +55,9 @@ def main():
                     json.dump(config, f, indent=3)
 
                 # Add the ablation to the run file
-                num_cores = 24 if method == "dsr" else 32
+                n_cores_task = 24 if method == "dsr" else 32
                 with open(run_file, 'a') as f:
-                    f.write("time python -m dsr.run ./config/noise/{}/{}.json --method={} --b=Nguyen --mc=10 --seed_shift={} --num_cores={}\n".format(method, name, method, NOISE_SEED_SHIFT, num_cores))
+                    f.write("time python -m dsr.run ./config/noise/{}/{}.json --method={} --b=Nguyen --mc=10 --seed_shift={} --n_cores_task={}\n".format(method, name, method, NOISE_SEED_SHIFT, num_cores))
 
 
 if __name__ == "__main__":

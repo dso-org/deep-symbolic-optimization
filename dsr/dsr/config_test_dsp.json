@@ -1,41 +1,35 @@
 {
    "task" : {
-      "task_type" : "regression",
-      "name" : null,
-      "dataset" : {
-         "file" : "benchmarks.csv",
-         "name" : null,
-         "noise" : null,
-         "extra_data_dir" : null,
-         "function_lib" : null
-      },
-      "metric" : "inv_nrmse",
-      "metric_params" : [],
-      "threshold" : 1e-12
+      "task_type" : "control",
+      "name" : "HopperBulletEnv-v0",
+      "action_spec" : [["sin", "add", "x4", "x12"], null, "anchor"],
+      "n_episodes_train" : 2,
+      "n_episodes_test" : 3,
+      "success_score": 99999999,
+      "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
    },
    "training": {
-      "logdir": "./log",
+      "logdir": "./log/HopperBullet",
       "n_epochs": null,
-      "n_samples": 1000000,
-      "batch_size": 500,
+      "n_samples": 64,
+      "batch_size": 8,
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
       "const_params": {},
       "alpha": 0.5,
       "epsilon": 0.1,
-      "verbose": false,
+      "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
-      "n_cores_batch": 1,
+      "n_cores_batch": 4,
       "summary": false,
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "hof" : null
+      "hof" : 10
    },
-
    "controller": {
       "cell": "lstm",
       "num_layers": 1,
@@ -58,7 +52,8 @@
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,
-      "entropy_weight": 0.1,
+      "use_old_entropy": false,
+      "entropy_weight": 0.01,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,
@@ -88,5 +83,13 @@
       "early_stopping": true,
       "threshold": 1e-12,
       "verbose": false
-   }
+   },
+   "language_model_prior": {
+        "saved_language_model_path": "./language_model/model/saved_model",
+        "saved_language_model_lib" : "./language_model/model/saved_model/word_dict.pkl",
+        "embedding_size":32, 
+        "num_layers":1, 
+        "num_hidden":256,
+        "prob_sharing": true
+    }
 }

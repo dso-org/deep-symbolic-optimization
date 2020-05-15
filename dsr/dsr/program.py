@@ -112,13 +112,6 @@ class Program(object):
     arities = None          # Array of arities for each token
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
-    X_train = None
-    y_train = None
-    X_test = None
-    y_test = None
-    y_train_noiseless = None
-    y_test_noiseless = None
-    var_y_test = None
     cache = {}
     
     # Additional derived static variables
@@ -131,9 +124,7 @@ class Program(object):
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
 
-
-
-    parent_adjust = None    # np.ndarray to transform library key to non-terminal sub-library key
+    # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
@@ -282,174 +273,11 @@ class Program(object):
 
 
     @classmethod
-    def set_training_data(cls, dataset):
-        """Sets the class' training and testing data"""
-
-        cls.X_train = dataset.X_train
-        cls.y_train = dataset.y_train
-        cls.X_test = dataset.X_test
-        cls.y_test = dataset.y_test
-        cls.y_train_noiseless = dataset.y_train_noiseless
-        cls.y_test_noiseless = dataset.y_test_noiseless
-        cls.var_y_test = np.var(dataset.y_test)
-
-
-    @classmethod
     def set_const_optimizer(cls, name, **kwargs):
         """Sets the class' constant optimizer"""
 
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
-
-    @classmethod
-    def turn_on_dsp(cls, config):
-        Program.set_dsp = config['env_params']['set_dsp']
-
-
-    @classmethod
-    def set_env_params(cls, config):
-        """Sets the class' environment, library. and action parameters"""
-        #(1) set environment parameters
-        params = config['env_params']
-        Program.env_name = params['env_name']
-        Program.dsp_function_lib = params['dsp_function_lib']
-        Program.env = gym.make(Program.env_name)
-        Program.dim_of_state = Program.env.observation_space.shape[0]
-        Program.anchor = params['anchor']
-        Program.actions = params['actions']
-        Program.n_episodes_test = params['n_episodes_test']
-        Program.n_episodes_train = params['n_episodes_train']
-        Program.success_score = params['success_score']
-        Program.anchor = params['anchor']
-        Program.actions = params['actions']
-        load_anchor_model = False
-        for k in range(len(Program.actions)):
-            key = "action_"+str(k)
-            if Program.actions[key] == "anchor":
-                load_anchor_model = True
-                # If there is no "anchor" in Program.actions parameter
-                # Do not need to load anchor
-                U.load_anchor( Program.anchor, Program.env_name)
-        Program.load_anchor_model = load_anchor_model
-        os.mkdir("./"+str(Program.env_name)+"_best_expressions/")
-        #(2) set library parameters
-        Program.set_library(Program.dsp_function_lib, Program.dim_of_state)
-        #(3) set action parameters
-        for k in range(len(Program.actions)):
-            key = "action_"+str(k)
-            # convert toekn item as program instance
-            if (Program.actions[key] is not None) and (Program.actions[key] != "anchor") :
-                tokens = Program.actions[key]
-                tokens = Program.convert_token(tokens)
-                Program.actions[key] = from_tokens(tokens, optimize = False)
-
-
-
-
-    @classmethod
-    def set_reward_function(cls, name, *params):
-        """Sets the class' reward function"""
-
-        def dsr(p):
-            """Sets dsr's reward function"""
-            if "nmse" in name or "nrmse" in name:
-                var_y = np.var(Program.y_train)
-
-
-            all_functions = {
-                # Negative mean squared error
-                # Range: [-inf, 0]
-                # Value = -var(y) when y_hat == mean(y)
-                "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
-                                0),
-
-                # Negative normalized mean squared error
-                # Range: [-inf, 0]
-                # Value = -1 when y_hat == mean(y)
-                "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
-                                0),
-
-                # Negative normalized root mean squared error
-                # Range: [-inf, 0]
-                # Value = -1 when y_hat == mean(y)
-                "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
-                                0),
-
-                # (Protected) inverse mean squared error
-                # Range: [0, 1]
-                # Value = 1/(1 + var(y)) when y_hat == mean(y)
-                "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
-                                0),
-
-                # (Protected) inverse normalized mean squared error
-                # Range: [0, 1]
-                # Value = 0.5 when y_hat == mean(y)
-                "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
-                                0),
-
-                # (Protected) inverse normalized root mean squared error
-                # Range: [0, 1]
-                # Value = 0.5 when y_hat == mean(y)
-                "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
-                                0),
-
-                # Fraction of predicted points within p0*abs(y) + p1 band of the true value
-                # Range: [0, 1]
-                "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
-                                2),
-
-                # Pearson correlation coefficient
-                # Range: [0, 1]
-                "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
-                                0),
-
-                # Spearman correlation coefficient
-                # Range: [0, 1]
-                "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
-                                0)
-
-            }
-
-            assert name in all_functions, "Unrecognized reward function name"
-            assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
-            return all_functions[name][0]
-
-
-        def dsp(p):
-            """Sets dsp's reward function"""
-            total_r = 0
-            for i in range(p.n_episodes_train):
-                episodic_r = 0
-                obs = p.env.reset()
-                done = False
-                while not done:
-                    if p.load_anchor_model:
-                        action_model, _states = U.model.predict(obs)
-                    action_dsp = [0 for i in range(len(p.actions))]
-                    for k in range(len(p.actions)):
-                        key = "action_"+str(k)
-                        if p.actions[key] is None: # learning with rl
-                            action_dsp[k] = p.execute(np.asarray([obs]))[0]
-                        elif p.actions[key] == "anchor":  # get action from anchor model
-                            action_dsp[k] = action_model[k]
-                        else: # get traverse of token as action
-                            p0 = p.actions[key]
-                            action_dsp[k] = p0.execute(np.asarray([obs]))[0]
-                    action_dsp = np.asarray(action_dsp, dtype=np.float32)
-                    obs, r, done, info =  p.env.step(action_dsp)
-                    episodic_r += r
-                total_r += episodic_r
-            total_r /= float(p.n_episodes_train)
-            return total_r
-        # Define reward_function as classmethod
-        if Program.set_dsp:
-            Program.reward_function = dsp
-        else:
-            Program.reward_function = dsr
-
-
-
-
 
 
     @classmethod
@@ -493,12 +321,26 @@ class Program(object):
 
 
     @classmethod
+    def set_reward_function(cls, reward_function):
+        """Sets the class reward function."""
+
+        Program.reward_function = reward_function
+
+
+    @classmethod
+    def set_eval_function(cls, eval_function):
+        """Sets the class eval function."""
+
+        Program.eval_function = eval_function
+
+
+    @classmethod
     def set_library(cls, operators, n_input_var):
-        """Sets the class library and arities"""
-        operators = [op.lower() if isinstance(op, str) else op for op in operators]
+        """Sets the class library and arities."""
 
         # Add input variables
         Program.library = list(range(n_input_var))
+        Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
         Program.arities = [0] * n_input_var
 
         for i, op in enumerate(operators):
@@ -507,16 +349,19 @@ class Program(object):
             if op in _function_map:
                 op = _function_map[op]
                 Program.library.append(op)
+                Program.str_library.append(op.name)
                 Program.arities.append(op.arity)
 
             # Hard-coded floating-point constant
             elif isinstance(op, float):
                 Program.library.append(op)
+                Program.str_library.append(str(op))
                 Program.arities.append(0)
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
                 Program.library.append(op)
+                Program.str_library.append(op)
                 Program.arities.append(0)
                 Program.const_token = i + n_input_var
 
@@ -555,33 +400,11 @@ class Program(object):
 
 
     @staticmethod
-    def convert_token(traversal):
-        """Converts a string traversal to an int traversal"""
-        #dsp Error: TypeError: 'NoneType' object is not iterable
-        #str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        if Program.env_name is not None: #dsp
-            n_input_var = Program.dim_of_state
-            input_var = ["x"+str(j) for j in range(n_input_var)]
-            operators = Program.dsp_function_lib
-            str_library = input_var + operators
-        else:  #dsr
-            str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
-
-
-    @staticmethod
     def convert(traversal):
         """Converts a string traversal to an int traversal"""
-        # str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        str_library = []
-        for f in Program.library:
-            if isinstance(f, int):
-                str_library.append("x{}".format(f+1))
-            elif isinstance(f, str):
-                str_library.append(f)
-            else:
-                str_library.append(f.name)
-        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
+
+        return np.array([Program.str_library.index(f.lower()) for f in traversal], dtype=np.int32)
+
 
     @cached_property
     def complexity(self):
@@ -594,44 +417,8 @@ class Program(object):
     def base_r(self):
         """Evaluates and returns the base reward of the program on the training
         set"""
-        if Program.set_dsp: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_train)
-            return Program.reward_function(self)(Program.y_train, y_hat)
 
-
-    @cached_property
-    def base_r_test(self):
-        """Evaluates and returns the base reward of the program on the test
-        set"""
-        if Program.set_dsp: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_test)
-            return Program.reward_function(self)(Program.y_test, y_hat)
-
-
-    @cached_property
-    def base_r_noiseless(self):
-        """Evaluates and returns the base reward of the program on the noiseless
-        training set"""
-        if Program.set_dsp: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_train)
-            return Program.reward_function(self)(Program.y_train_noiseless, y_hat)
-
-
-    @cached_property
-    def base_r_test_noiseless(self):
-        """Evaluates and returns the base reward of the program on the noiseless
-        test set"""
-        if Program.set_dsp: #dsp
-            return Program.reward_function(self)
-        else:  #dsr
-            y_hat = self.execute(Program.X_test)
-            return Program.reward_function(self)(Program.y_test_noiseless, y_hat)
+        return self.reward_function()
 
 
     @cached_property
@@ -642,36 +429,10 @@ class Program(object):
 
 
     @cached_property
-    def r_test(self):
-        """Evaluates and returns the reward of the program on the test set"""
+    def evaluate(self):
+        """Evaluates and returns the evaluation metrics of the program."""
 
-        return self.base_r_test - self.complexity
-
-
-    @cached_property
-    def r_noiseless(self):
-        """Evaluates and returns the reward of the program on the noiseless
-        training set"""
-
-        return self.base_r_noiseless - self.complexity
-
-
-    @cached_property
-    def r_test_noiseless(self):
-        """Evaluates and returns the reward of the program on the noiseless
-        test set"""
-
-        return self.base_r_test_noiseless - self.complexity
-
-
-    @cached_property
-    def nmse(self):
-        """Evaluates and returns the normalized mean squared error of the
-        program on the test set (used as final performance metric)"""
-        if Program.set_dsp: #dsp
-            return None
-        y_hat = self.execute(Program.X_test)
-        return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
+        return self.eval_function()
 
 
     @cached_property
@@ -707,79 +468,6 @@ class Program(object):
         print("\tTraversal: {}".format(self))
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
-
-
-
-
-
-    def dsp_evaluation(self, step_num):
-        """Evaluate learned deep symbolic policy in current program.
-        We repeat episodes as n_episodes_test times,
-        Then, we calculate rate of success.
-        The evaluation results including learned simbolic policy and success rate
-        is printed as output file.
-        Parameters
-        ----------
-        step_num : integer
-            Current training step to evaluate.
-        """
-        obs =  self.env.reset()
-        num_of_suc = 0
-        step_in = 0
-        done = False
-        f_stat = open("./"+str(self.env_name)+"_best_expressions/output_stat_"+str(step_num)+".txt", 'w+')
-        total_r = 0
-        for i in range(self.n_episodes_test):
-            found_ans = False
-            episodic_r = 0
-            while not done:  # one episode
-                if self.load_anchor_model:
-                    action_model, _states = U.model.predict(obs)
-                action_dsp = [0 for i in range(len(self.actions))]
-                for k in range(len(self.actions)):
-                    key = "action_"+str(k)
-                    if self.actions[key] is None: # learning with rl
-                        action_dsp[k] = self.execute(np.asarray([obs]))[0]
-                        action_number = k
-                    elif self.actions[key] == "anchor":  # get action from anchor model
-                        action_dsp[k] = action_model[k]
-                    else: # get traverse of token as action
-                        p0 = self.actions[key]
-                        action_dsp[k] = p0.execute(np.asarray([obs]))[0]
-                action_dsp = np.asarray(action_dsp, dtype=np.float32)
-                obs, r, done, info =  self.env.step(action_dsp)
-                episodic_r += r
-                step_in += 1
-                # Evenif  done is False, we terminate episode when we achieve success_score
-                if (episodic_r > self.success_score or episodic_r == self.success_score ) and (found_ans is False) : #found solution
-                    found_ans = step_in
-                    f_stat.write("\t"+str(i)+"\tFound solution at :" + str(found_ans) +" th  steps, sum of rewards per episode : "+ str(float(episodic_r))+"\n")
-                    print("\tFound solution at :" + str(found_ans) +" th  steps, average reward : "+ str(float(episodic_r)))
-                    num_of_suc = num_of_suc + 1
-                    self.env.reset()
-                    break
-            if episodic_r < self.success_score:
-                self.env.reset()
-            total_r += episodic_r
-        # below here: printing and writing output files in [env]_best_expressions folder
-        print("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+ " Averaged sum of reward per 100 episodes: " +str(float(total_r/float(self.n_episodes_test))) +" %\n")
-        f_stat.write("Step : "+str(step_num)+ " rate_of_success : "+str(float(num_of_suc))+  " Averaged sum of reward per 100 episodes: " +str(float(total_r/float(self.n_episodes_test))) +" %\n")
-        print("\tReward: {}".format(self.r))
-        print("\tBase reward: {}".format(self.base_r))
-        print("\tCount: {}".format(self.count))
-        print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        f_stat.write("\nReward: {}".format(self.r))
-        f_stat.write("\nBase reward: {}".format(self.base_r))
-        f_stat.write("\nCount: {}".format(self.count))
-        f_stat.write("\nTraversal: {}".format(self))
-        f_stat.write("\nExpression:")
-        equ = self.pretty()
-        print(" Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-        f_stat.write("\n Action "+str(action_number)+" : \n"+ "{}\n".format(indent(equ, '\t  ')))
-        f_stat.close()
-
-
 
 
     def __repr__(self):

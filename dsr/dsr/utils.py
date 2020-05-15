@@ -3,18 +3,6 @@
 import heapq
 import functools
 import numpy as np
-# Modules required to run dsp branch
-import gym
-from stable_baselines import DDPG
-from stable_baselines.ddpg.policies import LnMlpPolicy
-
-
-def load_anchor(model_path, env_name):
-    global model
-    env = gym.make(env_name) 
-    model = DDPG(LnMlpPolicy, env, verbose=1)
-    model = DDPG.load(model_path)
-    print("Loaded model {}".format(model_path))
 
 
 class cached_property(object):
@@ -198,3 +186,26 @@ class MaxUniquePriorityQueue(object):
 
     def __str__(self):
         return repr(self)
+
+
+# Entropy computation in batch
+def empirical_entropy(labels):
+
+    n_labels = len(labels)
+
+    if n_labels <= 1:
+        return 0
+
+    value,counts = np.unique(labels, return_counts=True)
+    probs = counts / n_labels
+    n_classes = np.count_nonzero(probs)
+
+    if n_classes <= 1:
+        return 0
+
+    ent = 0.
+    # Compute entropy
+    for i in probs:
+        ent -= i * np.log(i)
+
+    return ent

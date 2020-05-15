@@ -61,8 +61,9 @@ class Dataset(object):
                  dataset_size_multiplier=None, **kwargs):
 
         # Read in benchmark dataset information
-        root = resource_filename("dsr", "data/")
-        benchmark_path = os.path.join(root, file)
+        task_root = resource_filename("dsr.task", "regression")
+        root = os.path.join(task_root, "data") # Root data directory
+        benchmark_path = os.path.join(task_root, file)
         df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
 
         # Random number generator used for sampling X values
@@ -166,10 +167,10 @@ class Dataset(object):
 
         # If root has changed
         if root_changed:
-            root = resource_filename("dsr", "data/")
+            root = resource_filename("dsr.task", "regression/data/")
             
         # Create the function set (list of str)
-        function_set_path = os.path.join(root, "function_sets.csv")
+        function_set_path = os.path.join(task_root, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
         self.function_set = df.loc[function_set].tolist()[0].strip().split(',')
 
@@ -263,7 +264,7 @@ def main(file, noise):
 
     from matplotlib import pyplot as plt
 
-    data_path = resource_filename("dsr", "data/")
+    data_path = resource_filename("dsr.task", "regression/data/")
     benchmark_path = os.path.join(data_path, file)
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
