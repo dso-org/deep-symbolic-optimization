@@ -31,7 +31,7 @@ def work(p):
 
 
 def hof_work(p):
-    return [p.r, p.base_r, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
@@ -134,7 +134,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         A dict describing the best-fit expression (determined by base_r).
     """
 
+    # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
+    if batch_size * epsilon < 1:
+        print("WARNING: batch_size * epsilon < 1. Risk-seeking will not be used.")
 
     # Create the summary writer
     if summary:
@@ -196,6 +199,14 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         print("\nInitial parameter means:")
         print_var_means()
 
+    # For stochastic Programs with hof, store each base_r computation for each unique traversal
+    if Program.stochastic and hof is not None and hof > 0:
+        base_r_history = {} # Dict from Program str to list of base_r values
+        # It's not really clear stochastic Programs with const should enter the hof
+        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs"
+    else:
+        base_r_history = None
+
     # Main training loop
     base_r_best = -np.inf
     r_best = -np.inf
@@ -240,6 +251,15 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         l = np.array([len(p.traversal) for p in programs])
         all_r[step] = base_r
 
+        # Update reward history
+        if base_r_history is not None:
+            for p in programs:
+                key = p.tokens.tostring()
+                if key in base_r_history:
+                    base_r_history[key].append(p.base_r)
+                else:
+                    base_r_history[key] = [p.base_r]
+
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
@@ -248,8 +268,11 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
-        p_unique_full = len(set(programs))
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        if Program.stochastic:
+            p_unique_full = len(set([p.tokens.tostring() for p in programs]))
+        else:
+            p_unique_full = len(set(programs))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -286,8 +309,11 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            p_unique_sub = len(set(programs))
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+            if Program.stochastic:
+                p_unique_sub = len(set([p.tokens.tostring() for p in programs]))
+            else:
+                p_unique_sub = len(set(programs))
             stats = np.array([[
                          base_r_best,
                          base_r_max,
@@ -387,7 +413,28 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Save the hall of fame
     if hof is not None and hof > 0:
-        programs = list(Program.cache.values()) # All unique Programs found during training
+
+        # For stochastic Programs, average each unique Program's base_r_history,
+        if Program.stochastic:
+
+            # Define a helper function to generate a Program from its tostring() value
+            def from_token_string(str_tokens, optimize):
+                tokens = np.fromstring(str_tokens, dtype=np.int32)
+                return from_tokens(tokens, optimize=optimize)
+
+            # Generate each unique Program and manually set its base_r to the average of its base_r_history
+            keys = base_r_history.keys() # str_tokens for each unique Program
+            vals = base_r_history.values() # base_r histories for each unique Program
+            programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
+            for p, base_r in zip(programs, vals):
+                p.base_r = np.mean(base_r)
+                p.count = len(base_r) # HACK
+                _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
+
+        # For deterministic Programs, just use the cache
+        else:
+            programs = list(Program.cache.values()) # All unique Programs found during training
+
         base_r = [p.base_r for p in programs]
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]
@@ -400,7 +447,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             results = list(map(hof_work, hof))
 
         eval_keys = list(results[0][-1].keys())
-        columns = ["r", "base_r", "expression", "traversal"] + eval_keys
+        columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
         df.to_csv(hof_output_file, header=True, index=False)

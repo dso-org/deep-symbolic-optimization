@@ -12,7 +12,8 @@ from . import utils as U
 
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
-    anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None):
+    anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
+    stochastic=True):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -44,6 +45,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     n_episodes_test : int
         Number of episodes to run during testing.
 
+    stochastic : bool
+        If True, Programs will not be cached, and thus identical traversals will
+        be evaluated as unique objects. The hall of fame will be based on the
+        average reward seen for each unique traversal.
+
     Returns
     -------
 
@@ -61,9 +67,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     if "Bullet" in name:
         env = U.TimeFeatureWrapper(env)
 
-    # Define the library (need to do this now in case there are symbolic actions)
+    # Set the library and stochasticity (need to do this now in case there are symbolic actions)
     n_input_var = env.observation_space.shape[0]
     Program.set_library(function_set, n_input_var)
+    Program.set_stochastic(stochastic)
 
     # Configuration assertions
     assert len(env.observation_space.shape) == 1, "Only support vector observation spaces."
@@ -166,4 +173,4 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         return info
     
 
-    return reward, evaluate, function_set, n_input_var
+    return reward, evaluate, function_set, n_input_var, stochastic
