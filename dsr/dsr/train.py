@@ -157,9 +157,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            # p_unique_* : Different programs per batch
+            # n_unique_* : Number of unique Programs in batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,p_unique_full,p_unique_sub,a_ent_full,a_ent_sub\n")
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,a_ent_full,a_ent_sub\n")
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -270,9 +270,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
         if Program.stochastic:
-            p_unique_full = len(set([p.tokens.tostring() for p in programs]))
+            n_unique_full = len(set([p.tokens.tostring() for p in programs]))
         else:
-            p_unique_full = len(set(programs))
+            n_unique_full = len(set(programs))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -311,9 +311,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             l_avg_sub = np.mean(l)
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
             if Program.stochastic:
-                p_unique_sub = len(set([p.tokens.tostring() for p in programs]))
+                n_unique_sub = len(set([p.tokens.tostring() for p in programs]))
             else:
-                p_unique_sub = len(set(programs))
+                n_unique_sub = len(set(programs))
             stats = np.array([[
                          base_r_best,
                          base_r_max,
@@ -326,8 +326,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
-                         p_unique_full,
-                         p_unique_sub,
+                         n_unique_full,
+                         n_unique_sub,
                          a_ent_full,
                          a_ent_sub
                          ]], dtype=np.float32)
