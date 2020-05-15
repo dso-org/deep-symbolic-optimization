@@ -1,0 +1,311 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<div class="container-fluid"">	
+    <div class="row">
+        <!--Left panel: Control-->
+        <div class="col-xs-12 col-md-2" style="padding-right: 0%;">
+            <div class="table">
+                <div class= "btn-group btn-group-justified" role="group">
+                    <div class="btn-group" role="group" style="display: none;">
+                        <button type="button" class="btn btn-default play-button" id="btn_stop">
+                            <span class="glyphicon glyphicon-stop" aria-hidden="true"></span>
+                            STOP 
+                        </button>
+                    </div>
+                    <div class="btn-group" role="group" style="display: none;">
+                        <button type="button" class="btn btn-default play-button" id="btn_pause">
+                            <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
+                            PAUSE 
+                        </button>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-default play-button" id="btn_start">
+                            <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                            START 
+                        </button>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-default play-button" id="btn_step" data-toggle="tooltip" data-placement="top" title="Find next best!">
+                            <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                            STEP
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Control</h3>
+                </div>
+                <div id="controlPanel" class="list-group">
+                    <!--control-->
+                    <!--upload-->
+                    <div id="upload" class="list-group-item">
+                        <label for="uploadDataFile">Data</label>
+                        <form class="form-inline" action="/data_points" method="post">
+                            <div class="form-group">
+                                <input type="file" class="form-control-file col-md-12 control-file" id="uploadDataFile">
+                                <button type="submit" class="btn btn-primary btn-sm col-md-12 control-button" id="btn_data">Upload</button>
+                            </div>
+                        </form>
+                        <!-- <div class="alert alert-warning" style="margin-bottom: 5px">
+                            <span class="glyphicon glyphicon-gift" aria-hidden="true"></span> Click here to use our dataset!
+                        </div> -->
+                        <!--TODO: Validate uploaded dataset, send back info, e.g., # variables, range, # datapoints, etc.-->
+                        <!--TODO: plot training data points (scatter marker)-->
+                    </div>
+                    <!-- <div class="panel-body"> -->
+
+                    <!--operators-->
+                    <div id="operators" class="list-group-item" data-toggle="buttons">
+                            <label>Operators</label>
+                            <div class="btn-group btn-group-justified" role="group">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Add</button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Sub</button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Mul</button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Div</button>
+                            </div>
+                        </div>
+                        <div class="btn-group btn-group-justified" role="group">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Sin</button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Cos</button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Log</button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-default btn-sm">Exp</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--sliders-->
+                    <div id="sliders" class="list-group-item">
+                        <label>Hyperparameters</label>
+                        <div class="form-group">
+                            <form class="form-inline" style="margin-top:5px; margin-bottom:5px;">
+                                <div class="form-group">
+                                    <input type="file" class="form-control-file col-md-12 control-file" id="uploadConfig" accept=".json">
+                                </div>
+                            </form>
+                            <table id="tableSliders" class="table table-condensed table-hover">
+                                <colgroup>
+                                    <col span="1" style="width: 15%;">
+                                    <col span="1" style="width: 70%;">
+                                    <col span="1" style="width: 20%;">
+                                </colgroup>
+                                <tbody>
+
+                                <tr>
+                                    <td class="slider-name">
+                                        <label class="col-md-1 slider-name">Batch Size</label>
+                                    </td>
+                                    <td>
+                                        <input type="range" id="batchSize" class="slider" min="50" max="200" value="64" step="20">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control input-sm" placeholder="">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="slider-name">
+                                        <label class="col-md-1 slider-name">Learning Rate</label>
+                                    </td>
+                                    <td>
+                                        <input type="range" id="learningRate" class="slider" min="50" max="200" value="64" step="20">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control input-sm" placeholder="">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="slider-name">
+                                        <label class="col-md-1 slider-name">Entropy weight</label>
+                                    </td>
+                                    <td>
+                                        <input type="range" id="entropyWeight" class="slider" min="50" max="200" value="64" step="20">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control input-sm" placeholder="">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="slider-name">
+                                        <label class="col-md-1 slider-name">Risk Factor</label>
+                                    </td>
+                                    <td>
+                                        <input type="range" id="riskFactor" class="slider" min="50" max="200" value="64" step="20">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control input-sm" placeholder="">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="slider-name">
+                                        <label class="col-md-1 slider-name">Max Length</label>
+                                    </td>
+                                    <td>
+                                        <input type="range" id="maxLength" class="slider" min="50" max="200" value="64" step="20">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control input-sm" placeholder="">
+                                    </td>
+                                </tr>
+                            </tbody>
+                            </table>
+                            <!-- TODO: Show selected number on the right, as a text input -->
+                            <!-- TODO: Remove margin of sliders -->
+                            <!-- TODO: better w/ table? -->
+                            <!-- mouse over, explain what each term means -->
+                            <button type="submit" class="btn btn-primary btn-sm col-md-12 control-button" id="btn_config">Set</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--Middle panel: Visualization (Main plot)-->
+        <div class="col-xs-12 col-md-6 rightPanel">
+            <div class="panel-body">
+                <div id="main_plot" class="col-xs-12 col-md-12">
+                </div>
+            </div>
+            <!-- <div class="panel-group col-xs-12 col-md-5" id="expressionsRight" style="margin-left: -3%;">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" data-parent="#expressionsRight" href="#exprQueue">
+                                <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+                                Expressions in Priority Queue
+                            </a>
+                        </h4>
+                    </div>
+                    <div id="exprQueue" class="panel-collapse collapse">
+                        <div class="panel-body">
+                            List of expressions in priority queue.
+                        </div>
+                    </div>
+                </div>
+            </div> -->
+            <div class="panel-group col-xs-12 col-md-12" id="expressions" style="padding-left: 5em; padding-right: 0px;">
+            <hr style="margin: 0px; margin-top: -5px;">
+            <!-- <h4>Dicovered Expression</h4> -->
+            <!-- <div class="panel panel-default">
+                <div class="panel-heading" id="expressionsTitle">
+                    <h5 class="panel-title">
+                        <a data-toggle="collapse" data-parent="#expressions" href="#exprTable">
+                            <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+                            Dicovered Expressions
+                        </a>
+                    </h5>
+                </div> -->
+                <div id="exprTable" class="panel-collapse collapse in">
+                    <div class="panel-body col-md-12">
+                    <!-- <div class="panel-body col-md-8"> -->
+                        <table class="table table-hover table-condensed">
+                            <thead>
+                                <tr>
+                                    <th>
+                                    Rank</th>
+                                    <th>Expression</th>
+                                    <th>Fitness</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyExprs">
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td>
+                                        <!-- <button type="submit" class="btn btn-primary btn-xs  control-button" id="" style="margin-top: 1%;">Update queue</button> -->
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="panel-body col-md-4">
+                        <!-- <h5>TODO: tree, latex</h5> -->
+                        <div class="panel panel-default">
+                            <div class="panel-body">
+                                <img src="static/image/eq5.png" class="img-responsive" alt="Equation">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!--Right panel: Diagnostics-->
+        <div class="col-xs-12 col-md-4 rightPanel">
+            <div id="subplot_menu" class="col-xs-12 col-md-12" style="margin-top: 20px;">
+                <div class="collapse navbar-collapse">
+                    <ul class="nav navbar-nav navbar-right nav-diagnostics">
+                        <li class="dropdown">
+                        <a class="dropdown-toggle diag-name" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
+                            Training curves
+                            <span class="caret"></span>
+                        </a>
+                        <ul class="dropdown-menu" role="menu">
+                            <li role="presentation"><a role="menuitem" tabindex="-1">Training curves</a></li>
+                        </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div id="subplot" class="col-xs-12 col-md-12 subplot">
+            </div>
+            <div id="subplot2_menu" class="col-xs-12 col-md-12" style="margin-top: 15px;">
+                <div class="collapse navbar-collapse">
+                    <ul class="nav navbar-nav navbar-right nav-diagnostics">
+                        <li class="dropdown">
+                        <a class="dropdown-toggle diag-name" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
+                                Reward distribution
+                            <span class="caret"></span>
+                        </a>
+                        <ul class="dropdown-menu" role="menu">
+                            <li role="presentation"><a role="menuitem" tabindex="-1">Reward Distribution</a></li>
+                        </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div id="subplot2" class="col-xs-12 col-md-12 subplot">
+            </div>
+            <div id="subplot3_menu" class="col-xs-12 col-md-12" style="margin-top: 15px;">
+                <div class="collapse navbar-collapse">
+                    <ul class="nav navbar-nav navbar-right nav-diagnostics">
+                        <li class="dropdown">
+                        <a class="dropdown-toggle diag-name" data-toggle="dropdown" aria-haspopup="true" role="button" aria-expanded="false">
+                                Expressional complexity
+                            <span class="caret"></span>
+                        </a>
+                        <ul class="dropdown-menu" role="menu">
+                            <li role="presentation"><a role="menuitem" tabindex="-1">Expressional complexity</a></li>
+                        </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div id="subplot3" class="col-xs-12 col-md-12 subplot">
+            </div>
+            <!--extendTraces-->
+        </div>
+
+        
+    </div>
+</div>
+
+{% endblock %}
+
+<!-- TODO: make plotly size responsive -->
