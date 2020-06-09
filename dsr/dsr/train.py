@@ -157,10 +157,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # r_max : Maximum across this iteration's batch
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
-            # n_unique_* : Number of unique Programs in batch
+            # p_unique_* : Number of unique Programs in batch
             # p_novel_* : Number of never-before-seen Programs per batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,n_novel_full,n_novel_sub,a_ent_full,a_ent_sub\n")
+            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,p_unique_full,p_unique_sub,p_novel_full,p_novel_sub,a_ent_full,a_ent_sub\n")
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -273,8 +273,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-        n_unique_full = len(set(s))
-        n_novel_full = len(set(s).difference(s_history))
+        p_unique_full = len(set(s))
+        p_novel_full = len(set(s).difference(s_history))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -313,8 +313,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-            n_unique_sub = len(set(s))
-            n_novel_sub = len(set(s).difference(s_history))
+            p_unique_sub = len(set(s))
+            p_novel_sub = len(set(s).difference(s_history))
             stats = np.array([[
                          base_r_best,
                          base_r_max,
@@ -327,10 +327,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
-                         n_unique_full,
-                         n_unique_sub,
-                         n_novel_full,
-                         n_novel_sub,
+                         p_unique_full,
+                         p_unique_sub,
+                         p_novel_full,
+                         p_novel_sub,
                          a_ent_full,
                          a_ent_sub
                          ]], dtype=np.float32)
