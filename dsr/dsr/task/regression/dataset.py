@@ -41,7 +41,7 @@ class Dataset(object):
         If not None, Gaussian noise is added to the y values with standard
         deviation = noise * RMS of the noiseless y training values.
 
-    function_lib : str, optional
+    function_lib : list, optional
         List of operators to use in library. If None, use default. Otherwise,
         this will override any default, e.g. when using a benchmark expression.
 
@@ -176,7 +176,7 @@ class Dataset(object):
 
         # Overwrite the function set
         if function_lib is not None:
-            self.function_set = function_lib.strip().split(',')
+            self.function_set = function_lib
     
     def make_X(self, spec):
         """Creates X values based on specification"""
