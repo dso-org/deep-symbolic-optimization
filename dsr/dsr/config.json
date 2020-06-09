@@ -11,8 +11,7 @@
       },
       "metric" : "inv_nrmse",
       "metric_params" : [],
-      "threshold" : 1e-12,
-      "stochastic" : false
+      "threshold" : 1e-12
    },
    "training": {
       "logdir": "./log",
