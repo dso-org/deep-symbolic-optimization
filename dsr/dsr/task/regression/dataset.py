@@ -51,14 +51,22 @@ class Dataset(object):
 
     dataset_size_multiplier : float, optional
         Multiplier for size of the dataset. Only works for expressions.
-
+        
+    shuffle_data : bool, optional
+        Shuffle the dataset. Only work for external datasets.
+        
+    training_percentage : int, optional
+        Percentage of datapoints used for training. The remainder are used for
+        testing. This parameter can not take the value 100.
+    
     **kwargs : keyword arguments, optional
         Unused. Only included to soak up keyword arguments.
     """
 
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
                  function_lib=None, extra_data_dir=None, 
-                 dataset_size_multiplier=None, **kwargs):
+                 dataset_size_multiplier=None, shuffle_data=True,
+                 training_percentage=80, **kwargs):
 
         # Read in benchmark dataset information
         task_root = resource_filename("dsr.task", "regression")
@@ -85,8 +93,10 @@ class Dataset(object):
                 print("Warning: Noise will not be applied to real-world dataset.")
 
             dataset_path = os.path.join(root, name + ".csv")
-            data = pd.read_csv(dataset_path)
-            data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle rows
+            print("Loading dataset " + str(dataset_path))
+            data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
+            if shuffle_data:
+                data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle rows
             data = data.values
             if preprocess == "standardize_y":
                 mean = np.mean(data[:, -1])
@@ -110,7 +120,10 @@ class Dataset(object):
             
             self.n_input_var = data.shape[1] - 1
 
-            n_train = int(0.8 * data.shape[0]) # 80-20 train-test split
+            if training_percentage == 100:
+                print("Warning: At least one point is needed for testing. Taking training_percentage = 99")
+                training_percentage = 99
+            n_train = int(training_percentage/100 * data.shape[0]) # default: 80-20 train-test split
 
             self.X_train = data[:n_train, :-1]
             self.y_train = data[:n_train, -1]
