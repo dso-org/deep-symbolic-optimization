@@ -137,8 +137,8 @@ def make_regression_metric(name, y_train, *args):
         # (Protected) inverse normalized root mean squared error
         # Range: [0, 1]
         # Value = 0.5 when y_hat == mean(y)
-        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
-                        0),
+        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y)),
+                        1),
 
         # Fraction of predicted points within p0*abs(y) + p1 band of the true value
         # Range: [0, 1]
