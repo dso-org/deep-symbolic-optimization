@@ -23,7 +23,7 @@ from pkg_resources import parse_version
 logger = logging.getLogger(__name__)
 
 
-class CartPoleBulletEnv(gym.Env):
+class CustomCartPoleBulletEnv(gym.Env):
   metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
   def __init__(self, renders=False, discrete_actions=True):
@@ -160,9 +160,9 @@ class CartPoleBulletEnv(gym.Env):
       self._p.disconnect()
     self._physics_client_id = -1
 
-class CartPoleContinuousBulletEnv(CartPoleBulletEnv):
+class CustomCartPoleContinuousBulletEnv(CustomCartPoleBulletEnv):
   metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
   def __init__(self, renders=False):
     # start the bullet physics server
-    CartPoleBulletEnv.__init__(self, renders, discrete_actions=False)
+    CustomCartPoleBulletEnv.__init__(self, renders, discrete_actions=False)
