@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 class CustomCartPoleBulletEnv(gym.Env):
   metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
-  def __init__(self, renders=False, discrete_actions=True):
+  def __init__(self, dt=0.02, renders=False, discrete_actions=True):
     # start the bullet physics server
+    self._dt = dt
     self._renders = renders
     self._discrete_actions = discrete_actions
     self._render_height = 200
@@ -102,7 +103,7 @@ class CustomCartPoleBulletEnv(gym.Env):
       p.changeDynamics(self.cartpole, -1, linearDamping=0, angularDamping=0)
       p.changeDynamics(self.cartpole, 0, linearDamping=0, angularDamping=0)
       p.changeDynamics(self.cartpole, 1, linearDamping=0, angularDamping=0)
-      self.timeStep = 0.02
+      self.timeStep = self._dt
       p.setJointMotorControl2(self.cartpole, 1, p.VELOCITY_CONTROL, force=0)
       p.setJointMotorControl2(self.cartpole, 0, p.VELOCITY_CONTROL, force=0)
       p.setGravity(0, 0, -9.8)
@@ -163,6 +164,6 @@ class CustomCartPoleBulletEnv(gym.Env):
 class CustomCartPoleContinuousBulletEnv(CustomCartPoleBulletEnv):
   metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
-  def __init__(self, renders=False):
+  def __init__(self, dt=0.02, renders=False):
     # start the bullet physics server
-    CustomCartPoleBulletEnv.__init__(self, renders, discrete_actions=False)
+    CustomCartPoleBulletEnv.__init__(self, dt=dt, renders=renders, discrete_actions=False)

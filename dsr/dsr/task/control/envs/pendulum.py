@@ -10,10 +10,10 @@ class CustomPendulumEnv(gym.Env):
         'video.frames_per_second' : 30
     }
 
-    def __init__(self, g=10.0):
+    def __init__(self, dt=0.05, g=10.0):
         self.max_speed=8
         self.max_torque=2.
-        self.dt=.05
+        self.dt = dt
         self.g = g
         self.m = 1.
         self.l = 1.
