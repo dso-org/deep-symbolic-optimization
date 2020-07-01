@@ -15,7 +15,7 @@ from gym.utils import seeding
 import numpy as np
 
 
-class CustomContinuousCartPoleEnv(gym.Env):
+class CustomCartPoleContinuousEnv(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second': 50

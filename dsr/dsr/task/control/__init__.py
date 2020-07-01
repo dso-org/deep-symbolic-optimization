@@ -17,8 +17,8 @@ register(
 
 # Gym-modified ContinuousCartPole-v0 with added dt parameter
 register(
-    id='CustomContinuousCartPole-v0',
-    entry_point='dsr.task.control.envs.continuous_cartpole:CustomContinuousCartPoleEnv',
+    id='CustomCartPoleContinuous-v0',
+    entry_point='dsr.task.control.envs.continuous_cartpole:CustomCartPoleContinuousEnv',
     max_episode_steps=200,
     reward_threshold=195.0,
 )

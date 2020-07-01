@@ -4,7 +4,7 @@ import gym
 import dsr.task.control.envs # Needed to register the environments so they're seen by gym.make()
 import numpy as np
 
-env_ids = ["CustomPendulum-v0", "CustomContinuousCartPole-v0", "CustomCartPoleContinuousBulletEnv-v0"]
+env_ids = ["CustomPendulum-v0", "CustomCartPoleContinuous-v0", "CustomCartPoleContinuousBulletEnv-v0"]
 dts = [0.01, 0.02]
 
 data = {}
