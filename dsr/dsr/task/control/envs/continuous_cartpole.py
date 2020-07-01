@@ -4,6 +4,8 @@ Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 
 Continuous version by Ian Danforth
+
+From: https://gist.github.com/iandanforth/e3ffb67cf3623153e968f2afdfb01dc8
 """
 
 import math
