@@ -41,7 +41,7 @@ class Dataset(object):
         If not None, Gaussian noise is added to the y values with standard
         deviation = noise * RMS of the noiseless y training values.
 
-    function_lib : str, optional
+    function_set : list, optional
         List of operators to use in library. If None, use default. Otherwise,
         this will override any default, e.g. when using a benchmark expression.
 
@@ -51,14 +51,18 @@ class Dataset(object):
 
     dataset_size_multiplier : float, optional
         Multiplier for size of the dataset. Only works for expressions.
-
-    **kwargs : keyword arguments, optional
-        Unused. Only included to soak up keyword arguments.
+        
+    shuffle_data : bool, optional
+        Shuffle the dataset. Only work for external datasets.
+        
+    train_fraction : float, optional
+        Fraction of dataset used for training. Only work for external datasets.
     """
 
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
-                 function_lib=None, extra_data_dir=None, 
-                 dataset_size_multiplier=None, **kwargs):
+                 function_set=None, extra_data_dir=None,
+                 dataset_size_multiplier=None, shuffle_data=True,
+                 train_fraction=0.8):
 
         # Read in benchmark dataset information
         task_root = resource_filename("dsr.task", "regression")
@@ -85,8 +89,10 @@ class Dataset(object):
                 print("Warning: Noise will not be applied to real-world dataset.")
 
             dataset_path = os.path.join(root, name + ".csv")
-            data = pd.read_csv(dataset_path)
-            data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle rows
+            print("Loading dataset " + str(dataset_path))
+            data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
+            if shuffle_data:
+                data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle rows
             data = data.values
             if preprocess == "standardize_y":
                 mean = np.mean(data[:, -1])
@@ -110,7 +116,10 @@ class Dataset(object):
             
             self.n_input_var = data.shape[1] - 1
 
-            n_train = int(0.8 * data.shape[0]) # 80-20 train-test split
+            n_train = int(train_fraction * data.shape[0]) # default: 80-20 train-test split
+            assert n_train >= 1, "Invalid train_fraction : There must be a least one point in training set."
+            if n_train == data.shape[0]:
+                print("Warning: Empty test set.")
 
             self.X_train = data[:n_train, :-1]
             self.y_train = data[:n_train, -1]
@@ -127,12 +136,12 @@ class Dataset(object):
             self.train_spec = None
             self.test_spec = None
 
-            function_set = "Real" # Default value of library
+            function_set_aux = "Real" # Default value of library
 
         # Expression dataset
         else:
             row = df.loc[name]
-            function_set = row["function_set"]
+            function_set_aux = row["function_set"]
             self.n_input_var = row["variables"]
 
             # Create symbolic expression        
@@ -172,11 +181,11 @@ class Dataset(object):
         # Create the function set (list of str)
         function_set_path = os.path.join(task_root, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
-        self.function_set = df.loc[function_set].tolist()[0].strip().split(',')
+        self.function_set = df.loc[function_set_aux].tolist()[0].strip().split(',')
 
         # Overwrite the function set
-        if function_lib is not None:
-            self.function_set = function_lib.strip().split(',')
+        if function_set is not None:
+            self.function_set = function_set
     
     def make_X(self, spec):
         """Creates X values based on specification"""

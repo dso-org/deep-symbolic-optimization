@@ -85,8 +85,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
     alpha : float, optional
         Coefficient of exponentially-weighted moving average of baseline.
 
-    epsilon : float, optional
-        Fraction of top expressions used for training.
+    epsilon : float or None, optional
+        Fraction of top expressions used for training. None (or
+        equivalently, 1.0) turns off risk-seeking.
 
     n_cores_batch : int, optional
         Number of cores to spread out over the batch for constant optimization
@@ -136,7 +137,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
-    if batch_size * epsilon < 1:
+    if epsilon is not None and batch_size * epsilon < 1:
         print("WARNING: batch_size * epsilon < 1. Risk-seeking will not be used.")
 
     # Create the summary writer
@@ -158,7 +159,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
             # r_avg_sub : Average across this iteration's epsilon-subset batch
             # n_unique_* : Number of unique Programs in batch
-            # p_novel_* : Number of never-before-seen Programs per batch
+            # n_novel_* : Number of never-before-seen Programs per batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
             f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,n_novel_full,n_novel_sub,a_ent_full,a_ent_sub\n")
 
