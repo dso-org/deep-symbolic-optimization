@@ -9,7 +9,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import gym
 
-from dsr.functions import _function_map, _Function
+from dsr.functions import function_map, Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -86,7 +86,7 @@ class Program(object):
     Attributes
     ----------
     traversal : list
-        List of operators (type: _Function) and terminals (type: int, float, or
+        List of operators (type: Function) and terminals (type: int, float, or
         str ("const")) encoding the pre-order traversal of the expression tree.
 
     tokens : np.ndarry (dtype: int)
@@ -154,7 +154,7 @@ class Program(object):
         
         if self.have_cython:
             self.new_traversal  = [Program.library[t] for t in tokens]
-            self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
+            self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
             self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
             self.len_traversal  = len(self.traversal)
             assert self.len_traversal > 1, "Single token instances not supported"
@@ -210,7 +210,7 @@ class Program(object):
 
         for node in self.traversal:
 
-            if isinstance(node, _Function):
+            if isinstance(node, Function):
                 apply_stack.append([node])
             else:
                 # Lazily evaluate later
@@ -371,8 +371,8 @@ class Program(object):
         for i, op in enumerate(operators):
 
             # Function
-            if op in _function_map:
-                op = _function_map[op]
+            if op in function_map:
+                op = function_map[op]
                 Program.library.append(op)
                 Program.str_library.append(op.name)
                 Program.arities.append(op.arity)
@@ -409,7 +409,7 @@ class Program(object):
         Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
         Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
         Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
-        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], _Function) and Program.library[t].name in trig_names], dtype=np.int32)
+        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], Function) and Program.library[t].name in trig_names], dtype=np.int32)
 
         inverse_tokens = {
             "inv" : "inv",
@@ -419,7 +419,7 @@ class Program(object):
             "sqrt" : "n2",
             "n2" : "sqrt"
         }
-        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, _Function)}
+        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, Function)}
         Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
         print("Library:\n\t{}".format(Program.str_library))
@@ -531,7 +531,7 @@ def build_tree(traversal, order="preorder"):
     if order == "preorder":
         op = traversal.pop(0)
 
-        if isinstance(op, _Function):
+        if isinstance(op, Function):
             val = op.name
             if val in capital:
                 val = val.capitalize()
