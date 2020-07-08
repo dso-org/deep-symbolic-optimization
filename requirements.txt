@@ -1,7 +1,6 @@
 cython
 numpy
 tensorflow==1.14
-gplearn
 numba
 sympy
 pandas
