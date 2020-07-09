@@ -48,10 +48,14 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
 
         # For invalid expressions, return bad_reward
         if y_hat is None:
-            return bad_reward
+            p.invalid = True
+            r = bad_reward            
 
-        # Return metric
-        r = metric(y_train, y_hat)
+        # Otherwise, return metric
+        else:
+            p.invalid = False
+            r = metric(y_train, y_hat)
+
         return r
 
 
