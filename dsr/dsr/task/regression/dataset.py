@@ -13,7 +13,7 @@ import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import symbols, lambdify, pretty, srepr
 
-from dsr.functions import _function_map
+from dsr.functions import function_map
 
 
 class Dataset(object):
@@ -22,7 +22,7 @@ class Dataset(object):
     dataset.
 
     The numpy expression is used to evaluate the expression using any custom/
-    protected functions in _function_map. The sympy expression is only used for
+    protected functions in function_map. The sympy expression is only used for
     printing, not function evaluation.
 
     Parameters
@@ -234,17 +234,17 @@ class Dataset(object):
         # not using protected functions.
 
         # # Set protected functions
-        # for k in _function_map.keys():
-        #     exec("{} = _function_map['{}']".format(k, k))
+        # for k in function_map.keys():
+        #     exec("{} = function_map['{}']".format(k, k))
         # pi = np.pi
-        # ln = _function_map["log"]
+        # ln = function_map["log"]
 
         # Replace function names
         s = s.replace("ln(", "log(")
         s = s.replace("pi", "np.pi")
         s = s.replace("pow", "np.power")
-        for k in _function_map.keys():
-            s = s.replace(k + '(', "_function_map['{}'].function(".format(k))
+        for k in function_map.keys():
+            s = s.replace(k + '(', "function_map['{}'].function(".format(k))
 
         # Replace variable names
         for i in reversed(range(self.n_input_var)):

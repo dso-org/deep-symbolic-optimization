@@ -5,7 +5,7 @@ from functools import partial
 
 import numpy as np
 
-from dsr.functions import _function_map
+from dsr.functions import function_map
 from dsr.const import make_const_optimizer
 
 
@@ -68,7 +68,7 @@ class GP():
         pset.renameArguments(**rename_kwargs)
 
         # Add primitives
-        for k, v in _function_map.items():
+        for k, v in function_map.items():
             if k in dataset.function_set:
                 pset.addPrimitive(v.function, v.arity, name=v.name)        
 

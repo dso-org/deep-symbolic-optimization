@@ -6,7 +6,7 @@
 
 import numpy as np
 import array
-from dsr.functions import _function_map, _Function
+from dsr.functions import function_map, Function
 
 # Cython specific C imports
 cimport numpy as np
