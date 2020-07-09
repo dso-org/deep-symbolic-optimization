@@ -164,6 +164,7 @@ class Program(object):
         if optimize:
             _ = self.optimize()
         self.count = 1
+        self.invalid = False
         
         
     def cython_execute(self, X):
@@ -342,10 +343,13 @@ class Program(object):
         else:
             def unsafe_execute(p, X):
                 try:
-                    with np.errstate(over="raise", invalid="raise", divide="raise", under="raise"):
+                    with np.errstate(all='raise'):
                         return execute_function(p, X)
-                except FloatingPointError:
-                    # Can also return error code instead for more fine-grained error handling
+                except FloatingPointError as e:
+                    message = e.args[0].split(' ')
+                    p.invalid = True
+                    p.error_type = message[0] # One of ['divide', 'overflow', 'underflow', 'inavlid']
+                    p.error_node = message[-1] # E.g. 'exp', 'log', 'true_divide'
                     return None
 
             Program.execute = unsafe_execute

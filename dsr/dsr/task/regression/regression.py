@@ -47,13 +47,11 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
         y_hat = p.execute(X_train)
 
         # For invalid expressions, return bad_reward
-        if y_hat is None:
-            p.invalid = True
+        if p.invalid:
             r = bad_reward            
 
         # Otherwise, return metric
         else:
-            p.invalid = False
             r = metric(y_train, y_hat)
 
         return r
@@ -63,7 +61,7 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
 
         # Compute predictions on test data
         y_hat = p.execute(X_test)
-        if y_hat is None:
+        if p.invalid:
             nmse_test = None
             nmse_test_noiseless = None
             success = False
