@@ -164,9 +164,6 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
-    # Set the Program class execute function
-    Program.set_execute()
-
     # Load the config file
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)

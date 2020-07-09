@@ -38,13 +38,17 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
     y_test_noiseless = dataset.y_test_noiseless
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
-    metric = make_regression_metric(metric, y_train, *metric_params)
+    metric, bad_reward = make_regression_metric(metric, y_train, *metric_params)
 
 
     def reward(p):
 
         # Compute estimated values
         y_hat = p.execute(X_train)
+
+        # For invalid expressions, return bad_reward
+        if y_hat is None:
+            return bad_reward
 
         # Return metric
         r = metric(y_train, y_hat)
@@ -55,15 +59,20 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
 
         # Compute predictions on test data
         y_hat = p.execute(X_test)
+        if y_hat is None:
+            nmse_test = None
+            nmse_test_noiseless = None
+            success = False
 
-        # NMSE on test data (used to report final error)
-        nmse_test = np.mean((y_test - y_hat)**2) / var_y_test
+        else:
+            # NMSE on test data (used to report final error)
+            nmse_test = np.mean((y_test - y_hat)**2) / var_y_test
 
-        # NMSE on noiseless test data (used to determine recovery)
-        nmse_test_noiseless = np.mean((y_test_noiseless - y_hat)**2) / var_y_test_noiseless
+            # NMSE on noiseless test data (used to determine recovery)
+            nmse_test_noiseless = np.mean((y_test_noiseless - y_hat)**2) / var_y_test_noiseless
 
-        # Success is defined by NMSE on noiseless test data below a threshold
-        success = nmse_test_noiseless < threshold
+            # Success is defined by NMSE on noiseless test data below a threshold
+            success = nmse_test_noiseless < threshold
 
         info = {
             "nmse_test" : nmse_test,
@@ -97,10 +106,13 @@ def make_regression_metric(name, y_train, *args):
 
     metric : function
         Regression metric mapping true and estimated values to a scalar.
+
+    bad_reward: float or None
+        Reward value to use for invalid expression. If None, the training
+        algorithm must handle it, e.g. by rejecting the sample.
     """
 
-    if "nmse" in name or "nrmse" in name:
-        var_y = np.var(y_train)
+    var_y = np.var(y_train)
 
     all_metrics = {
 
@@ -124,19 +136,19 @@ def make_regression_metric(name, y_train, *args):
 
         # (Protected) inverse mean squared error
         # Range: [0, 1]
-        # Value = 1/(1 + var(y)) when y_hat == mean(y)
-        "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
-                        0),
+        # Value = 1/(1 + args[0]*var(y)) when y_hat == mean(y)
+        "inv_mse" : (lambda y, y_hat : 1/(1 + args[0]*np.mean((y - y_hat)**2)),
+                        1),
 
         # (Protected) inverse normalized mean squared error
         # Range: [0, 1]
-        # Value = 0.5 when y_hat == mean(y)
-        "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
-                        0),
+        # Value = 1/(1 + args[0]) when y_hat == mean(y)
+        "inv_nmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.mean((y - y_hat)**2)/var_y),
+                        1),
 
         # (Protected) inverse normalized root mean squared error
         # Range: [0, 1]
-        # Value = 0.5 when y_hat == mean(y)
+        # Value = 1/(1 + args[0]) when y_hat == mean(y)
         "inv_nrmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y)),
                         1),
 
@@ -159,4 +171,21 @@ def make_regression_metric(name, y_train, *args):
     assert name in all_metrics, "Unrecognized reward function name."
     assert len(args) == all_metrics[name][1], "Expected {} reward function parameters; received {}.".format(all_metrics[name][1], len(args))
     metric = all_metrics[name][0]
-    return metric
+
+    # For negative MSE-based rewards, "bad" reward is the value of the reward function when y_hat = mean(y)
+    # For inverse MSE-based rewards, "bad" reward is 0.0
+    # For non-MSE-based rewards, "bad" reward is the minimum value of the reward function's range
+    all_bad_rewards = {
+        "neg_mse" : -var_y,
+        "neg_nmse" : -1.0,
+        "neg_nrmse" : -1.0,
+        "inv_mse" : 0.0, #1/(1 + args[0]*var_y),
+        "inv_nmse" : 0.0, #1/(1 + args[0]),
+        "inv_nrmse" : 0.0, #1/(1 + args[0]),
+        "fraction" : 0.0,
+        "pearson" : 0.0,
+        "spearman" : 0.0
+    }
+    bad_reward = all_bad_rewards[name]
+
+    return metric, bad_reward

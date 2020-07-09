@@ -319,7 +319,7 @@ class Program(object):
 
 
     @classmethod
-    def set_execute(cls):
+    def set_execute(cls, protected):
         """Sets which execute method to use"""
         
         """
@@ -331,11 +331,24 @@ class Program(object):
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            Program.execute         = Program.cython_execute
+            execute_function        = Program.cython_execute
             Program.have_cython     = True
         else:
-            Program.execute         = Program.python_execute
+            execute_function        = Program.python_execute
             Program.have_cython     = False
+
+        if protected:
+            Program.execute = execute_function
+        else:
+            def unsafe_execute(p, X):
+                try:
+                    with np.errstate(over="raise", invalid="raise", divide="raise", under="raise"):
+                        return execute_function(p, X)
+                except FloatingPointError:
+                    # Can also return error code instead for more fine-grained error handling
+                    return None
+
+            Program.execute = unsafe_execute
 
 
     @classmethod
@@ -360,7 +373,7 @@ class Program(object):
 
 
     @classmethod
-    def set_library(cls, operators, n_input_var):
+    def set_library(cls, operators, n_input_var, protected):
         """Sets the class library and arities."""
 
         # Add input variables
@@ -372,6 +385,13 @@ class Program(object):
 
             # Function
             if op in function_map:
+
+                # Prepend available protected operators with "protected_"
+                if protected and not op.startswith("protected_"):
+                    protected_op = "protected_{}".format(op)                    
+                    if protected_op in function_map:
+                        op = protected_op
+
                 op = function_map[op]
                 Program.library.append(op)
                 Program.str_library.append(op.name)
