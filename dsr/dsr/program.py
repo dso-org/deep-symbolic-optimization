@@ -14,6 +14,25 @@ from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
 
+try:
+    from deap import gp 
+except ImportError:
+    gp = None
+    
+    
+def _finish_tokens(tokens):
+    
+    arities         = np.array([Program.arities[t] for t in tokens])
+    dangling        = 1 + np.cumsum(arities - 1) # Number of dangling nodes
+    
+    if 0 in dangling:
+        expr_length     = 1 + np.argmax(dangling == 0)
+        tokens          = tokens[:expr_length]
+    else:
+        tokens          = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
+    
+    return tokens
+
 def from_tokens(tokens, optimize):
     """
     Memoized function to generate a Program from a list of tokens.
@@ -39,14 +58,10 @@ def from_tokens(tokens, optimize):
         or generated from scratch.
     """
 
-    # Truncate expressions that complete early; extend ones that don't complete
-    arities = np.array([Program.arities[t] for t in tokens])
-    dangling = 1 + np.cumsum(arities - 1) # Number of dangling nodes
-    if 0 in dangling:
-        expr_length = 1 + np.argmax(dangling == 0)
-        tokens = tokens[:expr_length]
-    else:
-        tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
+    '''
+        Truncate expressions that complete early; extend ones that don't complete
+    '''
+    tokens = _finish_tokens(tokens)
 
     # For stochastic Programs, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
@@ -64,6 +79,113 @@ def from_tokens(tokens, optimize):
 
     return p
 
+'''
+def DEAP_to_tokens(individual):
+        
+    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
+    assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
+    
+    for i, t in enumerate(individual):
+        
+    return tokens
+'''        
+    
+def tokens_to_DEAP(tokens, primitive_set):
+    """
+    Transforms DSR standard tokens into DEAP format tokens.
+
+    DSR and DEAP format are very similar, but we need to translate it over. 
+
+    Parameters
+    ----------
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. "Dangling" programs are
+        completed with repeated "x1" until the expression completes.
+
+    primitive_set : gp.PrimitiveSet
+        This should contain the list of primitives we will use. One way to create this is:
+        
+            # Create the primitive set
+            pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
+
+            # Add input variables
+            rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
+            pset.renameArguments(**rename_kwargs)
+
+            # Add primitives
+            for k, v in function_map.items():
+                if k in dataset.function_set:
+                    pset.addPrimitive(v.function, v.arity, name=v.name) 
+
+    Returns
+    _______
+    individual : gp.PrimitiveTree
+        This is a specialized list that contains points to element from primitive_set that were mapped based 
+        on the translation of the tokens. 
+    """
+        
+    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
+    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
+    assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
+    assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
+    
+    '''
+        Truncate expressions that complete early; extend ones that don't complete
+    '''
+    tokens  = _finish_tokens(tokens)
+             
+    plist   = []        
+    
+    for t in tokens:
+        
+        node = Program.library[t]
+
+        if isinstance(node, float):
+            '''
+                NUMBER - Library supplied floating point constant. 
+                    
+                    Typically this is a constant parameter we want to optimize. Its value may change. 
+            '''
+            try:
+                plist.append(primitive_set.context["const"])
+            except ValueError:
+                print("ERROR: Cannot add \"const\" from DEAP primitve set")
+                
+        elif isinstance(node, int):
+            '''
+                NUMBER - Values from input X at location given by value in node
+                
+                    This is usually the raw data point numerical values. Its value should not change. 
+                    
+            '''
+            try:
+                plist.append(primitive_set.context["x{}".format(node)])
+            except ValueError:
+                print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
+                
+        else:
+            '''
+                FUNCTION - Name should map from Program. Be sure to add all function map items into PrimativeSet before call. 
+                
+                    This is any common function with a name like "sin" or "log". 
+                    We assume right now all functions work on floating points. 
+            '''
+            try:
+                plist.append(primitive_set.context[node.name])
+            except ValueError:
+                print("ERROR: Cannot add function \"{}\" from DEAP primitve set".format(node.name))
+                
+    assert len(plist) > 1, "Single token expressions are not valid. Got {} tokens.".format(len(plist))
+            
+    individual = gp.PrimitiveTree(plist)
+    
+    '''
+        Look. You've got it all wrong. You don't need to follow me. 
+        You don't need to follow anybody! You've got to think for yourselves. 
+        You're all individuals! 
+    '''
+    return individual
 
 
 class Program(object):
@@ -126,6 +248,7 @@ class Program(object):
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
     cache = {}
+    primitive_set = None
     
     # Additional derived static variables
     L = None                # Length of library
@@ -143,6 +266,18 @@ class Program(object):
     cyfunc = None           # Link to cyfunc lib since we do an include inline
         
     def __init__(self, tokens, optimize):
+
+        if isinstance(tokens,np.ndarray):
+            self._tokens_to_program(tokens)
+        else:
+            self._DEAP_to_program(tokens)
+        
+        if optimize:
+            _ = self.optimize()
+        self.count = 1
+    
+    def _tokens_to_program(self, tokens):
+        
         """
         Builds the program from a list of tokens, optimizes the constants
         against training data, and evalutes the reward.
@@ -150,21 +285,40 @@ class Program(object):
     
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
-        self.float_pos = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
         
         if self.have_cython:
+            self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
             self.new_traversal  = [Program.library[t] for t in tokens]
             self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
             self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
             self.len_traversal  = len(self.traversal)
             assert self.len_traversal > 1, "Single token instances not supported"
         
-        self.tokens = tokens
+        ###self.tokens = tokens
         self.str = tokens.tostring()
-        if optimize:
-            _ = self.optimize()
-        self.count = 1
         
+    def _DEAP_to_program(self, individual):
+        
+        # using primitive_set
+        
+        """
+        Builds the program from a list of tokens, optimizes the constants
+        against training data, and evalutes the reward.
+        """
+    
+        self.traversal = [Program.library[t] for t in tokens] # <---- use function_set to map from function names to functions 
+        self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token] # <---- obtain from named const
+        
+        if self.have_cython:
+            self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
+            self.new_traversal  = [Program.library[t] for t in tokens]
+            self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
+            self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
+            self.len_traversal  = len(self.traversal)
+            assert self.len_traversal > 1, "Single token instances not supported"
+        
+        ###self.tokens = tokens
+        self.str = tokens.tostring()
         
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
@@ -424,6 +578,9 @@ class Program(object):
 
         print("Library:\n\t{}".format(Program.str_library))
 
+    @classmethod
+    def set_primitive_set(cls, primitive_set):
+        cls.primitive_set = primitive_set
 
     @staticmethod
     def convert(traversal):
@@ -459,8 +616,7 @@ class Program(object):
         """Evaluates and returns the evaluation metrics of the program."""
 
         return self.eval_function()
-
-
+    
     @cached_property
     def sympy_expr(self):
         """
