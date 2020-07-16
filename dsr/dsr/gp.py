@@ -352,6 +352,19 @@ def create_toolbox(pset, eval_func,
 
 
 
+def create_stats_widget():
+    
+    stats_fit               = tools.Statistics(lambda p : p.fitness.values)
+    stats_fit.register("avg", np.mean)
+    stats_fit.register("min", np.min)
+    stats_size              = tools.Statistics(len)
+    stats_size.register("avg", np.mean)
+    mstats                  = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
+    
+    return mstats
+
+
+
 def generic_train(toolbox, hof, algorithm,
                   population_size=1000, p_crossover=0.5, p_mutate=0.1, generations=1000,
                   seed=0, verbose=True):
@@ -362,12 +375,7 @@ def generic_train(toolbox, hof, algorithm,
 
     pop         = toolbox.population(n=population_size)
     
-    stats_fit   = tools.Statistics(lambda p : p.fitness.values)
-    stats_fit.register("avg", np.mean)
-    stats_fit.register("min", np.min)
-    stats_size  = tools.Statistics(len)
-    stats_size.register("avg", np.mean)
-    mstats      = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
+    mstats      = create_stats_widget()
     
     pop, logbook = algorithm(population=pop,
                              toolbox=toolbox,

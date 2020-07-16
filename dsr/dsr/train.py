@@ -18,6 +18,11 @@ from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
 from dsr.language_model import LanguageModelPrior
 import dsr.gp as gp_dsr
 
+try:
+    from deap import tools
+except ImportError:
+    tools = None
+
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -142,52 +147,46 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
     dataset                 = Dataset(**config_dataset)
     '''
 
-    from deap import tools
-
-    const_params            = const_params if const_params is not None else {}
-    have_const              = const_params is not None    
-
-    pset, const_opt         = gp_dsr.create_primitive_set(dataset, const_params=const_params, const=have_const)
-    # Create a Hall of Fame object
-    hof                     = tools.HallOfFame(maxsize=1) 
-    # Create the object/function that evaluates the population                                                      
-    eval_func               = gp_dsr.GenericEvaluate(const_opt, hof, dataset)
-    # Use a generator we can access to plug in RL population
-    gen_func                = gp_dsr.GenWithRLIndividuals()
-    # Create a DEAP toolbox, use generator that takes in RL individuals      
-    toolbox                 = gp_dsr.create_toolbox(pset, eval_func, gen_func=gen_func, max_len=30) 
-      
-    # Constant for now, add to config later
-    population_size         = 1000
-    p_crossover             = 0.5 
-    p_mutate                = 0.1 
-    seed                    = 0
-    verbose                 = True
+    # This should be replaced by a config line
+    if tools is not None:
+        const_params            = const_params if const_params is not None else {}
+        have_const              = const_params is not None    
     
-    # create some random pops, the default is to use these if we run out of RL individuals. 
-    pop                     = toolbox.population(n=population_size)
-    
-    # create stats widget
-    stats_fit               = tools.Statistics(lambda p : p.fitness.values)
-    stats_fit.register("avg", np.mean)
-    stats_fit.register("min", np.min)
-    stats_size              = tools.Statistics(len)
-    stats_size.register("avg", np.mean)
-    mstats                  = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
-    
-    # Actual loop function that runs GP
-    algorithms              = gp_dsr.RunOneStepAlgorithm(population=pop,
-                                                        toolbox=toolbox,
-                                                        cxpb=p_crossover,
-                                                        mutpb=p_mutate,
-                                                        stats=mstats,
-                                                        halloffame=hof,
-                                                        verbose=verbose
-                                                        )                            
-    eval_func.set_toolbox(toolbox)                                          # Put the toolbox into the evaluation function
+        pset, const_opt         = gp_dsr.create_primitive_set(dataset, const_params=const_params, const=have_const)
+        # Create a Hall of Fame object
+        hof                     = tools.HallOfFame(maxsize=1) 
+        # Create the object/function that evaluates the population                                                      
+        eval_func               = gp_dsr.GenericEvaluate(const_opt, hof, dataset)
+        # Use a generator we can access to plug in RL population
+        gen_func                = gp_dsr.GenWithRLIndividuals()
+        # Create a DEAP toolbox, use generator that takes in RL individuals      
+        toolbox                 = gp_dsr.create_toolbox(pset, eval_func, gen_func=gen_func, max_len=30) 
+        # Put the toolbox into the evaluation function  
+        eval_func.set_toolbox(toolbox)    
+                                              
+        # Constant for now, add to config later
+        population_size         = 1000
+        p_crossover             = 0.5 
+        p_mutate                = 0.1 
+        seed                    = 0
+        verbose                 = True
         
-
-
+        # create some random pops, the default is to use these if we run out of RL individuals. 
+        pop                     = toolbox.population(n=population_size)
+        
+        # create stats widget
+        mstats                  = create_stats_widget()
+        
+        # Actual loop function that runs GP
+        algorithms              = gp_dsr.RunOneStepAlgorithm(population=pop,
+                                                            toolbox=toolbox,
+                                                            cxpb=p_crossover,
+                                                            mutpb=p_mutate,
+                                                            stats=mstats,
+                                                            halloffame=hof,
+                                                            verbose=verbose
+                                                            )                            
+    
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
     if epsilon is not None and batch_size * epsilon < 1:
@@ -282,17 +281,26 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors                = controller.sample(batch_size)
 
-        # Get the action tokens into a DEAP style individuals
-        individuals                         = tokens_to_DEAP(actions, primitive_set)
-        
-        # Put the action individuals into the generator function. It will take these first
-        gen_func.insert_front(individuals)
-        
-        # Run one step of GP, always get a new hall of fame. 
-        population, logbook, halloffame     = algorithm(init_halloffame=True)
-        
-        # add the best of the best to the list of actions
-        actions.append(DEAP_to_tokens([halloffame[0]]))
+        if tools is not None:
+            # Get the action tokens into a DEAP style individuals
+            print("Tokens to DEAP")
+            individuals                         = tokens_to_DEAP(actions, primitive_set)
+            
+            if step == 0:
+                print("init population with RL data")
+                algorithm.population[:len(individuals)] = individuals 
+            else:
+                # Put the action individuals into the generator function. It will take these first
+                print("insert RL population into gen_func")
+                gen_func.insert_front(individuals)
+            
+            # Run one step of GP, always get a new hall of fame. 
+            print("Run Algorithm")
+            population, logbook, halloffame     = algorithm(init_halloffame=True)
+            
+            # add the best of the best to the list of actions
+            print("Get best guy into tokens")
+            actions.append(DEAP_to_tokens([halloffame[0]]))
         
         
         # Instantiate, optimize, and evaluate expressions
