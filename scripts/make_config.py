@@ -1,4 +1,4 @@
-"""Script used to generate base config file."""
+"""Script used to generate config file."""
 
 import os
 import stat
@@ -8,18 +8,18 @@ from copy import deepcopy
 import argparse
 
 def myargparse():
-    description = 'Create base json'
+    description = 'Make config json'
     epilog = 'End of documentation'
     parser = argparse.ArgumentParser(description=description, epilog=epilog)
-    parser.add_argument('-cr','--config_root', 
+    parser.add_argument('-bp','--base_path', 
                         type=str,
-                        dest='cr',            
-                        help="base_name",
-                        default='./config')
-    parser.add_argument('-name','--base_name', 
+                        dest='bp',            
+                        help="Full path of base config",
+                        default='./config/base.json')
+    parser.add_argument('-nm','--base_name', 
                         type=str,
-                        dest='name',            
-                        help="base_name",
+                        dest='nm',            
+                        help="Name of config file (name.json)",
                         default='base')
     parser.add_argument('-ns','--n_samples', 
                         type=str,
@@ -49,13 +49,13 @@ def myargparse():
     return parser.parse_args()
 
 
-def create_base(cr,name,ns,bs,ep,ew,lr):
+def create_base(bp,nm,ns,bs,ep,ew,lr):
     
     # benchmarks = [4, 5]
     # mc = 8
     # num_cores = 16    
     
-    path = os.path.join(cr, "base.json")
+    path = os.path.join(bp)
     with open(path, encoding='utf-8') as f:
         default = json.load(f)
 
@@ -73,11 +73,11 @@ def create_base(cr,name,ns,bs,ep,ew,lr):
 
 
     new_config = deepcopy(default)
-    path = os.path.join("./", name + ".json")
+    path = os.path.join("./", nm + ".json")
     with open(path, 'w') as f:
         json.dump(new_config, f, indent=3)
 
 
 if __name__ == "__main__":
     args = myargparse()
-    create_base(args.cr,args.name, args.ns, args.bs, args.ep, args.ew, args.lr)
+    create_base(args.bp, args.nm, args.ns, args.bs, args.ep, args.ew, args.lr)
