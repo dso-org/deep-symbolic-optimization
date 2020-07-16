@@ -13,9 +13,10 @@ import pandas as pd
 import numpy as np
 
 from dsr.controller import Controller
-from dsr.program import Program, from_tokens
+from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
 from dsr.language_model import LanguageModelPrior
+import dsr.gp as gp_dsr
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -33,8 +34,7 @@ def work(p):
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-
-def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
+def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
@@ -134,6 +134,59 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
     result : dict
         A dict describing the best-fit expression (determined by base_r).
     """
+    '''
+    config_task             = config["task"]            # Task specification parameters
+    
+    config_dataset          = config_task["dataset"]
+    config_dataset["name"]  = 'R1'
+    dataset                 = Dataset(**config_dataset)
+    '''
+
+    from deap import tools
+
+    const_params            = const_params if const_params is not None else {}
+    have_const              = const_params is not None    
+
+    pset, const_opt         = gp_dsr.create_primitive_set(dataset, const_params=const_params, const=have_const)
+    # Create a Hall of Fame object
+    hof                     = tools.HallOfFame(maxsize=1) 
+    # Create the object/function that evaluates the population                                                      
+    eval_func               = gp_dsr.GenericEvaluate(const_opt, hof, dataset)
+    # Use a generator we can access to plug in RL population
+    gen_func                = gp_dsr.GenWithRLIndividuals()
+    # Create a DEAP toolbox, use generator that takes in RL individuals      
+    toolbox                 = gp_dsr.create_toolbox(pset, eval_func, gen_func=gen_func, max_len=30) 
+      
+    # Constant for now, add to config later
+    population_size         = 1000
+    p_crossover             = 0.5 
+    p_mutate                = 0.1 
+    seed                    = 0
+    verbose                 = True
+    
+    # create some random pops, the default is to use these if we run out of RL individuals. 
+    pop                     = toolbox.population(n=population_size)
+    
+    # create stats widget
+    stats_fit               = tools.Statistics(lambda p : p.fitness.values)
+    stats_fit.register("avg", np.mean)
+    stats_fit.register("min", np.min)
+    stats_size              = tools.Statistics(len)
+    stats_size.register("avg", np.mean)
+    mstats                  = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
+    
+    # Actual loop function that runs GP
+    algorithms              = gp_dsr.RunOneStepAlgorithm(population=pop,
+                                                        toolbox=toolbox,
+                                                        cxpb=p_crossover,
+                                                        mutpb=p_mutate,
+                                                        stats=mstats,
+                                                        halloffame=hof,
+                                                        verbose=verbose
+                                                        )                            
+    eval_func.set_toolbox(toolbox)                                          # Put the toolbox into the evaluation function
+        
+
 
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -227,8 +280,21 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
-        actions, obs, priors = controller.sample(batch_size)
+        actions, obs, priors                = controller.sample(batch_size)
 
+        # Get the action tokens into a DEAP style individuals
+        individuals                         = tokens_to_DEAP(actions, primitive_set)
+        
+        # Put the action individuals into the generator function. It will take these first
+        gen_func.insert_front(individuals)
+        
+        # Run one step of GP, always get a new hall of fame. 
+        population, logbook, halloffame     = algorithm(init_halloffame=True)
+        
+        # add the best of the best to the list of actions
+        actions.append(DEAP_to_tokens([halloffame[0]]))
+        
+        
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
             programs = [from_tokens(a, optimize=True) for a in actions]
@@ -471,7 +537,6 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         "traversal" : repr(p)
         })
     return result
-
 
 # TBD: Should add a test instead of a main function
 def main():

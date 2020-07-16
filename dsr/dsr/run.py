@@ -91,6 +91,72 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
         return result
 
+def train_dsr_gp(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
+    """Trains DSR and returns dict of reward, expression, and traversal"""
+
+    # Override the benchmark name
+    name, seed = name_and_seed
+    config_task["name"] = name
+
+    # Try importing TensorFlow (with suppressed warnings), Controller, and learn
+    # When parallelizing across tasks, these will already be imported, hence try/except
+    try:
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        import tensorflow as tf
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+        from dsr.controller import Controller
+        from dsr.train import learn
+
+    except:
+        pass
+
+    config_dataset          = config_task["dataset"]
+    config_dataset["name"]  = name
+    dataset                 = Dataset(**config_dataset)
+
+    # For some reason, for the control task, the environment needs to be instantiated
+    # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
+    if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
+        import gym
+        gym.make(name)
+
+    # Create the pool and set the task for each worker
+    n_cores_batch = config_training["n_cores_batch"]
+    if n_cores_batch > 1:
+        pool = multiprocessing.Pool(n_cores_batch, initializer=set_task, initargs=(config_task,))
+    else:
+        pool = None
+
+    # Set the task for the parent process    
+    set_task(config_task)
+
+    start = time.time()
+
+    # Rename the output file
+    config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
+
+    # Reset cache and TensorFlow graph
+    Program.clear_cache()
+    tf.reset_default_graph()        
+    
+    # Shift actual seed by checksum to ensure it's different across different benchmarks
+    tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
+  
+    with tf.Session() as sess:
+
+        # Instantiate the controller w/ language model
+        if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
+            language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
+        else:
+            language_model_prior = None
+        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
+
+        # Train the controller
+        result = {"name" : name, "seed" : seed} # Name and seed are listed first
+        result.update(learn_DEAP(sess, controller, pool, dataset, **config_training))
+        result["t"] = time.time() - start # Time listed last
+
+        return result
 
 def train_gp(name_and_seed, logdir, config_task, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""

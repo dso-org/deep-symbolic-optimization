@@ -79,16 +79,29 @@ def from_tokens(tokens, optimize):
 
     return p
 
-'''
+
 def DEAP_to_tokens(individual):
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
     
-    for i, t in enumerate(individual):
+    tokens = []
+    
+    for t in individual:
+        
+        if isinstance(t, gp.Terminal):
+            if t.name is "const":
+                # Get the constant value as it now stands
+                tokens.append(t.value)
+            else:
+                # Get the int which is contained in "x{}"
+                tokens.append(int(t.name[1:]))
+        else:
+            # Get the index number for this op from the op list in Program.library
+            tokens.append(Program.library.index(t.name))
         
     return tokens
-'''        
+        
     
 def tokens_to_DEAP(tokens, primitive_set):
     """
@@ -126,7 +139,7 @@ def tokens_to_DEAP(tokens, primitive_set):
     """
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
-    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
+    assert isinstance(tokens, list), "Raw tokens are supplied as a list."
     assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
     assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
     
@@ -148,7 +161,9 @@ def tokens_to_DEAP(tokens, primitive_set):
                     Typically this is a constant parameter we want to optimize. Its value may change. 
             '''
             try:
-                plist.append(primitive_set.context["const"])
+                p = primitive_set.context["const"]
+                p.value = node
+                plist.append(p)
             except ValueError:
                 print("ERROR: Cannot add \"const\" from DEAP primitve set")
                 
@@ -267,10 +282,7 @@ class Program(object):
         
     def __init__(self, tokens, optimize):
 
-        if isinstance(tokens,np.ndarray):
-            self._tokens_to_program(tokens)
-        else:
-            self._DEAP_to_program(tokens)
+        self._tokens_to_program(tokens)
         
         if optimize:
             _ = self.optimize()
@@ -285,7 +297,7 @@ class Program(object):
     
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
-        
+            
         if self.have_cython:
             self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
             self.new_traversal  = [Program.library[t] for t in tokens]
@@ -294,30 +306,7 @@ class Program(object):
             self.len_traversal  = len(self.traversal)
             assert self.len_traversal > 1, "Single token instances not supported"
         
-        ###self.tokens = tokens
-        self.str = tokens.tostring()
-        
-    def _DEAP_to_program(self, individual):
-        
-        # using primitive_set
-        
-        """
-        Builds the program from a list of tokens, optimizes the constants
-        against training data, and evalutes the reward.
-        """
-    
-        self.traversal = [Program.library[t] for t in tokens] # <---- use function_set to map from function names to functions 
-        self.const_pos = [i for i,t in enumerate(tokens) if t == Program.const_token] # <---- obtain from named const
-        
-        if self.have_cython:
-            self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
-            self.new_traversal  = [Program.library[t] for t in tokens]
-            self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
-            self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
-            self.len_traversal  = len(self.traversal)
-            assert self.len_traversal > 1, "Single token instances not supported"
-        
-        ###self.tokens = tokens
+        self.tokens = tokens
         self.str = tokens.tostring()
         
     def cython_execute(self, X):

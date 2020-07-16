@@ -146,6 +146,51 @@ class GenericAlgorithm:
 
 
 
+class RunOneStepAlgorithm(GenericAlgorithm):
+    
+    def __init__(self, population, toolbox, cxpb, mutpb, stats=None, halloffame=None, verbose=__debug__):
+        
+        super(RunOneStepAlgorithm, self).__init__()
+        
+        self.logbook, self.halloffame = self._header(population, toolbox, stats, halloffame, verbose)
+        
+        self.population = population
+        self.toolbox    = toolbox
+        self.cxpb       = cxpb
+        self.mutpb      = mutpb
+        self.stats      = stats
+        self.verbose    = verbose
+        
+        self.gen        = 0
+        
+    def __call__(self, init_halloffame=False):
+    
+        if init_halloffame:
+            self.halloffame = tools.HallOfFame(maxsize=1)
+    
+        # Select the next generation individuals
+        offspring                                   = self.toolbox.select(self.population, len(self.population))
+
+        # Vary the pool of individuals
+        offspring                                   = self._var_and(offspring, self.toolbox, self.cxpb, self.mutpb)
+
+        # Evaluate the individuals with an invalid fitness
+        offspring, self.halloffame, invalid_ind     = self._eval(offspring, self.halloffame)
+           
+        # Replace the current population by the offspring
+        self.population[:]                          = offspring
+
+        # Append the current generation statistics to the logbook
+        record                                      = self.stats.compile(self.population) if self.stats else {}
+        self.logbook.record(gen=self.gen, nevals=len(invalid_ind), **record)
+        
+        if self.verbose:
+            print(self.logbook.stream)
+    
+        return self.population, self.logbook, self.halloffame
+    
+    
+    
 class GenericEvaluate:
     
     def __init__(self, const_opt, hof, dataset, 
