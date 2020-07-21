@@ -330,8 +330,9 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             # Run one step of GP, always get a new hall of fame. 
             #print("Run Algorithm")
             ###for i in range(1 + step//10):
+            #population, logbook, halloffame     = algorithms(init_halloffame=True)
             for i in range(20):    
-                population, logbook, halloffame     = algorithms(init_halloffame=True)
+                population, logbook, halloffame     = algorithms(init_halloffame=True) # Should probably store each HOF
 
             #print("Best Equation")
             #print(halloffame[0])
