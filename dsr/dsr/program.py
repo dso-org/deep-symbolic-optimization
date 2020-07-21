@@ -21,15 +21,50 @@ except ImportError:
     
     
 def _finish_tokens(tokens):
+    """
+    Finish the token strings to make sure they are a valid program. 
+    
+    We know we have a valid program if all arities a cancled out by 
+    a the same number of terminals. Once we reach a point in the string
+    where these aq equal, we cut the string of tokens. Otherwise, the 
+    tokens are not yet a valid program. The solution is to keep adding 
+    terminals until they fully counterweight the arities. 
+    
+    We have to do this since we emit programs as strings which can leave
+    them over or under complete. 
+    
+    Parameters
+    ----------
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. 
+        
+    Returns
+    _______
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. "Dangling" programs are
+        completed with repeated "x1" until the expression completes.
+        
+    """
     
     arities         = np.array([Program.arities[t] for t in tokens])
-    dangling        = 1 + np.cumsum(arities - 1) # Number of dangling nodes
+    # Number of dangling nodes, returns the cumsum up to each point
+    # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
+    dangling        = 1 + np.cumsum(arities - 1) 
     
     if 0 in dangling:
+        # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
         expr_length     = 1 + np.argmax(dangling == 0)
         tokens          = tokens[:expr_length]
     else:
-        tokens          = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
+        # We never reach a zero point. keep adding terminal tokens until we do. 
+        # Maybe we should extend with randomized valid terminals or insert in
+        # random location or at a random 1 or min value ... or the last min location?
+        ###tokens          = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
+        # If we only have on var then we just pad with zeros. 
+        tokens          = np.append(tokens, np.random.randint(0, high=Program.n_input_var, size=dangling[-1]))
+    
     
     return tokens
 
@@ -80,28 +115,41 @@ def from_tokens(tokens, optimize):
     return p
 
 
-def DEAP_to_tokens(individual):
+
+def DEAP_to_tokens(individual, tokens_size):
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
+    #assert tokens_size >= len(individual), "Individual size {} is too large for defined token size {}.".format(len(individual),tokens_size)
     
-    tokens = []
-    
-    for t in individual:
+    #print("LEN {}".format(len(individual)))
+    l = min(len(individual),tokens_size)
         
-        if isinstance(t, gp.Terminal):
-            if t.name is "const":
-                # Get the constant value as it now stands
-                tokens.append(t.value)
+    if l > 1:
+        tokens = np.zeros(tokens_size,dtype=np.int32)
+        
+        for i in range(l):
+            
+            t = individual[i]
+            
+            if isinstance(t, gp.Terminal):
+                if t.name is "const":
+                    # Get the constant token, this will not store the actual const (TO DO, fix somehow)
+                    tokens[i] = Program.const_token
+                else:
+                    # Get the int which is contained in "ARG{}",
+                    tokens[i] = int(t.name[3:])
             else:
-                # Get the int which is contained in "x{}"
-                tokens.append(int(t.name[1:]))
-        else:
-            # Get the index number for this op from the op list in Program.library
-            tokens.append(Program.library.index(t.name))
+                # Get the index number for this op from the op list in Program.library
+                tokens[i] = Program.str_library.index(t.name)
+    else:
+        tokens = None
         
+    ###print(tokens)
+    
     return tokens
         
+
     
 def tokens_to_DEAP(tokens, primitive_set):
     """
@@ -139,7 +187,7 @@ def tokens_to_DEAP(tokens, primitive_set):
     """
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
-    assert isinstance(tokens, list), "Raw tokens are supplied as a list."
+    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
     assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
     assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
     
@@ -161,7 +209,7 @@ def tokens_to_DEAP(tokens, primitive_set):
                     Typically this is a constant parameter we want to optimize. Its value may change. 
             '''
             try:
-                p = primitive_set.context["const"]
+                p = primitive_set.mapping["const"]
                 p.value = node
                 plist.append(p)
             except ValueError:
@@ -175,7 +223,7 @@ def tokens_to_DEAP(tokens, primitive_set):
                     
             '''
             try:
-                plist.append(primitive_set.context["x{}".format(node)])
+                plist.append(primitive_set.mapping["x{}".format(node+1)])
             except ValueError:
                 print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
                 
@@ -187,7 +235,7 @@ def tokens_to_DEAP(tokens, primitive_set):
                     We assume right now all functions work on floating points. 
             '''
             try:
-                plist.append(primitive_set.context[node.name])
+                plist.append(primitive_set.mapping[node.name])
             except ValueError:
                 print("ERROR: Cannot add function \"{}\" from DEAP primitve set".format(node.name))
                 
@@ -274,6 +322,7 @@ class Program(object):
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
+    n_input_var = None      # Number of x{} variables
 
     # Cython-related static variables
     have_cython = None      # Do we have cython installed
@@ -507,9 +556,10 @@ class Program(object):
         """Sets the class library and arities."""
 
         # Add input variables
-        Program.library = list(range(n_input_var))
+        Program.n_input_var = n_input_var
+        Program.library     = list(range(n_input_var))
         Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
-        Program.arities = [0] * n_input_var
+        Program.arities     = [0] * n_input_var
 
         for i, op in enumerate(operators):
 

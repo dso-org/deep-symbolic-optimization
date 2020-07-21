@@ -90,7 +90,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
         # Train the controller
         result = {"name" : name, "seed" : seed} # Name and seed are listed first
-        result.update(learn_DEAP(sess, controller, pool, dataset, **config_training))
+        result.update(learn(sess, controller, pool, dataset, **config_training))
         result["t"] = time.time() - start # Time listed last
 
         return result

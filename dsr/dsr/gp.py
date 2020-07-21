@@ -1,9 +1,12 @@
 import random
 import operator
 import importlib
+import copy
 from functools import partial
 
 import numpy as np
+
+import sympy
 
 from dsr.functions import function_map
 from dsr.const import make_const_optimizer
@@ -34,7 +37,7 @@ class GenWithRLIndividuals:
         self.individuals        = []
         self.gp_gen_function    = gp_gen_function
         
-    def __call__(self, pset, min_, max_, condition, type_=None):
+    def __call__(self, pset, min_, max_, type_=None):
         
         if len(self.individuals) > 0:
             return self.individuals.pop()
@@ -65,7 +68,7 @@ class GenericAlgorithm:
         
         pass
     
-    def _eval(self, population, halloffame):
+    def _eval(self, population, halloffame, toolbox):
         
         # Evaluate the individuals with an invalid fitness
         invalid_ind     = [ind for ind in population if not ind.fitness.valid]
@@ -86,7 +89,7 @@ class GenericAlgorithm:
         logbook                             = tools.Logbook()
         logbook.header                      = ['gen', 'nevals'] + (stats.fields if stats else [])
     
-        population, halloffame, invalid_ind = self._eval(population, halloffame)
+        population, halloffame, invalid_ind = self._eval(population, halloffame, toolbox)
     
         record                              = stats.compile(population) if stats else {}
         logbook.record(gen=0, nevals=len(invalid_ind), **record)
@@ -94,7 +97,7 @@ class GenericAlgorithm:
         if verbose:
             print(logbook.stream)
             
-        return logbook, halloffame
+        return logbook, halloffame, population
     
     def _var_and(self, population, toolbox, cxpb, mutpb):
  
@@ -118,7 +121,7 @@ class GenericAlgorithm:
     def __call__(self, population, toolbox, cxpb, mutpb, ngen, stats=None,
                  halloffame=None, verbose=__debug__):
     
-        logbook, halloffame = self._header(population, toolbox, stats, halloffame, verbose)
+        logbook, halloffame, population = self._header(population, toolbox, stats, halloffame, verbose)
     
         # Begin the generational process
         for gen in range(1, ngen + 1):
@@ -130,7 +133,7 @@ class GenericAlgorithm:
             offspring                           = self._var_and(offspring, toolbox, cxpb, mutpb)
     
             # Evaluate the individuals with an invalid fitness
-            offspring, halloffame, invalid_ind  = self._eval(offspring, halloffame)
+            offspring, halloffame, invalid_ind  = self._eval(offspring, halloffame, toolbox)
                
             # Replace the current population by the offspring
             population[:]                       = offspring
@@ -152,9 +155,8 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         super(RunOneStepAlgorithm, self).__init__()
         
-        self.logbook, self.halloffame = self._header(population, toolbox, stats, halloffame, verbose)
+        self.logbook, self.halloffame, self.population = self._header(population, toolbox, stats, halloffame, verbose)
         
-        self.population = population
         self.toolbox    = toolbox
         self.cxpb       = cxpb
         self.mutpb      = mutpb
@@ -175,7 +177,7 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         offspring                                   = self._var_and(offspring, self.toolbox, self.cxpb, self.mutpb)
 
         # Evaluate the individuals with an invalid fitness
-        offspring, self.halloffame, invalid_ind     = self._eval(offspring, self.halloffame)
+        offspring, self.halloffame, invalid_ind     = self._eval(offspring, self.halloffame, self.toolbox)
            
         # Replace the current population by the offspring
         self.population[:]                          = offspring
@@ -186,14 +188,35 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         if self.verbose:
             print(self.logbook.stream)
+            
+        self.gen += 1
     
         return self.population, self.logbook, self.halloffame
     
+    def set_population(self, population):
+        
+        self.population = population
+        
+        print('Population Size {}'.format(len(self.population)))
+        
+        #self.logbook, self.halloffame, self.population = self._header(self.population, self.toolbox, self.stats, self.halloffame, self.verbose)
+    
+    def append_population(self, population, max_size=None):
+        
+        self.population = population + self.population
+        
+        if max_size is not None:
+            r = len(self.population)-max_size
+            for i in range(0,r):
+                self.population.pop(random.randrange(len(self.population)))
+        
+        print('Population Size {}'.format(len(self.population)))
+        #self.logbook, self.halloffame, self.population = self._header(self.population, self.toolbox, self.stats, self.halloffame, self.verbose)
     
     
 class GenericEvaluate:
     
-    def __init__(self, const_opt, hof, dataset, 
+    def __init__(self, const_opt, hof, dataset, fitness_metric="nmse",
                  optimize=True, early_stopping=False, threshold=1e-12):
     
         self.toolbox            = None
@@ -207,7 +230,7 @@ class GenericEvaluate:
         self.early_stopping     = early_stopping
         self.threshold          = threshold        
         
-        fitness                 = make_fitness("nmse")
+        fitness                 = make_fitness(fitness_metric)
         self.train_fitness      = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
         self.test_fitness       = partial(fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
         
@@ -322,7 +345,7 @@ def create_toolbox(pset, eval_func,
     
     # Create custom fitness and individual classes
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin)
+    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
 
     # Define the evolutionary operators
     toolbox = base.Toolbox()
@@ -335,6 +358,7 @@ def create_toolbox(pset, eval_func,
     toolbox.register("mate", gp.cxOnePoint)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
     toolbox.register('mutate', gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+    #toolbox.register("mutate", gp.mutShrink)
     
     if max_depth is not None:
         toolbox.decorate("mate",   gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
@@ -348,7 +372,7 @@ def create_toolbox(pset, eval_func,
         toolbox.decorate("mutate", gp.staticLimit(key=num_const, max_value=max_const))
 
     # Create the training function
-    return toolbox 
+    return toolbox, creator 
 
 
 
@@ -362,6 +386,48 @@ def create_stats_widget():
     mstats                  = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
     
     return mstats
+
+
+
+def convert_inverse_prim(prim, args):
+    """
+    Convert inverse prims according to:
+    [Dd]iv(a,b) -> Mul[a, 1/b]
+    [Ss]ub(a,b) -> Add[a, -b]
+    We achieve this by overwriting the corresponding format method of the sub and div prim.
+    """
+    prim = copy.copy(prim)
+    #prim.name = re.sub(r'([A-Z])', lambda pat: pat.group(1).lower(), prim.name)    # lower all capital letters
+
+    converter = {
+        'sub': lambda *args_: "Add({}, Mul(-1,{}))".format(*args_),
+        'protectedDiv': lambda *args_: "Mul({}, Pow({}, -1))".format(*args_),
+        'div': lambda *args_: "Mul({}, Pow({}, -1))".format(*args_),
+        'mul': lambda *args_: "Mul({},{})".format(*args_),
+        'add': lambda *args_: "Add({},{})".format(*args_),
+        'inv': lambda *args_: "Pow(-1)".format(*args_),
+        'neg': lambda *args_: "Mul(-1)".format(*args_)
+    }
+    prim_formatter = converter.get(prim.name, prim.format)
+
+    return prim_formatter(*args)
+
+
+
+def stringify_for_sympy(f):
+    """Return the expression in a human readable string.
+    """
+    string = ""
+    stack = []
+    for node in f:
+        stack.append((node, []))
+        while len(stack[-1][1]) == stack[-1][0].arity:
+            prim, args = stack.pop()
+            string = convert_inverse_prim(prim, args)
+            if len(stack) == 0:
+                break  # If stack is empty, all nodes should have been seen
+            stack[-1][1].append(string)
+    return string
 
 
 

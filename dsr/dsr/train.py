@@ -12,6 +12,10 @@ import tensorflow as tf
 import pandas as pd
 import numpy as np
 
+import sympy
+#from sympy import init_printing
+#from sympy import *
+
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
@@ -20,8 +24,10 @@ import dsr.gp as gp_dsr
 
 try:
     from deap import tools
+    from deap import gp
 except ImportError:
     tools = None
+    gp = None
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -151,16 +157,18 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
     if tools is not None:
         const_params            = const_params if const_params is not None else {}
         have_const              = const_params is not None    
+        
+        #init_printing()
     
-        pset, const_opt         = gp_dsr.create_primitive_set(dataset, const_params=const_params, const=have_const)
+        pset, const_opt         = gp_dsr.create_primitive_set(dataset, const_params=None, const=False) # FIX ME
         # Create a Hall of Fame object
-        hof                     = tools.HallOfFame(maxsize=1) 
+        gp_hof                  = tools.HallOfFame(maxsize=1) 
         # Create the object/function that evaluates the population                                                      
-        eval_func               = gp_dsr.GenericEvaluate(const_opt, hof, dataset)
+        eval_func               = gp_dsr.GenericEvaluate(const_opt, gp_hof, dataset, fitness_metric="nrmse")
         # Use a generator we can access to plug in RL population
         gen_func                = gp_dsr.GenWithRLIndividuals()
         # Create a DEAP toolbox, use generator that takes in RL individuals      
-        toolbox                 = gp_dsr.create_toolbox(pset, eval_func, gen_func=gen_func, max_len=30) 
+        toolbox, creator        = gp_dsr.create_toolbox(pset, eval_func, gen_func=gen_func, max_len=30) 
         # Put the toolbox into the evaluation function  
         eval_func.set_toolbox(toolbox)    
                                               
@@ -175,7 +183,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         pop                     = toolbox.population(n=population_size)
         
         # create stats widget
-        mstats                  = create_stats_widget()
+        mstats                  = gp_dsr.create_stats_widget()
         
         # Actual loop function that runs GP
         algorithms              = gp_dsr.RunOneStepAlgorithm(population=pop,
@@ -183,7 +191,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
                                                             cxpb=p_crossover,
                                                             mutpb=p_mutate,
                                                             stats=mstats,
-                                                            halloffame=hof,
+                                                            halloffame=gp_hof,
                                                             verbose=verbose
                                                             )                            
     
@@ -268,9 +276,17 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
+    
+    
+    ###all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
+    all_r = np.zeros(shape=(n_epochs, batch_size+1), dtype=np.float32)
+    ###all_r = np.zeros(shape=(n_epochs, 1500), dtype=np.float32)
 
     for step in range(n_epochs):
+
+        print("************************")
+        print("STEP {}".format(step))
+        print("************************")
 
         # Set of str representations for all Programs ever seen
         s_history = set(base_r_history.keys() if Program.stochastic else Program.cache.keys())
@@ -280,12 +296,29 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors                = controller.sample(batch_size)
+        #actions, obs, priors                = controller.sample(min(batch_size+step//3,1500))
 
         if tools is not None:
             # Get the action tokens into a DEAP style individuals
-            print("Tokens to DEAP")
-            individuals                         = tokens_to_DEAP(actions, primitive_set)
+            #print("Tokens to DEAP")
+            individuals                         = [creator.Individual(tokens_to_DEAP(a, pset)) for a in actions]
             
+            ###algorithms.set_population(individuals)
+            
+            ###pop         = toolbox.population(n=100)
+            #pop         = toolbox.population(n=step//3)
+            ###individuals = individuals + pop
+            
+            algorithms.set_population(individuals)
+            
+            # We already ran once with random data
+            #gen_func.insert_front(individuals)
+            #algorithms.append_population(individuals)
+            #algorithms.append_population(individuals)
+            
+            #algorithms.append_population(individuals,max_size=1500)
+            #algorithms.append_population(individuals,max_size=1500)
+            '''
             if step == 0:
                 print("init population with RL data")
                 algorithm.population[:len(individuals)] = individuals 
@@ -293,26 +326,55 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
                 # Put the action individuals into the generator function. It will take these first
                 print("insert RL population into gen_func")
                 gen_func.insert_front(individuals)
-            
+            '''
             # Run one step of GP, always get a new hall of fame. 
-            print("Run Algorithm")
-            population, logbook, halloffame     = algorithm(init_halloffame=True)
+            #print("Run Algorithm")
+            ###for i in range(1 + step//10):
+            for i in range(20):    
+                population, logbook, halloffame     = algorithms(init_halloffame=True)
+
+            #print("Best Equation")
+            #print(halloffame[0])
+            #print("Stringify")
+            #sstring = gp_dsr.stringify_for_sympy(halloffame[0])
+            #print(sstring)
+            #print("Simplify HOF")
+            #simp = sympy.simplify(sstring)
+            #print(simp)
+            #print("Pretty Print HOF")
+            #sympy.pretty_print(simp)
             
+            #pretty_print(halloffame[0])
             # add the best of the best to the list of actions
-            print("Get best guy into tokens")
-            actions.append(DEAP_to_tokens([halloffame[0]]))
+            #print("Get best guy into tokens")
+            deap_tokens     = DEAP_to_tokens(halloffame[0], actions.shape[1])
+            #print("Put deap into a program")
+            deap_program    = from_tokens(deap_tokens, optimize=True)
+            #print("Show program stats")   
+            print("************************")
+            
+            deap_program.print_stats()                         
+            #np.append(actions,deap_tokens)
+            #print(type(obs))
+            #print(type(priors))
+            # ALSO INSERT OBS AND PRIORS
+            
+            ###deap_actions = [DEAP_to_tokens(p, actions.shape[1]) for p in population if len(p) > 1]
         
+        ###input_actions = deap_actions
+        
+        input_actions = actions
         
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
-            programs = [from_tokens(a, optimize=True) for a in actions]
+            programs = [from_tokens(a, optimize=True) for a in input_actions]
         else:
             # To prevent interfering with the cache, un-optimized programs are
             # first generated serially. Programs that need optimizing are
             # optimized optimized in parallel. Since multiprocessing operates on
             # copies of programs, we manually set the optimized constants and
             # base reward after the pool joins.
-            programs = [from_tokens(a, optimize=False) for a in actions]
+            programs = [from_tokens(a, optimize=False) for a in input_actions]
 
             # Filter programs that have not yet computed base_r
             # TBD: Refactor with needs_optimizing flag or similar?
@@ -324,12 +386,35 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
                 p.set_constants(optimized_constants)
                 p.base_r = base_r
 
+        
+        #print(len(programs))
+        
+        # Insert GP Program
+        programs = programs + [deap_program]
+                
         # Retrieve metrics
-        base_r = np.array([p.base_r for p in programs])
-        r = np.array([p.r for p in programs])
-        l = np.array([len(p.traversal) for p in programs])
-        s = [p.str for p in programs] # Str representations of Programs
-        all_r[step] = base_r
+        base_r  = np.array([p.base_r for p in programs])
+        r       = np.array([p.r for p in programs])
+        l       = np.array([len(p.traversal) for p in programs])
+        s       = [p.str for p in programs] # Str representations of Programs
+        
+        
+        # Insert GP guys, priors and obs are dummies
+        return_actions  = np.append(input_actions, np.expand_dims(deap_tokens,axis=0), axis=0)
+        ##print(actions.shape)
+        priors          = np.append(priors, np.zeros((1,priors.shape[1],priors.shape[2]),dtype=np.int32), axis=0)
+        obs             = [np.append(o, np.zeros((1,actions.shape[1]),dtype=np.int32), axis=0) for o in obs]
+        
+        '''
+        return_actions  = np.array(input_actions)
+        ##print(actions.shape)
+        priors          = np.zeros((len(input_actions),priors.shape[1],priors.shape[2]),dtype=np.int32)
+        obs             = [np.zeros((len(input_actions),actions.shape[1]),dtype=np.int32) for o in obs]
+        '''
+        
+        all_r[step]     = base_r
+        ###all_r[step,:base_r.shape[0]]     = base_r
+
 
         # Update reward history
         if base_r_history is not None:
@@ -347,16 +432,18 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
-        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, return_actions))
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
             n_keep = int(epsilon * batch_size) # Number of top indices to keep
-            keep = np.zeros(shape=(batch_size,), dtype=bool)
+            ###keep = np.zeros(shape=(batch_size,), dtype=bool)
+            ###keep = np.zeros(shape=(batch_size+1,), dtype=bool)
+            keep = np.zeros(shape=(base_r.shape[0],), dtype=bool)
             keep[np.argsort(r)[-n_keep:]] = True
-            actions = actions[keep, :]
+            return_actions = return_actions[keep, :]
             obs = [o[keep, :] for o in obs]
             priors = priors[keep, :, :]
             programs = list(compress(programs, keep))
@@ -369,6 +456,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         r = np.clip(r, -1e6, 1e6)
 
         # Compute baseline
+        # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
             ewma = np.mean(r) if ewma is None else alpha*np.mean(r) + (1 - alpha)*ewma
             b = ewma
@@ -387,7 +475,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, return_actions))
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
             stats = np.array([[
@@ -413,7 +501,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
                 np.savetxt(f, stats, delimiter=',')
 
         # Compute actions mask
-        mask = np.zeros_like(actions, dtype=np.float32) # Shape: (batch_size, max_length)
+        mask = np.zeros_like(return_actions, dtype=np.float32) # Shape: (batch_size, max_length)
         for i,p in enumerate(programs):
             length = min(len(p.traversal), controller.max_length)
             mask[i, :length] = 1.0
@@ -426,7 +514,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             score = p.r
             item = p.tokens.tostring()
             extra_data = {
-                "actions" : actions[i],
+                "actions" : return_actions[i],
                 "obs" : [o[i] for o in obs],
                 "priors" : priors[i],
                 "masks" : mask[i]
@@ -435,7 +523,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             priority_queue.push(score, item, extra_data)
 
         # Train the controller
-        summaries = controller.train_step(r, b, actions, obs, priors, mask, priority_queue)
+        summaries = controller.train_step(r, b, return_actions, obs, priors, mask, priority_queue)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
@@ -451,6 +539,10 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             p_base_r_best = programs[np.argmax(base_r)]
         prev_r_best = r_best
         prev_base_r_best = base_r_best
+
+        programs[np.argmax(base_r)].print_stats()
+        p_base_r_best.print_stats()
+        print("************************")
 
         # Print new best expression
         if verbose:

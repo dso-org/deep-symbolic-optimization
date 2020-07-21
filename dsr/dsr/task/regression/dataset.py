@@ -62,7 +62,7 @@ class Dataset(object):
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
                  function_set=None, extra_data_dir=None,
                  dataset_size_multiplier=None, shuffle_data=True,
-                 train_fraction=0.8, **kwargs):
+                 train_fraction=0.8):
 
         # Read in benchmark dataset information
         task_root = resource_filename("dsr.task", "regression")
