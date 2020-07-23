@@ -25,7 +25,7 @@ def myargparse():
                         type=str,
                         dest='ns',            
                         help="number of samples",
-                        default='1000000')                        
+                        default='2000000')                        
     parser.add_argument('-bs','--batch_size', 
                         type=str,
                         dest='bs',            
@@ -70,12 +70,33 @@ def myargparse():
                         type=str,
                         dest='gp_ps',            
                         help="population_size",
-                        default="1000")                   
+                        default="1000")
+    parser.add_argument('-gp_ns','--gp_ns', 
+                        type=str,
+                        dest='gp_ns',            
+                        help="gp number of samples",
+                        default="2000000")
+    parser.add_argument('-gp_ts','--gp_ts', 
+                        type=str,
+                        dest='gp_ts',            
+                        help="gp tournament size",
+                        default='2')
+    parser.add_argument('-gp_cs','--gp_cs', 
+                        type=str,
+                        dest='gp_cs',            
+                        help="gp crossover probability",
+                        default='0.95')
+    parser.add_argument('-gp_m','--gp_m', 
+                        type=str,
+                        dest='gp_m',            
+                        help="gp mutation probability",
+                        default='0.03')                   
     return parser.parse_args()
 
 
-def create_base(bp,nm,ns,bs,ap,ep,lr,oe,ew,pqt,pqt_k,
-                gp_ps):
+def create_base(bp,nm,ns,bs,ap,ep,lr,oe,ew,
+                pqt,pqt_k,
+                gp_ps,gp_ns,gp_ts,gp_cs,gp_m):
          
     path = os.path.join(bp)
     with open(path, encoding='utf-8') as f:
@@ -164,8 +185,21 @@ def create_base(bp,nm,ns,bs,ap,ep,lr,oe,ew,pqt,pqt_k,
     default["controller"]["pqt_use_pg"] = False    
 
     default["gp"]["population_size"] = int(gp_ps)
-
-
+    default["gp"]["generations"] = None
+    default["gp"]["n_samples"] = int(gp_ns)
+    default["gp"]["tournament_size"] = int(gp_ts)
+    default["gp"]["metric"] = "nmse"
+    default["gp"]["const_range"] = [-1.0,1.0]
+    default["gp"]["p_crossover"] = float(gp_cs)
+    default["gp"]["p_mutate"] = float(gp_m)
+    default["gp"]["max_depth"] = None
+    default["gp"]["max_len"] = 30
+    default["gp"]["max_const"] = 3
+    default["gp"]["seed"] = 0
+    default["gp"]["early_stopping"] = True
+    default["gp"]["threshold"] = 1e-12
+    default["gp"]["verbose"] = False
+    
     new_config = deepcopy(default)
     path = os.path.join("./", nm + ".json")
     with open(path, 'w') as f:
@@ -176,4 +210,4 @@ if __name__ == "__main__":
     args = myargparse()
     create_base(args.bp, args.nm, args.ns, args.bs, args.ap, args.ep, args.lr,
                 args.oe, args.ew, args.pqt, args.pqt_k,
-                args.gp_ps)
+                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m)
