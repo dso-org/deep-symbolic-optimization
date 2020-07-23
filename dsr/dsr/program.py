@@ -142,12 +142,20 @@ def DEAP_to_tokens(individual, tokens_size):
             else:
                 # Get the index number for this op from the op list in Program.library
                 tokens[i] = Program.str_library.index(t.name)
-    else:
-        tokens = None
+                
+        arities         = np.array([Program.arities[t] for t in tokens])
+        dangling        = 1 + np.cumsum(arities - 1) 
+        expr_length     = 1 + np.argmax(dangling == 0)
         
+    else:
+        expr_length     = 0
+        tokens          = None
+    
+
+    
     ###print(tokens)
     
-    return tokens
+    return tokens, expr_length
         
 
     

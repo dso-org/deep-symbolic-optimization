@@ -3,6 +3,8 @@ import operator
 import importlib
 import copy
 from functools import partial
+from itertools import chain, compress
+from collections import defaultdict
 
 import numpy as np
 
@@ -11,6 +13,8 @@ import sympy
 from dsr.functions import function_map
 from dsr.const import make_const_optimizer
 from dsr.task.regression.dataset import Dataset
+from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
+from dsr.controller import parents_siblings
 
 try:
     from deap import gp 
@@ -71,6 +75,7 @@ class GenericAlgorithm:
     def _eval(self, population, halloffame, toolbox):
         
         # Evaluate the individuals with an invalid fitness
+        # This way we do not evaluate individuals that we have already seen.
         invalid_ind     = [ind for ind in population if not ind.fitness.valid]
         fitnesses       = toolbox.map(toolbox.evaluate, invalid_ind)
         
@@ -147,8 +152,79 @@ class GenericAlgorithm:
     
         return population, logbook
 
+    def str_logbook(self, header_only=False, startindex=0):
+        """
+            This bypasses the one in DEAP so we can have more control over it.
+        """
+        
+        if header_only:
+            startindex  = 0
+            endindex    = 1
+        else:
+            endindex    = -1
+        
+        columns = self.logbook.header
+        if not columns:
+            columns = sorted(self.logbook[0].keys()) + sorted(self.logbook.chapters.keys())
+        if not self.logbook.columns_len or len(self.logbook.columns_len) != len(columns):
+            self.logbook.columns_len = map(len, columns)
 
+        chapters_txt = {}
+        offsets = defaultdict(int)
+        for name, chapter in self.logbook.chapters.items():
+            chapters_txt[name] = chapter.__txt__(startindex)
+            if startindex == 0:
+                offsets[name] = len(chapters_txt[name]) - len(self.logbook)
 
+        str_matrix = []
+        
+        for i, line in enumerate(self.logbook[startindex:endindex]):
+            str_line = []
+            for j, name in enumerate(columns):
+                if name in chapters_txt:
+                    column = chapters_txt[name][i+offsets[name]]
+                else:
+                    value = line.get(name, "")
+                    string = "{0:n}" if isinstance(value, float) else "{0}"
+                    column = string.format(value)
+                self.logbook.columns_len[j] = max(self.logbook.columns_len[j], len(column))
+                str_line.append(column)
+            str_matrix.append(str_line)
+                    
+        if startindex == 0 and self.logbook.log_header:
+            header = []
+            nlines = 1
+            if len(self.logbook.chapters) > 0:
+                nlines += max(map(len, chapters_txt.values())) - len(self.logbook) + 1
+            header = [[] for i in range(nlines)]
+            
+            for j, name in enumerate(columns):
+                if name in chapters_txt:
+                    length = max(len(line.expandtabs()) for line in chapters_txt[name])
+                    blanks = nlines - 2 - offsets[name]
+                    for i in range(blanks):
+                        header[i].append(" " * length)
+                    header[blanks].append(name.center(length))
+                    header[blanks+1].append("-" * length)
+                    for i in range(offsets[name]):
+                        header[blanks+2+i].append(chapters_txt[name][i])
+                else:
+                    length = max(len(line[j].expandtabs()) for line in str_matrix)
+                    for line in header[:-1]:
+                        line.append(" " * length)
+                    header[-1].append(name)
+            
+            if header_only:
+                str_matrix = header  
+            else:
+                str_matrix = chain(header, str_matrix)
+            
+            
+        template    = "\t".join("{%i:<%i}" % (i, l) for i, l in enumerate(self.logbook.columns_len))
+        text        = [template.format(*line) for line in str_matrix]
+
+        return "\n".join(text)
+    
 class RunOneStepAlgorithm(GenericAlgorithm):
     
     def __init__(self, population, toolbox, cxpb, mutpb, stats=None, halloffame=None, verbose=__debug__):
@@ -459,6 +535,97 @@ def generic_train(toolbox, hof, algorithm,
         del gp.const
 
     return hof[0], logbook
+
+
+
+def get_top_program(halloffame, actions):
+    
+    max_tok                         = len(Program.library)
+    deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
+       
+    deap_parent     = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
+    deap_sibling    = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
+    
+    deap_action     = np.empty(deap_tokens.shape[0], dtype=np.int32)
+    deap_action[1:] = deap_tokens[:-1]
+    deap_action[0]  = max_tok
+    
+    for i in range(deap_expr_length-1):       
+        p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+        deap_parent[i+1]    = p
+        deap_sibling[i+1]   = s
+    
+    deap_parent[0]  = max_tok - len(Program.terminal_tokens)
+    deap_sibling[0] = max_tok
+    '''
+    print("DEAP Action  {}".format(deap_action))
+    print("DEAP Parent  {}".format(deap_parent))
+    print("DEAP Sibling {}".format(deap_sibling))
+    '''
+    deap_obs        = [np.expand_dims(deap_action,axis=0), np.expand_dims(deap_parent,axis=0), np.expand_dims(deap_sibling,axis=0)]
+    deap_action     = np.expand_dims(deap_action,axis=0)    
+    deap_program    = [from_tokens(deap_tokens, optimize=True)]
+
+    return deap_program, deap_obs, deap_action
+    
+    
+    
+def get_top_n_programs(population, n, actions):
+    
+    scores          = np.zeros(len(population),dtype=np.float)
+    
+    for i,p in enumerate(population):
+        #print(p.fitness.getValues())
+        scores[i]   = p.fitness.getValues()[0]
+    
+    #print(scores)
+    keep            = np.zeros(shape=(len(population),), dtype=bool)
+    keep[np.argsort(scores)[:n]] = True
+    
+    #print(akeep)
+    #keep[akeep]     = True
+    #print(scores[keep])
+    #print(keep)
+    population      = list(compress(population, keep))
+    #print(population)
+    max_tok             = len(Program.library)
+    
+    #deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
+    #deap_info           = [ DEAP_to_tokens(p, actions.shape[1]) for p in population ]
+    
+    deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
+    deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
+    deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
+    deap_action[:,0]    = max_tok
+    deap_program        = []
+    
+    for i,p in enumerate(population):
+        deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
+        deap_action[i,1:]               = deap_tokens[:-1]
+        deap_program.append(from_tokens(deap_tokens, optimize=True))
+        
+        for j in range(deap_expr_length-1):       
+            p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+            deap_parent[i,j+1]      = p
+            deap_sibling[i,j+1]     = s
+    
+    deap_parent[:,0]    = max_tok - len(Program.terminal_tokens)
+    deap_sibling[:,0]   = max_tok
+    '''
+    print("DEAP Action  {}".format(deap_action))
+    print("DEAP Parent  {}".format(deap_parent))
+    print("DEAP Sibling {}".format(deap_sibling))
+    '''
+    deap_obs        = [deap_action, deap_parent, deap_sibling]
+    
+    #print(actions[0,0:])
+    #print(obs[0][0,0:])
+    #print(obs[1][0,0:])
+    #print(obs[2][0,0:])
+    
+    #deap_program    = [from_tokens(d[0], optimize=True) for d in deap_info]
+
+    return deap_program, deap_obs, deap_action
 
 
 

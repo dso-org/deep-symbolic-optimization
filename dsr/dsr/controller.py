@@ -412,7 +412,7 @@ class Controller(object):
 
                 # Constrain maximum sequence length
                 # Never need to constrain max length for first half of expression
-                if self.constrain_max_len and (i + 2) >= self.max_length // 2:
+                if self.constrain_max_len and (i + 2) >= self.max_length // 2:   
                     remaining = self.max_length - (i + 1)
                     assert sum(dangling > remaining) == 0, (dangling, remaining)
                     constraints = dangling >= remaining - 1 # Constrain binary
@@ -889,8 +889,8 @@ def parents_siblings(tokens, arities, parent_adjust):
         Siblings of the next element of each action sequence.
 
     """
-
     N, L = tokens.shape
+    
     empty_parent = np.max(parent_adjust) + 1 # Empty token is after all non-empty tokens
     empty_sibling = len(arities) # Empty token is after all non-empty tokens
     adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)

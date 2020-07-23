@@ -69,7 +69,6 @@ def protected_n3(x1):
 def protected_sigmoid(x1):
     return 1 / (1 + protected_expneg(x1))
 
-
 # Annotate ops
 ops = [
     # Safe binary operators
