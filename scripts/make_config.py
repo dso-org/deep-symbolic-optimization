@@ -21,6 +21,16 @@ def myargparse():
                         dest='nm',            
                         help="name of config file (name.json)",
                         default='base')
+    parser.add_argument('-edd','--extra_data_dir', 
+                        type=str,
+                        dest='edd',            
+                        help="extra_data_dir",
+                        default='None') 
+    parser.add_argument('-mp','--metric_params', 
+                        type=str,
+                        dest='mp',            
+                        help="metric parameters",
+                        default='1.0') 
     parser.add_argument('-ns','--n_samples', 
                         type=str,
                         dest='ns',            
@@ -94,7 +104,9 @@ def myargparse():
     return parser.parse_args()
 
 
-def create_base(bp,nm,ns,bs,ap,ep,lr,oe,ew,
+def create_base(bp,nm,
+                edd,mp,
+                ns,bs,ap,ep,lr,oe,ew,
                 pqt,pqt_k,
                 gp_ps,gp_ns,gp_ts,gp_cs,gp_m):
          
@@ -106,14 +118,17 @@ def create_base(bp,nm,ns,bs,ap,ep,lr,oe,ew,
     default["task"]["task_type"] = "regression"
     default["task"]["name"] = None
     default["task"]["dataset"]["file"] = "benchmarks.csv"
-    default["task"]["dataset"]["name"] = None
-    default["task"]["dataset"]["noise"] = None
-    default["task"]["dataset"]["extra_data_dir"] = None
-    default["task"]["dataset"]["function_set"] = None
-    default["task"]["dataset"]["shuffle_data"] = None
-    default["task"]["dataset"]["train_fraction"] = None
+    # default["task"]["dataset"]["name"] = None
+    # default["task"]["dataset"]["noise"] = None
+    if edd == 'None':
+        default["task"]["dataset"]["extra_data_dir"] = None
+    else:
+        default["task"]["dataset"]["extra_data_dir"] = edd
+    # default["task"]["dataset"]["function_set"] = None
+    # default["task"]["dataset"]["shuffle_data"] = None
+    # default["task"]["dataset"]["train_fraction"] = None
     default["task"]["metric"] = "inv_nrmse"
-    default["task"]["metric_params"] = [1.0]
+    default["task"]["metric_params"] = [float(mp)]
     default["task"]["threshold"] = 1e-12
 
     # Manually adjust to number of expressions
@@ -208,6 +223,8 @@ def create_base(bp,nm,ns,bs,ap,ep,lr,oe,ew,
 
 if __name__ == "__main__":
     args = myargparse()
-    create_base(args.bp, args.nm, args.ns, args.bs, args.ap, args.ep, args.lr,
+    create_base(args.bp, args.nm, 
+                args.edd, args.mp,
+                args.ns, args.bs, args.ap, args.ep, args.lr,
                 args.oe, args.ew, args.pqt, args.pqt_k,
                 args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m)
