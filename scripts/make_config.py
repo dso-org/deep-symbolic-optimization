@@ -59,7 +59,7 @@ def myargparse():
                         type=str,
                         dest='ep',            
                         help="risk-seeking fraction epsilon",
-                        default='0.1')
+                        default='None')
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
                         dest='lr',            
@@ -87,7 +87,7 @@ def myargparse():
                         default="10")
     parser.add_argument('-pqt_w','--pqt_w',
                         type=str,
-                        dest='pqt_weight',
+                        dest='pqt_w',
                         help="weight of PQT",
                         default="200.0")
     parser.add_argument('-gp_ps','--gp_ps', 
@@ -159,7 +159,10 @@ def create_base(bp,nm,
     
     default["training"]["alpha"] = float(ap)
     
-    default["training"]["epsilon"] = float(ep)
+    if ep == 'None':
+        default["training"]["epsilon"] = None
+    else:
+        default["training"]["epsilon"] = float(ep)
     
     default["training"]["verbose"] = False
     
