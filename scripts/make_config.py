@@ -76,7 +76,7 @@ def myargparse():
                         help="entropy weight",
                         default='0.01')
     parser.add_argument('-pqt','--pqt', 
-                        type=bool,
+                        type=str2bool,
                         dest='pqt',            
                         help="use PQT",
                         default=False) 
@@ -85,6 +85,11 @@ def myargparse():
                         dest='pqt_k',            
                         help="length of PQT",
                         default="10")
+    parser.add_argument('-pqt_w','--pqt_w',
+                        type=str,
+                        dest='pqt_weight',
+                        help="weight of PQT",
+                        default="200.0")
     parser.add_argument('-gp_ps','--gp_ps', 
                         type=str,
                         dest='gp_ps',            
@@ -116,7 +121,7 @@ def myargparse():
 def create_base(bp,nm,
                 edd,mp,
                 ns,bs,ap,ep,lr,oe,ew,
-                pqt,pqt_k,
+                pqt,pqt_k,pqt_w,
                 gp_ps,gp_ns,gp_ts,gp_cs,gp_m):
          
     path = os.path.join(bp)
@@ -169,13 +174,13 @@ def create_base(bp,nm,
     default["training"]["early_stopping"] = True
     default["training"]["hof"] = None
 
-    default["controller"]["cell"] = "lstm"
-    default["controller"]["num_layers"] = 1
-    default["controller"]["num_units"] = 32
-    default["controller"]["initializer"] = "zeros"
-    default["controller"]["embedding"] = False
-    default["controller"]["embedding_size"] = 8
-    default["controller"]["optimizer"] = "adam"
+    # default["controller"]["cell"] = "lstm"
+    # default["controller"]["num_layers"] = 1
+    # default["controller"]["num_units"] = 32
+    # default["controller"]["initializer"] = "zeros"
+    # default["controller"]["embedding"] = False
+    # default["controller"]["embedding_size"] = 8
+    # default["controller"]["optimizer"] = "adam"
     default["controller"]["learning_rate"] = float(lr)
     
     default["controller"]["observe_action"] = False
@@ -205,7 +210,7 @@ def create_base(bp,nm,
     default["controller"]["pqt"] = pqt
     default["controller"]["pqt_k"] = int(pqt_k)
     default["controller"]["pqt_batch_size"] = 1
-    default["controller"]["pqt_weight"] = 200.0
+    default["controller"]["pqt_weight"] = float(pqt_w)
     default["controller"]["pqt_use_pg"] = False    
 
     default["gp"]["population_size"] = int(gp_ps)
@@ -235,5 +240,6 @@ if __name__ == "__main__":
     create_base(args.bp, args.nm, 
                 args.edd, args.mp,
                 args.ns, args.bs, args.ap, args.ep, args.lr,
-                args.oe, args.ew, args.pqt, args.pqt_k,
+                args.oe, args.ew, 
+                args.pqt, args.pqt_k, args.pqt_w,
                 args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m)
