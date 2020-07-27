@@ -65,9 +65,20 @@ def protected_n2(x1):
 def protected_n3(x1):
     with np.errstate(over='ignore'):
         return np.where(np.abs(x1) < 1e6, np.power(x1, 3), 0.0)
+    
+def protected_n4(x1):
+    with np.errstate(over='ignore'):
+        return np.where(np.abs(x1) < 1e6, np.power(x1, 4), 0.0)
 
 def protected_sigmoid(x1):
     return 1 / (1 + protected_expneg(x1))
+
+def common_half_x(x1):
+    return 0.5*x1
+
+def common_two_x(x1):
+    return 2.0*x1
+
 
 # Annotate ops
 ops = [
@@ -99,7 +110,11 @@ ops = [
     (protected_expneg, "expneg", 1),
     (protected_n2, "n2", 1),
     (protected_n3, "n3", 1),
+    (protected_n4, "n4", 1),
     (protected_sigmoid, "sigmoid", 1),
+    
+    (common_half_x, "common_half_x", 1),
+    (common_two_x,  "common_two_x", 1)
 ]
 
 # Add ops to function map

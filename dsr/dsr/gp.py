@@ -5,6 +5,7 @@ import copy
 from functools import partial
 from itertools import chain, compress
 from collections import defaultdict
+from operator import attrgetter
 
 import numpy as np
 
@@ -63,8 +64,25 @@ class GenWithRLIndividuals:
     def clear(self):
         
         self.individuals = []
+        
+        
        
-       
+def multi_mutate(individual, expr, pset):   
+    
+    v = np.random.randint(0,4)
+    
+    if v == 0:
+        individual = gp.mutUniform(individual, expr, pset)
+    elif v == 1:     
+        individual = gp.mutNodeReplacement(individual, pset)
+    elif v == 2:    
+        individual = gp.mutInsert(individual, pset)
+    elif v == 3:
+        individual = gp.mutShrink(individual)
+        
+    return individual
+        
+        
         
 class GenericAlgorithm:
     
@@ -410,7 +428,7 @@ def create_primitive_set(dataset,
 
 def create_toolbox(pset, eval_func, 
                    tournament_size=3, max_depth=17, max_len=None, max_const=None,
-                   gen_func=gp.genHalfAndHalf):
+                   gen_func=gp.genHalfAndHalf, mutate_tree_max=5):
     
     assert gp is not None,                      "Did not import gp. Is it installed?"
     assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
@@ -432,8 +450,10 @@ def create_toolbox(pset, eval_func,
     toolbox.register("evaluate", eval_func)
     toolbox.register("select", tools.selTournament, tournsize=tournament_size)
     toolbox.register("mate", gp.cxOnePoint)
-    toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
-    toolbox.register('mutate', gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+    #toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
+    toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
+    ##toolbox.register('mutate', gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+    toolbox.register('mutate', multi_mutate, expr=toolbox.expr_mut, pset=pset)
     #toolbox.register("mutate", gp.mutShrink)
     
     if max_depth is not None:
@@ -574,24 +594,26 @@ def get_top_n_programs(population, n, actions):
     
     scores          = np.zeros(len(population),dtype=np.float)
     
+    population      = sorted(population, key=attrgetter('fitness'), reverse=True)
+    
+    p_items         = []
+    p_items_val     = []
+    tot             = 0
+    
     for i,p in enumerate(population):
-        #print(p.fitness.getValues())
-        scores[i]   = p.fitness.getValues()[0]
-    
-    #print(scores)
-    keep            = np.zeros(shape=(len(population),), dtype=bool)
-    keep[np.argsort(scores)[:n]] = True
-    
-    #print(akeep)
-    #keep[akeep]     = True
-    #print(scores[keep])
-    #print(keep)
-    population      = list(compress(population, keep))
-    #print(population)
+        
+        # we have to check because population members are not nessesarily unique
+        if str(p) not in p_items_val:
+            p_items.append(p)
+            p_items_val.append(str(p))
+            tot += 1
+            
+        if tot == n:
+            break
+        
+    population          = p_items    
+
     max_tok             = len(Program.library)
-    
-    #deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
-    #deap_info           = [ DEAP_to_tokens(p, actions.shape[1]) for p in population ]
     
     deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
@@ -600,8 +622,11 @@ def get_top_n_programs(population, n, actions):
     deap_program        = []
     
     for i,p in enumerate(population):
+        #print(p.fitness.getValues())
+        #print(p)
         deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
         deap_action[i,1:]               = deap_tokens[:-1]
+        #print(deap_tokens)
         deap_program.append(from_tokens(deap_tokens, optimize=True))
         
         for j in range(deap_expr_length-1):       

@@ -35,18 +35,23 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     name, seed = name_and_seed
     config_task["name"] = name
 
+
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    import tensorflow as tf
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    from dsr.controller import Controller
+    from dsr.train import learn
+
     # Try importing TensorFlow (with suppressed warnings), Controller, and learn
     # When parallelizing across tasks, these will already be imported, hence try/except
+    '''
     try:
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        import tensorflow as tf
-        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-        from dsr.controller import Controller
-        from dsr.train import learn
+
 
     except:
+        print("This should not happen")
         pass
-
+    '''
     config_dataset          = config_task["dataset"]
     config_dataset["name"]  = name
     dataset                 = Dataset(**config_dataset)

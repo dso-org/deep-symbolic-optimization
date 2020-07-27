@@ -26,8 +26,8 @@ try:
     from deap import tools
     from deap import gp
 except ImportError:
-    tools = None
-    gp = None
+    tools   = None
+    gp      = None
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -152,6 +152,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
     config_dataset["name"]  = 'R1'
     dataset                 = Dataset(**config_dataset)
     '''
+    all_r_size              = batch_size
 
     # This should be replaced by a config line
     if tools is not None:
@@ -164,21 +165,28 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         
         # Constant for now, add to config later
         init_population_size    = 1
-        p_crossover             = 0.5       # Default is something like 0.5
-        p_mutate                = 0.25      # Default is something like 0.1 
+        p_crossover             = 0.25      # Default 0.5: P of crossing two members
+        p_mutate                = 0.5       # Default 0.1: P of mutating a member
         seed                    = 0         # Random number seed.
         verbose                 = True      # Print out stats and things.
         max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
         gp_steps                = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
-        gp_rand_pop_n           = 0         # Random population to insert to RL actions for GP, 100 is a good number. 0 turns this off.
+        gp_rand_pop_n           = 50        # Random population to append to RL actions for GP, 100 is a good number. 0 turns this off.
         gp_pop_pad              = 0         # We can add actions more than once exanding GP population x many times. Maybe try 3. 0 turns this off. 
         fitness_metric          = "nmse"    # nmse or nrmse
         gp_recycle_max_size     = 0         # If not zero, we hold over GP population from prior epochs. 1500 works well if we want to do this. 
-        tournament_size         = 5         # Default is 3 . A larger number can converge faster, but me be more biased?
-        max_depth               = 30        # Defualt is 17 . This is mainly a widget to control memory usage. Python sets a hard limit of 90.
-        gp_train_n              = 5         # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 
+        tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
+        max_depth               = 30        # Defualt 17: This is mainly a widget to control memory usage. Python sets a hard limit of 90.
+        gp_train_n              = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
+        mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be?
         max_const               = None
         run_gp_meld             = True
+        
+        if gp_train_n:
+            all_r_size              = batch_size+gp_train_n
+        else:
+            all_r_size              = batch_size+1
+            
         #init_printing()
     
         gp_pset, gp_const_opt   = gp_dsr.create_primitive_set(dataset, const_params=const_params, const=have_const) # TEST ME
@@ -190,7 +198,8 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         gp_gen_func             = gp_dsr.GenWithRLIndividuals()
         # Create a DEAP toolbox, use generator that takes in RL individuals      
         gp_toolbox, gp_creator  = gp_dsr.create_toolbox(gp_pset, gp_eval_func, gen_func=gp_gen_func, max_len=max_len, 
-                                                        tournament_size=tournament_size, max_depth=max_depth, max_const=max_const) 
+                                                        tournament_size=tournament_size, max_depth=max_depth, max_const=max_const,
+                                                        mutate_tree_max=mutate_tree_max) 
         # Put the toolbox into the evaluation function  
         gp_eval_func.set_toolbox(gp_toolbox)    
                                               
@@ -296,14 +305,14 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
     
     
     ###all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
-    all_r = np.zeros(shape=(n_epochs, batch_size+gp_train_n), dtype=np.float32)
+    all_r = np.zeros(shape=(n_epochs, all_r_size), dtype=np.float32)
     ###all_r = np.zeros(shape=(n_epochs, 1500), dtype=np.float32)
 
     frustration_count = 0
 
     for step in range(n_epochs):
 
-        print("************************")
+        print("************************************************************************")
         print("STEP {}".format(step))
         print("************************")
 
@@ -357,11 +366,16 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             #population, logbook, halloffame     = algorithms(init_halloffame=True)
 
             halloffame  = []
-            print(gp_algorithms.str_logbook(header_only=True))
+            population  = []
+            logbook     = []
+            print(gp_algorithms.str_logbook(header_only=True)) # print header
             for i in range(gp_steps):    
-                population, logbook, h     = gp_algorithms(init_halloffame=True) # Should probably store each HOF
+                p, l, h     = gp_algorithms(init_halloffame=True) # Should probably store each HOF
+                population  = population + p
+                logbook.append(l)
                 halloffame.append(h)
 
+            #population  = p
             #print("Best Equation")
             #print(halloffame[0])
             #print("Stringify")
@@ -376,25 +390,25 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             #pretty_print(halloffame[0])
             # add the best of the best to the list of actions
             #print("Get best guy into tokens")
-  
-            if gp_train_n > 1:
-                p1,o1,a1        = gp_dsr.get_top_program(halloffame, actions)
-                p2,o2,a2        = gp_dsr.get_top_n_programs(population, gp_train_n-1, actions)
-                deap_program    = p1 + p2
-                deap_obs        = [np.append(o1[0], o2[0], axis=0),
-                                   np.append(o1[1], o2[1], axis=0),
-                                   np.append(o1[2], o2[2], axis=0)]
-                deap_action     = np.append(a1, a2, axis=0)
-            elif gp_train_n > 0:
-                deap_program, deap_obs, deap_action        = gp_dsr.get_top_program(halloffame, actions)  
-            else:
-                deap_program    = None
-                deap_obs        = None
-                deap_action     = None
-            
             print("************************")
             print("Frustration Count: {}".format(frustration_count))
-            deap_program[0].print_stats()            
+            print("************************")
+            print("Deap Programs:")
+             
+            if gp_train_n > 1:
+                deap_program, deap_obs, deap_action        = gp_dsr.get_top_n_programs(population, gp_train_n, actions)
+                return_gp_obs                              = True
+                deap_program[0].print_stats()
+                #for d in deap_program:
+                #    d.print_stats()
+            else:
+                deap_program, deap_obs, deap_action        = gp_dsr.get_top_program(halloffame, actions)
+                return_gp_obs                              = gp_train_n
+                deap_program[0].print_stats()
+                
+            print("************************")
+
+                        
                     
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
@@ -417,8 +431,9 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
                 p.set_constants(optimized_constants)
                 p.base_r = base_r
 
-        # Insert GP Program, actions, priors (blank) and obs
-        if run_gp_meld and deap_program is not None:
+        # If we run GP, insert GP Program, actions, priors (blank) and obs.
+        # We may option later to return these to the controller.  
+        if run_gp_meld:
             programs    = programs + deap_program
             actions     = np.append(actions, deap_action, axis=0)
             priors      = np.append(priors, np.zeros((deap_action.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
@@ -455,36 +470,58 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         n_novel_full = len(set(s).difference(s_history))
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
+        # Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
+        
         if epsilon is not None and epsilon < 1.0:
-            n_keep = int(epsilon * batch_size) # Number of top indices to keep
-            keep = np.zeros(shape=(base_r.shape[0],), dtype=bool)
+            n_keep      = int(epsilon * batch_size) # Number of top indices to keep
+            keep        = np.zeros(shape=(base_r.shape[0],), dtype=bool)
             keep[np.argsort(r)[-n_keep:]] = True
-            actions = actions[keep, :]
-            obs = [o[keep, :] for o in obs]
-            priors = priors[keep, :, :]
-            programs = list(compress(programs, keep))
-            base_r = base_r[keep]
-            r = r[keep]
-            l = l[keep]
-            s = list(compress(s, keep))
+            
+            # These guys can contain the GP solutions if we run GP
+            _p          = list(compress(programs, keep))
+            _r          = r[keep]
+            base_r      = base_r[keep]
+            l           = l[keep]
+            s           = list(compress(s, keep))
+            
+            # Option: don't keep the GP programs for return to controller
+            if run_gp_meld and not return_gp_obs:
+                print("GP solutions NOT returned to controller")
+                keep[batch_size:]   = False
+                r_train             = r[keep]
+                p_train             = list(compress(programs, keep))
+            else:
+                if run_gp_meld:
+                    print("{} GP solutions returned to controller".format(gp_train_n))
+                r_train             = _r
+                p_train             = _p
+            
+            r           = _r
+            programs    = _p
+            
+            # If we do not return     
+            actions     = actions[keep, :]
+            obs         = [o[keep, :] for o in obs]
+            priors      = priors[keep, :, :]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
-        r = np.clip(r, -1e6, 1e6)
+        r       = np.clip(r,        -1e6, 1e6)
+        r_train = np.clip(r_train,  -1e6, 1e6)
 
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
-            ewma = np.mean(r) if ewma is None else alpha*np.mean(r) + (1 - alpha)*ewma
-            b = ewma
+            ewma = np.mean(r_train) if ewma is None else alpha*np.mean(r_train) + (1 - alpha)*ewma
+            b_train = ewma
         elif baseline == "R_e":
             ewma = -1
-            b = np.min(r)
+            b_train = np.min(r_train)
         elif baseline == "ewma_R_e":
-            ewma = np.min(r) if ewma is None else alpha*np.min(r) + (1 - alpha)*ewma
-            b = ewma
+            ewma = np.min(r_train) if ewma is None else alpha*np.min(r_train) + (1 - alpha)*ewma
+            b_train = ewma
         elif baseline == "combined":
-            ewma = np.mean(r) - np.min(r) if ewma is None else alpha*(np.mean(r) - np.min(r)) + (1 - alpha)*ewma
-            b = np.min(r) + ewma
+            ewma = np.mean(r_train) - np.min(r_train) if ewma is None else alpha*(np.mean(r_train) - np.min(r_train)) + (1 - alpha)*ewma
+            b_train = np.min(r_train) + ewma
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
@@ -518,17 +555,17 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
 
         # Compute actions mask
         mask = np.zeros_like(actions, dtype=np.float32) # Shape: (batch_size, max_length)
-        for i,p in enumerate(programs):
+        for i,p in enumerate(p_train):
             length = min(len(p.traversal), controller.max_length)
             mask[i, :length] = 1.0
 
         # Update the priority queue
         # NOTE: Updates with at most one expression per batch
         if priority_queue is not None:
-            i = np.argmax(r)
-            p = programs[i]
-            score = p.r
-            item = p.tokens.tostring()
+            i       = np.argmax(r_train)
+            p       = p_train[i]
+            score   = p.r
+            item    = p.tokens.tostring()
             extra_data = {
                 "actions" : actions[i],
                 "obs" : [o[i] for o in obs],
@@ -539,7 +576,7 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
             priority_queue.push(score, item, extra_data)
 
         # Train the controller
-        summaries = controller.train_step(r, b, actions, obs, priors, mask, priority_queue)
+        summaries = controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
@@ -556,7 +593,11 @@ def learn(sess, controller, pool, dataset, logdir="./log", n_epochs=None, n_samp
         prev_r_best = r_best
         prev_base_r_best = base_r_best
 
+        print("************************")
+        print("Best step Program:")
         programs[np.argmax(base_r)].print_stats()
+        print("************************")
+        print("All time best Program:")
         p_base_r_best.print_stats()
         print("************************")
 
