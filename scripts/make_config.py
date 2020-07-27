@@ -7,6 +7,15 @@ import itertools
 from copy import deepcopy
 import argparse
 
+# Function for Boolean type in the arguments
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 'True', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'False', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 def myargparse():
     description = 'Make config json for HP study'
     epilog = 'End of documentation'
@@ -57,7 +66,7 @@ def myargparse():
                         help="learning rate",
                         default='1e-3')
     parser.add_argument('-oe','--use_old_entropy', 
-                        type=bool,
+                        type=str2bool,
                         dest='oe',            
                         help="use old entropy",
                         default=False)
