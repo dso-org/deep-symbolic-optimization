@@ -14,14 +14,6 @@ export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAG
 pip install -e ./dsr # Install DSR package
 ```
 
-To install additional dependencies only needed for running pybullet-gym environments:
-
-```
-# Recommended to cd outside repository root
-git clone https://github.com/benelot/pybullet-gym.git
-pip install -e ./pybullet-gym
-```
-
 To install additional dependencies only needed for reproducing figures from the paper:
 
 ```

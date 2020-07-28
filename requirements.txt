@@ -4,9 +4,10 @@ tensorflow==1.14
 numba
 sympy
 pandas
+scikit-learn
 click
 deap
 mpi4py
+pybullet
 gym[box2d]
 stable-baselines[mpi]
-scikit-learn
