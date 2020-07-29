@@ -360,6 +360,9 @@ class Program(object):
                     self.new_entry = True
 
                 def update(self, p):
+                    """If a floating-point error was encountered, set Program.invalid
+                    to True and record the error type and error node."""
+
                     if self.new_entry:
                         p.invalid = True
                         p.error_type = self.error_type
