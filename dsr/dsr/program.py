@@ -341,16 +341,46 @@ class Program(object):
         if protected:
             Program.execute = execute_function
         else:
+
+            class InvalidLog():
+                """Log class to catch and record numpy warning messages"""
+
+                def __init__(self):
+                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+
+                def write(self, message):
+                    """This is called by numpy when encountering a warning"""
+
+                    if not self.new_entry: # Only record the first warning encounter
+                        message = message.strip().split(' ')
+                        self.error_type = message[1]
+                        self.error_node = message[-1]
+                    self.new_entry = True
+
+                def update(self, p):
+                    if self.new_entry:
+                        p.invalid = True
+                        p.error_type = self.error_type
+                        p.error_node = self.error_node
+                        self.new_entry = False
+
+
+            invalid_log = InvalidLog()
+            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+
+            # Define closure for execute function
             def unsafe_execute(p, X):
-                try:
-                    with np.errstate(all='raise'):
-                        return execute_function(p, X)
-                except FloatingPointError as e:
-                    message = e.args[0].split(' ')
-                    p.invalid = True
-                    p.error_type = message[0] # One of ['divide', 'overflow', 'underflow', 'invalid']
-                    p.error_node = message[-1] # E.g. 'exp', 'log', 'true_divide'
-                    return None
+                """This is a wrapper for execute_function. If a floating-point error
+                would be hit, a warning is logged instead, p.invalid is set to True,
+                and the appropriate nan/inf value is returned. It's up to the task's
+                reward function to decide how to handle nans/infs."""
+
+                with np.errstate(all='log'):
+                    y = execute_function(p, X)
+                    invalid_log.update(p)
+                    return y
 
             Program.execute = unsafe_execute
 
