@@ -31,13 +31,9 @@ class Function(object):
 
 
 """Define custom unprotected operators"""
-def log(x1):
+def logabs(x1):
     """Closure of log for non-positive arguments."""
     return np.log(np.abs(x1))
-
-def sqrt(x1):
-    """Closure of sqrt for negative arguments."""
-    return np.sqrt(np.abs(x1))
 
 def expneg(x1):
     return np.exp(-x1)
@@ -62,6 +58,8 @@ unprotected_ops = [
     (np.cos, "cos", 1),
     (np.tan, "tan", 1),
     (np.exp, "exp", 1),
+    (np.log, "log", 1),
+    (np.sqrt, "sqrt", 1),
     (np.square, "n2", 1),
     (np.negative, "neg", 1),
     (np.abs, "abs", 1),
@@ -72,8 +70,7 @@ unprotected_ops = [
     (np.negative, "neg", 1),
 
     # Custom unary operators
-    (log, "log", 1),
-    (sqrt, "sqrt", 1),
+    (logabs, "logabs", 1),
     (expneg, "expneg", 1),
     (n3, "n3", 1),
     (sigmoid, "sigmoid", 1)
@@ -93,6 +90,10 @@ def protected_log(x1):
     """Closure of log for non-positive arguments."""
     with np.errstate(divide='ignore', invalid='ignore'):
         return np.where(np.abs(x1) > 0.001, np.log(np.abs(x1)), 0.)
+
+def protected_sqrt(x1):
+    """Closure of sqrt for negative arguments."""
+    return np.sqrt(np.abs(x1))
 
 def protected_inv(x1):
     """Closure of inverse for zero arguments."""
@@ -123,6 +124,7 @@ protected_ops = [
     # Protected unary operators
     (protected_exp, "exp", 1),
     (protected_log, "log", 1),
+    (protected_log, "logabs", 1), # Protected logabs is support, but redundant
     (protected_inv, "inv", 1),
     (protected_expneg, "expneg", 1),
     (protected_n2, "n2", 1),
