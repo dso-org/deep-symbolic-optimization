@@ -38,7 +38,7 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
     y_test_noiseless = dataset.y_test_noiseless
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
-    metric, bad_reward = make_regression_metric(metric, y_train, *metric_params)
+    metric, invalid_reward = make_regression_metric(metric, y_train, *metric_params)
 
 
     def reward(p):
@@ -46,9 +46,9 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
         # Compute estimated values
         y_hat = p.execute(X_train)
 
-        # For invalid expressions, return bad_reward
+        # For invalid expressions, return invalid_reward
         if p.invalid:
-            r = bad_reward            
+            r = invalid_reward            
 
         # Otherwise, return metric
         else:
@@ -109,7 +109,7 @@ def make_regression_metric(name, y_train, *args):
     metric : function
         Regression metric mapping true and estimated values to a scalar.
 
-    bad_reward: float or None
+    invalid_reward: float or None
         Reward value to use for invalid expression. If None, the training
         algorithm must handle it, e.g. by rejecting the sample.
     """
@@ -174,10 +174,10 @@ def make_regression_metric(name, y_train, *args):
     assert len(args) == all_metrics[name][1], "Expected {} reward function parameters; received {}.".format(all_metrics[name][1], len(args))
     metric = all_metrics[name][0]
 
-    # For negative MSE-based rewards, "bad" reward is the value of the reward function when y_hat = mean(y)
-    # For inverse MSE-based rewards, "bad" reward is 0.0
-    # For non-MSE-based rewards, "bad" reward is the minimum value of the reward function's range
-    all_bad_rewards = {
+    # For negative MSE-based rewards, inavlid reward is the value of the reward function when y_hat = mean(y)
+    # For inverse MSE-based rewards, invalid reward is 0.0
+    # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
+    all_invalid_rewards = {
         "neg_mse" : -var_y,
         "neg_nmse" : -1.0,
         "neg_nrmse" : -1.0,
@@ -188,6 +188,6 @@ def make_regression_metric(name, y_train, *args):
         "pearson" : 0.0,
         "spearman" : 0.0
     }
-    bad_reward = all_bad_rewards[name]
+    invalid_reward = all_invalid_rewards[name]
 
-    return metric, bad_reward
+    return metric, invalid_reward
