@@ -348,7 +348,7 @@ class Program(object):
                 except FloatingPointError as e:
                     message = e.args[0].split(' ')
                     p.invalid = True
-                    p.error_type = message[0] # One of ['divide', 'overflow', 'underflow', 'inavlid']
+                    p.error_type = message[0] # One of ['divide', 'overflow', 'underflow', 'invalid']
                     p.error_node = message[-1] # E.g. 'exp', 'log', 'true_divide'
                     return None
 

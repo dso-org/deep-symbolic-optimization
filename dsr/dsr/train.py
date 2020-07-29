@@ -163,7 +163,26 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # n_novel_* : Number of never-before-seen Programs per batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
             # invalid_avg_* : Fraction of invalid Programs per batch
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,n_novel_full,n_novel_sub,a_ent_full,a_ent_sub,invalid_avg_full,invalid_avg_sub\n")
+            headers = ["base_r_best",
+                       "base_r_max",
+                       "base_r_avg_full",
+                       "base_r_avg_sub",
+                       "r_best",
+                       "r_max",
+                       "r_avg_full",
+                       "r_avg_sub",
+                       "l_avg_full",
+                       "l_avg_sub",
+                       "ewma",
+                       "n_unique_full",
+                       "n_unique_sub",
+                       "n_novel_full",
+                       "n_novel_sub",
+                       "a_ent_full",
+                       "a_ent_sub",
+                       "invalid_avg_full",
+                       "invalid_avg_sub"]
+            f.write("{}\n".format(",".join(headers)))
 
     # TBD: REFACTOR
     # Set the complexity functions
