@@ -68,6 +68,8 @@ unprotected_ops = [
     (np.maximum, "max", 1),
     (np.minimum, "min", 1),
     (np.tanh, "tanh", 1),
+    (np.reciprocal, "inv", 1),
+    (np.negative, "neg", 1),
 
     # Custom unary operators
     (log, "log", 1),
