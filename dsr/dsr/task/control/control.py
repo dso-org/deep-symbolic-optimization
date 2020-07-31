@@ -13,7 +13,7 @@ from . import utils as U
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, env_kwargs=None):
+    stochastic=True, protected=True, env_kwargs=None):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -50,6 +50,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         be evaluated as unique objects. The hall of fame will be based on the
         average reward seen for each unique traversal.
 
+    protected : bool
+        Whether or not to use protected operators.
+
     env_kwargs : dict
         Dictionary of environment kwargs passed to gym.make().
 
@@ -74,7 +77,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     # Set the library and stochasticity (need to do this now in case there are symbolic actions)
     n_input_var = env.observation_space.shape[0]
-    Program.set_library(function_set, n_input_var)
+    Program.set_library(function_set, n_input_var, protected)
     Program.set_stochastic(stochastic)
 
     # Configuration assertions
@@ -117,8 +120,14 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def get_action(p, obs):
         """Helper function to get an action from Program p according to obs,
         since Program.execute() requires 2D arrays but we only want 1D."""
-        
-        return p.execute(np.array([obs]))[0]
+
+        action = p.execute(np.array([obs]))[0]
+
+        # Infinite or NaN values simply return zero action
+        if not np.isfinite(action):
+            action = 0
+
+        return action
 
 
     def run_episodes(p, n_episodes):

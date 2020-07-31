@@ -164,6 +164,7 @@ class Program(object):
         if optimize:
             _ = self.optimize()
         self.count = 1
+        self.invalid = False
         
         
     def cython_execute(self, X):
@@ -319,7 +320,7 @@ class Program(object):
 
 
     @classmethod
-    def set_execute(cls):
+    def set_execute(cls, protected):
         """Sets which execute method to use"""
         
         """
@@ -331,11 +332,60 @@ class Program(object):
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            Program.execute         = Program.cython_execute
+            execute_function        = Program.cython_execute
             Program.have_cython     = True
         else:
-            Program.execute         = Program.python_execute
+            execute_function        = Program.python_execute
             Program.have_cython     = False
+
+        if protected:
+            Program.execute = execute_function
+        else:
+
+            class InvalidLog():
+                """Log class to catch and record numpy warning messages"""
+
+                def __init__(self):
+                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+
+                def write(self, message):
+                    """This is called by numpy when encountering a warning"""
+
+                    if not self.new_entry: # Only record the first warning encounter
+                        message = message.strip().split(' ')
+                        self.error_type = message[1]
+                        self.error_node = message[-1]
+                    self.new_entry = True
+
+                def update(self, p):
+                    """If a floating-point error was encountered, set Program.invalid
+                    to True and record the error type and error node."""
+
+                    if self.new_entry:
+                        p.invalid = True
+                        p.error_type = self.error_type
+                        p.error_node = self.error_node
+                        self.new_entry = False
+
+
+            invalid_log = InvalidLog()
+            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+
+            # Define closure for execute function
+            def unsafe_execute(p, X):
+                """This is a wrapper for execute_function. If a floating-point error
+                would be hit, a warning is logged instead, p.invalid is set to True,
+                and the appropriate nan/inf value is returned. It's up to the task's
+                reward function to decide how to handle nans/infs."""
+
+                with np.errstate(all='log'):
+                    y = execute_function(p, X)
+                    invalid_log.update(p)
+                    return y
+
+            Program.execute = unsafe_execute
 
 
     @classmethod
@@ -360,7 +410,7 @@ class Program(object):
 
 
     @classmethod
-    def set_library(cls, operators, n_input_var):
+    def set_library(cls, operators, n_input_var, protected):
         """Sets the class library and arities."""
 
         # Add input variables
@@ -372,6 +422,13 @@ class Program(object):
 
             # Function
             if op in function_map:
+
+                # Prepend available protected operators with "protected_"
+                if protected and not op.startswith("protected_"):
+                    protected_op = "protected_{}".format(op)                    
+                    if protected_op in function_map:
+                        op = protected_op
+
                 op = function_map[op]
                 Program.library.append(op)
                 Program.str_library.append(op.name)

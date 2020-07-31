@@ -7,6 +7,7 @@ import multiprocessing
 from itertools import compress
 from datetime import datetime
 from textwrap import indent
+from collections import defaultdict
 
 import tensorflow as tf
 import pandas as pd
@@ -161,7 +162,27 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # n_unique_* : Number of unique Programs in batch
             # n_novel_* : Number of never-before-seen Programs per batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,n_novel_full,n_novel_sub,a_ent_full,a_ent_sub\n")
+            # invalid_avg_* : Fraction of invalid Programs per batch
+            headers = ["base_r_best",
+                       "base_r_max",
+                       "base_r_avg_full",
+                       "base_r_avg_sub",
+                       "r_best",
+                       "r_max",
+                       "r_avg_full",
+                       "r_avg_sub",
+                       "l_avg_full",
+                       "l_avg_sub",
+                       "ewma",
+                       "n_unique_full",
+                       "n_unique_sub",
+                       "n_novel_full",
+                       "n_novel_sub",
+                       "a_ent_full",
+                       "a_ent_sub",
+                       "invalid_avg_full",
+                       "invalid_avg_sub"]
+            f.write("{}\n".format(",".join(headers)))
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -255,11 +276,13 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         s = [p.str for p in programs] # Str representations of Programs
+        invalid = np.array([p.invalid for p in programs], dtype=bool)
         all_r[step] = base_r
 
         # Update reward history
         if base_r_history is not None:
-            for key in s:
+            for p in programs:
+                key = p.str
                 if key in base_r_history:
                     base_r_history[key].append(p.base_r)
                 else:
@@ -276,6 +299,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
+        invalid_avg_full = np.mean(invalid)
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         if epsilon is not None and epsilon < 1.0:
@@ -290,6 +314,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             r = r[keep]
             l = l[keep]
             s = list(compress(s, keep))
+            invalid = invalid[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
@@ -316,6 +341,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
+            invalid_avg_sub = np.mean(invalid)
             stats = np.array([[
                          base_r_best,
                          base_r_max,
@@ -333,7 +359,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                          n_novel_full,
                          n_novel_sub,
                          a_ent_full,
-                         a_ent_sub
+                         a_ent_sub,
+                         invalid_avg_full,
+                         invalid_avg_sub
                          ]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
@@ -458,6 +486,25 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     if pool is not None:
         pool.close()
+
+    # Print error statistics of the cache
+    n_invalid = 0
+    error_types = defaultdict(lambda : 0)
+    error_nodes = defaultdict(lambda : 0)
+    for p in Program.cache.values():
+        if p.invalid:
+            n_invalid += p.count
+            error_types[p.error_type] += p.count
+            error_nodes[p.error_node] += p.count
+    if n_invalid > 0:
+        total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
+        print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
+        print("Error type counts:")
+        for error_type, count in error_types.items():
+            print("  {}: {} ({:.1%})".format(error_type, count, count/n_invalid))
+        print("Error node counts:")
+        for error_node, count in error_nodes.items():
+            print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
 
     # Return statistics of best Program
     p = p_base_r_best
