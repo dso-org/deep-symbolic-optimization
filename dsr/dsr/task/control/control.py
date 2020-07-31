@@ -13,7 +13,7 @@ from . import utils as U
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=True):
+    stochastic=True, protected=True, env_kwargs=None):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -53,6 +53,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     protected : bool
         Whether or not to use protected operators.
 
+    env_kwargs : dict
+        Dictionary of environment kwargs passed to gym.make().
+
     Returns
     -------
 
@@ -60,9 +63,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     """
 
     assert "Bullet" not in name or pybullet_envs is not None, "Must install pybullet_envs."
+    if env_kwargs is None:
+        env_kwargs = {}
 
     # Define closures for environment and anchor model
-    env = gym.make(name)
+    env = gym.make(name, **env_kwargs)
 
     # HACK: Wrap pybullet envs in TimeFeatureWrapper
     # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
