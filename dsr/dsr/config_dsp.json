@@ -7,7 +7,8 @@
       "n_episodes_test" : 10,
       "success_score": 200.0,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
-      "stochastic" : true
+      "stochastic" : true,
+      "protected" : true
    },
    "training": {
       "logdir": "./log",
