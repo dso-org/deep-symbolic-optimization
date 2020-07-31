@@ -112,8 +112,14 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def get_action(p, obs):
         """Helper function to get an action from Program p according to obs,
         since Program.execute() requires 2D arrays but we only want 1D."""
-        
-        return p.execute(np.array([obs]))[0]
+
+        action = p.execute(np.array([obs]))[0]
+
+        # Infinite or NaN values simply return zero action
+        if not np.isfinite(action):
+            action = 0
+
+        return action
 
 
     def run_episodes(p, n_episodes):
