@@ -90,7 +90,8 @@
       "seed": 0,
       "early_stopping": true,
       "threshold": 1e-12,
-      "verbose": false
+      "verbose": false,
+      "protected": true
    },
    "language_model_prior": {
         "saved_language_model_path": "./language_model/model/saved_model",
