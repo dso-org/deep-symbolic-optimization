@@ -26,7 +26,7 @@ class GP():
                  p_crossover=0.5, p_mutate=0.1, max_depth=17, max_len=None,
                  max_const=None, const_range=[-1, 1], const_optimizer="scipy",
                  const_params=None, seed=0, early_stopping=False,
-                 threshold=1e-12, verbose=True):
+                 threshold=1e-12, verbose=True, protected=True):
 
         self.dataset = dataset
         self.fitted = False
@@ -68,9 +68,17 @@ class GP():
         pset.renameArguments(**rename_kwargs)
 
         # Add primitives
-        for k, v in function_map.items():
-            if k in dataset.function_set:
-                pset.addPrimitive(v.function, v.arity, name=v.name)        
+        for op_name in dataset.function_set:
+            assert op_name in function_map, "Operation {} not recognized.".format(op_name)
+
+            # Prepend available protected operators with "protected_"
+            if protected and not op_name.startswith("protected_"):
+                protected_op_name = "protected_{}".format(op_name)
+                if protected_op_name in function_map:
+                    op_name = protected_op_name
+
+            op = function_map[op_name]
+            pset.addPrimitive(op.function, op.arity, name=op.name)
 
         # # Add constant
         # if "const" in dataset.function_set:
