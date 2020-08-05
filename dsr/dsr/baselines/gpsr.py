@@ -151,9 +151,16 @@ class GP():
                 individual[i] = gp.Terminal(const, False, object)
                 individual[i].name = "const" # This is necessary to ensure the constant is re-optimized in the next generation
 
+        # Execute the individual
         f = self.toolbox.compile(expr=individual)
-        y_hat = f(*X)
-        return (fitness(y_hat=y_hat),)
+        with np.errstate(all="ignore"):
+            y_hat = f(*X)
+
+        # Check for validity
+        if np.isfinite(y_hat).all():
+            return (fitness(y_hat=y_hat),)
+        else:
+            return (np.inf,)
 
 
     def train(self):
