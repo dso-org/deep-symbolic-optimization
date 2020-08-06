@@ -3,7 +3,8 @@ import numpy as np
 from .dataset import Dataset
 
 
-def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
+def make_regression_task(name, metric, metric_params, dataset,
+    reward_noise=None, reward_noise_type=None, threshold=1e-12):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -20,6 +21,17 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
 
     dataset : dict
         Dict of .dataset.Dataset kwargs.
+
+    reward_noise : float or None
+        Noise level to use when computing reward.
+
+    reward_noise_type : "y_hat", "r", or None
+        "y_hat" : N(0, reward_noise * y_rms_train) is added to y_hat values.
+        "r" : N(0, reward_noise) is added to r.
+        None : 
+
+    threshold : float
+        Threshold of NMSE on noiseless data used to determine success.
 
     Returns
     -------
@@ -38,7 +50,12 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
     y_test_noiseless = dataset.y_test_noiseless
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
-    metric, invalid_reward = make_regression_metric(metric, y_train, *metric_params)
+    metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
+    if reward_noise:
+        assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
+        rng = np.random.RandomState(0)
+        y_rms_train = np.sqrt(np.mean(y_train ** 2))
+        scale = reward_noise * y_rms_train
 
 
     def reward(p):
@@ -46,14 +63,26 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
         # Compute estimated values
         y_hat = p.execute(X_train)
 
+        # Add observation noise
+        if reward_noise and reward_noise_type == "y_hat":
+            y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
+
         # For invalid expressions, return invalid_reward
         if p.invalid:
-            r = invalid_reward            
+            return invalid_reward
+
+        # Check if it's a success. If so, return max_reward. This is an
+        # expensive step, but necessary to ensure success cases aren't
+        # overlooked due to reward noise.
+        if reward_noise and p.evaluate.get("success"):
+            return max_reward
 
         # Otherwise, return metric
-        else:
-            r = metric(y_train, y_hat)
+        r = metric(y_train, y_hat)
 
+        # Add reward noise
+        if reward_noise and reward_noise_type == "r":
+            r += rng.normal(loc=0, scale=reward_noise)
         return r
 
 
@@ -83,7 +112,7 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
         }
         return info
 
-    stochastic = False # Regression rewards are deterministic
+    stochastic = reward_noise is None or reward_noise == 0.0
 
 
     return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic
@@ -112,6 +141,9 @@ def make_regression_metric(name, y_train, *args):
     invalid_reward: float or None
         Reward value to use for invalid expression. If None, the training
         algorithm must handle it, e.g. by rejecting the sample.
+
+    max_reward: float
+        Maximum possible reward under this metric.
     """
 
     var_y = np.var(y_train)
@@ -190,4 +222,17 @@ def make_regression_metric(name, y_train, *args):
     }
     invalid_reward = all_invalid_rewards[name]
 
-    return metric, invalid_reward
+    all_max_rewards = {
+        "neg_mse" : 0.0,
+        "neg_nmse" : 0.0,
+        "neg_nrmse" : 0.0,
+        "inv_mse" : 1.0,
+        "inv_nmse" : 1.0,
+        "inv_nrsme" : 1.0,
+        "fraction" : 1.0,
+        "pearson" : 1.0,
+        "spearman" : 1.0
+    }
+    max_reward = all_max_rewards[name]
+
+    return metric, invalid_reward, max_reward
