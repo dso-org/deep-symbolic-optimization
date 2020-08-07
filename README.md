@@ -13,6 +13,10 @@ pip install -r requirements.txt # Install Python dependencies
 export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
 pip install -e ./dsr # Install DSR package
 ```
+Note: To install in LC, use `Python 3.6.4`. You can do:
+```
+python3-3.6.4 -m venv venv3 # Create a Python 3.6.4 virtual environment
+```
 
 To install additional dependencies only needed for reproducing figures from the paper:
 
