@@ -59,6 +59,7 @@ class GP():
         self.eval_test_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
         nmse = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
         self.nmse = partial(self.evaluate, optimize=False, fitness=nmse, X=dataset.X_test.T) # Function of individual
+        self.success = lambda ind : self.nmse(ind)[0] < self.threshold # Function of individual
 
         # Create the primitive set
         pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
