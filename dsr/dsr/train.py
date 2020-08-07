@@ -383,7 +383,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                 "actions" : actions[i],
                 "obs" : [o[i] for o in obs],
                 "priors" : priors[i],
-                "masks" : mask[i]
+                "masks" : mask[i],
+                "program" : p
             }
             # Always push unique item if the queue isn't full
             priority_queue.push(score, item, extra_data)
@@ -505,6 +506,12 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         print("Error node counts:")
         for error_node, count in error_nodes.items():
             print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
+
+    # Print the priority queue at the end of training
+    if verbose and priority_queue is not None:
+        for i, item in enumerate(priority_queue.iter_in_order()):
+            print("\nPriority queue entry {}:".format(i))
+            item[1]["program"].print_stats()
 
     # Return statistics of best Program
     p = p_base_r_best
