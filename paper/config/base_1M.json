@@ -12,7 +12,8 @@
       "metric" : "inv_nrmse",
       "metric_params" : [],
       "threshold" : 1e-12,
-      "stochastic" : false
+      "stochastic" : false,
+      "protected" : true
    },
    "training": {
       "logdir": "./log",
@@ -88,6 +89,7 @@
       "seed": 0,
       "early_stopping": true,
       "threshold": 1e-12,
-      "verbose": false
+      "verbose": false,
+      "protected" : true
    }
 }
