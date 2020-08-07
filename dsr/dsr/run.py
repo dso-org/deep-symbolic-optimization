@@ -114,6 +114,7 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
     r_test = base_r_test = gp.eval_test(p)[0]
     str_p = str(p)
     nmse = gp.nmse(p)
+    success = gp.success(p)
     r_noiseless = base_r_noiseless = gp.eval_train_noiseless(p)[0]
     r_test_noiseless = base_r_test_noiseless = gp.eval_test_noiseless(p)[0]
 
@@ -147,7 +148,8 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
         "expression" : expression,
         "traversal" : str_p,
         "t" : time.time() - start,
-        "seed" : seed
+        "seed" : seed,
+        "success" : success
     }
 
     return result
