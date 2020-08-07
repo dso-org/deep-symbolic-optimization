@@ -39,7 +39,12 @@ def myargparse():
                         type=str,
                         dest='mp',            
                         help="metric parameters",
-                        default='1.0') 
+                        default='1.0')
+    parser.add_argument('-prtd','--protected', 
+                        type=str2bool,
+                        dest='prtd',            
+                        help="protected",
+                        default=True) 
     parser.add_argument('-ns','--n_samples', 
                         type=str,
                         dest='ns',            
@@ -114,15 +119,20 @@ def myargparse():
                         type=str,
                         dest='gp_m',            
                         help="gp mutation probability",
-                        default='0.03')                   
+                        default='0.03')
+    parser.add_argument('-gp_prtd','--gp_protected', 
+                        type=str2bool,
+                        dest='gp_prtd',            
+                        help="protected operators",
+                        default=True)                   
     return parser.parse_args()
 
 
 def create_base(bp,nm,
-                edd,mp,
+                edd,mp,prtd,
                 ns,bs,ap,ep,lr,oe,ew,
                 pqt,pqt_k,pqt_w,
-                gp_ps,gp_ns,gp_ts,gp_cs,gp_m):
+                gp_ps,gp_ns,gp_ts,gp_cs,gp_m,gp_prtd):
          
     path = os.path.join(bp)
     with open(path, encoding='utf-8') as f:
@@ -144,6 +154,7 @@ def create_base(bp,nm,
     default["task"]["metric"] = "inv_nrmse"
     default["task"]["metric_params"] = [float(mp)]
     default["task"]["threshold"] = 1e-12
+    default["task"]["protected"] = prtd
 
     # Manually adjust to number of expressions
     default["training"]["logdir"] = "./log"
@@ -231,6 +242,7 @@ def create_base(bp,nm,
     default["gp"]["early_stopping"] = True
     default["gp"]["threshold"] = 1e-12
     default["gp"]["verbose"] = False
+    default["gp"]["protected"] = gp_prtd
     
     new_config = deepcopy(default)
     path = os.path.join("./", nm + ".json")
@@ -241,8 +253,8 @@ def create_base(bp,nm,
 if __name__ == "__main__":
     args = myargparse()
     create_base(args.bp, args.nm, 
-                args.edd, args.mp,
+                args.edd, args.mp, args.prtd,
                 args.ns, args.bs, args.ap, args.ep, args.lr,
                 args.oe, args.ew, 
                 args.pqt, args.pqt_k, args.pqt_w,
-                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m)
+                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd)
