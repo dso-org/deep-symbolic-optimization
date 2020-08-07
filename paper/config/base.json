@@ -7,7 +7,9 @@
          "name" : null,
          "noise" : null,
          "extra_data_dir" : null,
-         "function_lib" : null
+         "function_lib" : null,
+         "shuffle_data": false,
+         "train_fraction": 0.8
       },
       "metric" : "inv_nrmse",
       "metric_params" : [],
