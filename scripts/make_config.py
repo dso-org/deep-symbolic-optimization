@@ -65,6 +65,11 @@ def myargparse():
                         dest='ep',            
                         help="risk-seeking fraction epsilon",
                         default='None')
+    parser.add_argument('-bl','--baseline', 
+                        type=str,
+                        dest='bl',            
+                        help="baseline",
+                        default='R_e')                        
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
                         dest='lr',            
@@ -130,7 +135,7 @@ def myargparse():
 
 def create_base(bp,nm,
                 edd,mp,prtd,
-                ns,bs,ap,ep,lr,oe,ew,
+                ns,bs,ap,ep,bl,lr,oe,ew,
                 pqt,pqt_k,pqt_w,
                 gp_ps,gp_ns,gp_ts,gp_cs,gp_m,gp_prtd):
          
@@ -177,7 +182,7 @@ def create_base(bp,nm,
     
     default["training"]["verbose"] = False
     
-    default["training"]["baseline"] = "R_e"
+    default["training"]["baseline"] = bl
     default["training"]["b_jumpstart"] = False
     
     default["training"]["n_cores_batch"] = 1
@@ -254,7 +259,7 @@ if __name__ == "__main__":
     args = myargparse()
     create_base(args.bp, args.nm, 
                 args.edd, args.mp, args.prtd,
-                args.ns, args.bs, args.ap, args.ep, args.lr,
+                args.ns, args.bs, args.ap, args.ep, args.bl, args.lr,
                 args.oe, args.ew, 
                 args.pqt, args.pqt_k, args.pqt_w,
                 args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd)
