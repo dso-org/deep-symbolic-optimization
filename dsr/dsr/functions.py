@@ -142,3 +142,6 @@ function_map = {
 function_map.update({
     "protected_{}".format(op[1]) : Function(*op) for op in protected_ops
     })
+
+UNARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 1])
+BINARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 2])

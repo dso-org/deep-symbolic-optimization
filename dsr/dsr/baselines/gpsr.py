@@ -8,6 +8,8 @@ import numpy as np
 from dsr.functions import function_map
 from dsr.const import make_const_optimizer
 
+from . import constraints
+
 
 GP_MOD = "deap"
 OBJECTS = ["base", "gp", "creator", "tools", "algorithms"]
@@ -23,10 +25,21 @@ class GP():
 
     def __init__(self, dataset, metric="nmse", population_size=1000,
                  generations=1000, n_samples=None, tournament_size=3,
-                 p_crossover=0.5, p_mutate=0.1, max_depth=17, max_len=None,
-                 max_const=None, const_range=[-1, 1], const_optimizer="scipy",
+                 p_crossover=0.5, p_mutate=0.1,
+                 const_range=[-1, 1], const_optimizer="scipy",
                  const_params=None, seed=0, early_stopping=False,
-                 threshold=1e-12, verbose=True, protected=True):
+                 threshold=1e-12, verbose=True, protected=True,
+                 # Constraint hyperparameters
+                 constrain_const=True,
+                 constrain_trig=True,
+                 constrain_inv=True,
+                 constrain_min_len=True,
+                 constrain_max_len=True,
+                 constrain_num_const=True,
+                 min_length=4,
+                 max_length=30,
+                 max_const=3
+):
 
         self.dataset = dataset
         self.fitted = False
@@ -41,7 +54,6 @@ class GP():
         self.tournament_size = tournament_size
         self.p_mutate = p_mutate
         self.p_crossover = p_crossover
-        self.max_depth = max_depth
         self.seed = seed
         self.early_stopping = early_stopping
         self.threshold = threshold
@@ -107,16 +119,27 @@ class GP():
         self.toolbox.register("mate", gp.cxOnePoint)
         self.toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
         self.toolbox.register('mutate', gp.mutUniform, expr=self.toolbox.expr_mut, pset=pset)
-        if max_depth is not None:
-            self.toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
-            self.toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
-        if max_len is not None:
-            self.toolbox.decorate("mate", gp.staticLimit(key=len, max_value=max_len))
-            self.toolbox.decorate("mutate", gp.staticLimit(key=len, max_value=max_len))
-        if const and max_const is not None:
-            num_const = lambda ind : len([node for node in ind if node.name == "const"])
-            self.toolbox.decorate("mate", gp.staticLimit(key=num_const, max_value=max_const))
-            self.toolbox.decorate("mutate", gp.staticLimit(key=num_const, max_value=max_const))
+
+        # Define constraints, each defined by a func : gp.Individual -> bool.
+        # We decorate mutation/crossover operators with constrain, which
+        # replaces a child with a random parent if func(ind) is True.
+        constrain = partial(gp.staticLimit, max_value=0) # Constraint decorator
+        funcs = []
+        if constrain_min_len:
+            funcs.append(constraints.make_check_min_len(min_length)) # Minimum length
+        if constrain_max_len:
+            funcs.append(constraints.make_check_max_len(max_length)) # Maximum length
+        if constrain_inv:
+            funcs.append(constraints.check_inv) # Subsequence inverse unary operators
+        if constrain_trig:
+            funcs.append(constraints.check_trig) # Nested trig operators
+        if constrain_const and const:
+            funcs.append(constraings.check_const) # All children are constants
+        if constrain_num_const and const:
+            funcs.append(constraints.make_check_num_const(max_const)) # Number of constants
+        for func in funcs:
+            for variation in ["mate", "mutate"]:
+                self.toolbox.decorate(variation, constrain(func))
 
         # Create the training function
         self.algorithm = algorithms.eaSimple
@@ -131,7 +154,7 @@ class GP():
             # HACK: If early stopping threshold has been reached, don't do training optimization
             # Check if best individual has NMSE below threshold on test set
             if self.early_stopping and len(self.hof) > 0 and self.nmse(self.hof[0])[0] < self.threshold:
-                return (1.0,)
+                return (999,)
 
         if optimize and len(const_idxs) > 0:
 
