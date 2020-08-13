@@ -266,8 +266,8 @@ def create_base(bp,nm,
         default["gp"]["constrain_max_len"] = True
         default["gp"]["constrain_num_const"] = True        
     
-    default["gp"]["min_length"] = 4,
-    default["gp"]["max_length"] = 30,
+    default["gp"]["min_length"] = 4
+    default["gp"]["max_length"] = 30
     default["gp"]["max_const"] = 3
     
     new_config = deepcopy(default)
