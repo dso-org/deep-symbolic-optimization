@@ -268,13 +268,14 @@ class Dataset(object):
 @click.command()
 @click.argument("file", default="benchmarks.csv")
 @click.option("--noise", default=None, type=float)
-def main(file, noise):
+@click.option('--save_csv', is_flag=True)
+def main(file, noise, save_csv):
     """Pretty prints and plots all benchmark expressions."""
 
     from matplotlib import pyplot as plt
 
-    data_path = resource_filename("dsr.task", "regression/data/")
-    benchmark_path = os.path.join(data_path, file)
+    regression_path = resource_filename("dsr.task", "regression/")
+    benchmark_path = os.path.join(regression_path, file)
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
     expressions = [parse_expr(expression) for expression in df["sympy"]]
@@ -295,8 +296,19 @@ def main(file, noise):
 
             # Draw the actual points
             plt.scatter(d.X_train, d.y_train)
+            
+            plt.title(name, fontsize=7)
             plt.show()
 
+        if save_csv:
+            output_filename = "{}.csv".format(name)   
+            regression_data_path = resource_filename("dsr.task", "regression/data/")
+            output_filename = os.path.join(regression_data_path, output_filename)
+            print("Saving into : {}".format(output_filename))
+            X = d.X_train
+            y = np.reshape(d.y_train,(d.y_train.shape[0],1))
+            XY = np.concatenate((X,y), axis=1)        
+            pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)            
 
 if __name__ == "__main__":
     main()
