@@ -105,7 +105,7 @@ def get_base_model(project):
     """Create the base model."""
 
     # Find the Eureqa symbolic regression algorithm
-    bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Quick" in bp.model_type][0]
+    bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Instant" in bp.model_type][0]
 
     # Train the base model (required before adjusting parameters)
     model_job_id = project.train(bp)
