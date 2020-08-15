@@ -1,10 +1,60 @@
 import os
-import sys
 import json
+import multiprocessing
 
 import click
 import pandas as pd
 import datarobot as dr
+
+
+# NOTE: Mac users first run `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
+
+
+def work(arg):
+
+    project_name, benchmark, results_path, eureqa_params, seed = arg
+
+    print("Running {}...".format(project_name))
+
+    # Get the project
+    project = get_project(project_name=project_name,
+                          benchmark=benchmark)
+
+    # Get the base model
+    base_model = get_base_model(project=project)
+
+    # Get the custom model
+    model = get_model(project=project,
+                      base_model=base_model,
+                      eureqa_params=eureqa_params,
+                      seed=seed)
+
+    # Get the solution
+    solution = model.get_pareto_front().solutions[-1].expression
+    solution = solution.split("Target = ")[-1]
+
+    # Compute success
+    success = get_success(benchmark, solution)
+
+    # Append results
+    df = pd.DataFrame({
+        "name" : [benchmark],
+        "seed" : [seed],
+        "project_name" : [project_name],
+        "project_id" : [project.id],
+        "base_model_id" : [base_model.id],
+        "model_id" : [model.id],
+        "solution" : [solution],
+        "success" : [success]
+        })
+    
+    return df
+
+
+def get_success(benchmark, solution):
+    """Determine whether the solution is symbolically correct."""
+
+    return "TBD"
 
 
 def start_client():
@@ -39,148 +89,82 @@ def get_dataset(name):
     return df
 
 
-def get_project(project_name, results_path):
-    """Retrieve an existing project by name. If it doesn't exist, create it."""
+def get_project(project_name, benchmark):
+    """Create a project with the given name and benchmark."""
 
-    with open(results_path, 'r') as f:
-        results = json.load(f)
-
-    if project_name in results.keys():
-        project_id = results[project_name]["project_id"]
-        print("Found existing project for {}: {}".format(project_name, project_id))
-        project = dr.Project.get(project_id=project_id)
-    
-    else:
-        df = get_dataset(project_name.split('_')[0]) # TBD FIX HACK
-        print("Creating new project...")
-        project = dr.Project.start(project_name=project_name,
-                                   sourcedata=df,
-                                   autopilot_on=False,
-                                   target='y')
-        
-        # Save the project id
-        print("Created new project for {}: {}".format(project_name, project.id))
-        results[project_name] = {
-            "project_id" : project.id,
-            "base_model_id" : None,
-            "model_id" : None,
-            "solution": None
-            }
-        with open(results_path, 'w') as f:
-            json.dump(results, f, indent=3)
+    df = get_dataset(benchmark)
+    project = dr.Project.start(project_name=project_name,
+                               sourcedata=df,
+                               autopilot_on=False,
+                               target='y')
 
     return project
 
 
-def get_base_model(project, results_path):
-    """Retrieve the base model, or create one if it does not yet exist"""
+def get_base_model(project):
+    """Create the base model."""
 
-    name = project.project_name
-    with open(results_path, 'r') as f:
-        results = json.load(f)
-    base_model_id = results[name]["base_model_id"]
+    # Find the Eureqa symbolic regression algorithm
+    bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Quick" in bp.model_type][0]
 
-    if base_model_id is None:
-
-        print("Creating new base model...")
-
-        # Find the Eureqa symbolic regression algorithm
-        bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Quick" in bp.model_type][0]
-
-        # Train the base model (required before adjusting parameters)
-        model_job_id = project.train(bp)
-        job = dr.ModelJob.get(model_job_id=model_job_id, project_id=project.id)
-        model = job.get_result_when_complete()
-
-        # Save the base model id
-        results[name]["base_model_id"] = model.id
-        with open(results_path, 'w') as f:
-            json.dump(results, f, indent=3)
-
-    else:
-        print("Found existing base model:", base_model_id)
-        model = dr.Model.get(project=project.id, model_id=base_model_id)
+    # Train the base model (required before adjusting parameters)
+    model_job_id = project.train(bp)
+    job = dr.ModelJob.get(model_job_id=model_job_id, project_id=project.id)
+    model = job.get_result_when_complete()
         
     return model
 
 
-def get_model(project, eureqa_params, results_path):
-    """Retrieve the custom model, or create one if it does not yet exist"""
+def get_model(project, base_model, eureqa_params, seed):
+    """Create the custom model."""
 
-    name = project.project_name
-    seed = int(name.split('_')[-1])
-    with open(results_path, 'r') as f:
-        results = json.load(f)    
-    model_id = results[name]["model_id"]
+    # Set custom parameters
+    tune = base_model.start_advanced_tuning_session()
+    for parameter_name, value in eureqa_params.items():
+        tune.set_parameter(parameter_name=parameter_name, value=value)
 
-    if model_id is None:
+    # Set the seed
+    tune.set_parameter(parameter_name="random_seed", value=seed)
 
-        # Set custom parameters
-        base_model_id = results[name]["base_model_id"]
-        base_model = dr.Model.get(project=project.id, model_id=base_model_id)
-        tune = base_model.start_advanced_tuning_session()
-        for parameter_name, value in eureqa_params.items():
-            tune.set_parameter(parameter_name=parameter_name, value=value)
-
-        # Set the seed
-        tune.set_parameter(parameter_name="random_seed", value=seed)
-
-        # Train the custom model                
-        job = tune.run()
-        print("Training custom model...")
-        model = job.get_result_when_complete()
-
-        # Save the custom model
-        with open(results_path, 'r') as f:
-            results = json.load(f)
-        results[name]["model_id"] = model.id
-        results[name]["solution"] = model.get_pareto_front().solutions[-1].expression
-        with open(results_path, 'w') as f:
-            json.dump(results, f, indent=3)
-
-    else:
-        print("Found existing custom model:", model_id)
-        model = dr.Model.get(project=project.id, model_id=model_id)
+    # Train the custom model
+    job = tune.run()
+    model = job.get_result_when_complete()
 
     return model
 
 
 @click.command()
-@click.argument("results_path", type=str, default="results.json") # Path to existing results JSON, to 'checkpoint' runs.
+@click.argument("results_path", type=str, default="results.csv") # Path to existing results CSV, to checkpoint runs.
 @click.option("--config", type=str, default="config.json", help="Path to Eureqa JSON configuration.")
-@click.option("--mc", type=int, default=10, help="Number of seeds to run.")
-def main(results_path, config, mc):
+@click.option("--mc", type=int, default=100, help="Number of seeds to run.")
+@click.option("--num_workers", type=int, default=8, help="Number of workers.")
+@click.option("--prefix", type=str, default=None, help="Project name prefix.")
+@click.option("--seed_shift", type=int, default=0, help="Starting seed value.")
+def main(results_path, config, mc, num_workers, prefix, seed_shift):
     """Run Eureqa on Nguyen benchmarks for multiple random seeds."""
-
-    # Start DataRobot client
-    start_client()
 
     # Load Eureqa paremeters
     eureqa_params = load_config(config)
 
-    # Generate a results JSON if it doesn't exist
-    if not os.path.exists(results_path):
-        with open(results_path, 'w') as f:
-            json.dump({}, f, indent=3)
+    # Set up jobs
+    args = []
+    seeds = [i + seed_shift for i in range(mc)]
+    n_benchmarks = 12
+    for seed in seeds:
+        for i in range(n_benchmarks):
+            benchmark = "Nguyen-{}".format(i+1)
+            project_name = '_'.join([benchmark, str(seed)])
+            if prefix is not None:
+                project_name = '_'.join([prefix, project_name])
+            arg = (project_name, benchmark, results_path, eureqa_params, seed)
+            args.append(arg)
 
-    # Run each benchmark in series
-    for benchmark in range(12):
-        for seed in range(mc):
-
-            project_name = "Nguyen-{}_{}".format(benchmark+1, seed)
-
-            # Get the project
-            project = get_project(project_name=project_name,
-                                  results_path=results_path)
-
-            # Get the base model
-            base_model = get_base_model(project=project,
-                                        results_path=results_path)
-
-            # Get the custom model
-            model = get_model(project=project,
-                              eureqa_params=eureqa_params,
-                              results_path=results_path)
+    # Farm out the work
+    pool = multiprocessing.Pool(num_workers, initializer=start_client, initargs=())
+    write_header = True
+    for result in pool.imap_unordered(work, args):
+        pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
+        write_header = False
 
 
 if __name__ == "__main__":
