@@ -12,20 +12,18 @@ import datarobot as dr
 
 def work(arg):
 
-    project_name, benchmark, results_path, eureqa_params, seed = arg
+    benchmark, results_path, eureqa_params, seed = arg
 
-    print("Running {}...".format(project_name))
+    print("Running {} with seed {}...".format(benchmark, seed))
 
     # Get the project
-    project = get_project(project_name=project_name,
-                          benchmark=benchmark)
+    project = get_project(project_name=benchmark)
 
     # Get the base model
     base_model = get_base_model(project=project)
 
     # Get the custom model
-    model = get_model(project=project,
-                      base_model=base_model,
+    model = get_model(base_model=base_model,
                       eureqa_params=eureqa_params,
                       seed=seed)
 
@@ -36,14 +34,10 @@ def work(arg):
     # Compute success
     success = get_success(benchmark, solution)
 
-    # # Delete the project
-    # project.delete()
-
     # Append results
     df = pd.DataFrame({
-        "name" : [benchmark],
+        "benchmark" : [benchmark],
         "seed" : [seed],
-        "project_name" : [project_name],
         "project_id" : [project.id],
         "base_model_id" : [base_model.id],
         "model_id" : [model.id],
@@ -92,33 +86,49 @@ def get_dataset(name):
     return df
 
 
-def get_project(project_name, benchmark):
-    """Create a project with the given name and benchmark."""
+def get_project(project_name):
+    """Get the project, or create one if it doesn't exist."""
 
-    df = get_dataset(benchmark)
+    # If the project exists, return it.
+    for project in dr.Project.list():
+        if project.project_name == project_name:
+            return project
+
+    # Otherwise, create the project.
+    df = get_dataset(project_name)
     project = dr.Project.start(project_name=project_name,
                                sourcedata=df,
                                autopilot_on=False,
                                target='y')
 
+    # Unlock holdout dataset (required to access all training data)
+    project.unlock_holdout()
+
     return project
 
 
 def get_base_model(project):
-    """Create the base model."""
+    """Get the base model, or create one if it doesn't exist."""
 
-    # Find the Eureqa symbolic regression algorithm
-    bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Instant" in bp.model_type][0]
+    # If the base model exists in this project, return it.
+    models = project.get_models()
 
-    # Train the base model (required before adjusting parameters)
-    model_job_id = project.train(bp, sample_pct=100.0)
-    job = dr.ModelJob.get(model_job_id=model_job_id, project_id=project.id)
-    model = job.get_result_when_complete()
+    if len(models) > 0:
+        model = models[0]
+
+    else:
+        # Find the Eureqa symbolic regression algorithm
+        bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Instant" in bp.model_type][0]
+
+        # Train the base model (required before adjusting parameters)
+        model_job_id = project.train(bp, sample_pct=100.0)
+        job = dr.ModelJob.get(model_job_id=model_job_id, project_id=project.id)
+        model = job.get_result_when_complete()
         
     return model
 
 
-def get_model(project, base_model, eureqa_params, seed):
+def get_model(base_model, eureqa_params, seed):
     """Create the custom model."""
 
     # Set custom parameters
@@ -141,9 +151,8 @@ def get_model(project, base_model, eureqa_params, seed):
 @click.option("--config", type=str, default="config.json", help="Path to Eureqa JSON configuration.")
 @click.option("--mc", type=int, default=100, help="Number of seeds to run.")
 @click.option("--num_workers", type=int, default=8, help="Number of workers.")
-@click.option("--prefix", type=str, default=None, help="Project name prefix.")
 @click.option("--seed_shift", type=int, default=0, help="Starting seed value.")
-def main(results_path, config, mc, num_workers, prefix, seed_shift):
+def main(results_path, config, mc, num_workers, seed_shift):
     """Run Eureqa on Nguyen benchmarks for multiple random seeds."""
 
     # Load Eureqa paremeters
@@ -152,25 +161,22 @@ def main(results_path, config, mc, num_workers, prefix, seed_shift):
     # Load existing results to skip over
     if os.path.isfile(results_path):
         df = pd.read_csv(results_path)
-        completed_projects = df["project_name"].tolist()
         write_header = False
     else:
+        df = None
         write_header = True
 
-    # Set up jobs
+    # Define the work
     args = []
     seeds = [i + seed_shift for i in range(mc)]
     n_benchmarks = 12
     for seed in seeds:
         for i in range(n_benchmarks):
             benchmark = "Nguyen-{}".format(i+1)
-            project_name = '_'.join([benchmark, str(seed)])
-            if prefix is not None:
-                project_name = '_'.join([prefix, project_name])
-            if project_name in completed_projects:
-                print("Skipping project {} as it already completed.".format(project_name))
+            if df is not None and len(df.query("benchmark=='{}' and seed=={}".format(benchmark, seed))) > 0:
+                print("Skipping benchmark {} with seed {} as it already completed.".format(benchmark, seed))
                 continue
-            arg = (project_name, benchmark, results_path, eureqa_params, seed)
+            arg = (benchmark, results_path, eureqa_params, seed)
             args.append(arg)
 
     # Farm out the work
