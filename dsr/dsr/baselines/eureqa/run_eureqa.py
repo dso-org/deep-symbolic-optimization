@@ -36,6 +36,9 @@ def work(arg):
     # Compute success
     success = get_success(benchmark, solution)
 
+    # # Delete the project
+    # project.delete()
+
     # Append results
     df = pd.DataFrame({
         "name" : [benchmark],
@@ -108,7 +111,7 @@ def get_base_model(project):
     bp = [bp for bp in project.get_blueprints() if "Eureqa" in bp.model_type and "Instant" in bp.model_type][0]
 
     # Train the base model (required before adjusting parameters)
-    model_job_id = project.train(bp)
+    model_job_id = project.train(bp, sample_pct=100.0)
     job = dr.ModelJob.get(model_job_id=model_job_id, project_id=project.id)
     model = job.get_result_when_complete()
         
@@ -146,6 +149,14 @@ def main(results_path, config, mc, num_workers, prefix, seed_shift):
     # Load Eureqa paremeters
     eureqa_params = load_config(config)
 
+    # Load existing results to skip over
+    if os.path.isfile(results_path):
+        df = pd.read_csv(results_path)
+        completed_projects = df["project_name"].tolist()
+        write_header = False
+    else:
+        write_header = True
+
     # Set up jobs
     args = []
     seeds = [i + seed_shift for i in range(mc)]
@@ -156,15 +167,24 @@ def main(results_path, config, mc, num_workers, prefix, seed_shift):
             project_name = '_'.join([benchmark, str(seed)])
             if prefix is not None:
                 project_name = '_'.join([prefix, project_name])
+            if project_name in completed_projects:
+                print("Skipping project {} as it already completed.".format(project_name))
+                continue
             arg = (project_name, benchmark, results_path, eureqa_params, seed)
             args.append(arg)
 
     # Farm out the work
-    pool = multiprocessing.Pool(num_workers, initializer=start_client, initargs=())
-    write_header = True
-    for result in pool.imap_unordered(work, args):
-        pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
-        write_header = False
+    if num_workers > 1:
+        pool = multiprocessing.Pool(num_workers, initializer=start_client, initargs=())
+        for result in pool.imap_unordered(work, args):
+            pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
+            write_header = False
+    else:
+        start_client()
+        for arg in args:
+            result = work(arg)
+            pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
+            write_header = False
 
 
 if __name__ == "__main__":
