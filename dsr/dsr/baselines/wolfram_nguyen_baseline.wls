@@ -1,12 +1,29 @@
 #!/usr/bin/env wolframscript
-(* ::Package:: *)
 
 (* 
-To run: 
-(In Linux/LC) wolfram-12.0.0 -script findformula_nguyen.wls
-(In MAC) wolframscript -script findformula_nguyen.wls
+Description:
+  Evaluates FindFormula algorithm with 100 MC seeds over the 1D tests in:
+  Uy,  N. Q.,  Hoai,  N. X.,  ONeill,  M.,  McKay,  R. I.,  and Galvan-Lopez, E.  
+  Semantically-based crossover in genetic programming: application to real-valued 
+  symbolic regression. Genetic Programming and Evolvable Machines, 12(2):91–119, 2011. 
+  
+  Needs Mathematica 12.0.0. Runs in parallel over the number of kernels available.
 
-OUTPUTPATH is by default this directory
+Options:
+  RUNDEFAULTS : Boolean flag to run FindFormula with the default values. If 
+                RUNDEFAULTS=False, FindFormula is evaluated with the options
+                PerformanceGoal-> "Quality",
+                SpecificityGoal-> Infinity,
+                TargetFunctions-> {Plus,Times,Power,Sin,Cos,Exp,Log}
+  NOISE : Boolean flag to add gaussian noise to data.
+  STD : If NOISE=True, standard deviation of noise.
+
+To run: 
+  (In Linux/LC) wolfram-12.0.0 -script wolfram_nguyen_baseline.wls
+  (In MAC) wolframscript -script wolfram_nguyen_baseline.wls
+
+Output:
+  OUTPUTPATH is by default this ./wolfram_nguyen_baseline
 *)
 
 DSRCODEPATH="../../..";
@@ -18,6 +35,7 @@ VERBOSE=True;
 RUNDEFAULTS=False;
 NOISE=False;
 STD=0.01;
+
 
 LIBRARY={Plus,Times,Power,Sin,Cos,Exp,Log};(*Function lib: Koza,"add,sub,mul,div,sin,cos,exp,log"*)
 DSRREGRESSIONPATH=DSRCODEPATH<>"/dsr/dsr/task/regression/data"
