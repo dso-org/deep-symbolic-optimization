@@ -87,7 +87,7 @@ data=Map[{#[[1]],#[[2]]+RandomVariate[NormalDistribution[0,STD],1][[1]]}&,data];
 
 SEEDS=Range[0,MC-1];
 If[RUNDEFAULTS,
-FITS=ParallelMap[FindFormula[data,x, 1, {"Score","Error","Complexity"},RandomSeeding->#]&,SEEDS],
+FITS=ParallelMap[FindFormula[data,x, 1, {"Score","Error","Complexity"},RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS],
 FITS=ParallelMap[FindFormula[data,x, 1, {"Score","Error","Complexity"},PerformanceGoal-> "Quality",SpecificityGoal->Infinity,RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS]
 ];
 
