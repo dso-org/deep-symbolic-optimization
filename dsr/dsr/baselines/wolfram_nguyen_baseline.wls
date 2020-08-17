@@ -30,7 +30,7 @@ DSRCODEPATH="../../..";
 OUTPUTPATH="./wolfram_nguyen_baseline";
 
 TESTS={"Nguyen-1","Nguyen-2","Nguyen-3","Nguyen-4","Nguyen-5","Nguyen-6","Nguyen-7","Nguyen-8"}; (*1D tests*)
-MC=2;
+MC=100;
 VERBOSE=True;
 RUNDEFAULTS=False;
 NOISE=False;
