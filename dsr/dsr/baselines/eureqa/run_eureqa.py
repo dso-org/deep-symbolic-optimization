@@ -26,7 +26,8 @@ def work(arg):
     base_model = get_base_model(project=project)
 
     # Get the custom model
-    model = get_model(base_model=base_model,
+    model = get_model(project=project,
+                      base_model=base_model,
                       eureqa_params=eureqa_params,
                       seed=seed)
 
@@ -164,8 +165,8 @@ def get_base_model(project):
     return model
 
 
-def get_model(base_model, eureqa_params, seed):
-    """Create the custom model."""
+def get_model(project, base_model, eureqa_params, seed):
+    """Get the model, or create one if it doesn't exist."""
 
     # Set custom parameters
     tune = base_model.start_advanced_tuning_session()
@@ -175,9 +176,26 @@ def get_model(base_model, eureqa_params, seed):
     # Set the seed
     tune.set_parameter(parameter_name="random_seed", value=seed)
 
-    # Train the custom model
-    job = tune.run()
-    model = job.get_result_when_complete(max_wait=MAX_WAIT)
+    # Train the custom model.
+    # The model may have already been run, which causes an error. This can
+    # happen when the connection is lost, so the model completes on the server
+    # but is not recorded on the client. When this happens, search for the model
+    # with identical parameters and return it.
+    try:
+        job = tune.run()
+        model = job.get_result_when_complete(max_wait=MAX_WAIT)
+    except dr.errors.JobAlreadyRequested:
+        print("Job was already requested! Searching for existing model...")
+        models = project.get_models()
+        eureqa_params_copy = eureqa_params.copy()
+        eureqa_params_copy["random_seed"] = seed
+        for model in models:
+            parameters = model.start_advanced_tuning_session().get_parameters()["tuning_parameters"]
+            parameters = {p["parameter_name"] : p["current_value"] for p in parameters}
+            if parameters == eureqa_params_copy:
+                print("Found existing model!", model.id)
+                return model
+        assert False, "Job was alredy run but could not find existing model."
 
     return model
 
