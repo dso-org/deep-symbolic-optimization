@@ -207,7 +207,8 @@ def get_model(project, base_model, eureqa_params, seed):
 @click.option("--mc", type=int, default=100, help="Number of seeds to run.")
 @click.option("--num_workers", type=int, default=8, help="Number of workers.")
 @click.option("--seed_shift", type=int, default=0, help="Starting seed value.")
-def main(results_path, config, mc, num_workers, seed_shift):
+@click.option("--sweep", is_flag=True, help="Run noise and dataset size experiments.")
+def main(results_path, config, mc, num_workers, seed_shift, sweep):
     """Run Eureqa on Nguyen benchmarks for multiple random seeds."""
 
     # Load Eureqa paremeters
@@ -227,12 +228,24 @@ def main(results_path, config, mc, num_workers, seed_shift):
     n_benchmarks = 12
     for seed in seeds:
         for i in range(n_benchmarks):
-            benchmark = "Nguyen-{}".format(i+1)
-            if df is not None and len(df.query("benchmark=='{}' and seed=={}".format(benchmark, seed))) > 0:
-                print("Skipping benchmark {} with seed {} as it already completed.".format(benchmark, seed))
-                continue
-            arg = (benchmark, results_path, eureqa_params, seed)
-            args.append(arg)
+            benchmarks = []
+            if sweep: # Add all combinations of noise and dataset size multipliers
+                noises = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10]
+                dataset_size_multipliers = [1, 10]
+                for n in noises:
+                    for d in dataset_size_multipliers:
+                        benchmark = "Nguyen-{}_n{:.2f}_d{:.0f}".format(i+1, n, d)
+                        benchmarks.append(benchmark)
+            else: # Just add the noiseless benchmark
+                benchmark = "Nguyen-{}".format(i+1)
+                benchmarks.append(benchmark)
+            
+            for benchmark in benchmarks:
+                if df is not None and len(df.query("benchmark=='{}' and seed=={}".format(benchmark, seed))) > 0:
+                    print("Skipping benchmark {} with seed {} as it already completed.".format(benchmark, seed))
+                    continue
+                arg = (benchmark, results_path, eureqa_params, seed)
+                args.append(arg)
 
     # Farm out the work
     if num_workers > 1:
