@@ -266,6 +266,7 @@ class Dataset(object):
 
 
 def plot_dataset(d):
+    """Plot Dataset with underlying ground truth."""
 
     # Draw ground truth expression
     bounds = list(list(d.train_spec.values())[0].values())[0][:2]
@@ -281,13 +282,17 @@ def plot_dataset(d):
 
 
 def save_dataset(d, output_filename):
+    """Save a Dataset's train and test sets to CSV."""
+
     regression_data_path = resource_filename("dsr.task", "regression/data/")
     output_filename = os.path.join(regression_data_path, output_filename)
-    print("Saving to {}".format(output_filename))
-    X = d.X_train
-    y = np.reshape(d.y_train,(d.y_train.shape[0],1))
-    XY = np.concatenate((X,y), axis=1)        
-    pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)            
+    Xs = [d.X_train, d.X_test]
+    output_filenames = [output_filename, output_filename[:-4] + "_test.csv"]
+    for X, output_filename in zip(Xs, output_filenames):
+        print("Saving to {}".format(output_filename))
+        y = np.reshape(d.y_train,(d.y_train.shape[0],1))
+        XY = np.concatenate((X,y), axis=1)        
+        pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)
 
 
 @click.command()
@@ -308,10 +313,12 @@ def main(file, plot, save_csv, sweep):
     expressions = [parse_expr(expression) for expression in df["sympy"]]
     for expression, name in zip(expressions, names):        
 
-        if not name.startswith("Nguyen"):
+        if not name.startswith("Nguyen") and not name.startswith("Constant"):
             continue
 
         print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
+        datasets = []
+        output_filenames = []
 
         # Noiseless
         d = Dataset(file, name, noise=None)
@@ -320,8 +327,6 @@ def main(file, plot, save_csv, sweep):
         output_filenames.append(output_filename)
 
         # Generate all combinations of noise levels and dataset size multipliers
-        datasets = []
-        output_filenames = []
         if sweep:
             noises = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10]
             dataset_size_multipliers = [1.0, 10.0]
