@@ -3,12 +3,14 @@ import json
 import multiprocessing
 
 import click
+import numpy as np
 import pandas as pd
 import datarobot as dr
+from sympy.utilities.lambdify import lambdify
 
 
 MAX_WAIT = 3600
-# NOTE: Mac users first run `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
+THRESHOLD = 1e-10
 
 
 def work(arg):
@@ -32,8 +34,8 @@ def work(arg):
     solution = model.get_pareto_front().solutions[-1].expression
     solution = solution.split("Target = ")[-1]
 
-    # Compute success
-    success = get_success(benchmark, solution)
+    # Evaluate the solution
+    nmse_test, nmse_test_noiseless, success = evaluate(benchmark, solution)
 
     # Append results
     df = pd.DataFrame({
@@ -43,16 +45,49 @@ def work(arg):
         "base_model_id" : [base_model.id],
         "model_id" : [model.id],
         "solution" : [solution],
+        "nmse_test" : [nmse_test],
+        "nmse_test_noiseless" : [nmse_test_noiseless],
         "success" : [success]
         })
     
     return df
 
 
-def get_success(benchmark, solution):
-    """Determine whether the solution is symbolically correct."""
+def evaluate(benchmark, solution):
+    """Evaluate the solution against the benchmark."""
 
-    return "TBD"
+    # Get test data
+    root = os.path.dirname(__file__)
+    path = os.path.join(root, "../../task/regression/data/{}_test.csv".format(benchmark))
+    df_test = pd.read_csv(path, header=None)
+    X = df_test.values[:, :-1].T # X values are the same for noisy/noiseless
+    y_test = df_test.values[:, -1]
+    var_y_test = np.var(y_test)
+
+    # Get noiseless test data
+    if "_n" in benchmark and "_d" in benchmark:
+        noise_str = benchmark.split('_')[1]
+        benchmark_noiseless = benchmark.replace(noise_str, "n0.00")
+        path = os.path.join(root, "../../task/regression/data/{}_test.csv".format(benchmark_noiseless))
+        df_test_noiseless = pd.read_csv(path, header=None)
+        y_test_noiseless = df_test_noiseless.values[:, -1]
+        var_y_test_noiseless = np.var(y_test_noiseless)
+    else:
+        y_test_noiseless = y_test
+        var_y_test_noiseless = var_y_test
+
+    # Parse solution as sympy expression
+    inputs = ["x{}".format(i+1) for i in range(X.shape[0])]
+    solution = solution.replace("^", "**")
+    f_hat = lambdify(inputs, solution, "numpy")    
+
+    # Compare against test data
+    y_hat = f_hat(*X)
+    nmse_test = np.mean((y_test - y_hat)**2) / var_y_test
+    nmse_test_noiseless = np.mean((y_test_noiseless - y_hat)**2) / var_y_test_noiseless
+    success = nmse_test_noiseless < THRESHOLD
+
+    return nmse_test, nmse_test_noiseless, success
 
 
 def start_client():
@@ -147,6 +182,7 @@ def get_model(base_model, eureqa_params, seed):
     return model
 
 
+# NOTE: Mac users first run `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
 @click.command()
 @click.argument("results_path", type=str, default="results.csv") # Path to existing results CSV, to checkpoint runs.
 @click.option("--config", type=str, default="config.json", help="Path to Eureqa JSON configuration.")
