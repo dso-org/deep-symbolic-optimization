@@ -201,6 +201,10 @@ def get_model(project, base_model, eureqa_params, seed):
 
 
 # NOTE: Mac users first run `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
+# To run main experiments on Nguyen benchmarks: `python run_eureqa.py`
+# To run main experiments on Constant benchmarks: `python run_eureqa.py --benchmark_set=Constant`
+# To run noise experiments: `python run_eureqa.py results_noise.csv --mc=10 --seed_shift=1000 --sweep`
+# To run test experiment: `python run_eureqa.py results_test.csv --num_workers=2 --mc=3 --seed_shift=123 --benchmark_set=Test`
 @click.command()
 @click.argument("results_path", type=str, default="results.csv") # Path to existing results CSV, to checkpoint runs.
 @click.option("--config", type=str, default="config.json", help="Path to Eureqa JSON configuration.")
@@ -208,11 +212,14 @@ def get_model(project, base_model, eureqa_params, seed):
 @click.option("--num_workers", type=int, default=8, help="Number of workers.")
 @click.option("--seed_shift", type=int, default=0, help="Starting seed value.")
 @click.option("--sweep", is_flag=True, help="Run noise and dataset size experiments.")
-def main(results_path, config, mc, num_workers, seed_shift, sweep):
-    """Run Eureqa on Nguyen benchmarks for multiple random seeds."""
+@click.option("--benchmark_set", type=click.Choice(["Nguyen", "Constant", "Test"]), default="Nguyen", help="Choice of benchmark set.")
+def main(results_path, config, mc, num_workers, seed_shift, sweep, benchmark_set):
+    """Run Eureqa on benchmarks for multiple random seeds."""
 
     # Load Eureqa paremeters
     eureqa_params = load_config(config)
+    if benchmark_set == "Constant":
+        eureqa_params["building_block__constant"] = 1
 
     # Load existing results to skip over
     if os.path.isfile(results_path):
@@ -225,19 +232,24 @@ def main(results_path, config, mc, num_workers, seed_shift, sweep):
     # Define the work
     args = []
     seeds = [i + seed_shift for i in range(mc)]
-    n_benchmarks = 12
+    n_benchmarks = {
+        "Nguyen" : 12,
+        "Constant" : 4,
+        "Test" : 1
+    }[benchmark_set]
     for seed in seeds:
         for i in range(n_benchmarks):
             benchmarks = []
             if sweep: # Add all combinations of noise and dataset size multipliers
+                assert benchmark_set == "Nguyen", "Noise sweep only supported for Nguyen benchmarks."
                 noises = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10]
                 dataset_size_multipliers = [1, 10]
                 for n in noises:
                     for d in dataset_size_multipliers:
-                        benchmark = "Nguyen-{}_n{:.2f}_d{:.0f}".format(i+1, n, d)
+                        benchmark = "{}-{}_n{:.2f}_d{:.0f}".format(benchmark_set, i+1, n, d)
                         benchmarks.append(benchmark)
             else: # Just add the noiseless benchmark
-                benchmark = "Nguyen-{}".format(i+1)
+                benchmark = "{}-{}".format(benchmark_set, i+1)
                 benchmarks.append(benchmark)
             
             for benchmark in benchmarks:
@@ -259,6 +271,15 @@ def main(results_path, config, mc, num_workers, seed_shift, sweep):
             result = work(arg)
             pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
             write_header = False
+
+    # If running in test mode, delete the models
+    if benchmark_set == "Test":
+        if num_workers > 1:
+            start_client()
+        project = get_project(benchmark)
+        for model in project.get_models():
+            print("Deleting test model {}.".format(model.id))
+            model.delete()
 
 
 if __name__ == "__main__":
