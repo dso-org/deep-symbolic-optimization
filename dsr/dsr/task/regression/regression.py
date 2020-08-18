@@ -50,7 +50,7 @@ def make_regression_task(name, metric, metric_params, dataset,
     y_test_noiseless = dataset.y_test_noiseless
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
-    metric, invalid_reward = make_regression_metric(metric, y_train, *metric_params)
+    metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
     if reward_noise:
         assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
         rng = np.random.RandomState(0)
@@ -63,26 +63,31 @@ def make_regression_task(name, metric, metric_params, dataset,
         # Compute estimated values
         y_hat = p.execute(X_train)
 
-        # Add observation noise
-        if reward_noise and reward_noise_type == "y_hat":
-            y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
-
         # For invalid expressions, return invalid_reward
         if p.invalid:
             return invalid_reward
 
-        # Check if it's a success. If so, return np.inf. This is an expensive
-        # step, but necessary to ensure success cases aren't overlooked due to
-        # reward noise.
-        if reward_noise and p.evaluate.get("success"):
-            return np.inf
+        ### Observation noise
+        # For reward_noise_type == "y_hat", success must always be checked to 
+        # ensure success cases aren't overlooked due to noise. If successful,
+        # return max_reward.
+        if reward_noise and reward_noise_type == "y_hat":
+            if p.evaluate.get("success"):
+                return max_reward
+            y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
 
-        # Otherwise, return metric
+        # Compute metric
         r = metric(y_train, y_hat)
 
-        # Add reward noise
+        ### Direct reward noise
+        # For reward_noise_type == "r", success can for ~max_reward metrics be
+        # confirmed before adding noise. If successful, must return np.inf to
+        # avoid overlooking success cases.
         if reward_noise and reward_noise_type == "r":
+            if r >= max_reward - 1e-5 and p.evaluate.get("success"):
+                return np.inf
             r += rng.normal(loc=0, scale=reward_noise)
+
         return r
 
 
@@ -141,6 +146,9 @@ def make_regression_metric(name, y_train, *args):
     invalid_reward: float or None
         Reward value to use for invalid expression. If None, the training
         algorithm must handle it, e.g. by rejecting the sample.
+
+    max_reward: float
+        Maximum possible reward under this metric.
     """
 
     var_y = np.var(y_train)
@@ -219,4 +227,17 @@ def make_regression_metric(name, y_train, *args):
     }
     invalid_reward = all_invalid_rewards[name]
 
-    return metric, invalid_reward
+    all_max_rewards = {
+        "neg_mse" : 0.0,
+        "neg_nmse" : 0.0,
+        "neg_nrmse" : 0.0,
+        "inv_mse" : 1.0,
+        "inv_nmse" : 1.0,
+        "inv_nrmse" : 1.0,
+        "fraction" : 1.0,
+        "pearson" : 1.0,
+        "spearman" : 1.0
+    }
+    max_reward = all_max_rewards[name]
+
+    return metric, invalid_reward, max_reward
