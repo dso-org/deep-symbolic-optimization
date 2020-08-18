@@ -268,11 +268,13 @@ class Dataset(object):
 @click.command()
 @click.argument("file", default="benchmarks.csv")
 @click.option("--noise", default=None, type=float)
+@click.option('--plot', is_flag=True)
 @click.option('--save_csv', is_flag=True)
-def main(file, noise, save_csv):
+def main(file, noise, plot, save_csv):
     """Pretty prints and plots all benchmark expressions."""
 
-    from matplotlib import pyplot as plt
+    if plot:
+        from matplotlib import pyplot as plt
 
     regression_path = resource_filename("dsr.task", "regression/")
     benchmark_path = os.path.join(regression_path, file)
@@ -286,7 +288,7 @@ def main(file, noise, save_csv):
             continue
 
         d = Dataset(file, name, noise=noise)
-        if d.X_train.shape[1] == 1:
+        if plot and d.X_train.shape[1] == 1:
 
             # Draw ground truth expression
             bounds = list(list(d.train_spec.values())[0].values())[0][:2]
