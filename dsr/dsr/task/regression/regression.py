@@ -211,7 +211,7 @@ def make_regression_metric(name, y_train, *args):
     assert len(args) == all_metrics[name][1], "Expected {} reward function parameters; received {}.".format(all_metrics[name][1], len(args))
     metric = all_metrics[name][0]
 
-    # For negative MSE-based rewards, inavlid reward is the value of the reward function when y_hat = mean(y)
+    # For negative MSE-based rewards, invalid reward is the value of the reward function when y_hat = mean(y)
     # For inverse MSE-based rewards, invalid reward is 0.0
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
