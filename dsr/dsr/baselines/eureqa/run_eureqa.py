@@ -7,6 +7,7 @@ import pandas as pd
 import datarobot as dr
 
 
+MAX_WAIT = 3600
 # NOTE: Mac users first run `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
 
 
@@ -123,7 +124,7 @@ def get_base_model(project):
         # Train the base model (required before adjusting parameters)
         model_job_id = project.train(bp, sample_pct=100.0)
         job = dr.ModelJob.get(model_job_id=model_job_id, project_id=project.id)
-        model = job.get_result_when_complete()
+        model = job.get_result_when_complete(max_wait=MAX_WAIT)
         
     return model
 
@@ -141,7 +142,7 @@ def get_model(base_model, eureqa_params, seed):
 
     # Train the custom model
     job = tune.run()
-    model = job.get_result_when_complete()
+    model = job.get_result_when_complete(max_wait=MAX_WAIT)
 
     return model
 
