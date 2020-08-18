@@ -222,8 +222,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         print("\nInitial parameter means:")
         print_var_means()
 
-    # For stochastic Programs with hof, store each base_r computation for each unique traversal
-    if Program.stochastic and hof is not None and hof > 0:
+    # For stochastic Programs, store each base_r computation for each unique traversal
+    if Program.stochastic:
         base_r_history = {} # Dict from Program str to list of base_r values
         # It's not really clear stochastic Programs with const should enter the hof
         assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs"
