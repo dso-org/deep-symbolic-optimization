@@ -10,6 +10,7 @@ import zlib
 import click
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import symbols, lambdify, pretty, srepr
 
@@ -265,7 +266,7 @@ class Dataset(object):
         return pretty(self.sympy_expr)
 
 
-def plot_dataset(d):
+def plot_dataset(d, output_filename):
     """Plot Dataset with underlying ground truth."""
 
     # Draw ground truth expression
@@ -277,7 +278,7 @@ def plot_dataset(d):
     # Draw the actual points
     plt.scatter(d.X_train, d.y_train)
     
-    plt.title(name, fontsize=7)
+    plt.title(output_filename[:-4], fontsize=7)
     plt.show()
 
 
@@ -287,10 +288,11 @@ def save_dataset(d, output_filename):
     regression_data_path = resource_filename("dsr.task", "regression/data/")
     output_filename = os.path.join(regression_data_path, output_filename)
     Xs = [d.X_train, d.X_test]
+    ys = [d.y_train, d.y_test]
     output_filenames = [output_filename, output_filename[:-4] + "_test.csv"]
-    for X, output_filename in zip(Xs, output_filenames):
+    for X, y, output_filename in zip(Xs, ys, output_filenames):
         print("Saving to {}".format(output_filename))
-        y = np.reshape(d.y_train,(d.y_train.shape[0],1))
+        y = np.reshape(y, (y.shape[0],1))
         XY = np.concatenate((X,y), axis=1)        
         pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)
 
@@ -302,9 +304,6 @@ def save_dataset(d, output_filename):
 @click.option('--sweep', is_flag=True)
 def main(file, plot, save_csv, sweep):
     """Pretty prints and plots all benchmark expressions."""
-
-    if plot:
-        from matplotlib import pyplot as plt
 
     regression_path = resource_filename("dsr.task", "regression/")
     benchmark_path = os.path.join(regression_path, file)
@@ -341,7 +340,7 @@ def main(file, plot, save_csv, sweep):
         # Plot and/or save datasets
         for d, output_filename in zip(datasets, output_filenames):
             if plot and d.X_train.shape[1] == 1:
-                plot_dataset(d)
+                plot_dataset(d, output_filename)
             if save_csv:
                 save_dataset(d, output_filename)
 
