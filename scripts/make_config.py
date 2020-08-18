@@ -65,6 +65,11 @@ def myargparse():
                         dest='ep',            
                         help="risk-seeking fraction epsilon",
                         default='None')
+    parser.add_argument('-bl','--baseline', 
+                        type=str,
+                        dest='bl',            
+                        help="baseline",
+                        default='R_e')                        
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
                         dest='lr',            
@@ -124,15 +129,20 @@ def myargparse():
                         type=str2bool,
                         dest='gp_prtd',            
                         help="protected operators",
-                        default=True)                   
+                        default=True)
+    parser.add_argument('-gp_cntrt','--gp_constraint', 
+                        type=str2bool,
+                        dest='gp_cntrt',            
+                        help="constraint mode in gp",
+                        default=False)                    
     return parser.parse_args()
 
 
 def create_base(bp,nm,
                 edd,mp,prtd,
-                ns,bs,ap,ep,lr,oe,ew,
+                ns,bs,ap,ep,bl,lr,oe,ew,
                 pqt,pqt_k,pqt_w,
-                gp_ps,gp_ns,gp_ts,gp_cs,gp_m,gp_prtd):
+                gp_ps,gp_ns,gp_ts,gp_cs,gp_m,gp_prtd,gp_cntrt):
          
     path = os.path.join(bp)
     with open(path, encoding='utf-8') as f:
@@ -177,7 +187,7 @@ def create_base(bp,nm,
     
     default["training"]["verbose"] = False
     
-    default["training"]["baseline"] = "R_e"
+    default["training"]["baseline"] = bl
     default["training"]["b_jumpstart"] = False
     
     default["training"]["n_cores_batch"] = 1
@@ -188,13 +198,13 @@ def create_base(bp,nm,
     default["training"]["early_stopping"] = True
     default["training"]["hof"] = None
 
-    # default["controller"]["cell"] = "lstm"
-    # default["controller"]["num_layers"] = 1
-    # default["controller"]["num_units"] = 32
-    # default["controller"]["initializer"] = "zeros"
-    # default["controller"]["embedding"] = False
-    # default["controller"]["embedding_size"] = 8
-    # default["controller"]["optimizer"] = "adam"
+    default["controller"]["cell"] = "lstm"
+    default["controller"]["num_layers"] = 1
+    default["controller"]["num_units"] = 32
+    default["controller"]["initializer"] = "zeros"
+    default["controller"]["embedding"] = False
+    default["controller"]["embedding_size"] = 8
+    default["controller"]["optimizer"] = "adam"
     default["controller"]["learning_rate"] = float(lr)
     
     default["controller"]["observe_action"] = False
@@ -235,14 +245,30 @@ def create_base(bp,nm,
     default["gp"]["const_range"] = [-1.0,1.0]
     default["gp"]["p_crossover"] = float(gp_cs)
     default["gp"]["p_mutate"] = float(gp_m)
-    default["gp"]["max_depth"] = None
-    default["gp"]["max_len"] = 30
-    default["gp"]["max_const"] = 3
     default["gp"]["seed"] = 0
     default["gp"]["early_stopping"] = True
     default["gp"]["threshold"] = 1e-12
     default["gp"]["verbose"] = False
     default["gp"]["protected"] = gp_prtd
+    
+    if gp_cntrt :
+        default["gp"]["constrain_const"] = True
+        default["gp"]["constrain_trig"] = True
+        default["gp"]["constrain_inv"] = True
+        default["gp"]["constrain_min_len"] = True
+        default["gp"]["constrain_max_len"] = True
+        default["gp"]["constrain_num_const"] = True
+    else:
+        default["gp"]["constrain_const"] = False
+        default["gp"]["constrain_trig"] = False
+        default["gp"]["constrain_inv"] = False
+        default["gp"]["constrain_min_len"] = False
+        default["gp"]["constrain_max_len"] = True
+        default["gp"]["constrain_num_const"] = True        
+    
+    default["gp"]["min_length"] = 4
+    default["gp"]["max_length"] = 30
+    default["gp"]["max_const"] = 3
     
     new_config = deepcopy(default)
     path = os.path.join("./", nm + ".json")
@@ -254,7 +280,7 @@ if __name__ == "__main__":
     args = myargparse()
     create_base(args.bp, args.nm, 
                 args.edd, args.mp, args.prtd,
-                args.ns, args.bs, args.ap, args.ep, args.lr,
+                args.ns, args.bs, args.ap, args.ep, args.bl, args.lr,
                 args.oe, args.ew, 
                 args.pqt, args.pqt_k, args.pqt_w,
-                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd)
+                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd, args.gp_cntrt)
