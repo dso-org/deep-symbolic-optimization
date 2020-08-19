@@ -69,7 +69,12 @@ def myargparse():
                         type=str,
                         dest='bl',            
                         help="baseline",
-                        default='R_e')                        
+                        default='R_e')              
+    parser.add_argument('-sar','--save_all_r', 
+                        type=str2bool,
+                        dest='sar',            
+                        help="save_all_r",
+                        default=False)                                          
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
                         dest='lr',            
@@ -160,7 +165,7 @@ def myargparse():
 
 def create_base(bp,nm,
                 edd,mp,prtd,
-                ns,bs,ap,ep,bl,lr,oa,
+                ns,bs,ap,ep,bl,sar,lr,oa,
                 ci,ct,
                 lc,
                 oe,ew,
@@ -217,7 +222,7 @@ def create_base(bp,nm,
     default["training"]["summary"] = False
     default["training"]["debug"] = 0
     default["training"]["output_file"] = None
-    default["training"]["save_all_r"] = False
+    default["training"]["save_all_r"] = sar
     default["training"]["early_stopping"] = True
     default["training"]["hof"] = None
 
@@ -317,7 +322,7 @@ if __name__ == "__main__":
     args = myargparse()
     create_base(args.bp, args.nm, 
                 args.edd, args.mp, args.prtd,
-                args.ns, args.bs, args.ap, args.ep, args.bl, args.lr, args.oa,
+                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.lr, args.oa,
                 args.ci, args.ct,
                 args.lc,
                 args.oe, args.ew, 
