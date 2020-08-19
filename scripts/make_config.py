@@ -30,6 +30,16 @@ def myargparse():
                         dest='nm',            
                         help="name of config file (name.json)",
                         default='base')
+    parser.add_argument('-nse','--noise', 
+                        type=str,
+                        dest='nse',            
+                        help="noise",
+                        default='None') 
+    parser.add_argument('-mtp','--dataset_size_multiplier', 
+                        type=str,
+                        dest='mtp',            
+                        help="dataset_size_multiplier",
+                        default='None')                                                 
     parser.add_argument('-edd','--extra_data_dir', 
                         type=str,
                         dest='edd',            
@@ -164,6 +174,7 @@ def myargparse():
 
 
 def create_base(bp,nm,
+                nse,mtp,
                 edd,mp,prtd,
                 ns,bs,ap,ep,bl,sar,lr,oa,
                 ci,ct,
@@ -180,8 +191,18 @@ def create_base(bp,nm,
     default["task"]["task_type"] = "regression"
     default["task"]["name"] = None
     default["task"]["dataset"]["file"] = "benchmarks.csv"
-    # default["task"]["dataset"]["name"] = None
-    # default["task"]["dataset"]["noise"] = None
+    default["task"]["dataset"]["name"] = None
+    
+    if nse == 'None':
+        default["task"]["dataset"]["noise"] = None
+    else:
+        default["task"]["dataset"]["noise"] = float(nse)    
+
+    if mtp == 'None':
+        default["task"]["dataset"]["dataset_size_multiplier"] = None
+    else:
+        default["task"]["dataset"]["dataset_size_multiplier"] = float(mtp)     
+    
     if edd == 'None':
         default["task"]["dataset"]["extra_data_dir"] = None
     else:
@@ -320,7 +341,8 @@ def create_base(bp,nm,
 
 if __name__ == "__main__":
     args = myargparse()
-    create_base(args.bp, args.nm, 
+    create_base(args.bp, args.nm,
+                args.nse, args.mtp,
                 args.edd, args.mp, args.prtd,
                 args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.lr, args.oa,
                 args.ci, args.ct,
