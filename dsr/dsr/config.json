@@ -36,7 +36,8 @@
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "hof" : 100
+      "hof": 100,
+      "eval_all": false
    },
    "controller": {
       "cell": "lstm",
