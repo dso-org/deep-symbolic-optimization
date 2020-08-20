@@ -49,7 +49,7 @@
    "building_block__tangent": "Disabled",
    "building_block__two-argument_arctangent": "Disabled",
    "error_metric": "Mean_Squared_Error",
-   "max_generations": 3000,
+   "max_generations": 10000,
    "num_threads": 4,
    "prior_solutions": "",
    "random_seed": 0,
