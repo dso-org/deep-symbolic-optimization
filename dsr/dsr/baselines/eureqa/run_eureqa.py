@@ -15,42 +15,56 @@ THRESHOLD = 1e-10
 
 def work(arg):
 
-    benchmark, results_path, eureqa_params, seed = arg
+    try:
 
-    print("Running {} with seed {}...".format(benchmark, seed))
+        benchmark, results_path, eureqa_params, seed = arg
 
-    # Get the project
-    project = get_project(project_name=benchmark)
+        print("Running {} with seed {}...".format(benchmark, seed))
 
-    # Get the base model
-    base_model = get_base_model(project=project)
+        # Get the project
+        project = get_project(project_name=benchmark)
 
-    # Get the custom model
-    model = get_model(project=project,
-                      base_model=base_model,
-                      eureqa_params=eureqa_params,
-                      seed=seed)
+        # Get the base model
+        base_model = get_base_model(project=project)
 
-    # Get the solution
-    solution = model.get_pareto_front().solutions[-1].expression
-    solution = solution.split("Target = ")[-1]
+        # Get the custom model
+        model = get_model(project=project,
+                          base_model=base_model,
+                          eureqa_params=eureqa_params,
+                          seed=seed)
 
-    # Evaluate the solution
-    nmse_test, nmse_test_noiseless, success = evaluate(benchmark, solution)
+        # For noisy datasets, evaluate all solutions along the pareto front.
+        # If success, use that. Otherwise, use the most complex solution.
+        if "_n" in benchmark:
+            for solution in model.get_pareto_front().solutions:
+                solution = solution.expression.split("Target = ")[-1]
+                nmse_test, nmse_test_noiseless, success = evaluate(benchmark, solution)
+                if success:
+                    break
 
-    # Append results
-    df = pd.DataFrame({
-        "benchmark" : [benchmark],
-        "seed" : [seed],
-        "project_id" : [project.id],
-        "base_model_id" : [base_model.id],
-        "model_id" : [model.id],
-        "solution" : [solution],
-        "nmse_test" : [nmse_test],
-        "nmse_test_noiseless" : [nmse_test_noiseless],
-        "success" : [success]
-        })
-    
+        # Otherwise, evaluate the best solution
+        else:            
+            solution = model.get_pareto_front().solutions[-1].expression
+            solution = solution.split("Target = ")[-1]
+            nmse_test, nmse_test_noiseless, success = evaluate(benchmark, solution)
+
+        # Append results
+        df = pd.DataFrame({
+            "benchmark" : [benchmark],
+            "seed" : [seed],
+            "project_id" : [project.id],
+            "base_model_id" : [base_model.id],
+            "model_id" : [model.id],
+            "solution" : [solution],
+            "nmse_test" : [nmse_test],
+            "nmse_test_noiseless" : [nmse_test_noiseless],
+            "success" : [success]
+            })
+
+    except Exception as e:
+        print("Hit '{}' exception for {} on seed {}!".format(e, benchmark, seed))
+        df = None
+        
     return df
 
 
@@ -263,8 +277,9 @@ def main(results_path, config, mc, num_workers, seed_shift, sweep, benchmark_set
     if num_workers > 1:
         pool = multiprocessing.Pool(num_workers, initializer=start_client, initargs=())
         for result in pool.imap_unordered(work, args):
-            pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
-            write_header = False
+            if result is not None:
+                pd.DataFrame(result, index=[0]).to_csv(results_path, header=write_header, mode='a', index=False)
+                write_header = False
     else:
         start_client()
         for arg in args:
