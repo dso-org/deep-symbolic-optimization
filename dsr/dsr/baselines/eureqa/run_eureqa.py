@@ -226,7 +226,7 @@ def get_model(project, base_model, eureqa_params, seed):
 @click.option("--num_workers", type=int, default=8, help="Number of workers.")
 @click.option("--seed_shift", type=int, default=0, help="Starting seed value.")
 @click.option("--sweep", is_flag=True, help="Run noise and dataset size experiments.")
-@click.option("--benchmark_set", type=click.Choice(["Nguyen", "Constant", "Test"]), default="Nguyen", help="Choice of benchmark set.")
+@click.option("--benchmark_set", type=click.Choice(["Nguyen", "Constant", "Test", "Custom"]), default="Nguyen", help="Choice of benchmark set.")
 def main(results_path, config, mc, num_workers, seed_shift, sweep, benchmark_set):
     """Run Eureqa on benchmarks for multiple random seeds."""
 
@@ -249,10 +249,17 @@ def main(results_path, config, mc, num_workers, seed_shift, sweep, benchmark_set
     n_benchmarks = {
         "Nguyen" : 12,
         "Constant" : 4,
-        "Test" : 1
+        "Test" : 1,
+        "Custom" : 22
     }[benchmark_set]
     for seed in seeds:
         for i in range(n_benchmarks):
+
+            # # Hack to only run hard-coded Custom benchmarks
+            # custom_include = [1, 2, 3, 4, 6, 11, 12, 13, 16]
+            # if benchmark_set == "Custom" and i+1 not in custom_include:
+            #     continue
+
             benchmarks = []
             if sweep: # Add all combinations of noise and dataset size multipliers
                 assert benchmark_set == "Nguyen", "Noise sweep only supported for Nguyen benchmarks."
