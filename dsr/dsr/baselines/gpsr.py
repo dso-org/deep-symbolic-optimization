@@ -240,6 +240,14 @@ class GP():
         elif metric == "nrmse":
             fitness = lambda y, y_hat, var_y : np.sqrt(np.mean((y - y_hat)**2 / var_y))
 
+        # Complementary inverse NMSE
+        elif metric == "cinv_nmse":
+            fitness = lambda y, y_hat, var_y : 1 - 1/(1 + np.mean((y - y_hat)**2 / var_y))
+
+        # Complementary inverse NRMSE
+        elif metric == "cinv_nrmse":
+            fitness = lambda y, y_hat, var_y : 1 - 1/(1 + np.sqrt(np.mean((y - y_hat)**2 / var_y)))
+
         else:
             raise ValueError("Metric not recognized.")
 
