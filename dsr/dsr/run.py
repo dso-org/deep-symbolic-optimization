@@ -111,12 +111,10 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 
     # Retrieve results
     r = base_r = p.fitness.values[0]
-    r_test = base_r_test = gp.eval_test(p)[0]
     str_p = str(p)
-    nmse = gp.nmse(p)
+    nmse_test = gp.nmse_test(p)
+    nmse_test_noiseless = gp.nmse_test_noiseless(p)
     success = gp.success(p)
-    r_noiseless = base_r_noiseless = gp.eval_train_noiseless(p)[0]
-    r_test_noiseless = base_r_test_noiseless = gp.eval_test_noiseless(p)[0]
 
     # Many failure cases right now for converting to SymPy expression
     try:
@@ -136,20 +134,15 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 
     result = {
         "name" : name,
-        "nmse" : nmse,
+        "seed" : seed,
         "r" : r,
         "base_r" : base_r,
-        "r_test" : r_test,
-        "base_r_test" : base_r_test,
-        "r_noiseless" : r_noiseless,
-        "base_r_noiseless" : base_r_noiseless,
-        "r_test_noiseless" : r_test_noiseless,
-        "base_r_test_noiseless" : base_r_test_noiseless,
+        "nmse_test" : nmse_test,
+        "nmse_test_noiseless" : nmse_test_noiseless,
+        "success" : success,
         "expression" : expression,
         "traversal" : str_p,
-        "t" : time.time() - start,
-        "seed" : seed,
-        "success" : success
+        "t" : time.time() - start
     }
 
     return result

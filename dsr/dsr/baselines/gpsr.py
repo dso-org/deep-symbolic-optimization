@@ -69,9 +69,11 @@ class GP():
         self.eval_test = partial(self.evaluate, optimize=False, fitness=fitness_test, X=dataset.X_test.T) # Function of individual
         self.eval_train_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_train_noiseless, X=dataset.X_train.T) # Function of individual
         self.eval_test_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
-        nmse = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
-        self.nmse = partial(self.evaluate, optimize=False, fitness=nmse, X=dataset.X_test.T) # Function of individual
-        self.success = lambda ind : self.nmse(ind)[0] < self.threshold # Function of individual
+        nmse_test = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
+        nmse_test_noiseless = partial(self.make_fitness("nmse"), y=dataset.y_test_noiseless, var_y=np.var(dataset.y_test_noiseless)) # Function of y_hat
+        self.nmse_test = partial(self.evaluate, optimize=False, fitness=nmse_test, X=dataset.X_test.T) # Function of individual
+        self.nmse_test_noiseless = partial(self.evaluate, optimize=False, fitness=nmse_test_noiseless, X=dataset.X_test.T) # Function of individual
+        self.success = lambda ind : self.nmse_test_noiseless(ind)[0] < self.threshold # Function of individual
 
         # Create the primitive set
         pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
@@ -153,7 +155,7 @@ class GP():
 
             # HACK: If early stopping threshold has been reached, don't do training optimization
             # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self.nmse(self.hof[0])[0] < self.threshold:
+            if self.early_stopping and len(self.hof) > 0 and self.success(self.hof[0]):
                 return (999,)
 
         if optimize and len(const_idxs) > 0:
