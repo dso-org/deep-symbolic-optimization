@@ -59,19 +59,21 @@ class GP():
         self.threshold = threshold
         self.verbose = verbose
 
-        # Making train/test fitness functions
-        fitness = self.make_fitness(metric) 
-        fitness_train = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train)) # Function of y_hat
-        fitness_test = partial(fitness, y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
-        fitness_train_noiseless = partial(fitness, y=dataset.y_train_noiseless, var_y=np.var(dataset.y_train)) # Function of y_hat
-        fitness_test_noiseless = partial(fitness, y=dataset.y_test_noiseless, var_y=np.var(dataset.y_test)) # Function of y_hat
-        self.eval_train = partial(self.evaluate, optimize=True, fitness=fitness_train, X=dataset.X_train.T) # Function of individual
-        self.eval_test = partial(self.evaluate, optimize=False, fitness=fitness_test, X=dataset.X_test.T) # Function of individual
-        self.eval_train_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_train_noiseless, X=dataset.X_train.T) # Function of individual
-        self.eval_test_noiseless = partial(self.evaluate, optimize=False, fitness=fitness_test_noiseless, X=dataset.X_test.T) # Function of individual
-        nmse = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
-        self.nmse = partial(self.evaluate, optimize=False, fitness=nmse, X=dataset.X_test.T) # Function of individual
-        self.success = lambda ind : self.nmse(ind)[0] < self.threshold # Function of individual
+        # Fitness function used during training
+        # Includes closure for fitness function metric and training data
+        fitness = partial(self.make_fitness(metric), y=dataset.y_train, var_y=np.var(dataset.y_train)) # Function of y_hat
+        self.fitness = partial(self.compute_fitness, optimize=True, fitness=fitness, X=dataset.X_train.T) # Function of individual
+
+        # Test NMSE, used as final performance metric
+        # Includes closure for test data
+        nmse_test = partial(self.make_fitness("nmse"), y=dataset.y_test, var_y=np.var(dataset.y_test)) # Function of y_hat
+        self.nmse_test = partial(self.compute_fitness, optimize=False, fitness=nmse_test, X=dataset.X_test.T) # Function of individual
+
+        # Noiseless test NMSE, only used to determine success for final performance
+        # Includes closure for noiseless test data
+        nmse_test_noiseless = partial(self.make_fitness("nmse"), y=dataset.y_test_noiseless, var_y=np.var(dataset.y_test_noiseless)) # Function of y_hat
+        self.nmse_test_noiseless = partial(self.compute_fitness, optimize=False, fitness=nmse_test_noiseless, X=dataset.X_test.T) # Function of individual
+        self.success = lambda ind : self.nmse_test_noiseless(ind)[0] < self.threshold # Function of individual
 
         # Create the primitive set
         pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
@@ -114,7 +116,7 @@ class GP():
         self.toolbox.register("individual", tools.initIterate, creator.Individual, self.toolbox.expr)
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
         self.toolbox.register("compile", gp.compile, pset=pset)
-        self.toolbox.register("evaluate", self.eval_train)
+        self.toolbox.register("evaluate", self.fitness)
         self.toolbox.register("select", tools.selTournament, tournsize=tournament_size)
         self.toolbox.register("mate", gp.cxOnePoint)
         self.toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
@@ -145,7 +147,8 @@ class GP():
         self.algorithm = algorithms.eaSimple
     
 
-    def evaluate(self, individual, fitness, X, optimize=False):
+    def compute_fitness(self, individual, fitness, X, optimize=False):
+        """Compute the given fitness function on an individual using X."""
 
         if optimize:
             # Retrieve symbolic constants
@@ -153,7 +156,7 @@ class GP():
 
             # HACK: If early stopping threshold has been reached, don't do training optimization
             # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self.nmse(self.hof[0])[0] < self.threshold:
+            if self.early_stopping and len(self.hof) > 0 and self.success(self.hof[0]):
                 return (999,)
 
         if optimize and len(const_idxs) > 0:
