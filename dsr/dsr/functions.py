@@ -124,6 +124,7 @@ protected_ops = [
     (protected_exp, "exp", 1),
     (protected_log, "log", 1),
     (protected_log, "logabs", 1), # Protected logabs is support, but redundant
+    (protected_sqrt, "sqrt", 1),
     (protected_inv, "inv", 1),
     (protected_expneg, "expneg", 1),
     (protected_n2, "n2", 1),
