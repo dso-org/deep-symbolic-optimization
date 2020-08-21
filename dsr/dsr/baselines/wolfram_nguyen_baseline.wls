@@ -1,11 +1,12 @@
 #!/usr/bin/env wolframscript
+(* ::Package:: *)
 
 (* 
 Description:
   Evaluates FindFormula algorithm with 100 MC seeds over the 1D tests in:
   Uy,  N. Q.,  Hoai,  N. X.,  ONeill,  M.,  McKay,  R. I.,  and Galvan-Lopez, E.  
   Semantically-based crossover in genetic programming: application to real-valued 
-  symbolic regression. Genetic Programming and Evolvable Machines, 12(2):91–119, 2011. 
+  symbolic regression. Genetic Programming and Evolvable Machines, 12(2):91\[Dash]119, 2011. 
   
   Needs Mathematica 12.0.0. Runs in parallel over the number of kernels available.
 
@@ -30,7 +31,7 @@ DSRCODEPATH="../../..";
 OUTPUTPATH="./wolfram_nguyen_baseline";
 
 TESTS={"Nguyen-1","Nguyen-2","Nguyen-3","Nguyen-4","Nguyen-5","Nguyen-6","Nguyen-7","Nguyen-8"}; (*1D tests*)
-MC=100;
+MC=ToExpression[$ScriptCommandLine[[2]]];
 VERBOSE=True;
 RUNDEFAULTS=False;
 NOISE=False;
@@ -107,7 +108,7 @@ success=1.0;
 FITS[[i,-1]]=success;
 ];
 
+
 Export[dir<>"/"<>"run_stats_"<>TESTS[[testIndex]]<>".csv",FITS];
 Export[dir<>"/"<>"mean_run_stats_"<>TESTS[[testIndex]]<>".txt",ToString[Map[FortranForm[#]&,Mean[FITS[[All,2;;]]]]]];
-Export[dir<>"/"<>"run_stats_"<>TESTS[[testIndex]]<>".m",Dataset[FITS]];
 ];
