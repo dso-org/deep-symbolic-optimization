@@ -40,7 +40,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, hof=10, debug=0):
+          b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
+          debug=0):
 
     """
     Executes the main training loop.
@@ -125,6 +126,11 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     hof : int or None, optional
         If not None, number of top Programs to evaluate after training.
+
+    eval_all : bool, optional
+        If True, evaluate all Programs. While expensive, this is useful for
+        noisy data when you can't be certain of success solely based on reward.
+        If False, only the top Program is evaluated each iteration.
 
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
@@ -231,6 +237,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         base_r_history = None
 
     # Main training loop
+    p_final = None
     base_r_best = -np.inf
     r_best = -np.inf
     prev_r_best = None
@@ -278,6 +285,13 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         s = [p.str for p in programs] # Str representations of Programs
         invalid = np.array([p.invalid for p in programs], dtype=bool)
         all_r[step] = base_r
+        if eval_all:
+            success = [p.evaluate.get("success") for p in programs]
+            if any(success):
+                all_r = all_r[:(step + 1)]
+                p_final = programs[success.index(True)]
+                print("Early stopping criteria met; breaking early.")
+                break
 
         # Update reward history
         if base_r_history is not None:
@@ -514,7 +528,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             item[1]["program"].print_stats()
 
     # Return statistics of best Program
-    p = p_base_r_best
+    p = p_final if p_final is not None else p_base_r_best
     result = {
         "r" : p.r,
         "base_r" : p.base_r,
