@@ -160,11 +160,11 @@ class Program(object):
             assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
+        self.invalid = False
         self.str = tokens.tostring()
         if optimize:
             _ = self.optimize()
-        self.count = 1
-        self.invalid = False
+        self.count = 1        
         
         
     def cython_execute(self, X):
@@ -253,13 +253,17 @@ class Program(object):
         """
 
         # TBD: Should return np.float32
-        # TBD: Fix to work with task refactoring
 
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)
-            y_hat = self.execute(Program.X_train)
-            obj = np.mean((Program.y_train - y_hat)**2)
+            r = self.reward_function()
+            obj = -r # Constant optpimizer minimizes the objective function
+
+            # Need to reset to False so that a single invalid call during
+            # constant optimizationdoesn't render the whole Program invalid.
+            self.invalid = False
+
             return obj
 
         
