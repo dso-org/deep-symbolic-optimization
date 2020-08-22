@@ -4,7 +4,7 @@ from .dataset import Dataset
 
 
 def make_regression_task(name, metric, metric_params, dataset,
-    reward_noise=None, reward_noise_type=None, threshold=1e-12):
+    reward_noise=0.0, reward_noise_type="r", threshold=1e-12):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -22,13 +22,12 @@ def make_regression_task(name, metric, metric_params, dataset,
     dataset : dict
         Dict of .dataset.Dataset kwargs.
 
-    reward_noise : float or None
+    reward_noise : float
         Noise level to use when computing reward.
 
-    reward_noise_type : "y_hat", "r", or None
+    reward_noise_type : "y_hat" or "r"
         "y_hat" : N(0, reward_noise * y_rms_train) is added to y_hat values.
         "r" : N(0, reward_noise) is added to r.
-        None : 
 
     threshold : float
         Threshold of NMSE on noiseless data used to determine success.
@@ -51,6 +50,7 @@ def make_regression_task(name, metric, metric_params, dataset,
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
     metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
+    assert reward_noise >= 0.0, "Reward noise must be non-negative."
     if reward_noise:
         assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
         rng = np.random.RandomState(0)
