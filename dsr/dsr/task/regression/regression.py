@@ -55,7 +55,10 @@ def make_regression_task(name, metric, metric_params, dataset,
         assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
         rng = np.random.RandomState(0)
         y_rms_train = np.sqrt(np.mean(y_train ** 2))
-        scale = reward_noise * y_rms_train
+        if reward_noise_type == "y_hat":
+            scale = reward_noise * y_rms_train
+        elif reward_noise_type == "r":
+            scale = reward_noise
 
 
     def reward(p):
@@ -86,7 +89,7 @@ def make_regression_task(name, metric, metric_params, dataset,
         if reward_noise and reward_noise_type == "r":
             if r >= max_reward - 1e-5 and p.evaluate.get("success"):
                 return np.inf
-            r += rng.normal(loc=0, scale=reward_noise)
+            r += rng.normal(loc=0, scale=scale)
 
         return r
 
