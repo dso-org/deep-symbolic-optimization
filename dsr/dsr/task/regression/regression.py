@@ -4,7 +4,8 @@ from .dataset import Dataset
 
 
 def make_regression_task(name, metric, metric_params, dataset,
-    reward_noise=0.0, reward_noise_type="r", threshold=1e-12):
+    reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
+    normalize_variance=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -28,6 +29,10 @@ def make_regression_task(name, metric, metric_params, dataset,
     reward_noise_type : "y_hat" or "r"
         "y_hat" : N(0, reward_noise * y_rms_train) is added to y_hat values.
         "r" : N(0, reward_noise) is added to r.
+
+    normalize_variance : bool
+        If True and reward_noise_type=="r", reward is multiplied by
+        1 / sqrt(1 + 12*reward_noise**2).
 
     threshold : float
         Threshold of NMSE on noiseless data used to determine success.
@@ -90,6 +95,8 @@ def make_regression_task(name, metric, metric_params, dataset,
             if r >= max_reward - 1e-5 and p.evaluate.get("success"):
                 return np.inf
             r += rng.normal(loc=0, scale=scale)
+            if normalize_variance:
+                r /= np.sqrt(1 + 12*scale**2)
 
         return r
 

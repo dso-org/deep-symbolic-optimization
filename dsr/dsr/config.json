@@ -15,8 +15,9 @@
       "metric_params" : [1.0],
       "threshold" : 1e-12,
       "protected" : true,
-      "reward_noise" : 0.0,
-      "reward_noise_type" : "r"
+      "reward_noise" : 1.0,
+      "reward_noise_type" : "r",
+      "normalize_variance" : false
    },
    "training": {
       "logdir": "./log",
