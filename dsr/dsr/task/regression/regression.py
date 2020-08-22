@@ -120,7 +120,7 @@ def make_regression_task(name, metric, metric_params, dataset,
         }
         return info
 
-    stochastic = reward_noise is None or reward_noise == 0.0
+    stochastic = reward_noise > 0.0
 
 
     return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic
