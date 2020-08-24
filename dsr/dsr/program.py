@@ -157,7 +157,6 @@ class Program(object):
             self.new_traversal  = [Program.library[t] for t in tokens]
             self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
             self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
-            assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
         self.invalid = False
