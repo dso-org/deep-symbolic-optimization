@@ -133,6 +133,9 @@ class Controller(object):
     language_model_prior: LanguageModelPrior object or None
         Loaded mathematical language model to get prior.
 
+    use_old_entropy : bool
+        Use old entropy.
+
     entropy_weight : float
         Coefficient for entropy bonus.
 
@@ -196,6 +199,7 @@ class Controller(object):
                  use_language_model_prior=False,
                  language_model_prior=None,
                  # Loss hyperparameters
+                 use_old_entropy=False,
                  entropy_weight=0.0,
                  # PPO hyperparameters
                  ppo=False,
@@ -227,6 +231,7 @@ class Controller(object):
         self.max_const = max_const
         self.use_language_model_prior = use_language_model_prior
         self.language_model_prior=language_model_prior
+        self.use_old_entropy = use_old_entropy
         self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -264,7 +269,7 @@ class Controller(object):
                 self.constrain_num_const = False
                 self.max_const = None
             elif not constrain_num_const:
-                print("Warning: max_const={} will not be repsected because constrain_num_const=False. Overriding to None.".format(max_const))
+                print("Warning: max_const={} will not be respected because constrain_num_const=False. Overriding to None.".format(max_const))
                 self.max_const = None
 
         self.compute_parents_siblings = any([self.observe_parent,
@@ -547,9 +552,12 @@ class Controller(object):
 
             return dict_
 
+        def safe_cross_entropy(p, logq, axis=-1):
+            safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
+            return - tf.reduce_sum(p * safe_logq, axis)
 
         # Generates tensor for neglogp of a batch given actions, obs, priors, masks, and lengths
-        def make_neglogp(actions, obs, priors, masks, lengths):
+        def make_neglogp_and_entropy(actions, obs, priors, masks, lengths):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
                                               inputs=get_input(obs),
@@ -557,21 +565,33 @@ class Controller(object):
                                               dtype=tf.float32)
             logits += priors
             
-            # Negative log probabilities of sequences
-            neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-                                                                              labels=actions)
-            neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
+            probs = tf.nn.softmax(logits)
+            logprobs = tf.nn.log_softmax(logits)
 
-            # NOTE: The above implementation is the same as the one below, with a few caveats:
+            # Negative log probabilities of sequences
+            actions_one_hot = tf.one_hot(actions, depth=n_choices, axis=-1, dtype=tf.float32)
+            neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
+            neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time dim
+
+            # NOTE 1: The above implementation is the same as the one below:
+            # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
+            # neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
+            # NOTE 2: The above implementation is also the same as the one below, with a few caveats:
             #   Exactly equivalent when removing priors.
             #   Equivalent up to precision when including clipped prior.
             #   Crashes when prior is not clipped due to multiplying zero by -inf.
-            # actions_one_hot = tf.one_hot(self.actions_ph, depth=n_choices, axis=-1, dtype=tf.float32)
-            # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(self.priors_ph, -2.4e38, 0)) * actions_one_hot
+            # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
             # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
-            # neglogp = self.neglogp = tf.reduce_sum(neglogp_per_step * self.mask_ph, axis=1) # Sum over time
+            # neglogp = tf.reduce_sum(neglogp_per_step *masks, axis=1) # Sum over time
 
-            return neglogp, neglogp_per_step
+            if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
+                entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
+                entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time dim
+            else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
+                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
+                entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time dim
+
+            return neglogp, entropy
 
 
         # On policy batch (used for REINFORCE/PPO)
@@ -584,12 +604,9 @@ class Controller(object):
         # Setup losses
         with tf.name_scope("losses"):
 
-            neglogp, neglogp_per_step = make_neglogp(**self.sampled_batch)
+            neglogp, entropy = make_neglogp_and_entropy(**self.sampled_batch)
 
             # Entropy loss
-            # Entropy = neglogp * p = neglogp * exp(-neglogp)
-            entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-            entropy = tf.reduce_sum(entropy_per_step * self.sampled_batch["masks"], axis=1) # Sum over time
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
 
@@ -616,7 +633,7 @@ class Controller(object):
 
             # Priority queue training loss
             if pqt:
-                pqt_neglogp, _ = make_neglogp(**self.off_policy_batch)
+                pqt_neglogp, _ = make_neglogp_and_entropy(**self.off_policy_batch)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
 
@@ -894,4 +911,3 @@ def parents_siblings(tokens, arities, parent_adjust):
                 siblings[r] = tokens[r, L - c]
                 break
     return adj_parents, siblings
-

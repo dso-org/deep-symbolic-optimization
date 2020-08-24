@@ -1,17 +1,18 @@
 """Class for symbolic expression object or program."""
 
+import array
+import os
 from textwrap import indent
 
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
-import array
-import os
+import gym
 
-from dsr.functions import _function_map, _Function
+from dsr.functions import function_map, Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
-
+import dsr.utils as U
 
 def from_tokens(tokens, optimize):
     """
@@ -47,16 +48,22 @@ def from_tokens(tokens, optimize):
     else:
         tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
 
-    # If the Program is in the cache, return it; otherwise, create a new one
-    key = tokens.tostring()
-    if key in Program.cache:
-        p = Program.cache[key]
-        p.count += 1
-        return p
-    else:
+    # For stochastic Programs, there is no cache; always generate a new Program.
+    # For deterministic Programs, if the Program is in the cache, return it;
+    # otherwise, create a new one and add it to the cache.
+    if Program.stochastic:
         p = Program(tokens, optimize=optimize)
-        Program.cache[key] = p
-        return p
+    else:
+        key = tokens.tostring()
+        if key in Program.cache:
+            p = Program.cache[key]
+            p.count += 1
+        else:
+            p = Program(tokens, optimize=optimize)
+            Program.cache[key] = p
+
+    return p
+
 
 
 class Program(object):
@@ -79,14 +86,18 @@ class Program(object):
     Attributes
     ----------
     traversal : list
-        List of operators (type: _Function) and terminals (type: int, float, or
+        List of operators (type: Function) and terminals (type: int, float, or
         str ("const")) encoding the pre-order traversal of the expression tree.
 
     tokens : np.ndarry (dtype: int)
-        Array of integers whose values correspond to indices 
-        
+        Array of integers whose values correspond to indices
+
     const_pos : list of int
         A list of indicies of constant placeholders along the traversal.
+
+    float_pos : list of float
+        A list of indices of constants placeholders or floating-point constants
+        along the traversal.
 
     sympy_expr : str
         The (lazily calculated) SymPy expression corresponding to the program.
@@ -104,6 +115,9 @@ class Program(object):
 
     count : int
         The number of times this Program has been sampled.
+
+    str : str
+        String representation of tokens. Useful as unique identifier.
     """
 
     # Static variables
@@ -111,24 +125,19 @@ class Program(object):
     arities = None          # Array of arities for each token
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
-    X_train = None
-    y_train = None
-    X_test = None
-    y_test = None
-    y_train_noiseless = None
-    y_test_noiseless = None
-    var_y_test = None
     cache = {}
     
     # Additional derived static variables
-    L = None                # Length of library    
+    L = None                # Length of library
     terminal_tokens = None  # Tokens corresponding to terminals
     unary_tokens = None     # Tokens corresponding to unary operators
     binary_tokens = None    # Tokens corresponding to binary operators
     trig_tokens = None      # Tokens corresponding to trig functions
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
-    parent_adjust = None    # np.ndarray to transform library key to non-terminal sub-library key
+    parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
+
+    # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
@@ -140,19 +149,22 @@ class Program(object):
         """
     
         self.traversal      = [Program.library[t] for t in tokens]
-        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]  
+        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
+        self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
         self.len_traversal  = len(self.traversal)
         
         if self.have_cython and self.len_traversal > 1:
             self.new_traversal  = [Program.library[t] for t in tokens]
-            self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
+            self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
             self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
             assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
+        self.invalid = False
+        self.str = tokens.tostring()
         if optimize:
             _ = self.optimize()
-        self.count = 1
+        self.count = 1        
         
         
     def cython_execute(self, X):
@@ -169,8 +181,9 @@ class Program(object):
         y_hats : array-like, shape = [n_samples]
             The result of executing the program on X.
         """
+
         if self.len_traversal > 1:
-            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.var_pos, self.is_function)
+            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
         else:
             return self.python_execute(X)
     
@@ -182,7 +195,7 @@ class Program(object):
         X : array-like, shape = [n_samples, n_features]
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features.
-        
+
         Returns
         -------
         y_hats : array-like, shape = [n_samples]
@@ -200,7 +213,7 @@ class Program(object):
 
         for node in self.traversal:
 
-            if isinstance(node, _Function):
+            if isinstance(node, Function):
                 apply_stack.append([node])
             else:
                 # Lazily evaluate later
@@ -241,12 +254,20 @@ class Program(object):
             Array of optimized constants.
         """
 
+        # TBD: Should return np.float32
+
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)
-            y_hat = self.execute(Program.X_train)
-            obj = np.mean((Program.y_train - y_hat)**2)
+            r = self.reward_function()
+            obj = -r # Constant optimizer minimizes the objective function
+
+            # Need to reset to False so that a single invalid call during
+            # constant optimization doesn't render the whole Program invalid.
+            self.invalid = False
+
             return obj
+
         
         assert self.execute is not None, "set_execute needs to be called first"
         
@@ -277,89 +298,11 @@ class Program(object):
 
 
     @classmethod
-    def set_training_data(cls, dataset):
-        """Sets the class' training and testing data"""
-
-        cls.X_train = dataset.X_train
-        cls.y_train = dataset.y_train
-        cls.X_test = dataset.X_test
-        cls.y_test = dataset.y_test
-        cls.y_train_noiseless = dataset.y_train_noiseless
-        cls.y_test_noiseless = dataset.y_test_noiseless
-        cls.var_y_test = np.var(dataset.y_test)
-
-
-    @classmethod
     def set_const_optimizer(cls, name, **kwargs):
         """Sets the class' constant optimizer"""
 
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
-
-
-    @classmethod
-    def set_reward_function(cls, name, *params):
-        """Sets the class' reward function"""
-
-        if "nmse" in name or "nrmse" in name:
-            var_y = np.var(Program.y_train)
-
-        all_functions = {
-            # Negative mean squared error
-            # Range: [-inf, 0]
-            # Value = -var(y) when y_hat == mean(y)
-            "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
-                            0),
-
-            # Negative normalized mean squared error
-            # Range: [-inf, 0]
-            # Value = -1 when y_hat == mean(y)
-            "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
-                            0),
-
-            # Negative normalized root mean squared error
-            # Range: [-inf, 0]
-            # Value = -1 when y_hat == mean(y)
-            "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
-                            0),
-
-            # (Protected) inverse mean squared error
-            # Range: [0, 1]
-            # Value = 1/(1 + var(y)) when y_hat == mean(y)
-            "inv_mse" : (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)),
-                            0),
-
-            # (Protected) inverse normalized mean squared error
-            # Range: [0, 1]
-            # Value = 0.5 when y_hat == mean(y)
-            "inv_nmse" :    (lambda y, y_hat : 1/(1 + np.mean((y - y_hat)**2)/var_y),
-                            0),
-
-            # (Protected) inverse normalized root mean squared error
-            # Range: [0, 1]
-            # Value = 0.5 when y_hat == mean(y)
-            "inv_nrmse" :    (lambda y, y_hat : 1/(1 + np.sqrt(np.mean((y - y_hat)**2)/var_y)),
-                            0),
-
-            # Fraction of predicted points within p0*abs(y) + p1 band of the true value
-            # Range: [0, 1]
-            "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < params[0]*abs(y) + params[1]),
-                            2),
-
-            # Pearson correlation coefficient
-            # Range: [0, 1]
-            "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
-                            0),
-
-            # Spearman correlation coefficient
-            # Range: [0, 1]
-            "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
-                            0)
-        }
-
-        assert name in all_functions, "Unrecognized reward function name"
-        assert len(params) == all_functions[name][1], "Expected {} reward function parameters; received {}.".format(all_functions[name][1], len(params))
-        Program.reward_function = all_functions[name][0]
 
 
     @classmethod
@@ -375,7 +318,7 @@ class Program(object):
         }
 
         assert name in all_functions, "Unrecognzied complexity penalty name"
-        
+
         if weight == 0:
             Program.complexity_penalty = lambda p : 0.0
         else:
@@ -383,7 +326,7 @@ class Program(object):
 
 
     @classmethod
-    def set_execute(cls):
+    def set_execute(cls, protected):
         """Sets which execute method to use"""
         
         """
@@ -395,39 +338,119 @@ class Program(object):
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            Program.execute         = Program.cython_execute
+            execute_function        = Program.cython_execute
             Program.have_cython     = True
         else:
-            Program.execute         = Program.python_execute
+            execute_function        = Program.python_execute
             Program.have_cython     = False
+
+        if protected:
+            Program.execute = execute_function
+        else:
+
+            class InvalidLog():
+                """Log class to catch and record numpy warning messages"""
+
+                def __init__(self):
+                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+
+                def write(self, message):
+                    """This is called by numpy when encountering a warning"""
+
+                    if not self.new_entry: # Only record the first warning encounter
+                        message = message.strip().split(' ')
+                        self.error_type = message[1]
+                        self.error_node = message[-1]
+                    self.new_entry = True
+
+                def update(self, p):
+                    """If a floating-point error was encountered, set Program.invalid
+                    to True and record the error type and error node."""
+
+                    if self.new_entry:
+                        p.invalid = True
+                        p.error_type = self.error_type
+                        p.error_node = self.error_node
+                        self.new_entry = False
+
+
+            invalid_log = InvalidLog()
+            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+
+            # Define closure for execute function
+            def unsafe_execute(p, X):
+                """This is a wrapper for execute_function. If a floating-point error
+                would be hit, a warning is logged instead, p.invalid is set to True,
+                and the appropriate nan/inf value is returned. It's up to the task's
+                reward function to decide how to handle nans/infs."""
+
+                with np.errstate(all='log'):
+                    y = execute_function(p, X)
+                    invalid_log.update(p)
+                    return y
+
+            Program.execute = unsafe_execute
 
 
     @classmethod
-    def set_library(cls, operators, n_input_var):
-        """Sets the class library and arities"""
+    def set_reward_function(cls, reward_function):
+        """Sets the class reward function."""
+
+        Program.reward_function = reward_function
+
+
+    @classmethod
+    def set_eval_function(cls, eval_function):
+        """Sets the class eval function."""
+
+        Program.eval_function = eval_function
+
+
+    @classmethod
+    def set_stochastic(cls, stochastic):
+        """Sets the class stochasticity."""
+
+        Program.stochastic = stochastic
+
+
+    @classmethod
+    def set_library(cls, operators, n_input_var, protected):
+        """Sets the class library and arities."""
 
         # Add input variables
         Program.library = list(range(n_input_var))
+        Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
         Program.arities = [0] * n_input_var
 
-        # Add operators
-        operators = [op.lower() if isinstance(op, str) else op for op in operators]
         for i, op in enumerate(operators):
 
             # Function
-            if op in _function_map:
-                op = _function_map[op]
+            if op in function_map:
+
+                # Prepend available protected operators with "protected_"
+                if protected and not op.startswith("protected_"):
+                    protected_op = "protected_{}".format(op)                    
+                    if protected_op in function_map:
+                        op = protected_op
+
+                op = function_map[op]
                 Program.library.append(op)
+                Program.str_library.append(op.name)
                 Program.arities.append(op.arity)
 
             # Hard-coded floating-point constant
-            elif isinstance(op, float):
+            elif isinstance(op, float) or isinstance(op, int):
+                op = np.float32(op)
                 Program.library.append(op)
+                Program.str_library.append(str(op))
                 Program.arities.append(0)
 
             # Constant placeholder (to-be-optimized)
             elif op == "const":
                 Program.library.append(op)
+                Program.str_library.append(op)
                 Program.arities.append(0)
                 Program.const_token = i + n_input_var
 
@@ -449,7 +472,7 @@ class Program(object):
         Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
         Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
         Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
-        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], _Function) and Program.library[t].name in trig_names], dtype=np.int32)
+        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], Function) and Program.library[t].name in trig_names], dtype=np.int32)
 
         inverse_tokens = {
             "inv" : "inv",
@@ -459,18 +482,17 @@ class Program(object):
             "sqrt" : "n2",
             "n2" : "sqrt"
         }
-        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, _Function)}
+        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, Function)}
         Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
-        print("Library:\n\t{}".format(', '.join(["x" + str(i+1) for i in range(n_input_var)] + operators)))
+        print("Library:\n\t{}".format(Program.str_library))
 
 
     @staticmethod
     def convert(traversal):
         """Converts a string traversal to an int traversal"""
 
-        str_library = [f if isinstance(f, str) else f.name for f in Program.library]
-        return np.array([str_library.index(f.lower()) for f in traversal], dtype=np.int32)
+        return np.array([Program.str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
 
     @cached_property
@@ -485,75 +507,21 @@ class Program(object):
         """Evaluates and returns the base reward of the program on the training
         set"""
 
-        y_hat = self.execute(Program.X_train)
-        return Program.reward_function(Program.y_train, y_hat)
-
-
-    @cached_property
-    def base_r_test(self):
-        """Evaluates and returns the base reward of the program on the test
-        set"""
-
-        y_hat = self.execute(Program.X_test)
-        return Program.reward_function(Program.y_test, y_hat)
-
-
-    @cached_property
-    def base_r_noiseless(self):
-        """Evaluates and returns the base reward of the program on the noiseless
-        training set"""
-
-        y_hat = self.execute(Program.X_train)
-        return Program.reward_function(Program.y_train_noiseless, y_hat)
-
-
-    @cached_property
-    def base_r_test_noiseless(self):
-        """Evaluates and returns the base reward of the program on the noiseless
-        test set"""
-
-        y_hat = self.execute(Program.X_test)
-        return Program.reward_function(Program.y_test_noiseless, y_hat)
+        return self.reward_function()
 
 
     @cached_property
     def r(self):
         """Evaluates and returns the reward of the program on the training
         set"""
-
         return self.base_r - self.complexity
 
 
     @cached_property
-    def r_test(self):
-        """Evaluates and returns the reward of the program on the test set"""
+    def evaluate(self):
+        """Evaluates and returns the evaluation metrics of the program."""
 
-        return self.base_r_test - self.complexity
-
-
-    @cached_property
-    def r_noiseless(self):
-        """Evaluates and returns the reward of the program on the noiseless
-        training set"""
-
-        return self.base_r_noiseless - self.complexity
-
-
-    @cached_property
-    def r_test_noiseless(self):
-        """Evaluates and returns the reward of the program on the noiseless
-        test set"""
-
-        return self.base_r_test_noiseless - self.complexity
-
-
-    @cached_property
-    def nmse(self):
-        """Evaluates and returns the normalized mean squared error of the
-        program on the test set (used as final performance metric)"""
-
-        y_hat = self.execute(Program.X_test)
-        return np.mean((Program.y_test - y_hat)**2) / Program.var_y_test
+        return self.eval_function()
 
 
     @cached_property
@@ -568,20 +536,21 @@ class Program(object):
         tree = self.traversal.copy()
         tree = build_tree(tree)
         tree = convert_to_sympy(tree)
-        expr = parse_expr(tree.__repr__()) # SymPy expression
-
+        try:
+            expr = parse_expr(tree.__repr__()) # SymPy expression
+        except:
+            expr = "N/A"
+            
         return expr
 
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-
         return pretty(self.sympy_expr)
 
 
     def print_stats(self):
         """Prints the statistics of the program"""
-
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
@@ -589,11 +558,11 @@ class Program(object):
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
 
-    
+
     def __repr__(self):
         """Prints the program's traversal"""
 
-        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) else f.name for f in self.traversal])
+        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) or isinstance(f, np.float32) else f.name for f in self.traversal])
 
 
 ###############################################################################
@@ -625,15 +594,15 @@ def build_tree(traversal, order="preorder"):
     if order == "preorder":
         op = traversal.pop(0)
 
-        if isinstance(op, _Function):
+        if isinstance(op, Function):
             val = op.name
             if val in capital:
                 val = val.capitalize()
-            n_children = op.arity            
+            n_children = op.arity
         elif isinstance(op, int):
             val = "x{}".format(op + 1)
             n_children = 0
-        elif isinstance(op, float):
+        elif isinstance(op, float) or isinstance(op, np.float32):
             val = str(op)
             n_children = 0
         else:

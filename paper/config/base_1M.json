@@ -1,19 +1,27 @@
 {
-   "dataset": {
-      "file": "benchmarks.csv",
+   "task" : {
+      "task_type" : "regression",
       "name" : null,
-      "extra_input_var": 0,
-      "noise": null,
-      "extra_data_dir": null,
-      "function_lib": null
+      "dataset" : {
+         "file" : "benchmarks.csv",
+         "name" : null,
+         "noise" : null,
+         "extra_data_dir" : null,
+         "function_set" : null,
+         "shuffle_data": false,
+         "train_fraction": 0.8
+      },
+      "metric" : "inv_nrmse",
+      "metric_params" : [],
+      "threshold" : 1e-12,
+      "stochastic" : false,
+      "protected" : true
    },
    "training": {
       "logdir": "./log",
       "n_epochs": null,
       "n_samples": 1000000,
       "batch_size": 500,
-      "reward": "inv_nrmse",
-      "reward_params": [],
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
@@ -23,14 +31,15 @@
       "verbose": false,
       "baseline": "R_e",
       "b_jumpstart": false,
-      "num_cores": 1,
+      "n_cores_batch": 1,
       "summary": false,
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "threshold": 1e-12
+      "hof" : null
    },
+
    "controller": {
       "cell": "lstm",
       "num_layers": 1,
@@ -49,6 +58,7 @@
       "constrain_min_len": true,
       "constrain_max_len": true,
       "constrain_num_const": false,
+      "use_language_model_prior": false,
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,
@@ -81,6 +91,7 @@
       "seed": 0,
       "early_stopping": true,
       "threshold": 1e-12,
-      "verbose": false
+      "verbose": false,
+      "protected" : true
    }
 }

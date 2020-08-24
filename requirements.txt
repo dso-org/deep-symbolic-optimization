@@ -1,10 +1,15 @@
 cython
 numpy
 tensorflow==1.14
-gplearn
 numba
 sympy
 pandas
-click
--e dsr
 scikit-learn
+click
+deap
+mpi4py
+pybullet
+gym[box2d]
+stable-baselines[mpi]
+datarobot
+

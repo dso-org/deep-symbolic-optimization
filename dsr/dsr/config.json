@@ -1,35 +1,43 @@
 {
-   "dataset": {
-      "file": "benchmarks.csv",
-      "name" : null,
-      "extra_input_var": 0,
-      "noise": null,
-      "extra_data_dir": null,
-      "function_lib": null
+   "task": {
+      "task_type" : "regression",
+      "name" : "Nguyen-1",
+      "dataset" : {
+         "file": "benchmarks.csv",
+         "name" : null,
+         "noise": null,
+         "extra_data_dir": null,
+         "function_set": null,
+         "shuffle_data": false,
+         "train_fraction": 0.8
+      },
+      "metric" : "inv_nrmse",
+      "metric_params" : [1.0],
+      "threshold" : 1e-12,
+      "protected" : true
    },
    "training": {
       "logdir": "./log",
       "n_epochs": null,
       "n_samples": 2000000,
       "batch_size": 500,
-      "reward": "inv_nrmse",
-      "reward_params": [],
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
       "const_params": {},
       "alpha": 0.5,
       "epsilon": 0.1,
-      "verbose": false,
+      "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
-      "num_cores": 1,
+      "n_cores_batch": 1,
       "summary": false,
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "threshold": 1e-12
+      "hof": 100,
+      "eval_all": false
    },
    "controller": {
       "cell": "lstm",
@@ -53,7 +61,8 @@
       "min_length": 4,
       "max_length": 30,
       "max_const": 3,
-      "entropy_weight": 0.1,
+      "use_old_entropy": false,
+      "entropy_weight": 0.005,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,
@@ -76,13 +85,20 @@
       ],
       "p_crossover": 0.95,
       "p_mutate": 0.03,
-      "max_depth": null,
-      "max_len": 30,
-      "max_const": 3,
       "seed": 0,
       "early_stopping": true,
       "threshold": 1e-12,
-      "verbose": false
+      "verbose": false,
+      "protected": true,
+      "constrain_const": true,
+      "constrain_trig": true,
+      "constrain_inv": true,
+      "constrain_min_len": true,
+      "constrain_max_len": true,
+      "constrain_num_const": true,
+      "min_length": 4,
+      "max_length": 30,
+      "max_const" : 3
    },
    "language_model_prior": {
         "saved_language_model_path": "./language_model/model/saved_model",
@@ -93,4 +109,3 @@
         "prob_sharing": true
     }
 }
-

@@ -1,5 +1,9 @@
 """Parallelized, single-point launch script to run DSR or GP on a set of benchmarks."""
 
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 import os
 import sys
 import json
@@ -18,68 +22,77 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
 
 from dsr.program import Program
-from dsr.dataset import Dataset
+from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
+from dsr.task import set_task
 
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', category=FutureWarning)
 
-def train_dsr(name_and_seed, config_dataset, config_controller, config_language_model_prior, config_training):
+def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
+    # Override the benchmark name
     name, seed = name_and_seed
+    config_task["name"] = name
 
+    # Try importing TensorFlow (with suppressed warnings), Controller, and learn
+    # When parallelizing across tasks, these will already be imported, hence try/except
     try:
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         import tensorflow as tf
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
         from dsr.controller import Controller
         from dsr.train import learn
 
-        # Ignore TensorFlow warnings
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
     except:
         pass
+
+    # For some reason, for the control task, the environment needs to be instantiated
+    # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
+    if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
+        import gym
+        gym.make(name)
+
+    # Create the pool and set the task for each worker
+    n_cores_batch = config_training["n_cores_batch"]
+    if n_cores_batch > 1:
+        pool = multiprocessing.Pool(n_cores_batch, initializer=set_task, initargs=(config_task,))
+    else:
+        pool = None
+
+    # Set the task for the parent process    
+    set_task(config_task)
 
     start = time.time()
 
     # Rename the output file
     config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
 
-    # Define the dataset and library
-    dataset = get_dataset(name, config_dataset)
+    # Reset cache and TensorFlow graph
     Program.clear_cache()
-    Program.set_training_data(dataset)
-    Program.set_library(dataset.function_set, dataset.n_input_var)
-    Program.set_execute()
-        
-    tf.reset_default_graph()
-
+    tf.reset_default_graph()        
+    
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
-    
-    with tf.Session() as sess:        
+  
+    with tf.Session() as sess:
 
         # Instantiate the controller w/ language model
-        if "use_language_model_prior" in config_controller and config_controller["use_language_model_prior"] and config_language_model_prior is not None:
-            language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
+        if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
+            language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
         else:
             language_model_prior = None
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
 
         # Train the controller
-        result = learn(sess, controller, **config_training) # r, base_r, expression, traversal
-        result["name"] = name
-        result["t"] = time.time() - start
-
-        result["seed"] = seed
+        result = {"name" : name, "seed" : seed} # Name and seed are listed first
+        result.update(learn(sess, controller, pool, **config_training))
+        result["t"] = time.time() - start # Time listed last
 
         return result
 
 
-def train_gp(name_and_seed, logdir, config_dataset, config_gp):
+def train_gp(name_and_seed, logdir, config_task, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
 
     name, seed = name_and_seed
@@ -88,7 +101,9 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
     start = time.time()
 
     # Load the dataset
-    dataset = get_dataset(name, config_dataset)
+    config_dataset = config_task["dataset"]
+    config_dataset["name"] = name
+    dataset = Dataset(**config_dataset)
 
     # Fit the GP
     gp = gpsr.GP(dataset=dataset, **config_gp)
@@ -96,11 +111,10 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
 
     # Retrieve results
     r = base_r = p.fitness.values[0]
-    r_test = base_r_test = gp.eval_test(p)[0]
     str_p = str(p)
-    nmse = gp.nmse(p)
-    r_noiseless = base_r_noiseless = gp.eval_train_noiseless(p)[0]
-    r_test_noiseless = base_r_test_noiseless = gp.eval_test_noiseless(p)[0]
+    nmse_test = gp.nmse_test(p)
+    nmse_test_noiseless = gp.nmse_test_noiseless(p)
+    success = gp.success(p)
 
     # Many failure cases right now for converting to SymPy expression
     try:
@@ -120,30 +134,18 @@ def train_gp(name_and_seed, logdir, config_dataset, config_gp):
 
     result = {
         "name" : name,
-        "nmse" : nmse,
+        "seed" : seed,
         "r" : r,
         "base_r" : base_r,
-        "r_test" : r_test,
-        "base_r_test" : base_r_test,
-        "r_noiseless" : r_noiseless,
-        "base_r_noiseless" : base_r_noiseless,
-        "r_test_noiseless" : r_test_noiseless,
-        "base_r_test_noiseless" : base_r_test_noiseless,
+        "nmse_test" : nmse_test,
+        "nmse_test_noiseless" : nmse_test_noiseless,
+        "success" : success,
         "expression" : expression,
         "traversal" : str_p,
-        "t" : time.time() - start,
-        "seed" : seed
+        "t" : time.time() - start
     }
 
     return result
-
-
-def get_dataset(name, config_dataset):
-    """Creates and returns the dataset"""
-
-    config_dataset["name"] = name
-    dataset = Dataset(**config_dataset)
-    return dataset
 
 
 @click.command()
@@ -151,26 +153,24 @@ def get_dataset(name, config_dataset):
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
-@click.option('--num_cores', default=multiprocessing.cpu_count(), help="Number of cores to use")
+@click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--seed_shift', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
-@click.option('--benchmark', '--b', '--only', multiple=True, type=str, help="Benchmark or benchmark prefix to include")
-def main(config_template, method, mc, output_filename, num_cores, seed_shift, benchmark):
+@click.option('--b', multiple=True, type=str, help="Name of benchmark or benchmark prefix")
+def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
-    
-     # Load the config file
+
+    # Load the config file
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
-    config_dataset = config["dataset"]              # Problem specification parameters
-    config_training = config["training"]            # Training hyperparameters
-    if "controller" in config:
-        config_controller = config["controller"]    # Controller hyperparameters
-    if "language_model_prior" in config:
-        config_language_model_prior = config["language_model_prior"]            # Language model hyperparameters
-    else:
-        config_language_model_prior = None
-    if "gp" in config:
-        config_gp = config["gp"]                    # GP hyperparameters
+    # Required configs
+    config_task = config["task"]            # Task specification parameters
+    config_training = config["training"]    # Training hyperparameters
+    
+    # Optional configs
+    config_controller = config.get("controller")                        # Controller hyperparameters
+    config_language_model_prior = config.get("language_model_prior")    # Language model hyperparameters
+    config_gp = config.get("gp")                                        # GP hyperparameters
 
     # Create output directories
     if output_filename is None:
@@ -181,54 +181,37 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
 
-    # Load the benchmark names
-    data_path = resource_filename("dsr", "data/")
-    benchmark_path = os.path.join(data_path, config_dataset["file"])
-    df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
-    names = df["name"].to_list()
+    # Use benchmark name from config if not specified as command-line arg
+    if len(b) == 0:
+        b = (config_task["name"],)
 
-    # Load raw dataset names
-    # HACK: Exclude "benchmark" names
-    for f in os.listdir(data_path):
-        if f.endswith(".csv") and "benchmarks" not in f and "function_sets" not in f:
-            names.append(f.split('.')[0])
+    # HACK: DSR-specific shortcut to run all Nguyen benchmarks
+    benchmarks = list(b)
+    if "Nguyen" in benchmarks:
+        benchmarks.remove("Nguyen")
+        benchmarks += ["Nguyen-{}".format(i+1) for i in range(12)]    
 
-    # Load raw dataset from external directory in config
-    if "extra_data_dir" in config_dataset:
-        if not config_dataset["extra_data_dir"] == None:
-            for f in os.listdir(config_dataset["extra_data_dir"]):
-                if f.endswith(".csv"):
-                    names.append(f.split('.')[0])
+    # Generate benchmark-seed pairs for each MC. When passed to the TF RNG,
+    # seeds will be added to checksums on the benchmark names
+    unique_benchmarks = benchmarks.copy()
+    benchmarks *= mc
+    seeds = (np.arange(mc) + seed_shift).repeat(len(unique_benchmarks)).tolist()
+    names_and_seeds = list(zip(benchmarks, seeds))
 
-    # Filter out expressions
-    expressions = [parse_expr(e) for e in df["sympy"]]
-    if len(benchmark) > 0:
-        keep = [False]*len(names)
-        for included_name in benchmark:
-            if '-' in included_name:
-                keep = [True if included_name == n else k for k,n in zip(keep, names)]
-            else:
-                keep = [True if n.startswith(included_name) else k for k,n in zip(keep, names)]
-
-    names = [n for k,n in zip(keep, names) if k]
-    unique_names = names.copy()
-    names *= mc
-    
-    # When passed to RNGs, these seeds will actually be added to checksums on the name
-    seeds = (np.arange(mc) + seed_shift).repeat(len(unique_names)).tolist()
-    names_and_seeds = list(zip(names, seeds))
-
-    if num_cores > len(names):
-        print("Setting 'num_cores' to {} for batch because there are only {} expressions.".format(len(names), len(names)))
-        num_cores = len(names)
+    # Edit n_cores_task and/or n_cores_batch
+    if n_cores_task == -1:
+        n_cores_task = multiprocessing.cpu_count()
+    if n_cores_task > len(benchmarks):
+        print("Setting 'n_cores_task' to {} for batch because there are only {} benchmarks.".format(len(benchmarks), len(benchmarks)))
+        n_cores_task = len(benchmarks)
     if method == "dsr":
-        if config_training["verbose"] and num_cores > 1:
+        if config_training["verbose"] and n_cores_task > 1:
             print("Setting 'verbose' to False for parallelized run.")
             config_training["verbose"] = False
-        if config_training["num_cores"] != 1 and num_cores > 1:
-            print("Setting 'num_cores' to 1 for training (i.e. constant optimization) to avoid nested child processes.")
-            config_training["num_cores"] = 1
-    print("Running {} for n={} on benchmarks {}".format(method, mc, unique_names))
+        if config_training["n_cores_batch"] != 1 and n_cores_task > 1:
+            print("Setting 'n_cores_batch' to 1 to avoid nested child processes.")
+            config_training["n_cores_batch"] = 1
+    print("Running {} for n={} on benchmarks {}".format(method, mc, unique_benchmarks))
 
     # Write terminal command and config.json into log directory
     cmd_filename = os.path.join(logdir, "cmd.out")
@@ -240,22 +223,23 @@ def main(config_template, method, mc, output_filename, num_cores, seed_shift, be
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_dataset=config_dataset, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
+        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, logdir=logdir, config_dataset=config_dataset, config_gp=config_gp)
+        work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
-    columns = ["name", "nmse", "base_r", "r", "base_r_test", "r_test", "base_r_noiseless", "r_noiseless", "base_r_test_noiseless", "r_test_noiseless", "expression", "traversal", "t", "seed"]
-    pd.DataFrame(columns=columns).to_csv(output_filename, header=True, index=False)
-    if num_cores > 1:
-        pool = multiprocessing.Pool(num_cores)    
+    write_header = True
+    if n_cores_task > 1:
+        pool = multiprocessing.Pool(n_cores_task)
         for result in pool.imap_unordered(work, names_and_seeds):
-            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
+            write_header = False
     else:
         for name_and_seed in names_and_seeds:
             result = work(name_and_seed)
-            pd.DataFrame(result, columns=columns, index=[0]).to_csv(output_filename, header=None, mode = 'a', index=False)
+            pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
+            write_header = False
 
 
 if __name__ == "__main__":

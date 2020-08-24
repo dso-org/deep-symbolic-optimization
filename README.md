@@ -4,12 +4,18 @@ Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regress
 
 # Installation
 
-Installation is straightforward in a python3 virtual environment using pip. From the repository root:
+From the repository root:
 
 ```
 python3 -m venv venv3 # Create a Python 3 virtual environment
 source venv3/bin/activate # Activate the virtual environmnet
 pip install -r requirements.txt # Install Python dependencies
+export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
+pip install -e ./dsr # Install DSR package
+```
+Note: To install in LC, use `Python 3.6.4`. You can do:
+```
+python3-3.6.4 -m venv venv3 # Create a Python 3.6.4 virtual environment
 ```
 
 To install additional dependencies only needed for reproducing figures from the paper:
@@ -62,6 +68,13 @@ To reproduce noise and dataset size studies:
 python setup_noise.py # Generate config files and shell scripts to run noise and dataset size experiments
 ./run_noise_dsr.sh # Run DSR for various noise levels and dataset sizes
 ./run_noise_gp.sh # Run GP for various noise levels and dataset sizes
+```
+
+To execute DSP (Deep Symbolic Policy) algorithm:
+In config.json, set "training"->"env_params"->"set_dsp" as true
+
+```
+./run_dsp.exe # Run DSP for gym environment defined as in config.json
 ```
 
 Figures and tables from the paper can be reproduced using the following scripts after having run the relevant experiments:
