@@ -63,7 +63,7 @@ def train_dsr(name_and_seed, config_dataset, config_controller, config_language_
     with tf.Session() as sess:        
 
         # Instantiate the controller w/ language model
-        if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
+        if "use_language_model_prior" in config_controller and config_controller["use_language_model_prior"] and config_language_model_prior is not None:
             language_model_prior = LanguageModelPrior(dataset.function_set, dataset.n_input_var, **config_language_model_prior)
         else:
             language_model_prior = None

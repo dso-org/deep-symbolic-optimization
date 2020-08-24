@@ -141,12 +141,12 @@ class Program(object):
     
         self.traversal      = [Program.library[t] for t in tokens]
         self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token]  
+        self.len_traversal  = len(self.traversal)
         
-        if self.have_cython:
+        if self.have_cython and self.len_traversal > 1:
             self.new_traversal  = [Program.library[t] for t in tokens]
             self.is_function    = array.array('i',[isinstance(t, _Function) for t in self.new_traversal])
             self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
-            self.len_traversal  = len(self.traversal)
             assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
@@ -169,9 +169,10 @@ class Program(object):
         y_hats : array-like, shape = [n_samples]
             The result of executing the program on X.
         """
-        
-        return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.var_pos, self.is_function)
-    
+        if self.len_traversal > 1:
+            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.const_pos, self.var_pos, self.is_function)
+        else:
+            return self.python_execute(X)
     
     def python_execute(self, X):
         """Executes the program according to X using Python.
