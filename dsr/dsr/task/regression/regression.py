@@ -32,7 +32,7 @@ def make_regression_task(name, metric, metric_params, dataset,
 
     normalize_variance : bool
         If True and reward_noise_type=="r", reward is multiplied by
-        1 / sqrt(1 + 12*reward_noise**2).
+        1 / sqrt(1 + 12*reward_noise**2) (We assume r is U[0,1]).
 
     threshold : float
         Threshold of NMSE on noiseless data used to determine success.
