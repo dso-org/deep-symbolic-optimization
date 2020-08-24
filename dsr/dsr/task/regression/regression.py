@@ -3,7 +3,9 @@ import numpy as np
 from .dataset import Dataset
 
 
-def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
+def make_regression_task(name, metric, metric_params, dataset,
+    reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
+    normalize_variance=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -20,6 +22,20 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
 
     dataset : dict
         Dict of .dataset.Dataset kwargs.
+
+    reward_noise : float
+        Noise level to use when computing reward.
+
+    reward_noise_type : "y_hat" or "r"
+        "y_hat" : N(0, reward_noise * y_rms_train) is added to y_hat values.
+        "r" : N(0, reward_noise) is added to r.
+
+    normalize_variance : bool
+        If True and reward_noise_type=="r", reward is multiplied by
+        1 / sqrt(1 + 12*reward_noise**2) (We assume r is U[0,1]).
+
+    threshold : float
+        Threshold of NMSE on noiseless data used to determine success.
 
     Returns
     -------
@@ -38,7 +54,16 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
     y_test_noiseless = dataset.y_test_noiseless
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
-    metric, invalid_reward = make_regression_metric(metric, y_train, *metric_params)
+    metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
+    assert reward_noise >= 0.0, "Reward noise must be non-negative."
+    if reward_noise:
+        assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
+        rng = np.random.RandomState(0)
+        y_rms_train = np.sqrt(np.mean(y_train ** 2))
+        if reward_noise_type == "y_hat":
+            scale = reward_noise * y_rms_train
+        elif reward_noise_type == "r":
+            scale = reward_noise
 
 
     def reward(p):
@@ -48,11 +73,30 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
 
         # For invalid expressions, return invalid_reward
         if p.invalid:
-            r = invalid_reward            
+            return invalid_reward
 
-        # Otherwise, return metric
-        else:
-            r = metric(y_train, y_hat)
+        ### Observation noise
+        # For reward_noise_type == "y_hat", success must always be checked to 
+        # ensure success cases aren't overlooked due to noise. If successful,
+        # return max_reward.
+        if reward_noise and reward_noise_type == "y_hat":
+            if p.evaluate.get("success"):
+                return max_reward
+            y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
+
+        # Compute metric
+        r = metric(y_train, y_hat)
+
+        ### Direct reward noise
+        # For reward_noise_type == "r", success can for ~max_reward metrics be
+        # confirmed before adding noise. If successful, must return np.inf to
+        # avoid overlooking success cases.
+        if reward_noise and reward_noise_type == "r":
+            if r >= max_reward - 1e-5 and p.evaluate.get("success"):
+                return np.inf
+            r += rng.normal(loc=0, scale=scale)
+            if normalize_variance:
+                r /= np.sqrt(1 + 12*scale**2)
 
         return r
 
@@ -83,7 +127,7 @@ def make_regression_task(name, metric, metric_params, dataset, threshold=1e-12):
         }
         return info
 
-    stochastic = False # Regression rewards are deterministic
+    stochastic = reward_noise > 0.0
 
 
     return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic
@@ -112,6 +156,9 @@ def make_regression_metric(name, y_train, *args):
     invalid_reward: float or None
         Reward value to use for invalid expression. If None, the training
         algorithm must handle it, e.g. by rejecting the sample.
+
+    max_reward: float
+        Maximum possible reward under this metric.
     """
 
     var_y = np.var(y_train)
@@ -174,7 +221,7 @@ def make_regression_metric(name, y_train, *args):
     assert len(args) == all_metrics[name][1], "Expected {} reward function parameters; received {}.".format(all_metrics[name][1], len(args))
     metric = all_metrics[name][0]
 
-    # For negative MSE-based rewards, inavlid reward is the value of the reward function when y_hat = mean(y)
+    # For negative MSE-based rewards, invalid reward is the value of the reward function when y_hat = mean(y)
     # For inverse MSE-based rewards, invalid reward is 0.0
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
@@ -190,4 +237,17 @@ def make_regression_metric(name, y_train, *args):
     }
     invalid_reward = all_invalid_rewards[name]
 
-    return metric, invalid_reward
+    all_max_rewards = {
+        "neg_mse" : 0.0,
+        "neg_nmse" : 0.0,
+        "neg_nrmse" : 0.0,
+        "inv_mse" : 1.0,
+        "inv_nmse" : 1.0,
+        "inv_nrmse" : 1.0,
+        "fraction" : 1.0,
+        "pearson" : 1.0,
+        "spearman" : 1.0
+    }
+    max_reward = all_max_rewards[name]
+
+    return metric, invalid_reward, max_reward
