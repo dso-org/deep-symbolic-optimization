@@ -258,7 +258,7 @@ class Program(object):
         def f(consts):
             self.set_constants(consts)
             r = self.reward_function()
-            obj = -r # Constant optpimizer minimizes the objective function
+            obj = -r # Constant optimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
             # constant optimization doesn't render the whole Program invalid.
