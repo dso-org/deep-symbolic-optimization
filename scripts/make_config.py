@@ -30,6 +30,16 @@ def myargparse():
                         dest='nm',            
                         help="name of config file (name.json)",
                         default='base')
+    parser.add_argument('-nse','--noise', 
+                        type=str,
+                        dest='nse',            
+                        help="noise",
+                        default='None') 
+    parser.add_argument('-mtp','--dataset_size_multiplier', 
+                        type=str,
+                        dest='mtp',            
+                        help="dataset_size_multiplier",
+                        default='None')                                                 
     parser.add_argument('-edd','--extra_data_dir', 
                         type=str,
                         dest='edd',            
@@ -69,12 +79,37 @@ def myargparse():
                         type=str,
                         dest='bl',            
                         help="baseline",
-                        default='R_e')                        
+                        default='R_e')              
+    parser.add_argument('-sar','--save_all_r', 
+                        type=str2bool,
+                        dest='sar',            
+                        help="save_all_r",
+                        default=False)                                          
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
                         dest='lr',            
                         help="learning rate",
                         default='1e-3')
+    parser.add_argument('-oa','--observe_action', 
+                        type=str2bool,
+                        dest='oa',            
+                        help="observe_action",
+                        default=False)                
+    parser.add_argument('-ci','--constrain_inv', 
+                        type=str2bool,
+                        dest='ci',            
+                        help="constrain_inv",
+                        default=True)
+    parser.add_argument('-ct','--constrain_trig', 
+                        type=str2bool,
+                        dest='ct',            
+                        help="constrain_trig",
+                        default=True)                
+    parser.add_argument('-lc','--length_constraint', 
+                        type=str2bool,
+                        dest='lc',            
+                        help="length_constraint",
+                        default=True)                        
     parser.add_argument('-oe','--use_old_entropy', 
                         type=str2bool,
                         dest='oe',            
@@ -139,8 +174,12 @@ def myargparse():
 
 
 def create_base(bp,nm,
+                nse,mtp,
                 edd,mp,prtd,
-                ns,bs,ap,ep,bl,lr,oe,ew,
+                ns,bs,ap,ep,bl,sar,lr,oa,
+                ci,ct,
+                lc,
+                oe,ew,
                 pqt,pqt_k,pqt_w,
                 gp_ps,gp_ns,gp_ts,gp_cs,gp_m,gp_prtd,gp_cntrt):
          
@@ -152,8 +191,18 @@ def create_base(bp,nm,
     default["task"]["task_type"] = "regression"
     default["task"]["name"] = None
     default["task"]["dataset"]["file"] = "benchmarks.csv"
-    # default["task"]["dataset"]["name"] = None
-    # default["task"]["dataset"]["noise"] = None
+    default["task"]["dataset"]["name"] = None
+    
+    if nse == 'None':
+        default["task"]["dataset"]["noise"] = None
+    else:
+        default["task"]["dataset"]["noise"] = float(nse)    
+
+    if mtp == 'None':
+        default["task"]["dataset"]["dataset_size_multiplier"] = None
+    else:
+        default["task"]["dataset"]["dataset_size_multiplier"] = float(mtp)     
+    
     if edd == 'None':
         default["task"]["dataset"]["extra_data_dir"] = None
     else:
@@ -194,7 +243,7 @@ def create_base(bp,nm,
     default["training"]["summary"] = False
     default["training"]["debug"] = 0
     default["training"]["output_file"] = None
-    default["training"]["save_all_r"] = False
+    default["training"]["save_all_r"] = sar
     default["training"]["early_stopping"] = True
     default["training"]["hof"] = None
 
@@ -207,19 +256,33 @@ def create_base(bp,nm,
     default["controller"]["optimizer"] = "adam"
     default["controller"]["learning_rate"] = float(lr)
     
-    default["controller"]["observe_action"] = False
-    default["controller"]["observe_parent"] = True
-    default["controller"]["observe_sibling"] = True
+    if not oa: # Default oa = False
+        default["controller"]["observe_action"] = False
+        default["controller"]["observe_parent"] = True
+        default["controller"]["observe_sibling"] = True
+    else:
+        default["controller"]["observe_action"] = True
+        default["controller"]["observe_parent"] = False
+        default["controller"]["observe_sibling"] = False        
+    
     default["controller"]["constrain_const"] = True
-    default["controller"]["constrain_trig"] = True  
-    default["controller"]["constrain_inv"] = True  
-    default["controller"]["constrain_min_len"] = True  
-    default["controller"]["constrain_max_len"] = True      
+    
+    default["controller"]["constrain_trig"] = ct  
+    default["controller"]["constrain_inv"] = ci
+     
+    if lc:  
+        default["controller"]["constrain_min_len"] = True  
+        default["controller"]["constrain_max_len"] = True
+        default["controller"]["min_length"] = 4
+    else:
+        default["controller"]["constrain_min_len"] = False  
+        default["controller"]["constrain_max_len"] = False
+        default["controller"]["min_length"] = None        
+          
     default["controller"]["constrain_num_const"] = False 
     
     default["controller"]["use_language_model_prior"] = False
     
-    default["controller"]["min_length"] = 4
     default["controller"]["max_length"] = 30  
     default["controller"]["max_const"] = 3  
 
@@ -278,9 +341,12 @@ def create_base(bp,nm,
 
 if __name__ == "__main__":
     args = myargparse()
-    create_base(args.bp, args.nm, 
+    create_base(args.bp, args.nm,
+                args.nse, args.mtp,
                 args.edd, args.mp, args.prtd,
-                args.ns, args.bs, args.ap, args.ep, args.bl, args.lr,
+                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.lr, args.oa,
+                args.ci, args.ct,
+                args.lc,
                 args.oe, args.ew, 
                 args.pqt, args.pqt_k, args.pqt_w,
-                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd, args.gp_cntrt)
+                args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd, args.gp_cntrt)               
