@@ -261,7 +261,7 @@ class Program(object):
             obj = -r # Constant optpimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
-            # constant optimizationdoesn't render the whole Program invalid.
+            # constant optimization doesn't render the whole Program invalid.
             self.invalid = False
 
             return obj
