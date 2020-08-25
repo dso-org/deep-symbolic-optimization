@@ -54,7 +54,12 @@ def myargparse():
                         type=str2bool,
                         dest='prtd',            
                         help="protected",
-                        default=True) 
+                        default=True)
+    parser.add_argument('-rn','--reward_noise', 
+                        type=str,
+                        dest='rn',            
+                        help="Reward Noise",
+                        default='0.0') 
     parser.add_argument('-ns','--n_samples', 
                         type=str,
                         dest='ns',            
@@ -84,7 +89,12 @@ def myargparse():
                         type=str2bool,
                         dest='sar',            
                         help="save_all_r",
-                        default=False)                                          
+                        default=False)
+    parser.add_argument('-es','--early_stopping', 
+                        type=str2bool,
+                        dest='es',            
+                        help="early_stopping",
+                        default=True)                                                                                          
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
                         dest='lr',            
@@ -175,8 +185,8 @@ def myargparse():
 
 def create_base(bp,nm,
                 nse,mtp,
-                edd,mp,prtd,
-                ns,bs,ap,ep,bl,sar,lr,oa,
+                edd,mp,prtd,rn,
+                ns,bs,ap,ep,bl,sar,es,lr,oa,
                 ci,ct,
                 lc,
                 oe,ew,
@@ -214,6 +224,9 @@ def create_base(bp,nm,
     default["task"]["metric_params"] = [float(mp)]
     default["task"]["threshold"] = 1e-12
     default["task"]["protected"] = prtd
+    default["task"]["reward_noise"] = float(rn)
+    default["task"]["reward_noise_type"] = "r"
+    default["task"]["normalize_variance"] = False
 
     # Manually adjust to number of expressions
     default["training"]["logdir"] = "./log"
@@ -244,7 +257,7 @@ def create_base(bp,nm,
     default["training"]["debug"] = 0
     default["training"]["output_file"] = None
     default["training"]["save_all_r"] = sar
-    default["training"]["early_stopping"] = True
+    default["training"]["early_stopping"] = es
     default["training"]["hof"] = None
 
     default["controller"]["cell"] = "lstm"
@@ -343,8 +356,8 @@ if __name__ == "__main__":
     args = myargparse()
     create_base(args.bp, args.nm,
                 args.nse, args.mtp,
-                args.edd, args.mp, args.prtd,
-                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.lr, args.oa,
+                args.edd, args.mp, args.prtd, args.rn,
+                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.es, args.lr, args.oa,
                 args.ci, args.ct,
                 args.lc,
                 args.oe, args.ew, 
