@@ -18,12 +18,16 @@ class Function(object):
 
     arity : int
         Number of arguments.
+
+    complexity : int
+        Complexity of the operator.
     """
 
-    def __init__(self, function, name, arity):
+    def __init__(self, function, name, arity, complexity):
         self.function = function
         self.name = name
         self.arity = arity
+        self.complexity = complexity
 
 
     def __call__(self, *args):
@@ -48,31 +52,31 @@ def sigmoid(x1):
 # Annotate unprotected ops
 unprotected_ops = [
     # Binary operators
-    Function(np.add, "add", arity=2),
-    Function(np.subtract, "sub", arity=2),
-    Function(np.multiply, "mul", arity=2),
-    Function(np.divide, "div", arity=2),
+    Function(np.add, "add", arity=2, complexity=1),
+    Function(np.subtract, "sub", arity=2, complexity=1),
+    Function(np.multiply, "mul", arity=2, complexity=1),
+    Function(np.divide, "div", arity=2, complexity=2),
 
     # Built-in unary operators
-    Function(np.sin, "sin", arity=1),
-    Function(np.cos, "cos", arity=1),
-    Function(np.tan, "tan", arity=1),
-    Function(np.exp, "exp", arity=1),
-    Function(np.log, "log", arity=1),
-    Function(np.sqrt, "sqrt", arity=1),
-    Function(np.square, "n2", arity=1),
-    Function(np.negative, "neg", arity=1),
-    Function(np.abs, "abs", arity=1),
-    Function(np.maximum, "max", arity=1),
-    Function(np.minimum, "min", arity=1),
-    Function(np.tanh, "tanh", arity=1),
-    Function(np.reciprocal, "inv", arity=1),
+    Function(np.sin, "sin", arity=1, complexity=3),
+    Function(np.cos, "cos", arity=1, complexity=3),
+    Function(np.tan, "tan", arity=1, complexity=4),
+    Function(np.exp, "exp", arity=1, complexity=4),
+    Function(np.log, "log", arity=1, complexity=4),
+    Function(np.sqrt, "sqrt", arity=1, complexity=4),
+    Function(np.square, "n2", arity=1, complexity=2),
+    Function(np.negative, "neg", arity=1, complexity=1),
+    Function(np.abs, "abs", arity=1, complexity=2),
+    Function(np.maximum, "max", arity=1, complexity=4),
+    Function(np.minimum, "min", arity=1, complexity=4),
+    Function(np.tanh, "tanh", arity=1, complexity=4),
+    Function(np.reciprocal, "inv", arity=1, complexity=2),
 
     # Custom unary operators
-    Function(logabs, "logabs", arity=1),
-    Function(expneg, "expneg", arity=1),
-    Function(n3, "n3", arity=1),
-    Function(sigmoid, "sigmoid", arity=1)
+    Function(logabs, "logabs", arity=1, complexity=4),
+    Function(expneg, "expneg", arity=1, complexity=4),
+    Function(n3, "n3", arity=1, complexity=3),
+    Function(sigmoid, "sigmoid", arity=1, complexity=4)
 ]
 
 
@@ -118,18 +122,18 @@ def protected_sigmoid(x1):
 # Annotate protected ops
 protected_ops = [
     # Protected binary operators
-    Function(protected_div, "div", arity=2),
+    Function(protected_div, "div", arity=2, complexity=2),
 
     # Protected unary operators
-    Function(protected_exp, "exp", arity=1),
-    Function(protected_log, "log", arity=1),
-    Function(protected_log, "logabs", arity=1), # Protected logabs is support, but redundant
-    Function(protected_sqrt, "sqrt", arity=1),
-    Function(protected_inv, "inv", arity=1),
-    Function(protected_expneg, "expneg", arity=1),
-    Function(protected_n2, "n2", arity=1),
-    Function(protected_n3, "n3", arity=1),
-    Function(protected_sigmoid, "sigmoid", arity=1),
+    Function(protected_exp, "exp", arity=1, complexity=4),
+    Function(protected_log, "log", arity=1, complexity=4),
+    Function(protected_log, "logabs", arity=1, complexity=4), # Protected logabs is support, but redundant
+    Function(protected_sqrt, "sqrt", arity=1, complexity=4),
+    Function(protected_inv, "inv", arity=1, complexity=2),
+    Function(protected_expneg, "expneg", arity=1, complexity=4),
+    Function(protected_n2, "n2", arity=1, complexity=2),
+    Function(protected_n3, "n3", arity=1, complexity=3),
+    Function(protected_sigmoid, "sigmoid", arity=1, complexity=4),
 ]
 
 # Add unprotected ops to function map
