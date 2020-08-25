@@ -15,7 +15,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient
 from dsr.language_model import LanguageModelPrior
 
 # Ignore TensorFlow warnings
@@ -35,13 +35,17 @@ def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
+def pf_work(p):
+    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+
 def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          debug=0):
+          pareto_front=False, debug=0):
 
     """
     Executes the main training loop.
@@ -132,6 +136,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         noisy data when you can't be certain of success solely based on reward.
         If False, only the top Program is evaluated each iteration.
 
+    pareto_front : bool, optional
+        If True, compute and save the Pareto front at the end of training.
+
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
@@ -160,6 +167,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         prefix, _ = os.path.splitext(output_file)
         all_r_output_file = "{}_all_r.npy".format(prefix)
         hof_output_file = "{}_hof.csv".format(prefix)
+        pf_output_file = "{}_pf.csv".format(prefix)
         with open(output_file, 'w') as f:
             # r_best : Maximum across all iterations so far
             # r_max : Maximum across this iteration's batch
@@ -526,6 +534,26 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         for i, item in enumerate(priority_queue.iter_in_order()):
             print("\nPriority queue entry {}:".format(i))
             item[1]["program"].print_stats()
+
+    # Compute the pareto front
+    if pareto_front:
+        if verbose:
+            print("Evaluating the pareto front...")
+        all_programs = list(Program.cache.values())
+        costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
+        pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
+        pf = list(compress(all_programs, pareto_efficient_mask))
+
+        if pool is not None:
+            results = pool.map(pf_work, pf)
+        else:
+            results = list(map(pf_work, pf))
+
+        eval_keys = list(results[0][-1].keys())
+        columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
+        pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
+        df = pd.DataFrame(pf_results, columns=columns)
+        df.to_csv(pf_output_file, header=True, index=False)
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
