@@ -556,6 +556,12 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         df = pd.DataFrame(pf_results, columns=columns)
         df.to_csv(pf_output_file, header=True, index=False)
 
+        # Look for a success=True case within the Pareto front
+        for p in pf:
+            if p.evaluate.get("success"):
+                p_final = p
+                break
+
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
     result = {
