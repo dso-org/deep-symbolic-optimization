@@ -287,11 +287,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         all_r[step] = base_r
         if eval_all:
             success = [p.evaluate.get("success") for p in programs]
+            # Check for success before risk-seeking, but don't break until after
             if any(success):
-                all_r = all_r[:(step + 1)]
                 p_final = programs[success.index(True)]
-                print("Early stopping criteria met; breaking early.")
-                break
 
         # Update reward history
         if base_r_history is not None:
@@ -442,6 +440,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
+        if eval_all and any(success):
+            all_r = all_r[:(step + 1)]            
+            print("Early stopping criteria met; breaking early.")
+            break
         if early_stopping and p_base_r_best.evaluate.get("success"):
             all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
