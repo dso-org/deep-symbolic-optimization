@@ -543,6 +543,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
         pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
         pf = list(compress(all_programs, pareto_efficient_mask))
+        pf.sort(key=lambda p : p.complexity_eureqa) # Sort by complexity
 
         if pool is not None:
             results = pool.map(pf_work, pf)
