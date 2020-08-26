@@ -5,16 +5,24 @@ import functools
 import numpy as np
 
 
-# From: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
+# Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
 def is_pareto_efficient(costs):
     """
-    Find the pareto-efficient points
-    :param costs: An (n_points, n_costs) array
-    :param return_mask: True to return a mask
-    :return: An array of indices of pareto-efficient points.
-        If return_mask is True, this will be an (n_points, ) boolean array
-        Otherwise it will be a (n_efficient_points, ) integer array of indices.
+    Find the pareto-efficient points given an array of costs.
+
+    Parameters
+    ----------
+
+    costs : np.ndarray
+        Array of shape (n_points, n_costs).
+
+    Returns
+    -------
+
+    is_efficient_maek : np.ndarray (dtype:bool)
+        Array of which elements in costs are pareto-efficient.
     """
+
     is_efficient = np.arange(costs.shape[0])
     n_points = costs.shape[0]
     next_point_index = 0  # Next index in the is_efficient array to search for
