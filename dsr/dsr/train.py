@@ -240,7 +240,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
     if Program.stochastic:
         base_r_history = {} # Dict from Program str to list of base_r values
         # It's not really clear stochastic Programs with const should enter the hof
-        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs"
+        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs."
+        assert not pareto_front, "Pareto front not supported with stochastic Programs."
     else:
         base_r_history = None
 
