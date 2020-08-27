@@ -263,7 +263,7 @@ def main(results_path, config, mc, num_workers, seed_shift, sweep, benchmark_set
             benchmarks = []
             if sweep: # Add all combinations of noise and dataset size multipliers
                 assert benchmark_set == "Nguyen", "Noise sweep only supported for Nguyen benchmarks."
-                noises = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10]
+                noises = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
                 dataset_size_multipliers = [1, 10]
                 for n in noises:
                     for d in dataset_size_multipliers:

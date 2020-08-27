@@ -312,7 +312,7 @@ def main(file, plot, save_csv, sweep):
     expressions = [parse_expr(expression) for expression in df["sympy"]]
     for expression, name in zip(expressions, names):        
 
-        if not name.startswith("Nguyen") and not name.startswith("Constant"):
+        if not name.startswith("Nguyen") and not name.startswith("Constant") and not name.startswith("Custom"):
             continue
 
         print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
@@ -326,8 +326,8 @@ def main(file, plot, save_csv, sweep):
         output_filenames.append(output_filename)
 
         # Generate all combinations of noise levels and dataset size multipliers
-        if sweep:
-            noises = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10]
+        if sweep and name.startswith("Nguyen"):
+            noises = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
             dataset_size_multipliers = [1.0, 10.0]
             for noise in noises:
                 for dataset_size_multiplier in dataset_size_multipliers:
