@@ -99,6 +99,11 @@ def myargparse():
                         type=str2bool,
                         dest='eva',            
                         help="eval_all",
+                        default=False)
+    parser.add_argument('-pf','--pareto_front', 
+                        type=str2bool,
+                        dest='pf',            
+                        help="pareto_front",
                         default=False)                                                                                                                               
     parser.add_argument('-lr','--learning_rate', 
                         type=str,
@@ -191,7 +196,7 @@ def myargparse():
 def create_base(bp,nm,
                 nse,mtp,
                 edd,mp,prtd,rn,
-                ns,bs,ap,ep,bl,sar,es,eva,lr,oa,
+                ns,bs,ap,ep,bl,sar,es,eva,pf,lr,oa,
                 ci,ct,
                 lc,
                 oe,ew,
@@ -265,6 +270,7 @@ def create_base(bp,nm,
     default["training"]["early_stopping"] = es
     default["training"]["hof"] = None
     default["training"]["eval_all"] = eva
+    default["training"]["pareto_front"] = pf
 
     default["controller"]["cell"] = "lstm"
     default["controller"]["num_layers"] = 1
@@ -363,7 +369,7 @@ if __name__ == "__main__":
     create_base(args.bp, args.nm,
                 args.nse, args.mtp,
                 args.edd, args.mp, args.prtd, args.rn,
-                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.es, args.eva, args.lr, args.oa,
+                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.es, args.eva, args.pf, args.lr, args.oa,
                 args.ci, args.ct,
                 args.lc,
                 args.oe, args.ew, 
