@@ -40,7 +40,8 @@
       "save_all_r": false,
       "early_stopping": true,
       "hof": 100,
-      "eval_all": false
+      "eval_all": false,
+      "pareto_front": false
    },
    "controller": {
       "cell": "lstm",

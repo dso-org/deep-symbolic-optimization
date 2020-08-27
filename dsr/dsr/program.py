@@ -523,6 +523,14 @@ class Program(object):
 
 
     @cached_property
+    def complexity_eureqa(self):
+        """Computes sum of token complexity based on Eureqa complexity measures."""
+
+        complexity = sum([t.complexity if isinstance(t, Function) else 1 for t in self.traversal])
+        return complexity
+
+
+    @cached_property
     def sympy_expr(self):
         """
         Returns the attribute self.sympy_expr.
