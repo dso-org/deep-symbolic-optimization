@@ -121,3 +121,9 @@ ops = [
 function_map = {
     op[1] : Function(*op) for op in ops
     }
+
+UNARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 1])
+BINARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 2])
+
+
+

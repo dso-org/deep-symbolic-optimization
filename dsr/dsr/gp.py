@@ -2,10 +2,12 @@ import random
 import operator
 import importlib
 import copy
-from functools import partial
+from functools import partial, wraps
 from itertools import chain, compress
 from collections import defaultdict
 from operator import attrgetter
+
+from numba import jit, prange, int32, void # not yet used
 
 import numpy as np
 
@@ -82,6 +84,102 @@ def multi_mutate(individual, expr, pset):
         
     return individual
         
+from dsr.functions import UNARY_TOKENS, BINARY_TOKENS
+
+TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
+
+# Define inverse tokens
+INVERSE_TOKENS = {
+    "exp" : "log",
+    "neg" : "neg",
+    "inv" : "inv",
+    "sqrt" : "n2"
+}
+
+# Add inverse trig functions
+INVERSE_TOKENS.update({
+    t : "arc" + t for t in TRIG_TOKENS
+    })
+
+# Add reverse
+INVERSE_TOKENS.update({
+    v : k for k, v in INVERSE_TOKENS.items()
+    })
+
+def check_const(ind):
+    """Returns True if children of a parent are all const tokens."""
+
+    names = [node.name for node in ind]
+    for i, name in enumerate(names):
+        if name in UNARY_TOKENS and names[i+1] == "const":
+            return True
+        if name in BINARY_TOKENS and names[i+1] == "const" and names[i+1] == "const":
+            return True
+    return False
+
+
+def check_inv(names):
+    """Returns True if two sequential tokens are inverse unary operators."""
+
+    for i, name in enumerate(names[:-1]):
+        if name in INVERSE_TOKENS and names[i+1] == INVERSE_TOKENS[name]:
+            return True
+    return False
+
+def check_trig(names):
+    """Returns True if a descendant of a trig operator is another trig
+    operator."""
+        
+    trig_descendant = False # True when current node is a descendant of a trig operator
+
+    for name in names:
+        if name in TRIG_TOKENS:
+            if trig_descendant:
+                return True
+            trig_descendant = True
+            trig_dangling   = 1
+        elif trig_descendant:
+            if name in BINARY_TOKENS:
+                trig_dangling += 1
+            elif name not in UNARY_TOKENS:
+                trig_dangling -= 1
+            if trig_dangling == 0:
+                trig_descendant = False
+                
+    return False
+
+
+def checkConstraint(max_length, min_length, max_depth):
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            keep_inds   = [copy.deepcopy(ind) for ind in args]
+            new_inds    = list(func(*args, **kwargs))
+            
+            for i, ind in enumerate(new_inds):
+                
+                l = len(ind)
+                
+                if l > max_length:
+                    new_inds[i] = random.choice(keep_inds)
+                elif l < min_length:
+                    new_inds[i] = random.choice(keep_inds)
+                elif operator.attrgetter("height")(ind) > max_depth:
+                    new_inds[i] = random.choice(keep_inds)
+                else:    
+                    names = [node.name for node in ind]
+                    
+                    if check_inv(names):
+                        new_inds[i] = random.choice(keep_inds)
+                    elif check_trig(names):
+                        new_inds[i] = random.choice(keep_inds)
+                    
+            return new_inds
+
+        return wrapper
+
+    return decorator
         
         
 class GenericAlgorithm:
@@ -243,6 +341,7 @@ class GenericAlgorithm:
 
         return "\n".join(text)
     
+    
 class RunOneStepAlgorithm(GenericAlgorithm):
     
     def __init__(self, population, toolbox, cxpb, mutpb, stats=None, halloffame=None, verbose=__debug__):
@@ -278,34 +377,38 @@ class RunOneStepAlgorithm(GenericAlgorithm):
 
         # Append the current generation statistics to the logbook
         record                                      = self.stats.compile(self.population) if self.stats else {}
-        self.logbook.record(gen=self.gen, nevals=len(invalid_ind), **record)
+        
+        # number of evaluations
+        nevals                                      = len(invalid_ind)
+        
+        self.logbook.record(gen=self.gen, nevals=nevals, **record)
         
         if self.verbose:
             print(self.logbook.stream)
             
         self.gen += 1
     
-        return self.population, self.logbook, self.halloffame
+        return self.population, self.logbook, self.halloffame, nevals
     
     def set_population(self, population):
         
         self.population = population
         
-        print('Population Size {}'.format(len(self.population)))
-        
-        #self.logbook, self.halloffame, self.population = self._header(self.population, self.toolbox, self.stats, self.halloffame, self.verbose)
+        if self.verbose:
+            print('Population Size {}'.format(len(self.population)))
     
     def append_population(self, population, max_size=None):
         
-        self.population = population + self.population
-        
         if max_size is not None:
             r = len(self.population)-max_size
-            for i in range(0,r):
-                self.population.pop(random.randrange(len(self.population)))
+            if r > 0:
+                for i in range(0,r):
+                    self.population.pop(random.randrange(len(self.population)))
+                
+        self.population += population
         
-        print('Population Size {}'.format(len(self.population)))
-        #self.logbook, self.halloffame, self.population = self._header(self.population, self.toolbox, self.stats, self.halloffame, self.verbose)
+        if self.verbose:
+            print('Population Size {}'.format(len(self.population)))
     
     
 class GenericEvaluate:
@@ -427,7 +530,7 @@ def create_primitive_set(dataset,
 
 
 def create_toolbox(pset, eval_func, 
-                   tournament_size=3, max_depth=17, max_len=None, max_const=None,
+                   tournament_size=3, max_depth=17, max_len=30, min_len=4, max_const=None, constrain_const=False,
                    gen_func=gp.genHalfAndHalf, mutate_tree_max=5):
     
     assert gp is not None,                      "Did not import gp. Is it installed?"
@@ -450,23 +553,23 @@ def create_toolbox(pset, eval_func,
     toolbox.register("evaluate", eval_func)
     toolbox.register("select", tools.selTournament, tournsize=tournament_size)
     toolbox.register("mate", gp.cxOnePoint)
-    #toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
-    ##toolbox.register('mutate', gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
     toolbox.register('mutate', multi_mutate, expr=toolbox.expr_mut, pset=pset)
-    #toolbox.register("mutate", gp.mutShrink)
-    
-    if max_depth is not None:
-        toolbox.decorate("mate",   gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
-        toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
-    if max_len is not None:
-        toolbox.decorate("mate",   gp.staticLimit(key=len, max_value=max_len))
-        toolbox.decorate("mutate", gp.staticLimit(key=len, max_value=max_len))
+
+    toolbox.decorate("mate",     checkConstraint(max_len, min_len, max_depth))
+    toolbox.decorate("mutate",   checkConstraint(max_len, min_len, max_depth))
+
     if const and max_const is not None:
+        assert isinstance(max_const,int)
+        assert max_const >= 0
         num_const = lambda ind : len([node for node in ind if node.name == "const"])
         toolbox.decorate("mate",   gp.staticLimit(key=num_const, max_value=max_const))
         toolbox.decorate("mutate", gp.staticLimit(key=num_const, max_value=max_const))
 
+    if const and constrain_const is True:
+        toolbox.decorate("mate",   gp.staticLimit(key=check_const, max_value=0))
+        toolbox.decorate("mutate", gp.staticLimit(key=check_const, max_value=0))
+        
     # Create the training function
     return toolbox, creator 
 
@@ -577,11 +680,7 @@ def get_top_program(halloffame, actions):
     
     deap_parent[0]  = max_tok - len(Program.terminal_tokens)
     deap_sibling[0] = max_tok
-    '''
-    print("DEAP Action  {}".format(deap_action))
-    print("DEAP Parent  {}".format(deap_parent))
-    print("DEAP Sibling {}".format(deap_sibling))
-    '''
+    
     deap_obs        = [np.expand_dims(deap_action,axis=0), np.expand_dims(deap_parent,axis=0), np.expand_dims(deap_sibling,axis=0)]
     deap_action     = np.expand_dims(deap_action,axis=0)    
     deap_program    = [from_tokens(deap_tokens, optimize=True)]
@@ -622,11 +721,8 @@ def get_top_n_programs(population, n, actions):
     deap_program        = []
     
     for i,p in enumerate(population):
-        #print(p.fitness.getValues())
-        #print(p)
         deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
         deap_action[i,1:]               = deap_tokens[:-1]
-        #print(deap_tokens)
         deap_program.append(from_tokens(deap_tokens, optimize=True))
         
         for j in range(deap_expr_length-1):       
@@ -636,20 +732,9 @@ def get_top_n_programs(population, n, actions):
     
     deap_parent[:,0]    = max_tok - len(Program.terminal_tokens)
     deap_sibling[:,0]   = max_tok
-    '''
-    print("DEAP Action  {}".format(deap_action))
-    print("DEAP Parent  {}".format(deap_parent))
-    print("DEAP Sibling {}".format(deap_sibling))
-    '''
-    deap_obs        = [deap_action, deap_parent, deap_sibling]
-    
-    #print(actions[0,0:])
-    #print(obs[0][0,0:])
-    #print(obs[1][0,0:])
-    #print(obs[2][0,0:])
-    
-    #deap_program    = [from_tokens(d[0], optimize=True) for d in deap_info]
 
+    deap_obs            = [deap_action, deap_parent, deap_sibling]
+    
     return deap_program, deap_obs, deap_action
 
 
@@ -678,7 +763,6 @@ if __name__ == "__main__":
     
     hof, logbook            = generic_train(toolbox, hof, algorithms)
     
-    #print(logbook)
     print(hof)
 
     

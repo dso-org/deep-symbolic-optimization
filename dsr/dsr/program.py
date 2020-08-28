@@ -120,9 +120,7 @@ def DEAP_to_tokens(individual, tokens_size):
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
-    #assert tokens_size >= len(individual), "Individual size {} is too large for defined token size {}.".format(len(individual),tokens_size)
-    
-    #print("LEN {}".format(len(individual)))
+
     l = min(len(individual),tokens_size)
         
     if l > 1:
@@ -150,11 +148,7 @@ def DEAP_to_tokens(individual, tokens_size):
     else:
         expr_length     = 0
         tokens          = None
-    
-
-    
-    ###print(tokens)
-    
+        
     return tokens, expr_length
         
 

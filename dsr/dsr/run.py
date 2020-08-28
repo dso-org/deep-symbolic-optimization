@@ -28,7 +28,7 @@ from dsr.language_model import LanguageModelPrior
 from dsr.task import set_task
 
 
-def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
+def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training, config_gp_meld):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     # Override the benchmark name
@@ -95,7 +95,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
         # Train the controller
         result = {"name" : name, "seed" : seed} # Name and seed are listed first
-        result.update(learn(sess, controller, pool, dataset, **config_training))
+        result.update(learn(sess, controller, pool, dataset, config_gp_meld, **config_training))
         result["t"] = time.time() - start # Time listed last
 
         return result
@@ -189,6 +189,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     config_controller = config.get("controller")                        # Controller hyperparameters
     config_language_model_prior = config.get("language_model_prior")    # Language model hyperparameters
     config_gp = config.get("gp")                                        # GP hyperparameters
+    config_gp_meld = config.get('gp_meld')
 
     # Create output directories
     if output_filename is None:
@@ -241,7 +242,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
+        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training, config_gp_meld=config_gp_meld)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
