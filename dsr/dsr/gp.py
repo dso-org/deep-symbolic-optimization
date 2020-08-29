@@ -13,7 +13,7 @@ import numpy as np
 
 import sympy
 
-from dsr.functions import function_map
+from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.const import make_const_optimizer
 from dsr.task.regression.dataset import Dataset
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
@@ -33,9 +33,10 @@ except ImportError:
     algorithms  = None
     
     
-    
 class GenWithRLIndividuals:
-    
+    """ Forces the generator to select a user provided member first, such as one
+        created by RL. Then, when we run out, create them in the usual manner with DEAP.
+    """
     def __init__(self, gp_gen_function=gp.genHalfAndHalf):
         
         assert gp is not None, "Did not import gp. Is it installed?"
@@ -70,7 +71,8 @@ class GenWithRLIndividuals:
         
        
 def multi_mutate(individual, expr, pset):   
-    
+    """ Randomly select one of four types of mutation with even odds for each.
+    """
     v = np.random.randint(0,4)
     
     if v == 0:
@@ -84,7 +86,7 @@ def multi_mutate(individual, expr, pset):
         
     return individual
         
-from dsr.functions import UNARY_TOKENS, BINARY_TOKENS
+
 
 TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
 
@@ -150,7 +152,12 @@ def check_trig(names):
 
 
 def checkConstraint(max_length, min_length, max_depth):
-
+    """Check a varety of constraints on a memeber. These include:
+        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
+        
+        This is a decorator function that attaches to mutate or mate functions in
+        DEAP.
+    """
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -183,7 +190,9 @@ def checkConstraint(max_length, min_length, max_depth):
         
         
 class GenericAlgorithm:
-    
+    """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
+        more control over how it runs.
+    """
     def __init__(self):
         
         pass
@@ -195,8 +204,10 @@ class GenericAlgorithm:
         invalid_ind     = [ind for ind in population if not ind.fitness.valid]
         fitnesses       = toolbox.map(toolbox.evaluate, invalid_ind)
         
+        # If we get back a nan, set it to inf so we never pick it. 
+        # We will deal with inf later as needed
         for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
+            ind.fitness.values = fit if np.isfinite(fit) else (np.inf,)
     
         # Update the hall of fame with the generated individuals
         if halloffame is not None:
@@ -270,7 +281,12 @@ class GenericAlgorithm:
 
     def str_logbook(self, header_only=False, startindex=0):
         """
-            This bypasses the one in DEAP so we can have more control over it.
+            Pretty print the log book. 
+            
+            This bypasses the one in DEAP so we can have more control over it. DEAP is
+            not made for running inside meta epochs. It does not understand how we will
+            call it over and over and so, it prints the logs in a format that really
+            does not work here. 
         """
         
         if header_only:
@@ -343,7 +359,9 @@ class GenericAlgorithm:
     
     
 class RunOneStepAlgorithm(GenericAlgorithm):
-    
+    """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
+        more control over how it runs.
+    """
     def __init__(self, population, toolbox, cxpb, mutpb, stats=None, halloffame=None, verbose=__debug__):
         
         super(RunOneStepAlgorithm, self).__init__()
@@ -460,7 +478,10 @@ class GenericEvaluate:
                 f       = self.toolbox.compile(expr=individual)
                 y_hat   = f(*self.X_train)
                 y       = self.y_train
-                return np.mean((y - y_hat)**2)
+                res     = np.mean((y - y_hat)**2)
+
+                # Make sure result is not NaN, but inf is ok
+                return res if np.isfinite(res) else np.zeros_like(res) + np.inf
 
             # Do the optimization and set the optimized constants
             x0                  = np.ones(len(const_idxs))
@@ -502,6 +523,8 @@ def make_fitness(metric):
         
 def create_primitive_set(dataset,  
                          const_optimizer="scipy", const_params=None, const=False):
+    """Create a DEAP primitive set from DSR functions and consts
+    """
     
     assert gp is not None,              "Did not import gp. Is it installed?"
     assert isinstance(dataset, object), "dataset should be a DSR Dataset object" 
@@ -577,11 +600,13 @@ def create_toolbox(pset, eval_func,
 
 def create_stats_widget():
     
+    # ma are numpy masked arrays that ignore things like inf
+    
     stats_fit               = tools.Statistics(lambda p : p.fitness.values)
-    stats_fit.register("avg", np.mean)
+    stats_fit.register("avg", lambda x : np.ma.masked_invalid(x).mean())
     stats_fit.register("min", np.min)
     stats_size              = tools.Statistics(len)
-    stats_size.register("avg", np.mean)
+    stats_size.register("avg", lambda x : np.ma.masked_invalid(x).mean())
     mstats                  = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
     
     return mstats
@@ -630,39 +655,9 @@ def stringify_for_sympy(f):
 
 
 
-def generic_train(toolbox, hof, algorithm,
-                  population_size=1000, p_crossover=0.5, p_mutate=0.1, generations=1000,
-                  seed=0, verbose=True):
-    
-    """Train the GP"""
-
-    random.seed(seed)
-
-    pop         = toolbox.population(n=population_size)
-    
-    mstats      = create_stats_widget()
-    
-    pop, logbook = algorithm(population=pop,
-                             toolbox=toolbox,
-                             cxpb=p_crossover,
-                             mutpb=p_mutate,
-                             ngen=generations,
-                             stats=mstats,
-                             halloffame=hof,
-                             verbose=verbose)
-
-    # Delete custom classes
-    del creator.FitnessMin
-    del creator.Individual
-    if "const" in dir(gp):
-        del gp.const
-
-    return hof[0], logbook
-
-
-
 def get_top_program(halloffame, actions):
-    
+    """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
+    """
     max_tok                         = len(Program.library)
     deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
        
@@ -690,15 +685,21 @@ def get_top_program(halloffame, actions):
     
     
 def get_top_n_programs(population, n, actions):
-    
+    """ Get the top n members of the population, We will also do some things like remove 
+        redundant members of the population, which there tend to be a lot of.
+        
+        Next we compute DSR compatible parents, siblings and actions.  
+    """
     scores          = np.zeros(len(population),dtype=np.float)
     
+    # Highest to lowest sorting.
     population      = sorted(population, key=attrgetter('fitness'), reverse=True)
     
     p_items         = []
     p_items_val     = []
     tot             = 0
     
+    # Get rid of duplicate members. Make sure these are all unique. 
     for i,p in enumerate(population):
         
         # we have to check because population members are not nessesarily unique
@@ -737,6 +738,35 @@ def get_top_n_programs(population, n, actions):
     
     return deap_program, deap_obs, deap_action
 
+
+def generic_train(toolbox, hof, algorithm,
+                  population_size=1000, p_crossover=0.5, p_mutate=0.1, generations=1000,
+                  seed=0, verbose=True):
+    
+    """Train the GP"""
+
+    random.seed(seed)
+
+    pop         = toolbox.population(n=population_size)
+    
+    mstats      = create_stats_widget()
+    
+    pop, logbook = algorithm(population=pop,
+                             toolbox=toolbox,
+                             cxpb=p_crossover,
+                             mutpb=p_mutate,
+                             ngen=generations,
+                             stats=mstats,
+                             halloffame=hof,
+                             verbose=verbose)
+
+    # Delete custom classes
+    del creator.FitnessMin
+    del creator.Individual
+    if "const" in dir(gp):
+        del gp.const
+
+    return hof[0], logbook
 
 
 if __name__ == "__main__":

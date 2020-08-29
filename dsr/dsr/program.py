@@ -354,6 +354,7 @@ class Program(object):
             assert self.len_traversal > 1, "Single token instances not supported"
         
         self.tokens = tokens
+        self.invalid = False
         self.str = tokens.tostring()
         
     def cython_execute(self, X):
@@ -442,13 +443,17 @@ class Program(object):
         """
 
         # TBD: Should return np.float32
-        # TBD: Fix to work with task refactoring
 
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)
-            y_hat = self.execute(Program.X_train)
-            obj = np.mean((Program.y_train - y_hat)**2)
+            r = self.reward_function()
+            obj = -r # Constant optimizer minimizes the objective function
+
+            # Need to reset to False so that a single invalid call during
+            # constant optimization doesn't render the whole Program invalid.
+            self.invalid = False
+
             return obj
 
         
@@ -509,7 +514,7 @@ class Program(object):
 
 
     @classmethod
-    def set_execute(cls):
+    def set_execute(cls, protected):
         """Sets which execute method to use"""
         
         """
@@ -521,11 +526,60 @@ class Program(object):
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            Program.execute         = Program.cython_execute
+            execute_function        = Program.cython_execute
             Program.have_cython     = True
         else:
-            Program.execute         = Program.python_execute
+            execute_function        = Program.python_execute
             Program.have_cython     = False
+
+        if protected:
+            Program.execute = execute_function
+        else:
+
+            class InvalidLog():
+                """Log class to catch and record numpy warning messages"""
+
+                def __init__(self):
+                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+
+                def write(self, message):
+                    """This is called by numpy when encountering a warning"""
+
+                    if not self.new_entry: # Only record the first warning encounter
+                        message = message.strip().split(' ')
+                        self.error_type = message[1]
+                        self.error_node = message[-1]
+                    self.new_entry = True
+
+                def update(self, p):
+                    """If a floating-point error was encountered, set Program.invalid
+                    to True and record the error type and error node."""
+
+                    if self.new_entry:
+                        p.invalid = True
+                        p.error_type = self.error_type
+                        p.error_node = self.error_node
+                        self.new_entry = False
+
+
+            invalid_log = InvalidLog()
+            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+
+            # Define closure for execute function
+            def unsafe_execute(p, X):
+                """This is a wrapper for execute_function. If a floating-point error
+                would be hit, a warning is logged instead, p.invalid is set to True,
+                and the appropriate nan/inf value is returned. It's up to the task's
+                reward function to decide how to handle nans/infs."""
+
+                with np.errstate(all='log'):
+                    y = execute_function(p, X)
+                    invalid_log.update(p)
+                    return y
+
+            Program.execute = unsafe_execute
 
 
     @classmethod
@@ -550,7 +604,7 @@ class Program(object):
 
 
     @classmethod
-    def set_library(cls, operators, n_input_var):
+    def set_library(cls, operators, n_input_var, protected):
         """Sets the class library and arities."""
 
         # Add input variables
@@ -563,6 +617,13 @@ class Program(object):
 
             # Function
             if op in function_map:
+
+                # Prepend available protected operators with "protected_"
+                if protected and not op.startswith("protected_"):
+                    protected_op = "protected_{}".format(op)                    
+                    if protected_op in function_map:
+                        op = protected_op
+
                 op = function_map[op]
                 Program.library.append(op)
                 Program.str_library.append(op.name)
@@ -654,6 +715,14 @@ class Program(object):
 
         return self.eval_function()
     
+    @cached_property
+    def complexity_eureqa(self):
+        """Computes sum of token complexity based on Eureqa complexity measures."""
+
+        complexity = sum([t.complexity if isinstance(t, Function) else 1 for t in self.traversal])
+        return complexity
+
+
     @cached_property
     def sympy_expr(self):
         """

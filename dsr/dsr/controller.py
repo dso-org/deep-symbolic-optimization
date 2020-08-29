@@ -269,7 +269,7 @@ class Controller(object):
                 self.constrain_num_const = False
                 self.max_const = None
             elif not constrain_num_const:
-                print("Warning: max_const={} will not be repsected because constrain_num_const=False. Overriding to None.".format(max_const))
+                print("Warning: max_const={} will not be respected because constrain_num_const=False. Overriding to None.".format(max_const))
                 self.max_const = None
 
         self.compute_parents_siblings = any([self.observe_parent,

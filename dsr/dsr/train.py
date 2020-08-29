@@ -7,18 +7,16 @@ import multiprocessing
 from itertools import compress
 from datetime import datetime
 from textwrap import indent
+from collections import defaultdict
 
 import tensorflow as tf
 import pandas as pd
 import numpy as np
-
 import sympy
-#from sympy import init_printing
-#from sympy import *
 
 from dsr.controller import Controller, parents_siblings
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient
 from dsr.language_model import LanguageModelPrior
 import dsr.gp as gp_dsr
 
@@ -45,14 +43,19 @@ def work(p):
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
+def pf_work(p):
+    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+
 def learn(sess, controller, pool, dataset, config_gp_meld=None, 
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, hof=10, debug=0,
-          ):
+          b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
+          pareto_front=False, debug=0):
+
 
     """
     Executes the main training loop.
@@ -138,6 +141,14 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
     hof : int or None, optional
         If not None, number of top Programs to evaluate after training.
 
+    eval_all : bool, optional
+        If True, evaluate all Programs. While expensive, this is useful for
+        noisy data when you can't be certain of success solely based on reward.
+        If False, only the top Program is evaluated each iteration.
+
+    pareto_front : bool, optional
+        If True, compute and save the Pareto front at the end of training.
+
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
@@ -150,15 +161,16 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
 
     all_r_size              = batch_size
 
-    # This should be replaced by a config line
     if tools is not None and config_gp_meld is not None and config_gp_meld["run_gp_meld"]:
          
         have_const  = Program.const_token is not None
         run_gp_meld = True
                 
-        '''        
+        '''    
+        It would be nice if json supported comments, then we could put all this there. 
+            
         # Constant for now, add to config later
-        init_population_size    = 1
+        init_population_size    = 1         # Put in some members to start?
         p_crossover             = 0.25      # Default 0.5: P of crossing two members
         p_mutate                = 0.5       # Default 0.1: P of mutating a member
         seed                    = 0         # Random number seed.
@@ -175,7 +187,6 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
         mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?
         max_const               = 3
-        run_gp_meld             = True
         constrain_const         = True
         '''
         
@@ -240,6 +251,7 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         prefix, _ = os.path.splitext(output_file)
         all_r_output_file = "{}_all_r.npy".format(prefix)
         hof_output_file = "{}_hof.csv".format(prefix)
+        pf_output_file = "{}_pf.csv".format(prefix)
         with open(output_file, 'w') as f:
             # r_best : Maximum across all iterations so far
             # r_max : Maximum across this iteration's batch
@@ -248,7 +260,27 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
             # n_unique_* : Number of unique Programs in batch
             # n_novel_* : Number of never-before-seen Programs per batch
             # a_ent_* : Empirical positional entropy across sequences averaged over positions 
-            f.write("base_r_best,base_r_max,base_r_avg_full,base_r_avg_sub,r_best,r_max,r_avg_full,r_avg_sub,l_avg_full,l_avg_sub,ewma,n_unique_full,n_unique_sub,n_novel_full,n_novel_sub,a_ent_full,a_ent_sub\n")
+            # invalid_avg_* : Fraction of invalid Programs per batch
+            headers = ["base_r_best",
+                       "base_r_max",
+                       "base_r_avg_full",
+                       "base_r_avg_sub",
+                       "r_best",
+                       "r_max",
+                       "r_avg_full",
+                       "r_avg_sub",
+                       "l_avg_full",
+                       "l_avg_sub",
+                       "ewma",
+                       "n_unique_full",
+                       "n_unique_sub",
+                       "n_novel_full",
+                       "n_novel_sub",
+                       "a_ent_full",
+                       "a_ent_sub",
+                       "invalid_avg_full",
+                       "invalid_avg_sub"]
+            f.write("{}\n".format(",".join(headers)))
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -288,15 +320,17 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         print("\nInitial parameter means:")
         print_var_means()
 
-    # For stochastic Programs with hof, store each base_r computation for each unique traversal
-    if Program.stochastic and hof is not None and hof > 0:
+    # For stochastic Programs, store each base_r computation for each unique traversal
+    if Program.stochastic:
         base_r_history = {} # Dict from Program str to list of base_r values
         # It's not really clear stochastic Programs with const should enter the hof
-        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs"
+        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs."
+        assert not pareto_front, "Pareto front not supported with stochastic Programs."
     else:
         base_r_history = None
 
     # Main training loop
+    p_final = None
     base_r_best = -np.inf
     r_best = -np.inf
     prev_r_best = None
@@ -407,16 +441,24 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
                            np.append(obs[2], deap_obs[2], axis=0)]
                 
         # Retrieve metrics
+
         base_r  = np.array([p.base_r for p in programs])
         r       = np.array([p.r for p in programs])
         l       = np.array([len(p.traversal) for p in programs])
         s       = [p.str for p in programs] # Str representations of Programs
-        
+        invalid = np.array([p.invalid for p in programs], dtype=bool)
         all_r[step]     = base_r
+
+        if eval_all:
+            success = [p.evaluate.get("success") for p in programs]
+            # Check for success before risk-seeking, but don't break until after
+            if any(success):
+                p_final = programs[success.index(True)]
 
         # Update reward history
         if base_r_history is not None:
-            for key in s:
+            for p in programs:
+                key = p.str
                 if key in base_r_history:
                     base_r_history[key].append(p.base_r)
                 else:
@@ -433,6 +475,7 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
+        invalid_avg_full = np.mean(invalid)
 
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         # Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
@@ -448,6 +491,7 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
             base_r      = base_r[keep]
             l           = l[keep]
             s           = list(compress(s, keep))
+            invalid     = invalid[keep]
             
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not return_gp_obs:
@@ -469,6 +513,17 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
             actions     = actions[keep, :]
             obs         = [o[keep, :] for o in obs]
             priors      = priors[keep, :, :]
+            '''
+            actions = actions[keep, :]
+            obs = [o[keep, :] for o in obs]
+            priors = priors[keep, :, :]
+            programs = list(compress(programs, keep))
+            base_r = base_r[keep]
+            r = r[keep]
+            l = l[keep]
+            s = list(compress(s, keep))
+            invalid = invalid[keep]
+            '''
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r       = np.clip(r,        -1e6, 1e6)
@@ -497,6 +552,7 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
+            invalid_avg_sub = np.mean(invalid)
             stats = np.array([[
                          base_r_best,
                          base_r_max,
@@ -514,7 +570,9 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
                          n_novel_full,
                          n_novel_sub,
                          a_ent_full,
-                         a_ent_sub
+                         a_ent_sub,
+                         invalid_avg_full,
+                         invalid_avg_sub
                          ]], dtype=np.float32)
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
@@ -536,7 +594,8 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
                 "actions" : actions[i],
                 "obs" : [o[i] for o in obs],
                 "priors" : priors[i],
-                "masks" : mask[i]
+                "masks" : mask[i],
+                "program" : p
             }
             # Always push unique item if the queue isn't full
             priority_queue.push(score, item, extra_data)
@@ -594,6 +653,10 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
+        if eval_all and any(success):
+            all_r = all_r[:(step + 1)]            
+            print("Early stopping criteria met; breaking early.")
+            break
         if early_stopping and p_base_r_best.evaluate.get("success"):
             all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
@@ -663,8 +726,60 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
     if pool is not None:
         pool.close()
 
+    # Print error statistics of the cache
+    n_invalid = 0
+    error_types = defaultdict(lambda : 0)
+    error_nodes = defaultdict(lambda : 0)
+    for p in Program.cache.values():
+        if p.invalid:
+            n_invalid += p.count
+            error_types[p.error_type] += p.count
+            error_nodes[p.error_node] += p.count
+    if n_invalid > 0:
+        total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
+        print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
+        print("Error type counts:")
+        for error_type, count in error_types.items():
+            print("  {}: {} ({:.1%})".format(error_type, count, count/n_invalid))
+        print("Error node counts:")
+        for error_node, count in error_nodes.items():
+            print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
+
+    # Print the priority queue at the end of training
+    if verbose and priority_queue is not None:
+        for i, item in enumerate(priority_queue.iter_in_order()):
+            print("\nPriority queue entry {}:".format(i))
+            item[1]["program"].print_stats()
+
+    # Compute the pareto front
+    if pareto_front:
+        if verbose:
+            print("Evaluating the pareto front...")
+        all_programs = list(Program.cache.values())
+        costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
+        pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
+        pf = list(compress(all_programs, pareto_efficient_mask))
+        pf.sort(key=lambda p : p.complexity_eureqa) # Sort by complexity
+
+        if pool is not None:
+            results = pool.map(pf_work, pf)
+        else:
+            results = list(map(pf_work, pf))
+
+        eval_keys = list(results[0][-1].keys())
+        columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
+        pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
+        df = pd.DataFrame(pf_results, columns=columns)
+        df.to_csv(pf_output_file, header=True, index=False)
+
+        # Look for a success=True case within the Pareto front
+        for p in pf:
+            if p.evaluate.get("success"):
+                p_final = p
+                break
+
     # Return statistics of best Program
-    p = p_base_r_best
+    p = p_final if p_final is not None else p_base_r_best
     result = {
         "r" : p.r,
         "base_r" : p.base_r,

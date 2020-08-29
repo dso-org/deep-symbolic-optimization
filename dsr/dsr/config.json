@@ -13,7 +13,11 @@
       },
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],
-      "threshold" : 1e-12
+      "threshold" : 1e-12,
+      "protected" : true,
+      "reward_noise" : 0.0,
+      "reward_noise_type" : "r",
+      "normalize_variance" : false
    },
    "training": {
       "logdir": "./log",
@@ -35,7 +39,9 @@
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "hof" : 100
+      "hof": 100,
+      "eval_all": false,
+      "pareto_front": false
    },
    "controller": {
       "cell": "lstm",
@@ -83,13 +89,20 @@
       ],
       "p_crossover": 0.95,
       "p_mutate": 0.03,
-      "max_depth": null,
-      "max_len": 30,
-      "max_const": 3,
       "seed": 0,
       "early_stopping": true,
       "threshold": 1e-12,
-      "verbose": false
+      "verbose": false,
+      "protected": true,
+      "constrain_const": true,
+      "constrain_trig": true,
+      "constrain_inv": true,
+      "constrain_min_len": true,
+      "constrain_max_len": true,
+      "constrain_num_const": true,
+      "min_length": 4,
+      "max_length": 30,
+      "max_const" : 3
    },
    "gp_meld": {
    		"run_gp_meld"             : true,

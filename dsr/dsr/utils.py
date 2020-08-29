@@ -5,6 +5,37 @@ import functools
 import numpy as np
 
 
+# Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
+def is_pareto_efficient(costs):
+    """
+    Find the pareto-efficient points given an array of costs.
+
+    Parameters
+    ----------
+
+    costs : np.ndarray
+        Array of shape (n_points, n_costs).
+
+    Returns
+    -------
+
+    is_efficient_maek : np.ndarray (dtype:bool)
+        Array of which elements in costs are pareto-efficient.
+    """
+
+    is_efficient = np.arange(costs.shape[0])
+    n_points = costs.shape[0]
+    next_point_index = 0  # Next index in the is_efficient array to search for
+    while next_point_index<len(costs):
+        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
+        nondominated_point_mask[next_point_index] = True
+        is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
+        costs = costs[nondominated_point_mask]
+        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
+    is_efficient_mask = np.zeros(n_points, dtype=bool)
+    is_efficient_mask[is_efficient] = True
+    return is_efficient_mask
+
 class cached_property(object):
     """
     Decorator used for lazy evaluation of an object attribute. The property

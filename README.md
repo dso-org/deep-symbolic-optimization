@@ -13,13 +13,9 @@ pip install -r requirements.txt # Install Python dependencies
 export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
 pip install -e ./dsr # Install DSR package
 ```
-
-To install additional dependencies only needed for running pybullet-gym environments:
-
+Note: To install in LC, use `Python 3.6.4`. You can do:
 ```
-# Recommended to cd outside repository root
-git clone https://github.com/benelot/pybullet-gym.git
-pip install -e ./pybullet-gym
+python3-3.6.4 -m venv venv3 # Create a Python 3.6.4 virtual environment
 ```
 
 To install additional dependencies only needed for reproducing figures from the paper:

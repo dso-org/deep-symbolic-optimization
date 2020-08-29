@@ -10,6 +10,7 @@ import zlib
 import click
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import symbols, lambdify, pretty, srepr
 
@@ -265,38 +266,83 @@ class Dataset(object):
         return pretty(self.sympy_expr)
 
 
+def plot_dataset(d, output_filename):
+    """Plot Dataset with underlying ground truth."""
+
+    # Draw ground truth expression
+    bounds = list(list(d.train_spec.values())[0].values())[0][:2]
+    x = np.linspace(bounds[0], bounds[1], endpoint=True, num=100)
+    y = d.numpy_expr(x[:, None])
+    plt.plot(x, y)
+
+    # Draw the actual points
+    plt.scatter(d.X_train, d.y_train)
+    
+    plt.title(output_filename[:-4], fontsize=7)
+    plt.show()
+
+
+def save_dataset(d, output_filename):
+    """Save a Dataset's train and test sets to CSV."""
+
+    regression_data_path = resource_filename("dsr.task", "regression/data/")
+    output_filename = os.path.join(regression_data_path, output_filename)
+    Xs = [d.X_train, d.X_test]
+    ys = [d.y_train, d.y_test]
+    output_filenames = [output_filename, output_filename[:-4] + "_test.csv"]
+    for X, y, output_filename in zip(Xs, ys, output_filenames):
+        print("Saving to {}".format(output_filename))
+        y = np.reshape(y, (y.shape[0],1))
+        XY = np.concatenate((X,y), axis=1)        
+        pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)
+
+
 @click.command()
 @click.argument("file", default="benchmarks.csv")
-@click.option("--noise", default=None, type=float)
-def main(file, noise):
+@click.option('--plot', is_flag=True)
+@click.option('--save_csv', is_flag=True)
+@click.option('--sweep', is_flag=True)
+def main(file, plot, save_csv, sweep):
     """Pretty prints and plots all benchmark expressions."""
 
-    from matplotlib import pyplot as plt
-
-    data_path = resource_filename("dsr.task", "regression/data/")
-    benchmark_path = os.path.join(data_path, file)
+    regression_path = resource_filename("dsr.task", "regression/")
+    benchmark_path = os.path.join(regression_path, file)
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
     expressions = [parse_expr(expression) for expression in df["sympy"]]
-    for expression, name in zip(expressions, names):
-        print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
+    for expression, name in zip(expressions, names):        
 
-        if "Nguyen" not in name:
+        if not name.startswith("Nguyen") and not name.startswith("Constant") and not name.startswith("Custom"):
             continue
 
-        d = Dataset(file, name, noise=noise)
-        if d.X_train.shape[1] == 1:
+        print("{}:\n\n{}\n\n".format(name, indent(pretty(expression), '\t')))
+        datasets = []
+        output_filenames = []
 
-            # Draw ground truth expression
-            bounds = list(list(d.train_spec.values())[0].values())[0][:2]
-            x = np.linspace(bounds[0], bounds[1], endpoint=True, num=100)
-            y = d.numpy_expr(x[:, None])
-            plt.plot(x, y)
+        # Noiseless
+        d = Dataset(file, name, noise=None)
+        datasets.append(d)
+        output_filename = "{}.csv".format(name)
+        output_filenames.append(output_filename)
 
-            # Draw the actual points
-            plt.scatter(d.X_train, d.y_train)
-            plt.show()
-
+        # Generate all combinations of noise levels and dataset size multipliers
+        if sweep and name.startswith("Nguyen"):
+            noises = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
+            dataset_size_multipliers = [1.0, 10.0]
+            for noise in noises:
+                for dataset_size_multiplier in dataset_size_multipliers:
+                    d = Dataset(file, name, noise=noise,
+                        dataset_size_multiplier=dataset_size_multiplier)
+                    datasets.append(d)
+                    output_filename = "{}_n{:.2f}_d{:.0f}.csv".format(name, noise, dataset_size_multiplier)
+                    output_filenames.append(output_filename)
+        
+        # Plot and/or save datasets
+        for d, output_filename in zip(datasets, output_filenames):
+            if plot and d.X_train.shape[1] == 1:
+                plot_dataset(d, output_filename)
+            if save_csv:
+                save_dataset(d, output_filename)
 
 if __name__ == "__main__":
     main()
