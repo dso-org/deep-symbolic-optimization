@@ -47,6 +47,10 @@ Constant-1,1,3.39*(x1**3)+2.12*(x1**2)+1.78*x1,"3.39*pow(x1,3)+2.12*pow(x1,2)+1.
 Constant-2,1,sin((x1**2))*cos(x1)-0.75,"sin(pow(x1,2))*cos(x1)-0.75","{""all"":{""U"":[-1,1,20]}}",None,CKoza
 Constant-3,2,sin(1.5*x1)*cos(0.5*x2),sin(1.5*x1)*cos(0.5*x2),"{""all"":{""U"":[0,1,20]}}",None,CKoza
 Constant-4,2,2.7*exp(x2*log(x1)),"2.7*pow(x1,x2)","{""all"":{""U"":[0,1,20]}}",None,CKoza
+Constant-5,1,sqrt(1.23*x1),sqrt(1.23*x1),"{""all"":{""U"":[0,4,20]}}",None,CKoza
+Constant-6,1,x1**0.426,"pow(x1,0.426)","{""all"":{""U"":[0,4,20]}}",None,CKoza
+Constant-7,2,2*sin(1.3*x1)*cos(x2),2*sin(1.3*x1)*cos(x2),"{""all"":{""U"":[0,1,20]}}",None,CKoza
+Constant-8,1,log(x1+1.4)+log((x1**2)+1.3),"log(x1+1.4)+log(pow(x1,2)+1.3)","{""all"":{""U"":[0,2,20]}}",None,CKoza
 Custom-1,1,1./3+x1+sin(x1**2),"1./3+x1+sin(pow(x1,2))","{""all"":{""U"":[-10,10,1000]}}",None,Koza
 Custom-2,1,sin((x1**2))*cos(x1)-2,"sin(pow(x1,2))*cos(x1)-2","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-3,1,sin((x1**3))*cos(x1**2)-1,"sin(pow(x1,3))*cos(pow(x1,2))-1","{""all"":{""U"":[-1,1,20]}}",None,Koza
