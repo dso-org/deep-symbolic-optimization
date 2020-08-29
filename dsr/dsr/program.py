@@ -59,11 +59,8 @@ def _finish_tokens(tokens):
         tokens          = tokens[:expr_length]
     else:
         # We never reach a zero point. keep adding terminal tokens until we do. 
-        # Maybe we should extend with randomized valid terminals or insert in
-        # random location or at a random 1 or min value ... or the last min location?
-        ###tokens          = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
-        # If we only have on var then we just pad with zeros. 
-        tokens          = np.append(tokens, np.random.randint(0, high=Program.n_input_var, size=dangling[-1]))
+        # If we only have one var then we just pad with zeros. 
+        tokens          = np.append(tokens, np.random.randint(0, high=Program.n_input_var, size=dangling[-1])) #Extend with valid variables until string is valid. 
     
     
     return tokens
@@ -222,7 +219,6 @@ def tokens_to_DEAP(tokens, primitive_set):
                 NUMBER - Values from input X at location given by value in node
                 
                     This is usually the raw data point numerical values. Its value should not change. 
-                    
             '''
             try:
                 plist.append(primitive_set.mapping["x{}".format(node+1)])
@@ -780,14 +776,6 @@ def convert_to_sympy(node):
     elif node.val == "neg":
         node.val = Node("Mul")
         node.children.append(Node("-1"))
-    
-    elif node.val == "common_half_x":
-        node.val = "Mul"
-        node.children.append(Node("0.5"))
-        
-    elif node.val == "common_two_x":
-        node.val = "Mul"
-        node.children.append(Node("2.0"))
         
     elif node.val == "n2":
         node.val = "Pow"
