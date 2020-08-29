@@ -58,7 +58,7 @@ Custom-5,2,(x1**4)-(x1**3)+(x2**2)-x2,"pow(x1,4)-pow(x1,3)+pow(x2,2)-x2","{""all
 Custom-6,1,4*x1**4+3*x1**3+2*x1**2+x1,"4*pow(x1,4)+3*pow(x1,3)+2*pow(x1,2)+x1","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-7,1,(exp(x1)-exp(-x1))/1,"div(exp(x1)-exp(-1*x1),2)","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-8,1,(exp(x1)+exp(-x1))/1,"div(exp(x1)+exp(-1*x1),2)","{""all"":{""U"":[-1,1,20]}}",None,Koza
-Custom-9,1,(x1**9)+(x1**8)+(x1**7)+(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"pow(x1,9)+pow(x1,8)+pow(x1,7)+pow(x1,6)+pow(x1,5)+pow(x1,4)+p$
+Custom-9,1,(x1**9)+(x1**8)+(x1**7)+(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"pow(x1,9)+pow(x1,8)+pow(x1,7)+pow(x1,6)+pow(x1,5)+pow(x1,4)+pow(x1,3)+pow(x1,2)+x1","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-10,2,6*sin(x1)*cos(x2),6*sin(x1)*cos(x2),"{""all"":{""U"":[0,1,20]}}",None,Koza
 Custom-11,2,((x1**2)*(x2**2))/(x1+x2),"div(pow(x1,2)*pow(x2,2),(x1+x2))","{""all"":{""U"":[-1,1,50]}}",None,None
 Custom-12,2,(x1**5)/(x2**3),"div(pow(x1,5),pow(x2,3))","{""all"":{""U"":[-1,1,50]}}",None,None
@@ -71,7 +71,7 @@ Custom-18,1,sin((x1**2))*cos(x1)-5,"sin(pow(x1,2))*cos(x1)-5","{""all"":{""U"":[
 Custom-19,1,log(x1**2+x1)+log((x1**3)+x1),"log(pow(x1,2)+x1)+log(pow(x1,3)+x1)","{""all"":{""U"":[0,2,20]}}",None,Koza
 Custom-20,1,(x1**5)+(x1**4)+(x1**2)+x1,"pow(x1,5)+pow(x1,4)+pow(x1,2)+x1","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-21,1,exp(-1*(x1**2)),"exp(-1*pow(x1,2))","{""all"":{""U"":[-1,1,20]}}",None,Koza
-Custom-22,1,(x1**8)+(x1**7)+(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"pow(x1,8)+pow(x1,7)+pow(x1,6)+pow(x1,5)+pow(x1,4)+pow(x1,3)+pow(x1,2$
+Custom-22,1,(x1**8)+(x1**7)+(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"pow(x1,8)+pow(x1,7)+pow(x1,6)+pow(x1,5)+pow(x1,4)+pow(x1,3)+pow(x1,2)+x1","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-23,1,exp(-0.5*(x1**2)),"exp(-0.5*pow(x1,2))","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Pagie-1,2,(1/(1+(x1**(-4))))+(1/(1+(x2**(-4)))),"div(1,(1+pow(x1,-4)))+div(1,(1+pow(x2,-4)))","{""all"":{""E"":[-5,5,0.4]}}",None,Koza
 Nonic,1,(x1**9)+(x1**8)+(x1**7)+(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"pow(x1,9)+pow(x1,8)+pow(x1,7)+pow(x1,6)+pow(x1,5)+pow(x1,4)+pow(x1,3)+pow(x1,2)+x1","{""all"":{""E"":[-1,1,20]}}","{""all"":{""U"":[-1,1,20]}}",None
