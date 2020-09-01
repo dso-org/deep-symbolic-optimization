@@ -84,6 +84,8 @@ class GP():
 
         # Add primitives
         for op_name in dataset.function_set:
+            if op_name == "const":
+                continue
             assert op_name in function_map, "Operation {} not recognized.".format(op_name)
 
             # Prepend available protected operators with "protected_"
@@ -136,7 +138,7 @@ class GP():
         if constrain_trig:
             funcs.append(constraints.check_trig) # Nested trig operators
         if constrain_const and const:
-            funcs.append(constraings.check_const) # All children are constants
+            funcs.append(constraints.check_const) # All children are constants
         if constrain_num_const and const:
             funcs.append(constraints.make_check_num_const(max_const)) # Number of constants
         for func in funcs:
@@ -169,7 +171,11 @@ class GP():
                 f = self.toolbox.compile(expr=individual)
                 y_hat = f(*X)
                 y = self.dataset.y_train
-                return np.mean((y - y_hat)**2)
+                if np.isfinite(y_hat).all():
+                    # Squash error to prevent consts from becoming inf
+                    return -1/(1 + np.mean((y - y_hat)**2))
+                else:
+                    return 0
 
             # Do the optimization and set the optimized constants
             x0 = np.ones(len(const_idxs))
