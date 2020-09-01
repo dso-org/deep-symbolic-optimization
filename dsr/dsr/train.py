@@ -18,7 +18,6 @@ from dsr.controller import Controller, parents_siblings
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient
 from dsr.language_model import LanguageModelPrior
-import dsr.gp as gp_dsr
 
 try:
     from deap import tools
@@ -47,7 +46,7 @@ def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
-def learn(sess, controller, pool, dataset, config_gp_meld=None, 
+def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
@@ -161,77 +160,15 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
 
     all_r_size              = batch_size
 
-    if tools is not None and config_gp_meld is not None and config_gp_meld["run_gp_meld"]:
-         
-        have_const  = Program.const_token is not None
-        run_gp_meld = True
-                
-        '''    
-        It would be nice if json supported comments, then we could put all this there. 
-            
-        # Constant for now, add to config later
-        init_population_size    = 1         # Put in some members to start?
-        p_crossover             = 0.25      # Default 0.5: P of crossing two members
-        p_mutate                = 0.5       # Default 0.1: P of mutating a member
-        seed                    = 0         # Random number seed.
-        verbose                 = True      # Print out stats and things.
-        max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
-        min_len                 = 4         # Min expression length for gp. Ideally should match RL max length
-        steps                   = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
-        rand_pop_n              = 50        # Random population to append to RL actions for GP, 100 is a good number. 0 turns this off.
-        pop_pad                 = 0         # We can add actions more than once exanding GP population x many times. Maybe try 3. 0 turns this off. 
-        fitness_metric          = "nmse"    # nmse or nrmse
-        recycle_max_size        = 0         # If not zero, we hold over GP population from prior epochs. 1500 works well if we want to do this. 
-        tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
-        max_depth               = 30        # Defualt 17: This is mainly a widget to control memory usage. Python sets a hard limit of 90.
-        train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
-        mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?
-        max_const               = 3
-        constrain_const         = True
-        '''
+    if gp_controller is not None:
+        run_gp_meld             = True
         
-        if config_gp_meld["train_n"]:
-            all_r_size              = batch_size+config_gp_meld["train_n"]
+        if gp_controller.config_gp_meld["train_n"]:
+            all_r_size              = batch_size+gp_controller.config_gp_meld["train_n"]
         else:
             all_r_size              = batch_size+1
-                
-        # Put the DSR tokens into DEAP format
-        gp_pset, gp_const_opt   = gp_dsr.create_primitive_set(dataset, const_params=const_params, const=have_const)
-        # Create a Hall of Fame object
-        gp_hof                  = tools.HallOfFame(maxsize=1) 
-        # Create the object/function that evaluates the population                                                      
-        gp_eval_func            = gp_dsr.GenericEvaluate(gp_const_opt, gp_hof, dataset, fitness_metric=config_gp_meld["fitness_metric"]) 
-        # Use a generator we can access to plug in RL population
-        gp_gen_func             = gp_dsr.GenWithRLIndividuals()
-        # Create a DEAP toolbox, use generator that takes in RL individuals      
-        gp_toolbox, gp_creator  = gp_dsr.create_toolbox(gp_pset, gp_eval_func, 
-                                                        gen_func            = gp_gen_func, max_len=config_gp_meld["max_len"], 
-                                                        min_len             = config_gp_meld["min_len"], 
-                                                        tournament_size     = config_gp_meld["tournament_size"], 
-                                                        max_depth           = config_gp_meld["max_depth"], 
-                                                        max_const           = config_gp_meld["max_const"], 
-                                                        constrain_const     = config_gp_meld["constrain_const"],
-                                                        mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
-        # Put the toolbox into the evaluation function  
-        gp_eval_func.set_toolbox(gp_toolbox)    
-                                                      
-        # create some random pops, the default is to use these if we run out of RL individuals. 
-        _pop                    = gp_toolbox.population(n=config_gp_meld["init_population_size"])
-        
-        # create stats widget
-        gp_mstats               = gp_dsr.create_stats_widget()
-        
-        # Actual loop function that runs GP
-        gp_algorithms           = gp_dsr.RunOneStepAlgorithm(population     = _pop,
-                                                             toolbox        = gp_toolbox,
-                                                             cxpb           = config_gp_meld["p_crossover"],
-                                                             mutpb          = config_gp_meld["p_mutate"],
-                                                             stats          = gp_mstats,
-                                                             halloffame     = gp_hof,
-                                                             verbose        = config_gp_meld["verbose"]
-                                                            )   
     else:
-        run_gp_meld = False                         
+        run_gp_meld             = False                         
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -344,7 +281,7 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
 
     for step in range(n_epochs):
 
-        if config_gp_meld["verbose"]:
+        if gp_controller.config_gp_meld["verbose"]:
             print("************************************************************************")
             print("STEP {}".format(step))
             print("************************")
@@ -361,54 +298,20 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         nevals += batch_size
 
         if run_gp_meld:
-            # Get the action tokens into a DEAP style individuals
-            #print("Tokens to DEAP")
-            individuals                         = [gp_creator.Individual(tokens_to_DEAP(a, gp_pset)) for a in actions]
             
-            if config_gp_meld["rand_pop_n"] > 0:
-                individuals += gp_toolbox.population(n=config_gp_meld["rand_pop_n"])
+            deap_programs, deap_obs, deap_actions, return_gp_obs = gp_controller(actions)
             
-            # we can recycle some of the old GP population. 
-            if config_gp_meld["recycle_max_size"] > 0:  
-                gp_algorithms.append_population(individuals, max_size=config_gp_meld["recycle_max_size"])
-            else:
-                gp_algorithms.set_population(individuals)
+            nevals += gp_controller.nevals
             
-            for i in range(config_gp_meld["pop_pad"]):
-                gp_algorithms.append_population(individuals)
-            
-            if config_gp_meld["verbose"]:
-                print(gp_algorithms.str_logbook(header_only=True)) # print header
-                
-            halloffame  = []
-            population  = []
-            logbook     = []
-            
-            for i in range(config_gp_meld["steps"]):    
-                p, l, h, n  = gp_algorithms(init_halloffame=True) # Should probably store each HOF
-                population  = population + p
-                logbook.append(l)
-                halloffame.append(h)
-                nevals += n
-             
-            if config_gp_meld["train_n"] > 1:
-                deap_program, deap_obs, deap_action        = gp_dsr.get_top_n_programs(population, config_gp_meld["train_n"], actions)
-                return_gp_obs                              = True
-            else:
-                deap_program, deap_obs, deap_action        = gp_dsr.get_top_program(halloffame, actions)
-                return_gp_obs                              = config_gp_meld["train_n"]
-                
-            if config_gp_meld["verbose"]:    
+            if gp_controller.config_gp_meld["verbose"]:           
                 print("************************")
                 print("Frustration Count: {}".format(frustration_count))
                 print("Number of Evaluations: {}".format(nevals))
                 print("************************")
                 print("Deap Programs:")
-                deap_program[0].print_stats()
+                deap_programs[0].print_stats()
                 print("************************")
-
-                        
-                    
+                                
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
             programs = [from_tokens(a, optimize=True) for a in actions]
@@ -433,9 +336,9 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         # If we run GP, insert GP Program, actions, priors (blank) and obs.
         # We may option later to return these to the controller.  
         if run_gp_meld:
-            programs    = programs + deap_program
-            actions     = np.append(actions, deap_action, axis=0)
-            priors      = np.append(priors, np.zeros((deap_action.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
+            programs    = programs + deap_programs
+            actions     = np.append(actions, deap_actions, axis=0)
+            priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
@@ -495,14 +398,14 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
             
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not return_gp_obs:
-                if config_gp_meld["verbose"]:
+                if gp_controller.config_gp_meld["verbose"]:
                     print("GP solutions NOT returned to controller")
                 keep[batch_size:]   = False
                 r_train             = r[keep]
                 p_train             = list(compress(programs, keep))
             else:
-                if run_gp_meld and config_gp_meld["verbose"]:
-                    print("{} GP solutions returned to controller".format(config_gp_meld["train_n"]))
+                if run_gp_meld and gp_controller.config_gp_meld["verbose"]:
+                    print("{} GP solutions returned to controller".format(gp_controller.config_gp_meld["train_n"]))
                 r_train             = _r
                 p_train             = _p
             
@@ -618,7 +521,7 @@ def learn(sess, controller, pool, dataset, config_gp_meld=None,
         prev_r_best = r_best
         prev_base_r_best = base_r_best
 
-        if config_gp_meld["verbose"]:
+        if gp_controller.config_gp_meld["verbose"]:
             print("************************")
             print("Best step Program:")
             programs[np.argmax(base_r)].print_stats()

@@ -497,7 +497,124 @@ class GenericEvaluate:
         
         self.toolbox = toolbox    
         
+
+class GPController:
+    
+    def __init__(self, config_gp_meld, config_task):
         
+        '''    
+        It would be nice if json supported comments, then we could put all this there. 
+            
+        # Constant for now, add to config later
+        init_population_size    = 1         # Put in some members to start?
+        p_crossover             = 0.25      # Default 0.5: P of crossing two members
+        p_mutate                = 0.5       # Default 0.1: P of mutating a member
+        seed                    = 0         # Random number seed.
+        verbose                 = True      # Print out stats and things.
+        max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
+        min_len                 = 4         # Min expression length for gp. Ideally should match RL max length
+        steps                   = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
+        rand_pop_n              = 50        # Random population to append to RL actions for GP, 100 is a good number. 0 turns this off.
+        pop_pad                 = 0         # We can add actions more than once exanding GP population x many times. Maybe try 3. 0 turns this off. 
+        fitness_metric          = "nmse"    # nmse or nrmse
+        recycle_max_size        = 0         # If not zero, we hold over GP population from prior epochs. 1500 works well if we want to do this. 
+        tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
+        max_depth               = 30        # Defualt 17: This is mainly a widget to control memory usage. Python sets a hard limit of 90.
+        train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
+        mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?
+        max_const               = 3
+        constrain_const         = True
+        '''
+            
+        config_dataset              = config_task["dataset"]
+        dataset                     = Dataset(**config_dataset)
+                    
+        const_params                = None
+        have_const                  = None          
+                    
+        # Put the DSR tokens into DEAP format
+        self.pset, self.const_opt   = create_primitive_set(dataset, const_params=const_params, const=have_const)
+        # Create a Hall of Fame object
+        self.hof                    = tools.HallOfFame(maxsize=1) 
+        # Create the object/function that evaluates the population                                                      
+        self.eval_func              = GenericEvaluate(self.const_opt, self.hof, dataset, fitness_metric=config_gp_meld["fitness_metric"]) 
+        # Use a generator we can access to plug in RL population
+        self.gen_func               = GenWithRLIndividuals()
+        # Create a DEAP toolbox, use generator that takes in RL individuals      
+        self.toolbox, self.creator  = create_toolbox(self.pset, self.eval_func, 
+                                                 gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
+                                                 min_len             = config_gp_meld["min_len"], 
+                                                 tournament_size     = config_gp_meld["tournament_size"], 
+                                                 max_depth           = config_gp_meld["max_depth"], 
+                                                 max_const           = config_gp_meld["max_const"], 
+                                                 constrain_const     = config_gp_meld["constrain_const"],
+                                                 mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
+        
+        # Put the toolbox into the evaluation function  
+        self.eval_func.set_toolbox(self.toolbox)    
+                                                      
+        # create some random pops, the default is to use these if we run out of RL individuals. 
+        _pop                        = self.toolbox.population(n=config_gp_meld["init_population_size"])
+        
+        # create stats widget
+        self.mstats                 = create_stats_widget()
+        
+        # Actual loop function that runs GP
+        self.algorithms             = RunOneStepAlgorithm(population     = _pop,
+                                                          toolbox        = self.toolbox,
+                                                          cxpb           = config_gp_meld["p_crossover"],
+                                                          mutpb          = config_gp_meld["p_mutate"],
+                                                          stats          = self.mstats,
+                                                          halloffame     = self.hof,
+                                                          verbose        = config_gp_meld["verbose"]
+                                                          )   
+        
+        self.config_gp_meld         = config_gp_meld
+        self.halloffame             = []
+        self.population             = []
+        self.logbook                = []
+        self.nevals                 = 0
+    
+    def __call__(self, actions):
+        
+        individuals     = [self.creator.Individual(tokens_to_DEAP(a, self.pset)) for a in actions]
+        
+        if self.config_gp_meld["rand_pop_n"] > 0:
+            individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
+        
+        # we can recycle some of the old GP population. 
+        if self.config_gp_meld["recycle_max_size"] > 0:  
+            self.algorithms.append_population(individuals, max_size=self.config_gp_meld["recycle_max_size"])
+        else:
+            self.algorithms.set_population(individuals)
+        
+        for i in range(self.config_gp_meld["pop_pad"]):
+            self.algorithms.append_population(individuals)
+        
+        if self.config_gp_meld["verbose"]:
+            print(self.algorithms.str_logbook(header_only=True)) # print header
+            
+        self.halloffame  = []
+        self.population  = []
+        self.logbook     = []
+        self.nevals      = 0
+        
+        for i in range(self.config_gp_meld["steps"]):    
+            p, l, h, n  = self.algorithms(init_halloffame=True) # Should probably store each HOF
+            self.population  = self.population + p
+            self.logbook.append(l)
+            self.halloffame.append(h)
+            self.nevals += n
+         
+        if self.config_gp_meld["train_n"] > 1:
+            deap_programs, deap_obs, deap_actions      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions)
+            return_gp_obs                              = True
+        else:
+            deap_programs, deap_obs, deap_actions      = get_top_program(self.halloffame, actions)
+            return_gp_obs                              = self.config_gp_meld["train_n"]
+            
+        return deap_programs, deap_obs, deap_actions, return_gp_obs
+
         
 def make_fitness(metric):
         """Generates a fitness function by name"""

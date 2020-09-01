@@ -26,6 +26,7 @@ from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
 from dsr.task import set_task
+import dsr.gp as gp_dsr
 
 
 def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training, config_gp_meld):
@@ -52,9 +53,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
         print("This should not happen")
         pass
     '''
-    config_dataset          = config_task["dataset"]
-    config_dataset["name"]  = name
-    dataset                 = Dataset(**config_dataset)
+
 
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
@@ -93,9 +92,14 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
             language_model_prior = None
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
 
+        if config_gp_meld is not None and config_gp_meld["run_gp_meld"]:
+            gp_controller           = gp_dsr.GPController(config_gp_meld, config_task)
+        else:
+            gp_controller           = None
+
         # Train the controller
         result = {"name" : name, "seed" : seed} # Name and seed are listed first
-        result.update(learn(sess, controller, pool, dataset, config_gp_meld, **config_training))
+        result.update(learn(sess, controller, pool, gp_controller, **config_training))
         result["t"] = time.time() - start # Time listed last
 
         return result
