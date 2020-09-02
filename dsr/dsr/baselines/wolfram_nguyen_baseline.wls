@@ -11,7 +11,10 @@ Description:
   Needs Mathematica 12.0.0. Runs in parallel over the number of kernels available.
 
 Run: 
-  wolfram-12.0.0 -script wolfram_nguyen_baseline.wls TESTFAMILY MC RUNMODE USENOISE NSE MTP
+  wolframscript -script wolfram_nguyen_baseline.wls TESTFAMILY MC RUNMODE SPCGOAL USENOISE NSE MTP
+
+  - In LC:
+	wolframscript in /usr/tce/packages/mathematica/12.0.0/Executables/wolframscript
 
 Command options:
   TESTFAMILY :
@@ -23,18 +26,19 @@ Command options:
       - "Default"
       - "Error"
       - "Score"
+  SPCGOAL : "High", "Low"
   USENOISE : False/True
   NSE : {"0.00", "0.02", "0.04", "0.06", "0.08", "0.10"}
   MTP : {"1", "10"}
+  
 
 Output:
   OUTPUTPATH is by default this ./wolfram_nguyen_baseline
 *)
 
 DSRCODEPATH="../../..";
-OUTPUTPATH="./wolfram_nguyen_baseline";
-
-TESTS={"Nguyen-1","Nguyen-2","Nguyen-3","Nguyen-4","Nguyen-5","Nguyen-6","Nguyen-7","Nguyen-8"}; (*1D tests*)
+(*DSRCODEPATH="/usr/workspace/landajue/code/hypothesis_testing";*)
+OUTPUTPATH=".";
 
 TESTFAMILY=$ScriptCommandLine[[2]]
 Which[
@@ -46,12 +50,15 @@ TESTFAMILY=="Custom", TESTS={"Custom-1","Custom-2","Custom-6","Custom-13","Custo
 MC=ToExpression[$ScriptCommandLine[[3]]];
 VERBOSE=True;
 RUNMODE=$ScriptCommandLine[[4]];
-USENOISE=ToExpression[$ScriptCommandLine[[5]]];
-NSE=$ScriptCommandLine[[6]];
-MTP=$ScriptCommandLine[[7]];
+SPCGOAL=$ScriptCommandLine[[5]];
+USENOISE=ToExpression[$ScriptCommandLine[[6]]];
+NSE=$ScriptCommandLine[[7]];
+MTP=$ScriptCommandLine[[8]];
 
 
-If[VERBOSE,Print[" MC: "<>ToString[MC]<>"\n RUNMODE: "<>RUNMODE<>"\n USENOISE: "<>ToString[USENOISE]<>"\n NSE: "<>NSE<>"\n MTP: "<>MTP]];
+SUMMARY={};
+
+If[VERBOSE,Print[" MC: "<>ToString[MC]<>"\n RUNMODE: "<>RUNMODE<>"\n USENOISE: "<>ToString[USENOISE]<>"\n NSE: "<>NSE<>"\n MTP: "<>MTP<>"\n SPCGOAL: "<>ToString[SPCGOAL]]];
 
 LIBRARY={Plus,Times,Power,Sin,Cos,Exp,Log};(*Function lib: Koza,"add,sub,mul,div,sin,cos,exp,log"*)
 DSRREGRESSIONPATH=DSRCODEPATH<>"/dsr/dsr/task/regression/data"
@@ -66,7 +73,7 @@ RULESFLOATEXP={x^1.->  x^1,x^2.->  x^2,x^3.->  x^3,x^4.->  x^4,x^4.->  x^4,x^5.-
 
 iso = DateString["ISODateTime"];
 TIMESTAMP = StringJoin[StringSplit[StringSplit[iso, "T"][[1]], "-"]]<>"-"<>StringJoin[StringSplit[StringSplit[iso, "T"][[2]], ":"]];
-NAMEDIR=OUTPUTPATH<>"/log_"<>ToString[TESTFAMILY]<>"_"<>ToString[MC]<>"_"<>ToString[RUNMODE];
+NAMEDIR=OUTPUTPATH<>"/log_"<>ToString[TESTFAMILY]<>"_"<>ToString[MC]<>"_"<>ToString[RUNMODE]<>"_"<>ToString[SPCGOAL];
 If[USENOISE,
 NAMEDIR=NAMEDIR<>"_"<>"nse_"<>ToString[NSE]<>"_"<>"mtp_"<>ToString[MTP];
 ]
@@ -113,9 +120,10 @@ Print["  Data dimensions : "<>ToString[Dimensions[data]]];
 
 SEEDS=Range[0,MC-1];
 Which[
-RUNMODE=="Default", FITS=ParallelMap[FindFormula[data,x, 1, {"Score","Error","Complexity"}, SpecificityGoal->"High", RandomSeeding-> #,TargetFunctions->LIBRARY]&,SEEDS],
-RUNMODE=="Error", FITS=ParallelMap[FindFormula[data,x, 1, "Error", PerformanceGoal->"Quality", SpecificityGoal-> "High", RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS],
-RUNMODE=="Score", FITS=ParallelMap[FindFormula[data,x, 1, "Score", PerformanceGoal->"Quality", SpecificityGoal-> "High", RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS]
+RUNMODE=="Default", FITS=ParallelMap[FindFormula[data,x, 1, {"Score","Error","Complexity"}, SpecificityGoal->SPCGOAL, RandomSeeding-> #,TargetFunctions->LIBRARY]&,SEEDS],
+RUNMODE=="Error", FITS=ParallelMap[FindFormula[data,x, 1, "Error", PerformanceGoal->"Quality", SpecificityGoal-> SPCGOAL, RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS],
+RUNMODE=="Score", FITS=ParallelMap[FindFormula[data,x, 1, "Score", PerformanceGoal->"Quality", SpecificityGoal-> SPCGOAL, RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS],
+RUNMODE=="Complexity", FITS=ParallelMap[FindFormula[data,x, 1, "Complexity", PerformanceGoal->"Quality", SpecificityGoal-> SPCGOAL, RandomSeeding->#,TargetFunctions->LIBRARY]&,SEEDS]
 ];
 
 (* Check for success *)
@@ -135,5 +143,22 @@ FITS[[i,-1]]=success;
 ];
 
 Export[dir<>"/"<>"run_stats_"<>TESTS[[testIndex]]<>".csv",FITS];
-Export[dir<>"/"<>"mean_run_stats_"<>TESTS[[testIndex]]<>".txt",ToString[Map[FortranForm[#]&,Mean[FITS[[All,2;;]]]]]];
+Map[AppendTo[SUMMARY,#]&,Map[Prepend[#,TESTS[[testIndex]]]&,FITS]];
 ];
+
+LABEL = "_"<>ToString[TESTFAMILY]<>"_"<>ToString[MC]<>"_"<>ToString[RUNMODE]<>"_"<>ToString[SPCGOAL];
+If[USENOISE,
+LABEL=LABEL<>"_"<>"nse_"<>ToString[NSE]<>"_"<>"mtp_"<>ToString[MTP];
+]
+
+Which[
+RUNMODE=="Default",HEADER={"name","expression","score","error","complexity","success"},
+RUNMODE=="Error",HEADER={"name","expression","error","success"},
+RUNMODE=="Score",HEADER={"name","expression","score","success"},
+RUNMODE=="Complexity",HEADER={"name","expression","complexity","success"}
+];
+ds=Dataset[Table[AssociationThread[HEADER->summ],{summ,SUMMARY}]];
+Export[dir<>"/"<>"summary"<>LABEL<>".csv",ds];
+dsII=N[ds[[All,DeleteCases[HEADER,"expression"]]]];
+Export[dir<>"/"<>"summary_no_expr"<>LABEL<>".csv",dsII];
+Export[dir<>"/"<>"summary_mean"<>LABEL<>".csv",dsII[GroupBy["name"],Mean]];
