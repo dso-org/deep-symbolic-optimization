@@ -36,24 +36,23 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     name, seed = name_and_seed
     config_task["name"] = name
 
-
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    import tensorflow as tf
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-    from dsr.controller import Controller
-    from dsr.train import learn
-
     # Try importing TensorFlow (with suppressed warnings), Controller, and learn
     # When parallelizing across tasks, these will already be imported, hence try/except
-    '''
     try:
-
-
-    except:
-        print("This should not happen")
-        pass
-    '''
-
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        import tensorflow as tf
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+        from dsr.controller import Controller
+        from dsr.train import learn
+    except ModuleNotFoundError: # Specific subclass of ImportError for when module is not found, probably needs to be excepted first
+        print("One or more libraries not found")
+        raise ModuleNotFoundError
+    except ImportError:
+        # Have we already imported tf? If so, this is the error we want to dodge. 
+        if 'tf' in globals():
+            pass
+        else:
+            raise ImportError
 
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
@@ -93,7 +92,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
 
         if config_gp_meld is not None and config_gp_meld["run_gp_meld"]:
-            gp_controller           = gp_dsr.GPController(config_gp_meld, config_task)
+            gp_controller           = gp_dsr.GPController(config_gp_meld, config_task, config_training)
         else:
             gp_controller           = None
 

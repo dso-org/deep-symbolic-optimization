@@ -500,7 +500,7 @@ class GenericEvaluate:
 
 class GPController:
     
-    def __init__(self, config_gp_meld, config_task):
+    def __init__(self, config_gp_meld, config_task, config_training):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -529,11 +529,11 @@ class GPController:
         config_dataset              = config_task["dataset"]
         dataset                     = Dataset(**config_dataset)
                     
-        const_params                = None
-        have_const                  = None          
+        const_params                = config_training['const_params']
+        have_const                  = "const" in dataset.function_set       
                     
         # Put the DSR tokens into DEAP format
-        self.pset, self.const_opt   = create_primitive_set(dataset, const_params=const_params, const=have_const)
+        self.pset, self.const_opt   = create_primitive_set(dataset, const_params=const_params, have_const=have_const)
         # Create a Hall of Fame object
         self.hof                    = tools.HallOfFame(maxsize=1) 
         # Create the object/function that evaluates the population                                                      
@@ -639,7 +639,7 @@ def make_fitness(metric):
         
         
 def create_primitive_set(dataset,  
-                         const_optimizer="scipy", const_params=None, const=False):
+                         const_optimizer="scipy", const_params=None, have_const=False):
     """Create a DEAP primitive set from DSR functions and consts
     """
     
@@ -658,7 +658,7 @@ def create_primitive_set(dataset,
             pset.addPrimitive(v.function, v.arity, name=v.name)    
     
     # Are we optimizing a const?               
-    if const:
+    if have_const:
         const_params    = const_params if const_params is not None else {}
         const_opt       = make_const_optimizer(const_optimizer, **const_params)
         pset.addTerminal(1.0, name="const")     
