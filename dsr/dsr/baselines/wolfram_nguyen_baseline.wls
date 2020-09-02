@@ -40,7 +40,7 @@ TESTFAMILY=$ScriptCommandLine[[2]]
 Which[
 TESTFAMILY=="Nguyen", TESTS={"Nguyen-1","Nguyen-2","Nguyen-3","Nguyen-4","Nguyen-5","Nguyen-6","Nguyen-7","Nguyen-8"} (*1D tests*),
 TESTFAMILY=="Constant", TESTS={"Constant-1","Constant-2"} (*1D tests*),
-TESTFAMILY=="Custom", TESTS={"Nguyen-1","Nguyen-2","Nguyen-3","Nguyen-4","Nguyen-5","Nguyen-6","Nguyen-7","Nguyen-8"} (*1D tests*)
+TESTFAMILY=="Custom", TESTS={"Custom-1","Custom-2","Custom-6","Custom-13","Custom-16","Custom-21"} (*1D tests*)
 ];
 
 MC=ToExpression[$ScriptCommandLine[[3]]];
@@ -84,7 +84,13 @@ FUNCDICT=<|
 "Nguyen-7"->(1.0Log[#+1.0]+1.0Log[#^2+1.0]&),
 "Nguyen-8"->(1.0Sqrt[#]&),
 "Constant-1"->(3.39*(#^3)+2.12*(#^2)+1.78*#&),
-"Constant-2"->(Sin[(#^2)]*Cos[#]-0.75&)
+"Constant-2"->(Sin[(#^2)]*Cos[#]-0.75&),
+"Custom-1"-> (1.0/3.0+#+1.0*Sin[#^2]&),
+"Custom-2"-> (1.0 Sin[#^2]Cos[#]-2.0&),
+"Custom-6"-> (4.0#^4+3.0#^3+2.0#^2+1.0#&),
+"Custom-13"->(#^(1.0/3)&),
+"Custom-16"->(#^(2.0/3)&),
+"Custom-21"->(Exp[-1.0*#^2]&)
 |>;
 
 Print["  Parallel kernels : " <> ToString[Length[ParallelEvaluate[$KernelID]]]];
