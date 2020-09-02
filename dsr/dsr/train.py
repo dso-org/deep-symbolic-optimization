@@ -162,13 +162,14 @@ def learn(sess, controller, pool, gp_controller,
 
     if gp_controller is not None:
         run_gp_meld             = True
-        
+        gp_verbose              = gp_controller.config_gp_meld["verbose"]
         if gp_controller.config_gp_meld["train_n"]:
             all_r_size              = batch_size+gp_controller.config_gp_meld["train_n"]
         else:
             all_r_size              = batch_size+1
     else:
         run_gp_meld             = False                         
+        gp_verbose              = False
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -281,7 +282,7 @@ def learn(sess, controller, pool, gp_controller,
 
     for step in range(n_epochs):
 
-        if gp_controller.config_gp_meld["verbose"]:
+        if gp_verbose:
             print("************************************************************************")
             print("STEP {}".format(step))
             print("************************")
@@ -303,7 +304,7 @@ def learn(sess, controller, pool, gp_controller,
             
             nevals += gp_controller.nevals
             
-            if gp_controller.config_gp_meld["verbose"]:           
+            if gp_verbose:           
                 print("************************")
                 print("Frustration Count: {}".format(frustration_count))
                 print("Number of Evaluations: {}".format(nevals))
@@ -398,13 +399,13 @@ def learn(sess, controller, pool, gp_controller,
             
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not return_gp_obs:
-                if gp_controller.config_gp_meld["verbose"]:
+                if gp_verbose:
                     print("GP solutions NOT returned to controller")
                 keep[batch_size:]   = False
                 r_train             = r[keep]
                 p_train             = list(compress(programs, keep))
             else:
-                if run_gp_meld and gp_controller.config_gp_meld["verbose"]:
+                if run_gp_meld and gp_verbose:
                     print("{} GP solutions returned to controller".format(gp_controller.config_gp_meld["train_n"]))
                 r_train             = _r
                 p_train             = _p
@@ -521,7 +522,7 @@ def learn(sess, controller, pool, gp_controller,
         prev_r_best = r_best
         prev_base_r_best = base_r_best
 
-        if gp_controller.config_gp_meld["verbose"]:
+        if gp_verbose:
             print("************************")
             print("Best step Program:")
             programs[np.argmax(base_r)].print_stats()

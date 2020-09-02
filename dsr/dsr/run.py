@@ -53,7 +53,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
             pass
         else:
             raise ImportError
-
+    
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
     if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
