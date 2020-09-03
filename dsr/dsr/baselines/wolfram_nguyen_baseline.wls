@@ -39,8 +39,8 @@ VERBOSE=True;
 RUNMODE=$ScriptCommandLine[[++CMDIX]];
 SPCGOAL=$ScriptCommandLine[[++CMDIX]];
 USENOISE=ToExpression[$ScriptCommandLine[[++CMDIX]]];
-NSE=$ScriptCommandLine[[++CMDIX]];
-MTP=$ScriptCommandLine[[++CMDIX]];
+NSE=ToString[NumberForm[ToExpression[$ScriptCommandLine[[++CMDIX]]],{1,2}]];
+MTP=ToString[NumberForm[ToExpression[$ScriptCommandLine[[++CMDIX]]],{1,2}]];
 
 
 SUMMARY={};
