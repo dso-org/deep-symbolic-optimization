@@ -47,9 +47,17 @@ SUMMARY={};
 
 If[VERBOSE,Print[" MC: "<>ToString[MC]<>"\n RUNMODE: "<>RUNMODE<>"\n USENOISE: "<>ToString[USENOISE]<>"\n NSE: "<>NSE<>"\n MTP: "<>MTP<>"\n SPCGOAL: "<>ToString[SPCGOAL]]];
 
+If[USENOISE,
+If[TESTFAMILY=="Constant"||TESTFAMILY=="Custom",
+{
+Print["Noise not supported for "<>TESTFAMILY];
+Abort[];
+}]
+];
+
 Which[
 TESTFAMILY=="Nguyen", TESTS={"Nguyen-1","Nguyen-2","Nguyen-3","Nguyen-4","Nguyen-5","Nguyen-6","Nguyen-7","Nguyen-8"} (*1D tests*),
-TESTFAMILY=="Constant", TESTS={"Constant-1","Constant-2"} (*1D tests*),
+TESTFAMILY=="Constant", TESTS={"Constant-1","Constant-2","Constant-5","Constant-6","Constant-8"} (*1D tests*),
 TESTFAMILY=="Custom", TESTS={"Custom-1","Custom-2","Custom-6","Custom-13","Custom-16","Custom-21"} (*1D tests*)
 ];
 
@@ -94,6 +102,9 @@ FUNCDICT=<|
 "Nguyen-8"->(1.0Sqrt[#]&),
 "Constant-1"->(3.39*(#^3)+2.12*(#^2)+1.78*#&),
 "Constant-2"->(Sin[(#^2)]*Cos[#]-0.75&),
+"Constant-5"->(Sqrt[1.23*#]&),
+"Constant-6"->(#^(0.426)&),
+"Constant-8"->(1.0Log[#+1.4]+1.0Log[#^2+1.3]&),
 "Custom-1"-> (1.0/3.0+#+1.0*Sin[#^2]&),
 "Custom-2"-> (1.0 Sin[#^2]Cos[#]-2.0&),
 "Custom-6"-> (4.0#^4+3.0#^3+2.0#^2+1.0#&),
