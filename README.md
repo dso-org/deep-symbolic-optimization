@@ -141,3 +141,28 @@ python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --num_cores=2
 ```
 python -m dsr.run config.json --b=Nguyen-1 --b=Nguyen-4
 ```
+
+## Using an external dataset
+
+- Create a directory `DATAPATH` with your data in your input deck :  `Dataset1.csv`, `Dataset2.csv`,...
+- Point to that directory in your configuration file  `base.json`:
+```
+   "task": {
+      "task_type": "regression",
+      "name": null,
+      "dataset": {
+         "file": "benchmarks.csv",
+         "name": null,
+         "noise": null,
+         "extra_data_dir": "DATAPATH",
+         "function_set": [ 
+...
+...
+```
+- Call `dsr` by:
+```
+python -m dsr.run base.json --method=dsr --mc=50 --n_cores_task=24 --b=Dataset1 --output_filename run_stats_Nguyen-12_mp.1.csv
+```
+Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv` 
+
+
