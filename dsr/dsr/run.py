@@ -112,8 +112,8 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
     # Retrieve results
     r = base_r = p.fitness.values[0]
     str_p = str(p)
-    nmse_test = gp.nmse_test(p)
-    nmse_test_noiseless = gp.nmse_test_noiseless(p)
+    nmse_test = gp.nmse_test(p)[0]
+    nmse_test_noiseless = gp.nmse_test_noiseless(p)[0]
     success = gp.success(p)
 
     # Many failure cases right now for converting to SymPy expression
