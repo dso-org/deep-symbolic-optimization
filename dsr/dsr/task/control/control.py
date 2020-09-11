@@ -11,9 +11,12 @@ from dsr.program import Program, from_tokens
 from . import utils as U
 
 
+REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
+
+
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=True, env_kwargs=None):
+    stochastic=True, protected=True, env_kwargs=None, fix_seeds=False):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -56,6 +59,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     env_kwargs : dict
         Dictionary of environment kwargs passed to gym.make().
 
+    fix_seeds : bool
+        If True, environment uses the first n_episodes_train seeds for reward
+        and the next n_episodes_test seeds for evaluation. This makes the task
+        deterministic.
+
     Returns
     -------
 
@@ -76,6 +84,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         env = U.TimeFeatureWrapper(env)
 
     # Set the library and stochasticity (need to do this now in case there are symbolic actions)
+    if fix_seeds and stochastic:
+        print("WARNING: fix_seeds=True renders task deterministic. Overriding to stochastic=False.")
+        stochastic = False
     n_input_var = env.observation_space.shape[0]
     Program.set_library(function_set, n_input_var, protected)
     Program.set_stochastic(stochastic)
@@ -126,12 +137,18 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         return action
 
 
-    def run_episodes(p, n_episodes):
+    def run_episodes(p, n_episodes, evaluate):
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
         r_episodes = np.zeros(n_episodes, dtype=np.float32) # Episodic rewards for each episode
         for i in range(n_episodes):
+
+            # During evaluation, always use the same seeds
+            if evaluate:
+                env.seed(i)
+            elif fix_seeds:
+                env.seed(i + REWARD_SEED_SHIFT)
             obs = env.reset()
             done = False
             while not done:
@@ -162,7 +179,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def reward(p):
 
         # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_train)
+        r_episodes = run_episodes(p, n_episodes_train, evaluate=False)
 
         # Return the mean
         r_avg = np.mean(r_episodes)
@@ -172,7 +189,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def evaluate(p):
 
         # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_test)
+        r_episodes = run_episodes(p, n_episodes_test, evaluate=True)
 
         # Compute eval statistics
         r_avg_test = np.mean(r_episodes)
