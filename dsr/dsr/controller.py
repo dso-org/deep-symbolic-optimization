@@ -260,6 +260,10 @@ class Controller(object):
                 print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
                 self.min_length = None
 
+        if constrain_const and Program.const_token is None:
+            print("Warning: constrain_const=True will have no effect because there is no constant token.")
+            self.constrain_const = False
+
         if max_const is None:
             assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
         else:
