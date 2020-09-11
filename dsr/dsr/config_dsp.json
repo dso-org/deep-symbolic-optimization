@@ -9,6 +9,7 @@
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
       "stochastic" : true,
       "protected" : true,
+      "fix_seeds" : false,
       "env_kwargs" : {"dt" : 0.02}
    },
    "training": {
