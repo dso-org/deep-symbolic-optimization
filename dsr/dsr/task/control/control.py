@@ -123,10 +123,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         action = p.execute(np.array([obs]))[0]
 
-        # Infinite or NaN values simply return zero action
-        if not np.isfinite(action):
-            action = 0
-
         return action
 
 
@@ -153,6 +149,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                 # Replace symbolic action with current program
                 action[action_dim] = get_action(p, obs)
                 
+                # Replace NaNs and clip infinites
+                action[np.isnan(action)] = 0.0 # Replace NaNs with zero
+                action = np.clip(action, env.action_space.low, env.action_space.high)
+
                 obs, r, done, _ = env.step(action)
                 r_episodes[i] += r
 
