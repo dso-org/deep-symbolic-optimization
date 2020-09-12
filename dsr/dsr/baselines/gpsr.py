@@ -111,7 +111,10 @@ class GP():
 
         # Create custom fitness and individual classes
         if self.pareto_front:
-            creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1e-100)) # No weight on complexity
+            # Fitness it compared lexographically, so second dimension
+            # (complexity) is only used in selection if first dimension (error)
+            # is the same.
+            creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
         else:
             creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin)
