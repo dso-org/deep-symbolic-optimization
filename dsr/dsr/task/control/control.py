@@ -176,7 +176,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Compute eval statistics
         r_avg_test = np.mean(r_episodes)
-        success_rate = np.mean(r_episodes > success_score)
+        success_rate = np.mean(r_episodes >= success_score)
         success = success_rate == 1.0
 
         info = {
