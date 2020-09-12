@@ -260,6 +260,12 @@ class GP():
                 break
         ind_best = ind_best if ind_best is not None else self.hof[0]
 
+        if self.verbose:
+            print("Printing {}:".format("Pareto front" if self.pareto_front else "hall of fame"))
+            print("Fitness  |  Individual")
+            for ind in self.hof:
+                print(ind.fitness, [token.name for token in ind])
+
         return ind_best, logbook
 
 
