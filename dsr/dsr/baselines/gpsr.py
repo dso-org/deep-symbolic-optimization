@@ -258,7 +258,7 @@ class GP():
             if self.success(ind):
                 ind_best = ind
                 break
-        ind_best = ind_best if ind_best is not None else self.hof[0]
+        ind_best = ind_best if ind_best is not None else self.hof[0] # first element in self.hof is the fittest
 
         if self.verbose:
             print("Printing {}:".format("Pareto front" if self.pareto_front else "hall of fame"))
