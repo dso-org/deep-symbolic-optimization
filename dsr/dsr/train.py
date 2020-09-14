@@ -510,9 +510,6 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         df = pd.DataFrame(hof_results, columns=columns)
         df.to_csv(hof_output_file, header=True, index=False)
 
-    if pool is not None:
-        pool.close()
-
     # Print error statistics of the cache
     n_invalid = 0
     error_types = defaultdict(lambda : 0)
@@ -564,6 +561,10 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             if p.evaluate.get("success"):
                 p_final = p
                 break
+
+    # Close the pool
+    if pool is not None:
+        pool.close()
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
