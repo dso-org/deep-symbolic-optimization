@@ -39,6 +39,12 @@ def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
+def sympy_work(p):
+    sympy_expr = p.sympy_expr
+    str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
+    return sympy_expr, str_sympy_expr
+
+
 def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
@@ -492,6 +498,18 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         # For deterministic Programs, just use the cache
         else:
             programs = list(Program.cache.values()) # All unique Programs found during training
+
+            # Filter out symbolically unique Programs. Assume N/A expressions are unique.
+            if pool is not None:
+                results = pool.map(sympy_work, programs)
+                for p, result in zip(programs, results):
+                    p.sympy_expr = result[0]
+            else:
+                results = list(map(sympy_work, programs))
+            str_sympy_exprs = [result[1] for result in results]    
+            unique_ids = np.unique(str_sympy_exprs, return_index=True)[1].tolist()
+            na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
+            programs = list(map(programs.__getitem__, unique_ids + na_ids))
 
         base_r = [p.base_r for p in programs]
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
