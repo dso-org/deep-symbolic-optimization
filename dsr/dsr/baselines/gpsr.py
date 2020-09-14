@@ -29,6 +29,7 @@ class GP():
                  const_range=[-1, 1], const_optimizer="scipy",
                  const_params=None, seed=0, early_stopping=False,
                  threshold=1e-12, verbose=True, protected=True,
+                 pareto_front=False,
                  # Constraint hyperparameters
                  constrain_const=True,
                  constrain_trig=True,
@@ -38,8 +39,7 @@ class GP():
                  constrain_num_const=True,
                  min_length=4,
                  max_length=30,
-                 max_const=3
-):
+                 max_const=3):
 
         self.dataset = dataset
         self.fitted = False
@@ -58,6 +58,7 @@ class GP():
         self.early_stopping = early_stopping
         self.threshold = threshold
         self.verbose = verbose
+        self.pareto_front = pareto_front
 
         # Fitness function used during training
         # Includes closure for fitness function metric and training data
@@ -109,7 +110,13 @@ class GP():
             pset.addTerminal(1.0, name="const")
 
         # Create custom fitness and individual classes
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        if self.pareto_front:
+            # Fitness it compared lexographically, so second dimension
+            # (complexity) is only used in selection if first dimension (error)
+            # is the same.
+            creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
+        else:
+            creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin)
 
         # Define the evolutionary operators
@@ -157,8 +164,9 @@ class GP():
             const_idxs = [i for i, node in enumerate(individual) if node.name == "const"]
 
             # HACK: If early stopping threshold has been reached, don't do training optimization
-            # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self.success(self.hof[0]):
+            # Check if best individual (or any individual in Pareto front) has success=True
+            # (i.e. NMSE below threshold on noiseless test set)
+            if self.early_stopping and any([self.success(ind) for ind in self.hof]):
                 return (999,)
 
         if optimize and len(const_idxs) > 0:
@@ -191,9 +199,18 @@ class GP():
 
         # Check for validity
         if np.isfinite(y_hat).all():
-            return (fitness(y_hat=y_hat),)
+            fitness = (fitness(y_hat=y_hat),)
         else:
-            return (np.inf,)
+            fitness = (np.inf,)
+
+        # Compute complexity (only if using Pareto front)
+        if self.pareto_front:
+            complexity = sum([function_map[prim.name].complexity \
+                                if prim.name in function_map \
+                                else 1 for prim in individual])                    
+            fitness += (complexity,)
+
+        return fitness
 
 
     def train(self):
@@ -205,9 +222,12 @@ class GP():
         random.seed(self.seed)
 
         pop = self.toolbox.population(n=self.population_size)
-        self.hof = tools.HallOfFame(maxsize=1)
+        if self.pareto_front:
+            self.hof = tools.ParetoFront()
+        else:
+            self.hof = tools.HallOfFame(maxsize=1)
 
-        stats_fit = tools.Statistics(lambda p : p.fitness.values)
+        stats_fit = tools.Statistics(lambda p : p.fitness.values[0])
         stats_fit.register("avg", np.mean)
         stats_fit.register("min", np.min)
         stats_size = tools.Statistics(len)
@@ -231,7 +251,22 @@ class GP():
         if "const" in dir(gp):
             del gp.const
 
-        return self.hof[0], logbook
+        # The best individual is the first one in self.hof with success=True,
+        # otherwise the highest reward. This mimics DSR's train.py.
+        ind_best = None
+        for ind in self.hof:
+            if self.success(ind):
+                ind_best = ind
+                break
+        ind_best = ind_best if ind_best is not None else self.hof[0] # first element in self.hof is the fittest
+
+        if self.verbose:
+            print("Printing {}:".format("Pareto front" if self.pareto_front else "hall of fame"))
+            print("Fitness  |  Individual")
+            for ind in self.hof:
+                print(ind.fitness, [token.name for token in ind])
+
+        return ind_best, logbook
 
 
     def make_fitness(self, metric):
