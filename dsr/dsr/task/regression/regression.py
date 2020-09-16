@@ -191,6 +191,12 @@ def make_regression_metric(name, y_train, *args):
         "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
                         0),
 
+        # Negative root mean squared error
+        # Range: [-inf, 0]
+        # Value = -sqrt(var(y)) when y_hat == mean(y)
+        "neg_rmse" :     (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)),
+                        0),
+
         # Negative normalized mean squared error
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
@@ -246,6 +252,7 @@ def make_regression_metric(name, y_train, *args):
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
         "neg_mse" : -var_y,
+        "neg_rmse" : -np.sqrt(var_y),
         "neg_nmse" : -1.0,
         "neg_nrmse" : -1.0,
         "inv_mse" : 0.0, #1/(1 + args[0]*var_y),
@@ -259,6 +266,7 @@ def make_regression_metric(name, y_train, *args):
 
     all_max_rewards = {
         "neg_mse" : 0.0,
+        "neg_rmse" : 0.0,
         "neg_nmse" : 0.0,
         "neg_nrmse" : 0.0,
         "inv_mse" : 1.0,
