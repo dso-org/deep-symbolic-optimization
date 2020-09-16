@@ -3,9 +3,9 @@ import numpy as np
 from .dataset import Dataset
 
 
-def make_regression_task(name, metric, metric_params, dataset,
-    reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
-    normalize_variance=False):
+def make_regression_task(name, metric, metric_params, extra_metric_test,
+    extra_metric_test_params, dataset, reward_noise=0.0, reward_noise_type="r",
+    threshold=1e-12, normalize_variance=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -19,6 +19,12 @@ def make_regression_task(name, metric, metric_params, dataset,
 
     metric_params : list
         List of metric-specific parameters.
+
+    extra_metric_test : str
+        Name of extra function metric to use for testing.
+
+    extra_metric_test_params : list
+        List of metric-specific parameters for extra test metric.
 
     dataset : dict
         Dict of .dataset.Dataset kwargs.
@@ -55,6 +61,9 @@ def make_regression_task(name, metric, metric_params, dataset,
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
     metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
+    if extra_metric_test is not None:
+        print("Setting extra test metric to {}.".format(extra_metric_test))
+        metric_test, _, _ = make_regression_metric(extra_metric_test, y_test, *extra_metric_test_params) 
     assert reward_noise >= 0.0, "Reward noise must be non-negative."
     if reward_noise:
         assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
@@ -120,11 +129,22 @@ def make_regression_task(name, metric, metric_params, dataset,
             # Success is defined by NMSE on noiseless test data below a threshold
             success = nmse_test_noiseless < threshold
 
+            if extra_metric_test is not None:
+                m_test = metric_test(y_test, y_hat)
+                m_test_noiseless = metric_test(y_test_noiseless, y_hat)
+
         info = {
             "nmse_test" : nmse_test,
             "nmse_test_noiseless" : nmse_test_noiseless,
             "success" : success
         }
+        if extra_metric_test is not None:
+            info.update(
+                {
+                extra_metric_test : m_test,
+                extra_metric_test + '_noiseless' : m_test_noiseless
+                }
+            )
         return info
 
     stochastic = reward_noise > 0.0

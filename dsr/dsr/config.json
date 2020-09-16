@@ -13,6 +13,8 @@
       },
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],
+      "extra_metric_test" : null,
+      "extra_metric_test_params" : [1.0],
       "threshold" : 1e-12,
       "protected" : true,
       "reward_noise" : 0.0,
