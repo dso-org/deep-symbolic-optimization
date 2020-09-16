@@ -130,6 +130,8 @@ class Program(object):
     # Additional derived static variables
     L = None                # Length of library
     terminal_tokens = None  # Tokens corresponding to terminals
+    float_tokens = None     # Tokens corresponding to hard-coded floats
+    var_tokens = None       # Tokens corresponding to input variables
     unary_tokens = None     # Tokens corresponding to unary operators
     binary_tokens = None    # Tokens corresponding to binary operators
     trig_tokens = None      # Tokens corresponding to trig functions
@@ -468,6 +470,8 @@ class Program(object):
         Program.L = len(Program.library)
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
+        Program.var_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], int)], dtype=np.int32)
+        Program.float_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], np.float32)], dtype=np.int32)
         Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
         Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
         Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
