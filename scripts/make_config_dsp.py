@@ -1,4 +1,15 @@
-"""Script used to generate config file."""
+"""
+Script used to generate config file.
+
+User case:
+    If you have an old input deck with a config file that is stale (it does not 
+    contain fields that have been recently added), you can do:
+    
+        python3 $(hypothesis_testing)/scripts/make_config_dsp.py -bp 
+        $(hypothesis_testing)/dsr/dsr/config_dsp.json -out my_own_config.json -bs 100
+        
+    to get a fresh version of config.json with your parameters of choice
+"""
 
 import os
 import stat
