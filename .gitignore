@@ -3,4 +3,5 @@
 *.egg*
 venv*
 dsr/dsr/summary*
+*log_*
 .gitignore
