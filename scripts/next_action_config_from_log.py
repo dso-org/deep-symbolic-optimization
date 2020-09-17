@@ -1,5 +1,18 @@
-"""Given a starting config with a completed HOF, generate the config
-for the next action."""
+"""
+Given a starting config with a completed HOF, generate the config
+for the next action.
+
+User case:
+
+    When manually going to train the next action is dsp, you can do:
+    
+        python3 $(hypothesis_testing)/scripts/next_action_config_from_log.py 
+        -lp log_of_previous_action -out next_action_dir
+        
+    to get the config file for the next action (with the best expression 
+    inserted in the file to use as anchor)
+"""
+
 import os
 import sys
 import json
@@ -23,13 +36,13 @@ def myargparse():
     parser.add_argument('-lp','--log_path', 
                         type=str,
                         dest='lp',            
-                        help="full path of previous action log directory",
+                        help="full path of previous action log directory (e.x., log_2020-09-14-153920)",
                         default='log_2020-09-14-153920')
     parser.add_argument('-op','--out_path', 
                         type=str,
                         dest='op',            
-                        help="name of output config file (name.json)",
-                        default='a1')        
+                        help="name of directory with next config json",
+                        default='next_action_dir')        
     return parser.parse_args()
 
 
@@ -58,7 +71,13 @@ def make_config(**kwargs):
     n_actions = len(prev_action_spec)
     prev_action = prev_action_spec.index(None)
     action = prev_action + 1
-    assert action < n_actions, "Already ran DSP for all actions."
+    # Calling the script to compile the entire symbolic multi-action policy
+    if action == n_actions : 
+        print("Warning: Already ran DSP for all actions. The output config \
+file will contain the entire symbolic multi-action policy. Note that \
+the output config file cannot be used to run DSP.")
+    assert action <= n_actions, "You are running the script over a \
+filled symbolic multi-action policy config file."
     
     # Read the HOF
     files = os.listdir(prev_logdir)
@@ -71,7 +90,8 @@ def make_config(**kwargs):
     # Update the new config action_spec
     config = deepcopy(prev_config)
     config["task"]["action_spec"][prev_action] = best_traversal.split(',')
-    config["task"]["action_spec"][action] = None
+    if action < n_actions : 
+        config["task"]["action_spec"][action] = None
     # Update the new config logdir
     logdir = prev_logdir.split("_202")[0]
     before = "a{}".format(prev_action)
