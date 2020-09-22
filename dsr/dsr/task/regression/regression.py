@@ -209,6 +209,12 @@ def make_regression_metric(name, y_train, *args):
         "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
                         0),
 
+        # (Protected) negative log mean squared error
+        # Range: [-inf, 0]
+        # Value = -log(1 + var(y)) when y_hat == mean(y)
+        "neglog_mse" : (lambda y, y_hat : -np.log(1 + np.mean((y - y_hat)**2)),
+                        0),
+
         # (Protected) inverse mean squared error
         # Range: [0, 1]
         # Value = 1/(1 + args[0]*var(y)) when y_hat == mean(y)
@@ -255,6 +261,7 @@ def make_regression_metric(name, y_train, *args):
         "neg_rmse" : -np.sqrt(var_y),
         "neg_nmse" : -1.0,
         "neg_nrmse" : -1.0,
+        "neglog_mse" : -np.log(1 + var_y),
         "inv_mse" : 0.0, #1/(1 + args[0]*var_y),
         "inv_nmse" : 0.0, #1/(1 + args[0]),
         "inv_nrmse" : 0.0, #1/(1 + args[0]),
@@ -269,6 +276,7 @@ def make_regression_metric(name, y_train, *args):
         "neg_rmse" : 0.0,
         "neg_nmse" : 0.0,
         "neg_nrmse" : 0.0,
+        "neglog_mse" : 0.0,
         "inv_mse" : 1.0,
         "inv_nmse" : 1.0,
         "inv_nrmse" : 1.0,
