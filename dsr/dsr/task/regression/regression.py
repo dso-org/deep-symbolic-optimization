@@ -119,6 +119,10 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
             nmse_test_noiseless = None
             success = False
 
+            if extra_metric_test is not None:
+                m_test = None
+                m_test_noiseless = None
+
         else:
             # NMSE on test data (used to report final error)
             nmse_test = np.mean((y_test - y_hat)**2) / var_y_test
