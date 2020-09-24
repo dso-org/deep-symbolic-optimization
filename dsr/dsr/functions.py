@@ -55,7 +55,7 @@ def harmonic(x1):
     if all(val.is_integer() for val in x1):
         return np.array([sum(Fraction(1, d) for d in range(1, int(val)+1)) for val in x1], dtype=np.float32)
     else:
-        return GAMMA + log(x1) + 0.5/x1 - 1./(12*x1**2) + 1./(120*x1**4)
+        return GAMMA + np.log(x1) + 0.5/x1 - 1./(12*x1**2) + 1./(120*x1**4)
 
 
 # Annotate unprotected ops
