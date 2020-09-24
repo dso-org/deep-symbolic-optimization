@@ -1,6 +1,9 @@
 """Functions used in symbolic regression."""
 
 import numpy as np
+from fractions import Fraction
+
+GAMMA = 0.57721566490153286060651209008240243104215933593992
 
 
 class Function(object):
@@ -48,6 +51,12 @@ def n3(x1):
 def sigmoid(x1):
     return 1 / (1 + np.exp(-x1))
 
+def harmonic(x1):
+    if all(val.is_integer() for val in x1):
+        return np.array([sum(Fraction(1, d) for d in range(1, int(val)+1)) for val in x1], dtype=np.float32)
+    else:
+        return GAMMA + log(x1) + 0.5/x1 - 1./(12*x1**2) + 1./(120*x1**4)
+
 
 # Annotate unprotected ops
 unprotected_ops = [
@@ -76,7 +85,8 @@ unprotected_ops = [
     Function(logabs, "logabs", arity=1, complexity=4),
     Function(expneg, "expneg", arity=1, complexity=4),
     Function(n3, "n3", arity=1, complexity=3),
-    Function(sigmoid, "sigmoid", arity=1, complexity=4)
+    Function(sigmoid, "sigmoid", arity=1, complexity=4),
+    Function(harmonic, "harmonic", arity=1, complexity=4)
 ]
 
 
