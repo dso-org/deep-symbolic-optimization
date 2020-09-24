@@ -119,10 +119,6 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
             nmse_test_noiseless = None
             success = False
 
-            if extra_metric_test is not None:
-                m_test = None
-                m_test_noiseless = None
-
         else:
             # NMSE on test data (used to report final error)
             nmse_test = np.mean((y_test - y_hat)**2) / var_y_test
@@ -132,23 +128,28 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
             # Success is defined by NMSE on noiseless test data below a threshold
             success = nmse_test_noiseless < threshold
-
-            if extra_metric_test is not None:
-                m_test = metric_test(y_test, y_hat)
-                m_test_noiseless = metric_test(y_test_noiseless, y_hat)
-
+            
         info = {
             "nmse_test" : nmse_test,
             "nmse_test_noiseless" : nmse_test_noiseless,
             "success" : success
         }
+
         if extra_metric_test is not None:
+            if p.invalid:
+                m_test = None
+                m_test_noiseless = None
+            else:
+                m_test = metric_test(y_test, y_hat)
+                m_test_noiseless = metric_test(y_test_noiseless, y_hat)     
+
             info.update(
                 {
                 extra_metric_test : m_test,
                 extra_metric_test + '_noiseless' : m_test_noiseless
                 }
             )
+
         return info
 
     stochastic = reward_noise > 0.0
