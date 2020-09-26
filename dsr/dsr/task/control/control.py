@@ -141,7 +141,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
-        r_episodes = np.zeros(n_episodes, dtype=np.float32) # Episodic rewards for each episode
+        r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
         for i in range(n_episodes):
 
             # During evaluation, always use the same seeds
@@ -160,8 +160,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                     action = np.zeros(env.action_space.shape, dtype=np.float32)
 
                 # Replace fixed symbolic actions
-                for i, fixed_p in symbolic_actions.items():
-                    action[i] = get_action(fixed_p, obs)
+                for j, fixed_p in symbolic_actions.items():
+                    action[j] = get_action(fixed_p, obs)
 
                 # Replace symbolic action with current program
                 action[action_dim] = get_action(p, obs)
