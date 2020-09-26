@@ -160,8 +160,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                     action = np.zeros(env.action_space.shape, dtype=np.float32)
 
                 # Replace fixed symbolic actions
-                for i, fixed_p in symbolic_actions.items():
-                    action[i] = get_action(fixed_p, obs)
+                for j, fixed_p in symbolic_actions.items():
+                    action[j] = get_action(fixed_p, obs)
 
                 # Replace symbolic action with current program
                 action[action_dim] = get_action(p, obs)
