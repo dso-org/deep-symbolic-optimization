@@ -1,15 +1,22 @@
+"""Sampling obs, and action data from a Zoo policy on a Gym environment. Do, python sample_data.py --env ENV_NAME """
 import sys, os, gym
 import numpy as np
 import dsr.task.control.utils as U
+import click
 
-def sample_data(env_name, algorithm, n_episodes, sample_size):
+@click.command()
+@click.option("--env", type=str, default="LunarLanderContinuous-v2", help="Name of environment to sample")
+@click.option("--n_episodes", type=int, default=1000, help="Number of sampling episodes.")
+@click.option("--n_samples", type=int, default=100000, help="Number of sampling episodes.")
+def main(env,  n_episodes, n_samples):
     #global variables
     global REGRESSION_SEED_SHIFT 
     global N_EPISODES
     global SAMPLE_SIZE 
     REGRESSION_SEED_SHIFT = int(2e6)
     N_EPISODES = n_episodes
-    SAMPLE_SIZE = sample_size
+    SAMPLE_SIZE = n_samples
+    env_name = env
     #Make gym environment
     env=gym.make(env_name)
     if "Bullet" in env_name:
@@ -43,8 +50,7 @@ def sample_data(env_name, algorithm, n_episodes, sample_size):
                 f.write(line+"\n")
     f.close()
 
+if __name__ == "__main__":
+    main()
 
-sample_data("LunarLanderContinuous-v2", "sac", 1000, 100000)
-sample_data("InvertedPendulumSwingupBulletEnv-v0", "sac", 1000, 100000)
-sample_data("ReacherBulletEnv-v0", "td3", 1000, 100000)
-sample_data("HopperBulletEnv-v0", "td3", 1000, 100000) 
+
