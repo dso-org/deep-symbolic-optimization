@@ -1,4 +1,4 @@
-"""Sampling obs, and action data from a Zoo policy on a Gym environment. Do, python sample_data.py --env ENV_NAME """
+"""Sampling obs, and action data from a Zoo policy on a Gym environment. Do, python sample_zoo.py --env ENV_NAME """
 import sys, os, gym
 import numpy as np
 import dsr.task.control.utils as U
@@ -23,6 +23,7 @@ def main(env,  n_episodes, n_samples):
        env = U.TimeFeatureWrapper(env)
     #Load model
     U.load_default_model(env_name)
+    f = open(env_name+"_.csv", 'w')
     #RUN episodes
     for j in range(N_EPISODES):
         env.seed(j + REGRESSION_SEED_SHIFT)
