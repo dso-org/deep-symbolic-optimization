@@ -14,6 +14,59 @@ from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
 
+
+def from_str_tokens(str_tokens, optimize):
+    """
+    Memoized function to generate a Program from a list of str and/or float.
+    See from_tokens() for details.
+
+    Parameters
+    ----------
+    str_tokens : str | list of (str | float)
+        Either a comma-separated string of tokens and/or floats, or a list of
+        str and/or floats.
+
+    optimize : bool
+        See from_tokens().
+
+    Returns
+    -------
+    program : Program
+        See from_tokens().
+    """
+
+    # Convert str to list of str
+    if isinstance(str_tokens, str):
+        str_tokens = str_tokens.split(",")
+    
+    # Convert list of str|float to list of tokens
+    if isinstance(str_tokens, list):
+        traversal = []
+        constants = []
+        for s in str_tokens:
+            if s in Program.str_library:
+                t = Program.str_library.index(s.lower())
+            elif U.is_float(s):
+                assert "const" not in str_tokens, "Currently does not support both placeholder and hard-coded constants."
+                assert not optimize, "Currently does not support optimization with hard-coded constants."
+                t = Program.const_token
+                constants.append(float(s))
+            else:
+                raise ValueError("Did not recognize token {}.".format(s))
+            traversal.append(t)
+        traversal = np.array(traversal, dtype=np.int32)
+    else:
+        raise ValueError("Input must be list or string.")
+
+    # Generate base Program (with "const" for constants)
+    p = from_tokens(traversal, optimize=optimize)
+
+    # Replace any constants
+    p.set_constants(constants)
+
+    return p
+
+
 def from_tokens(tokens, optimize):
     """
     Memoized function to generate a Program from a list of tokens.
@@ -63,7 +116,6 @@ def from_tokens(tokens, optimize):
             Program.cache[key] = p
 
     return p
-
 
 
 class Program(object):
@@ -489,13 +541,6 @@ class Program(object):
         Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
         print("Library:\n\t{}".format(Program.str_library))
-
-
-    @staticmethod
-    def convert(traversal):
-        """Converts a string traversal to an int traversal"""
-
-        return np.array([Program.str_library.index(f.lower()) for f in traversal], dtype=np.int32)
 
 
     @cached_property

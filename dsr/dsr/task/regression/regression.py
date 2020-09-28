@@ -154,8 +154,9 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
     stochastic = reward_noise > 0.0
 
+    extra_info = {}
 
-    return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic
+    return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic, extra_info
 
 
 def make_regression_metric(name, y_train, *args):

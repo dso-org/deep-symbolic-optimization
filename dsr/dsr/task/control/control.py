@@ -7,7 +7,7 @@ except ImportError:
 
 import numpy as np
 
-from dsr.program import Program, from_tokens
+from dsr.program import Program, from_str_tokens
 from . import utils as U
 
 
@@ -96,7 +96,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     assert isinstance(env.action_space, gym.spaces.Box), "Only supports continuous action spaces."
     n_actions = env.action_space.shape[0]
     assert n_actions == len(action_spec), "Received specifications for {} action dimensions; expected {}.".format(len(action_spec), n_actions)
-    assert len([v for v in action_spec if v is None]) == 1, "Exactly 1 action_spec element must be None."
+    assert len([v for v in action_spec if v is None]) <= 1, "No more than 1 action_spec element can be None."
     assert int(algorithm is None) + int(anchor is None) in [0, 2], "Either none or both of (algorithm, anchor) must be None."
 
     # Load the anchor model (if applicable)
@@ -112,20 +112,25 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions = {}
+    action_dim = None
     for i, spec in enumerate(action_spec):
+
+        # Action taken from anchor policy
+        if spec == "anchor":
+            continue
 
         # Action dimnension being learned
         if spec is None:
             action_dim = i
 
         # Pre-specified symbolic policy
-        elif isinstance(spec, list):
-            tokens = Program.convert(spec) # Converts str to ints
-            p = from_tokens(tokens, optimize=False)
+        elif isinstance(spec, list) or isinstance(spec, str):
+            str_tokens = spec
+            p = from_str_tokens(str_tokens, optimize=False)
             symbolic_actions[i] = p
 
         else:
-            assert spec == "anchor", "Action specifications must be None, a list of tokens, or 'anchor'."
+            assert False, "Action specifications must be None, a str/list of tokens, or 'anchor'."
 
 
     def get_action(p, obs):
@@ -164,7 +169,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                     action[j] = get_action(fixed_p, obs)
 
                 # Replace symbolic action with current program
-                action[action_dim] = get_action(p, obs)
+                if action_dim is not None:
+                    action[action_dim] = get_action(p, obs)
                 
                 # Replace NaNs and clip infinites
                 action[np.isnan(action)] = 0.0 # Replace NaNs with zero
@@ -202,6 +208,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             "success" : success
         }
         return info
+
+    extra_info = {
+        "symbolic_actions" : symbolic_actions
+    }
     
 
-    return reward, evaluate, function_set, n_input_var, stochastic
+    return reward, evaluate, function_set, n_input_var, stochastic, extra_info
