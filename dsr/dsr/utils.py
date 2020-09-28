@@ -5,6 +5,16 @@ import functools
 import numpy as np
 
 
+def is_float(s):
+    """Determine whether str can be cast to float."""
+
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
 # Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
 def is_pareto_efficient(costs):
     """
