@@ -8,9 +8,11 @@ import pandas as pd
 
 from dsr.program import Program
 from dsr.task import make_task
+import dsr.task.control
 
 
 ENVIRONMENTS = {
+    "CustomCartPoleContinuous-v0": 1,
     "MountainCarContinuous-v0" : 1,
     "Pendulum-v0" : 1,
     "InvertedDoublePendulumBulletEnv-v0" : 1,
