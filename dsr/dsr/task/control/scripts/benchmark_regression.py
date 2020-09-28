@@ -41,7 +41,8 @@ def eval_task(config_task):
 @click.option("--env", multiple=True, type=str, default=("all",), help="Name of environment")
 @click.option("--mc", type=int, default=10, help="Number of seeds.")
 @click.option("--output_filename", type=str, default="benchmark_regression.csv", help="Name of output file.")
-def main(exp_dir, env, mc, output_filename):
+@click.option("--n_episodes", type=int, default=1000, help="Number of episodes to evaluate per env.")
+def main(exp_dir, env, mc, output_filename, n_episodes):
 
     environments = env # Rename variable
 
@@ -51,7 +52,7 @@ def main(exp_dir, env, mc, output_filename):
     header = ["env", "seed"]
     header += ["traversal_{}".format(i) for i in range(MAX_ACTIONS)]
     header += ["expression_{}".format(i) for i in range(MAX_ACTIONS)]
-    header += ["score"]
+    header += ["n_episodes", "score"]
 
     # Write header
     if not os.path.isfile(output_filename):
@@ -62,7 +63,7 @@ def main(exp_dir, env, mc, output_filename):
         "task_type" : "control",
         "env_kwargs" : {},
         "n_episodes_train" : 2,
-        "n_episodes_test" : 1000,
+        "n_episodes_test" : n_episodes,
         "success_score": 200.0, # Dummy; unused
         "stochastic" : False,
         "protected" : False,
@@ -98,7 +99,7 @@ def main(exp_dir, env, mc, output_filename):
                 traversals.append(None)
                 expressions.append(None)
 
-            data = [env, seed] + traversals + expressions + [score]
+            data = [env, seed] + traversals + expressions + [n_episodes, score]
             data = dict(zip(header, data))
             pd.DataFrame([data]).to_csv(output_filename, mode='a', header=False, index=False)
 
