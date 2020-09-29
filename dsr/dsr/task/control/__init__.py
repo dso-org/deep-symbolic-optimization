@@ -19,6 +19,6 @@ register(
 register(
     id='CustomCartPoleContinuous-v0',
     entry_point='dsr.task.control.envs.continuous_cartpole:CustomCartPoleContinuousEnv',
-    max_episode_steps=200,
-    reward_threshold=195.0,
+    max_episode_steps=1000,
+    reward_threshold=995.0,
 )
