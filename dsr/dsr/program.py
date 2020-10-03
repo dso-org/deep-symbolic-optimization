@@ -2,6 +2,7 @@
 
 import array
 import os
+import warnings
 from textwrap import indent
 
 import numpy as np
@@ -18,7 +19,28 @@ try:
     from deap import gp 
 except ImportError:
     gp = None
-    
+
+import sys
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size    
     
 def _finish_tokens(tokens):
     """
@@ -118,37 +140,31 @@ def DEAP_to_tokens(individual, tokens_size):
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
 
+    
     l = min(len(individual),tokens_size)
+  
+    tokens = np.zeros(tokens_size,dtype=np.int32)
+    
+    for i in range(l):
         
-    if l > 1:
-        tokens = np.zeros(tokens_size,dtype=np.int32)
+        t = individual[i]
         
-        for i in range(l):
-            
-            t = individual[i]
-            
-            if isinstance(t, gp.Terminal):
-                if t.name is "const":
-                    # Get the constant token, this will not store the actual const (TO DO, fix somehow)
-                    tokens[i] = Program.const_token
-                else:
-                    # Get the int which is contained in "ARG{}",
-                    tokens[i] = int(t.name[3:])
+        if isinstance(t, gp.Terminal):
+            if t.name is "const":
+                # Get the constant token, this will not store the actual const (TO DO, fix somehow)
+                tokens[i] = Program.const_token
             else:
-                # Get the index number for this op from the op list in Program.library
-                tokens[i] = Program.str_library.index(t.name)
-                
-        arities         = np.array([Program.arities[t] for t in tokens])
-        dangling        = 1 + np.cumsum(arities - 1) 
-        expr_length     = 1 + np.argmax(dangling == 0)
-        
-    else:
-        expr_length     = 0
-        tokens          = None
-        
+                # Get the int which is contained in "ARG{}",
+                tokens[i] = int(t.name[3:])
+        else:
+            # Get the index number for this op from the op list in Program.library
+            tokens[i] = Program.str_library.index(t.name)
+            
+    arities         = np.array([Program.arities[t] for t in tokens])
+    dangling        = 1 + np.cumsum(arities - 1) 
+    expr_length     = 1 + np.argmax(dangling == 0)
+  
     return tokens, expr_length
-        
-
     
 def tokens_to_DEAP(tokens, primitive_set):
     """
@@ -236,8 +252,6 @@ def tokens_to_DEAP(tokens, primitive_set):
                 plist.append(primitive_set.mapping[node.name])
             except ValueError:
                 print("ERROR: Cannot add function \"{}\" from DEAP primitve set".format(node.name))
-                
-    assert len(plist) > 1, "Single token expressions are not valid. Got {} tokens.".format(len(plist))
             
     individual = gp.PrimitiveTree(plist)
     
@@ -372,7 +386,10 @@ class Program(object):
         """
 
         if self.len_traversal > 1:
-            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
+            print("Before {}".format(get_size(self.new_traversal)))
+            R = self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
+            print("After {}".format(get_size(self.new_traversal)))
+            return R
         else:
             return self.python_execute(X)
     
@@ -699,22 +716,29 @@ class Program(object):
     def base_r(self):
         """Evaluates and returns the base reward of the program on the training
         set"""
-
-        return self.reward_function()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.reward_function()
 
 
     @cached_property
     def r(self):
         """Evaluates and returns the reward of the program on the training
         set"""
-        return self.base_r - self.complexity
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.base_r - self.complexity
 
 
     @cached_property
     def evaluate(self):
         """Evaluates and returns the evaluation metrics of the program."""
-
-        return self.eval_function()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.eval_function()
     
     @cached_property
     def complexity_eureqa(self):

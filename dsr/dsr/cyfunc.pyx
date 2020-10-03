@@ -49,6 +49,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     cdef np.ndarray intermediate_result
     cdef list       stack_end
     cdef object     stack_end_function
+    
     for n in float_pos:
         new_traversal[n] = np.repeat(traversal[n], Xs) #>>> 5% of overhead
         
@@ -78,7 +79,9 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
             intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) #>>> 85% of overhead
 
             # I think we can get rid of this line, but will require a major rewrite.
-            if sp == 0:
+            if sp == 0:    
+                for n in float_pos:
+                    new_traversal[n] = None
                 return intermediate_result
             
             sp -= 1

@@ -161,6 +161,7 @@ def learn(sess, controller, pool, gp_controller,
     all_r_size              = batch_size
 
     if gp_controller is not None:
+        #gp_controller           = _gp_controller()
         run_gp_meld             = True
         gp_verbose              = gp_controller.config_gp_meld["verbose"]
         if gp_controller.config_gp_meld["train_n"]:
@@ -168,6 +169,7 @@ def learn(sess, controller, pool, gp_controller,
         else:
             all_r_size              = batch_size+1
     else:
+        gp_controller           = None
         run_gp_meld             = False                         
         gp_verbose              = False
     
@@ -279,6 +281,7 @@ def learn(sess, controller, pool, gp_controller,
     
     frustration_count   = 0
     nevals              = 0
+    program_val_log     = []
 
     for step in range(n_epochs):
 
@@ -312,7 +315,7 @@ def learn(sess, controller, pool, gp_controller,
                 print("Deap Programs:")
                 deap_programs[0].print_stats()
                 print("************************")
-                                
+                                               
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
             programs = [from_tokens(a, optimize=True) for a in actions]
@@ -370,6 +373,7 @@ def learn(sess, controller, pool, gp_controller,
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
+        max_item = np.argmax(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
@@ -380,7 +384,7 @@ def learn(sess, controller, pool, gp_controller,
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
-
+        
         # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
         # Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
         
@@ -693,6 +697,10 @@ def learn(sess, controller, pool, gp_controller,
         "expression" : repr(p.sympy_expr),
         "traversal" : repr(p)
         })
+    
+    if output_file is not None:
+        print("Results saved to: {}".format(output_file))
+    
     return result
 
 # TBD: Should add a test instead of a main function

@@ -2,6 +2,7 @@ import random
 import operator
 import importlib
 import copy
+import warnings
 from functools import partial, wraps
 from itertools import chain, compress
 from collections import defaultdict
@@ -74,6 +75,8 @@ def multi_mutate(individual, expr, pset):
     """ Randomly select one of four types of mutation with even odds for each.
     """
     v = np.random.randint(0,4)
+    
+    #v = 0
     
     if v == 0:
         individual = gp.mutUniform(individual, expr, pset)
@@ -451,9 +454,13 @@ class GenericEvaluate:
         
     def _finish_eval(self, individual, X, fitness):
         
-        f       = self.toolbox.compile(expr=individual)
-        y_hat   = f(*X)
-        return (fitness(y_hat=y_hat),)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            f       = self.toolbox.compile(expr=individual)
+            y_hat   = f(*X)
+            fit     = (fitness(y_hat=y_hat),)
+        
+        return fit
         
     def __call__(self, individual):
 
@@ -475,17 +482,31 @@ class GenericEvaluate:
                 for i, const in zip(const_idxs, consts):
                     individual[i] = gp.Terminal(const, False, object)
                     individual[i].name = "const" # For good measure
-                f       = self.toolbox.compile(expr=individual)
-                y_hat   = f(*self.X_train)
-                y       = self.y_train
-                res     = np.mean((y - y_hat)**2)
+                #print(individual)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    f       = self.toolbox.compile(expr=individual)
+                    
+                    # Sometimes this evaluation can fail. If so, return largest error possible.
+                    try:
+                        y_hat   = f(*self.X_train)
+                    except:
+                        return np.finfo(np.float).max
+                    
+                    y       = self.y_train
+                    res     = np.mean((y - y_hat)**2)
 
-                # Make sure result is not NaN, but inf is ok
-                return res if np.isfinite(res) else np.zeros_like(res) + np.inf
+                # Sometimes this evaluation can fail. If so, return largest error possible.
+                if np.isfinite(res):
+                    return res
+                else:
+                    return np.finfo(np.float).max
 
             # Do the optimization and set the optimized constants
             x0                  = np.ones(len(const_idxs))
-            optimized_consts    = self.const_opt(obj, x0)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                optimized_consts    = self.const_opt(obj, x0)
             
             for i, const in zip(const_idxs, optimized_consts):
                 individual[i] = gp.Terminal(const, False, object)
@@ -614,6 +635,11 @@ class GPController:
             return_gp_obs                              = self.config_gp_meld["train_n"]
             
         return deap_programs, deap_obs, deap_actions, return_gp_obs
+    
+    def __del__(self):
+        
+        del self.creator.FitnessMin
+        del self.creator.Individual
 
         
 def make_fitness(metric):
@@ -818,7 +844,7 @@ def get_top_n_programs(population, n, actions):
     
     # Get rid of duplicate members. Make sure these are all unique. 
     for i,p in enumerate(population):
-        
+        #print(p)
         # we have to check because population members are not nessesarily unique
         if str(p) not in p_items_val:
             p_items.append(p)
