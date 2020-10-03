@@ -89,7 +89,7 @@ unprotected_ops = [
     Function(expneg, "expneg", arity=1, complexity=4),
     Function(n3, "n3", arity=1, complexity=3),
     Function(n4, "n4", arity=1, complexity=3),
-    Function(sigmoid, "sigmoid", arity=1, complexity=4)
+    Function(sigmoid, "sigmoid", arity=1, complexity=4),
     Function(harmonic, "harmonic", arity=1, complexity=4)
 
 ]
