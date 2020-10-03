@@ -179,10 +179,19 @@ class Dataset(object):
         if root_changed:
             root = resource_filename("dsr.task", "regression/data/")
             
-        # Create the function set (list of str)
+        # Create the function set (list of str/float)
         function_set_path = os.path.join(task_root, "function_sets.csv")
         df = pd.read_csv(function_set_path, index_col=0)
         self.function_set = df.loc[function_set_aux].tolist()[0].strip().split(',')
+
+        # Replace hard-coded constants with their float values
+        def is_number(s):
+            try:
+                float(s)
+                return True
+            except ValueError:
+                return False
+        self.function_set = [float(f) if is_number(f) else f for f in self.function_set]
 
         # Overwrite the function set
         if function_set is not None:

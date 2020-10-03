@@ -45,6 +45,10 @@ def hof_work(p):
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
+def sympy_work(p):
+    sympy_expr = p.sympy_expr
+    str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
+    return sympy_expr, str_sympy_expr
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -614,6 +618,18 @@ def learn(sess, controller, pool, gp_controller,
         else:
             programs = list(Program.cache.values()) # All unique Programs found during training
 
+            # Filter out symbolically unique Programs. Assume N/A expressions are unique.
+            if pool is not None:
+                results = pool.map(sympy_work, programs)
+                for p, result in zip(programs, results):
+                    p.sympy_expr = result[0]
+            else:
+                results = list(map(sympy_work, programs))
+            str_sympy_exprs = [result[1] for result in results]    
+            unique_ids = np.unique(str_sympy_exprs, return_index=True)[1].tolist()
+            na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
+            programs = list(map(programs.__getitem__, unique_ids + na_ids))
+
         base_r = [p.base_r for p in programs]
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]
@@ -630,9 +646,6 @@ def learn(sess, controller, pool, gp_controller,
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
         df.to_csv(hof_output_file, header=True, index=False)
-
-    if pool is not None:
-        pool.close()
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -685,6 +698,10 @@ def learn(sess, controller, pool, gp_controller,
             if p.evaluate.get("success"):
                 p_final = p
                 break
+
+    # Close the pool
+    if pool is not None:
+        pool.close()
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best

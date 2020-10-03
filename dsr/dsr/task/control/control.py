@@ -7,13 +7,16 @@ except ImportError:
 
 import numpy as np
 
-from dsr.program import Program, from_tokens
+from dsr.program import Program, from_str_tokens
 from . import utils as U
+
+
+REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=True, env_kwargs=None):
+    stochastic=True, protected=True, env_kwargs=None, fix_seeds=False):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -56,6 +59,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     env_kwargs : dict
         Dictionary of environment kwargs passed to gym.make().
 
+    fix_seeds : bool
+        If True, environment uses the first n_episodes_train seeds for reward
+        and the next n_episodes_test seeds for evaluation. This makes the task
+        deterministic.
+
     Returns
     -------
 
@@ -76,6 +84,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         env = U.TimeFeatureWrapper(env)
 
     # Set the library and stochasticity (need to do this now in case there are symbolic actions)
+    if fix_seeds and stochastic:
+        print("WARNING: fix_seeds=True renders task deterministic. Overriding to stochastic=False.")
+        stochastic = False
     n_input_var = env.observation_space.shape[0]
     Program.set_library(function_set, n_input_var, protected)
     Program.set_stochastic(stochastic)
@@ -85,7 +96,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     assert isinstance(env.action_space, gym.spaces.Box), "Only supports continuous action spaces."
     n_actions = env.action_space.shape[0]
     assert n_actions == len(action_spec), "Received specifications for {} action dimensions; expected {}.".format(len(action_spec), n_actions)
-    assert len([v for v in action_spec if v is None]) == 1, "Exactly 1 action_spec element must be None."
+    assert len([v for v in action_spec if v is None]) <= 1, "No more than 1 action_spec element can be None."
     assert int(algorithm is None) + int(anchor is None) in [0, 2], "Either none or both of (algorithm, anchor) must be None."
 
     # Load the anchor model (if applicable)
@@ -101,20 +112,25 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions = {}
+    action_dim = None
     for i, spec in enumerate(action_spec):
+
+        # Action taken from anchor policy
+        if spec == "anchor":
+            continue
 
         # Action dimnension being learned
         if spec is None:
             action_dim = i
 
         # Pre-specified symbolic policy
-        elif isinstance(spec, list):
-            tokens = Program.convert(spec) # Converts str to ints
-            p = from_tokens(tokens, optimize=False)
+        elif isinstance(spec, list) or isinstance(spec, str):
+            str_tokens = spec
+            p = from_str_tokens(str_tokens, optimize=False)
             symbolic_actions[i] = p
 
         else:
-            assert spec == "anchor", "Action specifications must be None, a list of tokens, or 'anchor'."
+            assert False, "Action specifications must be None, a str/list of tokens, or 'anchor'."
 
 
     def get_action(p, obs):
@@ -123,19 +139,21 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         action = p.execute(np.array([obs]))[0]
 
-        # Infinite or NaN values simply return zero action
-        if not np.isfinite(action):
-            action = 0
-
         return action
 
 
-    def run_episodes(p, n_episodes):
+    def run_episodes(p, n_episodes, evaluate):
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
-        r_episodes = np.zeros(n_episodes, dtype=np.float32) # Episodic rewards for each episode
+        r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
         for i in range(n_episodes):
+
+            # During evaluation, always use the same seeds
+            if evaluate:
+                env.seed(i)
+            elif fix_seeds:
+                env.seed(i + REWARD_SEED_SHIFT)
             obs = env.reset()
             done = False
             while not done:
@@ -147,12 +165,17 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                     action = np.zeros(env.action_space.shape, dtype=np.float32)
 
                 # Replace fixed symbolic actions
-                for i, fixed_p in symbolic_actions.items():
-                    action[i] = get_action(fixed_p, obs)
+                for j, fixed_p in symbolic_actions.items():
+                    action[j] = get_action(fixed_p, obs)
 
                 # Replace symbolic action with current program
-                action[action_dim] = get_action(p, obs)
+                if action_dim is not None:
+                    action[action_dim] = get_action(p, obs)
                 
+                # Replace NaNs and clip infinites
+                action[np.isnan(action)] = 0.0 # Replace NaNs with zero
+                action = np.clip(action, env.action_space.low, env.action_space.high)
+
                 obs, r, done, _ = env.step(action)
                 r_episodes[i] += r
 
@@ -162,7 +185,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def reward(p):
 
         # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_train)
+        r_episodes = run_episodes(p, n_episodes_train, evaluate=False)
 
         # Return the mean
         r_avg = np.mean(r_episodes)
@@ -172,11 +195,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def evaluate(p):
 
         # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_test)
+        r_episodes = run_episodes(p, n_episodes_test, evaluate=True)
 
         # Compute eval statistics
         r_avg_test = np.mean(r_episodes)
-        success_rate = np.mean(r_episodes > success_score)
+        success_rate = np.mean(r_episodes >= success_score)
         success = success_rate == 1.0
 
         info = {
@@ -185,6 +208,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             "success" : success
         }
         return info
+
+    extra_info = {
+        "symbolic_actions" : symbolic_actions
+    }
     
 
-    return reward, evaluate, function_set, n_input_var, stochastic
+    return reward, evaluate, function_set, n_input_var, stochastic, extra_info

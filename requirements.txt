@@ -9,7 +9,8 @@ click
 deap
 mpi4py
 pybullet
-gym[box2d]
+gym[box2d]==0.15.4
+enum34~=1.1.6 
 stable-baselines[mpi]
 datarobot
 

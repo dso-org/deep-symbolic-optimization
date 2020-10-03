@@ -9,6 +9,7 @@
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
       "stochastic" : true,
       "protected" : true,
+      "fix_seeds" : false,
       "env_kwargs" : {"dt" : 0.02}
    },
    "training": {
@@ -51,6 +52,7 @@
       "constrain_min_len": true,
       "constrain_max_len": true,
       "constrain_num_const": false,
+      "constrain_float": false,
       "use_language_model_prior": false,
       "min_length": 4,
       "max_length": 30,
