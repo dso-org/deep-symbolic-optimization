@@ -3,9 +3,9 @@ import numpy as np
 from .dataset import Dataset
 
 
-def make_regression_task(name, metric, metric_params, dataset,
-    reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
-    normalize_variance=False):
+def make_regression_task(name, metric, metric_params, extra_metric_test,
+    extra_metric_test_params, dataset, reward_noise=0.0, reward_noise_type="r",
+    threshold=1e-12, normalize_variance=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -19,6 +19,12 @@ def make_regression_task(name, metric, metric_params, dataset,
 
     metric_params : list
         List of metric-specific parameters.
+
+    extra_metric_test : str
+        Name of extra function metric to use for testing.
+
+    extra_metric_test_params : list
+        List of metric-specific parameters for extra test metric.
 
     dataset : dict
         Dict of .dataset.Dataset kwargs.
@@ -55,6 +61,9 @@ def make_regression_task(name, metric, metric_params, dataset,
     var_y_test = np.var(dataset.y_test) # Save time by only computing this once
     var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
     metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
+    if extra_metric_test is not None:
+        print("Setting extra test metric to {}.".format(extra_metric_test))
+        metric_test, _, _ = make_regression_metric(extra_metric_test, y_test, *extra_metric_test_params) 
     assert reward_noise >= 0.0, "Reward noise must be non-negative."
     if reward_noise:
         assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
@@ -119,18 +128,35 @@ def make_regression_task(name, metric, metric_params, dataset,
 
             # Success is defined by NMSE on noiseless test data below a threshold
             success = nmse_test_noiseless < threshold
-
+            
         info = {
             "nmse_test" : nmse_test,
             "nmse_test_noiseless" : nmse_test_noiseless,
             "success" : success
         }
+
+        if extra_metric_test is not None:
+            if p.invalid:
+                m_test = None
+                m_test_noiseless = None
+            else:
+                m_test = metric_test(y_test, y_hat)
+                m_test_noiseless = metric_test(y_test_noiseless, y_hat)     
+
+            info.update(
+                {
+                extra_metric_test : m_test,
+                extra_metric_test + '_noiseless' : m_test_noiseless
+                }
+            )
+
         return info
 
     stochastic = reward_noise > 0.0
 
+    extra_info = {}
 
-    return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic
+    return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic, extra_info
 
 
 def make_regression_metric(name, y_train, *args):
@@ -171,6 +197,12 @@ def make_regression_metric(name, y_train, *args):
         "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
                         0),
 
+        # Negative root mean squared error
+        # Range: [-inf, 0]
+        # Value = -sqrt(var(y)) when y_hat == mean(y)
+        "neg_rmse" :     (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)),
+                        0),
+
         # Negative normalized mean squared error
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
@@ -181,6 +213,12 @@ def make_regression_metric(name, y_train, *args):
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
         "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
+                        0),
+
+        # (Protected) negative log mean squared error
+        # Range: [-inf, 0]
+        # Value = -log(1 + var(y)) when y_hat == mean(y)
+        "neglog_mse" : (lambda y, y_hat : -np.log(1 + np.mean((y - y_hat)**2)),
                         0),
 
         # (Protected) inverse mean squared error
@@ -226,8 +264,10 @@ def make_regression_metric(name, y_train, *args):
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
         "neg_mse" : -var_y,
+        "neg_rmse" : -np.sqrt(var_y),
         "neg_nmse" : -1.0,
         "neg_nrmse" : -1.0,
+        "neglog_mse" : -np.log(1 + var_y),
         "inv_mse" : 0.0, #1/(1 + args[0]*var_y),
         "inv_nmse" : 0.0, #1/(1 + args[0]),
         "inv_nrmse" : 0.0, #1/(1 + args[0]),
@@ -239,8 +279,10 @@ def make_regression_metric(name, y_train, *args):
 
     all_max_rewards = {
         "neg_mse" : 0.0,
+        "neg_rmse" : 0.0,
         "neg_nmse" : 0.0,
         "neg_nrmse" : 0.0,
+        "neglog_mse" : 0.0,
         "inv_mse" : 1.0,
         "inv_nmse" : 1.0,
         "inv_nrmse" : 1.0,

@@ -42,6 +42,10 @@ def make_task(task_type, **config_task):
 
     stochastic : bool
         Whether the reward function of the task is stochastic.
+
+    extra_info : dict
+        Extra task-specific info, e.g. reference to symbolic policies for
+        control task.
     """
 
     # Dictionary from task name to task factory function
@@ -50,8 +54,8 @@ def make_task(task_type, **config_task):
         "control" : make_control_task
     }
     
-    reward_function, eval_function, function_set, n_input_var, stochastic = task_dict[task_type](**config_task)
-    return reward_function, eval_function, function_set, n_input_var, stochastic
+    reward_function, eval_function, function_set, n_input_var, stochastic, task_info = task_dict[task_type](**config_task)
+    return reward_function, eval_function, function_set, n_input_var, stochastic, task_info
 
 
 def set_task(config_task):
@@ -61,8 +65,8 @@ def set_task(config_task):
     # Use of protected functions is the same for all tasks, so it's handled separately
     protected = config_task.pop("protected") if "protected" in config_task else True
 
-    reward_function, eval_function, function_set, n_input_var, stochastic = make_task(**config_task)
     Program.set_execute(protected)
+    reward_function, eval_function, function_set, n_input_var, stochastic, _ = make_task(**config_task)
     Program.set_reward_function(reward_function)
     Program.set_eval_function(eval_function)
     Program.set_library(function_set, n_input_var, protected)

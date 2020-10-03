@@ -15,6 +15,7 @@ from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
 
+
 try:
     from deap import gp 
 except ImportError:
@@ -87,6 +88,58 @@ def _finish_tokens(tokens):
     
     return tokens
 
+
+def from_str_tokens(str_tokens, optimize):
+    """
+    Memoized function to generate a Program from a list of str and/or float.
+    See from_tokens() for details.
+
+    Parameters
+    ----------
+    str_tokens : str | list of (str | float)
+        Either a comma-separated string of tokens and/or floats, or a list of
+        str and/or floats.
+
+    optimize : bool
+        See from_tokens().
+
+    Returns
+    -------
+    program : Program
+        See from_tokens().
+    """
+
+    # Convert str to list of str
+    if isinstance(str_tokens, str):
+        str_tokens = str_tokens.split(",")
+    
+    # Convert list of str|float to list of tokens
+    if isinstance(str_tokens, list):
+        traversal = []
+        constants = []
+        for s in str_tokens:
+            if s in Program.str_library:
+                t = Program.str_library.index(s.lower())
+            elif U.is_float(s):
+                assert "const" not in str_tokens, "Currently does not support both placeholder and hard-coded constants."
+                assert not optimize, "Currently does not support optimization with hard-coded constants."
+                t = Program.const_token
+                constants.append(float(s))
+            else:
+                raise ValueError("Did not recognize token {}.".format(s))
+            traversal.append(t)
+        traversal = np.array(traversal, dtype=np.int32)
+    else:
+        raise ValueError("Input must be list or string.")
+
+    # Generate base Program (with "const" for constants)
+    p = from_tokens(traversal, optimize=optimize)
+
+    # Replace any constants
+    p.set_constants(constants)
+
+    return p
+
 def from_tokens(tokens, optimize):
     """
     Memoized function to generate a Program from a list of tokens.
@@ -132,8 +185,6 @@ def from_tokens(tokens, optimize):
             Program.cache[key] = p
 
     return p
-
-
 
 def DEAP_to_tokens(individual, tokens_size):
         
@@ -262,7 +313,6 @@ def tokens_to_DEAP(tokens, primitive_set):
     '''
     return individual
 
-
 class Program(object):
     """
     The executable program representing the symbolic expression.
@@ -328,6 +378,8 @@ class Program(object):
     # Additional derived static variables
     L = None                # Length of library
     terminal_tokens = None  # Tokens corresponding to terminals
+    float_tokens = None     # Tokens corresponding to hard-coded floats
+    var_tokens = None       # Tokens corresponding to input variables
     unary_tokens = None     # Tokens corresponding to unary operators
     binary_tokens = None    # Tokens corresponding to binary operators
     trig_tokens = None      # Tokens corresponding to trig functions
@@ -676,6 +728,8 @@ class Program(object):
         Program.L = len(Program.library)
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
+        Program.var_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], int)], dtype=np.int32)
+        Program.float_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], np.float32)], dtype=np.int32)
         Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
         Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
         Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
@@ -697,13 +751,6 @@ class Program(object):
     @classmethod
     def set_primitive_set(cls, primitive_set):
         cls.primitive_set = primitive_set
-
-    @staticmethod
-    def convert(traversal):
-        """Converts a string traversal to an int traversal"""
-
-        return np.array([Program.str_library.index(f.lower()) for f in traversal], dtype=np.int32)
-
 
     @cached_property
     def complexity(self):

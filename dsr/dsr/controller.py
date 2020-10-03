@@ -114,6 +114,10 @@ class Controller(object):
     constrain_num_const : bool
         Prevent constants that would exceed max_const?
 
+    constrain_float : bool
+        Prevent expressions without any input variables (i.e. expressions whose
+        terminals are only hard-coded constants or the const token)?
+
     min_length : int (>= 1) or None
         Minimum length of a sampled traversal when constrain_min_len=True. If
         None or constrain_min_len=False, expressions have no minimum length.
@@ -192,6 +196,7 @@ class Controller(object):
                  constrain_min_len=True,
                  constrain_max_len=True,
                  constrain_num_const=False,
+                 constrain_float=False,
                  min_length=2,
                  max_length=30,
                  max_const=None,
@@ -226,6 +231,7 @@ class Controller(object):
         self.constrain_min_len = constrain_min_len
         self.constrain_max_len = constrain_max_len
         self.constrain_num_const = constrain_num_const
+        self.constrain_float = constrain_float
         self.min_length = min_length
         self.max_length = max_length
         self.max_const = max_const
@@ -259,6 +265,14 @@ class Controller(object):
             if not constrain_min_len:
                 print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
                 self.min_length = None
+
+        if constrain_const and Program.const_token is None:
+            print("Warning: constrain_const=True will have no effect because there is no constant token.")
+            self.constrain_const = False
+
+        if constrain_float and len(Program.float_tokens) == 0:
+            print("Warning: constrain_float=True will have no effect because there are no hard-coded constant tokens.")
+            self.constrain_float = False
 
         if max_const is None:
             assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
@@ -409,6 +423,14 @@ class Controller(object):
                 if self.constrain_num_const:
                     constraints = np.sum(actions == Program.const_token, axis=1) == self.max_const
                     prior += make_prior(constraints, [Program.const_token], Program.L)
+
+                # Constrain expressions without input variables
+                if self.constrain_float:
+                    # Constrain when:
+                    # 1) the expression would end if a terminal is chosen and
+                    # 2) there are no input variables
+                    constraints = (dangling == 1) & (np.sum(np.isin(actions, Program.var_tokens), axis=1) == 0)
+                    prior += make_prior(constraints, Program.float_tokens, Program.L)
 
                 # Constrain maximum sequence length
                 # Never need to constrain max length for first half of expression
