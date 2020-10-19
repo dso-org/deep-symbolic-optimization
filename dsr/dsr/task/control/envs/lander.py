@@ -17,6 +17,7 @@ python examples/agents/keyboard_agent.py LunarLander-v2
 Created by Oleg Klimov. Licensed on the same terms as the rest of OpenAI Gym.
 """
 
+from argparse import ArgumentParser
 
 import sys, math
 import numpy as np
@@ -446,4 +447,10 @@ def demo_heuristic_lander(env, seed=None, render=False):
 
 
 if __name__ == '__main__':
-    demo_heuristic_lander(CustomLunarLander(), render=True)
+    parser = ArgumentParser()
+    parser.add_argument('-shape', '--reward_shaping', help="Whether or not to use reward shaping.", action="store_false")
+    parser.add_argument('-continuous', '--continuous', help="Whether or not to use continuous action space.", action="store_true")
+
+    args = parser.parse_args()
+    print(args)
+    demo_heuristic_lander(CustomLunarLander(use_reward_shaping=args.reward_shaping, continuous=args.continuous), render=True)
