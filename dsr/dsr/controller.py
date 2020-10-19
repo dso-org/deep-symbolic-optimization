@@ -616,12 +616,12 @@ class Controller(object):
             return neglogp, entropy
 
 
-        # On policy batch (used for REINFORCE/PPO)
+        # On policy batch
         self.sampled_batch = make_batch_ph("sampled_batch")
 
-        # Off policy batch (used for PQT)
+        # PQT batch
         if pqt:
-            self.off_policy_batch = make_batch_ph("off_policy_batch")
+            self.pqt_batch = make_batch_ph("pqt_batch")
 
         # Setup losses
         with tf.name_scope("losses"):
@@ -655,7 +655,7 @@ class Controller(object):
 
             # Priority queue training loss
             if pqt:
-                pqt_neglogp, _ = make_neglogp_and_entropy(**self.off_policy_batch)
+                pqt_neglogp, _ = make_neglogp_and_entropy(**self.pqt_batch)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
 
@@ -743,11 +743,11 @@ class Controller(object):
 
             # Update the feed_dict
             feed_dict.update({
-                self.off_policy_batch["actions"] : pqt_actions,
-                self.off_policy_batch["obs"] : pqt_obs,
-                self.off_policy_batch["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-                self.off_policy_batch["priors"] : pqt_priors,
-                self.off_policy_batch["masks"] : pqt_masks
+                self.pqt_batch["actions"] : pqt_actions,
+                self.pqt_batch["obs"] : pqt_obs,
+                self.pqt_batch["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
+                self.pqt_batch["priors"] : pqt_priors,
+                self.pqt_batch["masks"] : pqt_masks
                 })
 
         if self.ppo:
