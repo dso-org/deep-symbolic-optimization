@@ -17,6 +17,10 @@ python examples/agents/keyboard_agent.py LunarLander-v2
 Created by Oleg Klimov. Licensed on the same terms as the rest of OpenAI Gym.
 """
 
+"""
+Modified by Jacob Pettit (pettit8@llnl.gov) from: https://github.com/openai/gym/blob/master/gym/envs/box2d/lunar_lander.py
+"""
+
 from argparse import ArgumentParser
 
 import sys, math
