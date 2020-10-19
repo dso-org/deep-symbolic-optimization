@@ -81,10 +81,10 @@ class CustomLunarLander(gym.Env, EzPickle):
         'video.frames_per_second' : FPS
     }
 
-    def __init__(self, use_reward_shaping=True, continuous=False):
+    def __init__(self, reward_shaping_coef = 1, continuous=False):
         EzPickle.__init__(self)
         self.continuous = continuous
-        self.use_reward_shaping = use_reward_shaping
+        self.reward_shaping_coef = 1
 
         self.seed()
         self.viewer = None
@@ -314,17 +314,14 @@ class CustomLunarLander(gym.Env, EzPickle):
         assert len(state) == 8
 
         reward = 0
-        if self.use_reward_shaping:
-            shaping = \
-                - 100*np.sqrt(state[0]*state[0] + state[1]*state[1]) \
-                - 100*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
-                - 100*abs(state[4]) + 10*state[6] + 10*state[7]  # And ten points for legs contact, the idea is if you
-                                                                # lose contact again after landing, you get negative reward
-        else:
-            shaping = 0
+        shaping = \
+            - 100*np.sqrt(state[0]*state[0] + state[1]*state[1]) \
+            - 100*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
+            - 100*abs(state[4]) + 10*state[6] + 10*state[7]  # And ten points for legs contact, the idea is if you
+                                                            # lose contact again after landing, you get negative reward
 
         if self.prev_shaping is not None:
-            reward = shaping - self.prev_shaping
+            reward = (shaping - self.prev_shaping) * self.reward_shaping_coef
         self.prev_shaping = shaping
 
         reward -= m_power*0.30  # less fuel spent is better, about -30 for heuristic landing
@@ -452,9 +449,9 @@ def demo_heuristic_lander(env, seed=None, render=False):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-shape', '--reward_shaping', help="Whether or not to use reward shaping.", action="store_false")
+    parser.add_argument('-shape', '--reward_shaping', type=float, help="Coefficient for reward shaping. Set to 0 to turn off reward shaping.", default=1)
     parser.add_argument('-continuous', '--continuous', help="Whether or not to use continuous action space.", action="store_true")
 
     args = parser.parse_args()
     print(args)
-    demo_heuristic_lander(CustomLunarLander(use_reward_shaping=args.reward_shaping, continuous=args.continuous), render=True)
+    demo_heuristic_lander(CustomLunarLander(reward_shaping_coef=args.reward_shaping, continuous=args.continuous), render=True)
