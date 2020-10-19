@@ -70,16 +70,17 @@ class ContactDetector(contactListener):
                 self.env.legs[i].ground_contact = False
 
 
-class LunarLander(gym.Env, EzPickle):
+class CustomLunarLander(gym.Env, EzPickle):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second' : FPS
     }
 
-    continuous = False
-
-    def __init__(self):
+    def __init__(self, use_reward_shaping=True, continuous=False):
         EzPickle.__init__(self)
+        self.continuous = continuous
+        self.use_reward_shaping = use_reward_shaping
+
         self.seed()
         self.viewer = None
 
@@ -308,11 +309,15 @@ class LunarLander(gym.Env, EzPickle):
         assert len(state) == 8
 
         reward = 0
-        shaping = \
-            - 100*np.sqrt(state[0]*state[0] + state[1]*state[1]) \
-            - 100*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
-            - 100*abs(state[4]) + 10*state[6] + 10*state[7]  # And ten points for legs contact, the idea is if you
-                                                             # lose contact again after landing, you get negative reward
+        if self.use_reward_shaping:
+            shaping = \
+                - 100*np.sqrt(state[0]*state[0] + state[1]*state[1]) \
+                - 100*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
+                - 100*abs(state[4]) + 10*state[6] + 10*state[7]  # And ten points for legs contact, the idea is if you
+                                                                # lose contact again after landing, you get negative reward
+        else:
+            shaping = 0
+
         if self.prev_shaping is not None:
             reward = shaping - self.prev_shaping
         self.prev_shaping = shaping
@@ -373,8 +378,8 @@ class LunarLander(gym.Env, EzPickle):
             self.viewer = None
 
 
-class LunarLanderContinuous(LunarLander):
-    continuous = True
+#class LunarLanderContinuous(LunarLander):
+#    continuous = True
 
 def heuristic(env, s):
     """
@@ -441,4 +446,4 @@ def demo_heuristic_lander(env, seed=None, render=False):
 
 
 if __name__ == '__main__':
-    demo_heuristic_lander(LunarLander(), render=True)
+    demo_heuristic_lander(CustomLunarLander(), render=True)
