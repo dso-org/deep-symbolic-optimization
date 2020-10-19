@@ -14,28 +14,28 @@ def setup_envs_run_rollouts(seed: int, rollout_length: int):
 
     results = {}
     for i, envs in enumerate(all_envs):
-        for env, kwargs in envs.items():
-            current_env = gym.make(env, **kwargs)
-            current_env.seed(seed)
-            current_env.action_space.seed(seed)
-            current_env.observation_space.seed(seed)
+        for env_name, kwargs in envs.items():
+            env = gym.make(env_name, **kwargs)
+            env.seed(seed)
+            env.action_space.seed(seed)
+            env.observation_space.seed(seed)
 
-            results[env] = {}
+            results[env_name] = {}
 
-            obs = current_env.reset()
+            obs = env.reset()
             r, done = 0, False
             for i in range(rollout_length):
-                action = current_env.action_space.sample()
+                action = env.action_space.sample()
 
-                results[env]["state"] = obs
-                results[env]["reward"] = r
-                results[env]["done"] = done
+                results[env_name]["state"] = obs
+                results[env_name]["reward"] = r
+                results[env_name]["done"] = done
 
-                obs, r, done, _ = current_env.step(action)
+                obs, r, done, _ = env.step(action)
 
-            results[env]["state"] = obs
-            results[env]["reward"] = r
-            results[env]["done"] = done
+            results[env_name]["state"] = obs
+            results[env_name]["reward"] = r
+            results[env_name]["done"] = done
 
         names = list(envs.keys())
         print(f"Comparing: {names}...")
