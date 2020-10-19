@@ -81,7 +81,15 @@ class CustomLunarLander(gym.Env, EzPickle):
         'video.frames_per_second' : FPS
     }
 
-    def __init__(self, reward_shaping_coef = 1, continuous=False):
+    """
+    Class for a customized Lunar Lander environment. Allows to alter reward shaping and set the action space with an argument.
+
+    Args:
+    - reward_shaping_coef (float): Coefficient for scaling the shaped term in the reward function. Setting to 0 disables reward shaping completely. Any scalar value is acceptable. Defaults to 1, which is the same as normal LunarLander.
+    - continuous (bool): Boolean representing whether to use a continuous action space. When True, uses continuous actions. It defaults to false.
+    """
+
+    def __init__(self, reward_shaping_coef: float = 1.0, continuous: bool = False):
         EzPickle.__init__(self)
         self.continuous = continuous
         self.reward_shaping_coef = reward_shaping_coef 
