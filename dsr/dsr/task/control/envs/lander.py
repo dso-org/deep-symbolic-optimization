@@ -84,7 +84,7 @@ class CustomLunarLander(gym.Env, EzPickle):
     def __init__(self, reward_shaping_coef = 1, continuous=False):
         EzPickle.__init__(self)
         self.continuous = continuous
-        self.reward_shaping_coef = 1
+        self.reward_shaping_coef = reward_shaping_coef 
 
         self.seed()
         self.viewer = None
