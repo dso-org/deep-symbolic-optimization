@@ -43,7 +43,7 @@ register(
 
 # Modified LunarLander with no kwargs provided, it is up to the user to declare kwargs.
 register(
-    id='LunarLanderCustomRewardShaping-v0',
+    id='LunarLanderCustom-v0',
     entry_point='dsr.task.control.envs.lander:CustomLunarLander',
     max_episode_steps=1000,
     reward_threshold=200,
