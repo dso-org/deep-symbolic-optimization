@@ -22,3 +22,21 @@ register(
     max_episode_steps=1000,
     reward_threshold=995.0,
 )
+
+# Modified discrete LunarLander to turn off reward shaping.
+register(
+    id='LunarLanderNoRewardShaping-v0',
+    entry_point='dsr.task.control.envs.lander:CustomLunarLander',
+    kwargs=dict(reward_shaping_coef=0, continuous=False),
+    max_episode_steps=1000,
+    reward_threshold=200,
+)
+
+# Modified continuous LunarLander to turn off reward shaping.
+register(
+    id='LunarLanderContinuousNoRewardShaping-v0',
+    entry_point='dsr.task.control.envs.lander:CustomLunarLander',
+    kwargs=dict(reward_shaping_coef=0, continuous=True)
+    max_episode_steps=1000,
+    reward_threshold=200,
+)
