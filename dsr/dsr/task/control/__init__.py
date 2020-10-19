@@ -36,7 +36,15 @@ register(
 register(
     id='LunarLanderContinuousNoRewardShaping-v0',
     entry_point='dsr.task.control.envs.lander:CustomLunarLander',
-    kwargs=dict(reward_shaping_coef=0, continuous=True)
+    kwargs=dict(reward_shaping_coef=0, continuous=True),
+    max_episode_steps=1000,
+    reward_threshold=200,
+)
+
+# Modified LunarLander with no kwargs provided, it is up to the user to declare kwargs.
+register(
+    id='LunarLanderCustomRewardShaping-v0',
+    entry_point='dsr.task.control.envs.lander:CustomLunarLander',
     max_episode_steps=1000,
     reward_threshold=200,
 )

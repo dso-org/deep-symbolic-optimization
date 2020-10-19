@@ -321,6 +321,7 @@ class CustomLunarLander(gym.Env, EzPickle):
                                                             # lose contact again after landing, you get negative reward
 
         if self.prev_shaping is not None:
+            # multiply reward shaping term by reward_shaping_coef to scale it appropriately.
             reward = (shaping - self.prev_shaping) * self.reward_shaping_coef
         self.prev_shaping = shaping
 
