@@ -15,7 +15,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch
 from dsr.language_model import LanguageModelPrior
 
 # Ignore TensorFlow warnings
@@ -416,8 +416,13 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # Always push unique item if the queue isn't full
             priority_queue.push(score, item, extra_data)
 
+        # Create the Batch
+        lengths = np.full(shape=(actions.shape[0]), fill_value=controller.max_length, dtype=np.int32)
+        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+            lengths=lengths, masks=mask, rewards=r)
+
         # Train the controller
-        summaries = controller.train_step(r, b, actions, obs, priors, mask, priority_queue)
+        summaries = controller.train_step(b, sampled_batch, priority_queue)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()

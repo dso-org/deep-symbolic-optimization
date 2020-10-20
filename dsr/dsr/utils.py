@@ -3,6 +3,11 @@
 import heapq
 import functools
 import numpy as np
+from collections import namedtuple
+
+
+Batch = namedtuple(
+    "Batch", ["actions", "obs", "priors", "lengths", "masks", "rewards"])
 
 
 def is_float(s):
