@@ -569,7 +569,6 @@ class Controller(object):
                              tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None,]),
-                    "masks" : tf.placeholder(tf.float32, [None, max_length]),
                     "rewards" : tf.placeholder(tf.float32, [None], name="r")
                 }
                 batch_ph = Batch(**batch_ph)
@@ -585,35 +584,34 @@ class Controller(object):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
                                               inputs=get_input(B.obs),
-                                              sequence_length=B.lengths,
+                                              sequence_length=B.lengths, # Backpropagates only through sequence length
                                               dtype=tf.float32)
             logits += B.priors
-            
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
             # Negative log probabilities of sequences
             actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
-            neglogp = tf.reduce_sum(neglogp_per_step * B.masks, axis=1) # Sum over time dim
+            neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time dim
 
             # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
-            # neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time
+            # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
             # NOTE 2: The above implementation is also the same as the one below, with a few caveats:
             #   Exactly equivalent when removing priors.
             #   Equivalent up to precision when including clipped prior.
             #   Crashes when prior is not clipped due to multiplying zero by -inf.
             # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
             # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
-            # neglogp = tf.reduce_sum(neglogp_per_step *masks, axis=1) # Sum over time
+            # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
 
             if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
                 entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-                entropy = tf.reduce_sum(entropy_per_step * B.masks, axis=1) # Sum over time dim
+                entropy = tf.reduce_sum(entropy_per_step, axis=1) # Sum over time dim
             else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
                 entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                entropy = tf.reduce_sum(entropy_per_step * B.masks, axis=1) # Sum over time dim
+                entropy = tf.reduce_sum(entropy_per_step, axis=1) # Sum over time dim
 
             return neglogp, entropy
 
@@ -679,7 +677,7 @@ class Controller(object):
                 tf.summary.scalar("reward", tf.reduce_mean(r))
                 tf.summary.scalar("baseline", self.baseline)
                 tf.summary.histogram("reward", r)
-                tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch_ph.masks, axis=0))
+                tf.summary.histogram("length", self.sampled_batch_ph.lengths)
                 self.summaries = tf.summary.merge_all()
 
 
@@ -728,13 +726,10 @@ class Controller(object):
     def train_step(self, b, sampled_batch, priority_queue):
         """Computes loss, trains model, and returns summaries."""
 
-        feed_dict = {self.baseline : b,
-                     self.sampled_batch_ph : sampled_batch}
-                     # self.sampled_batch_ph.obs : obs,
-                     # self.sampled_batch_ph.lengths : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-                     # self.sampled_batch_ph.priors : priors,
-                     # self.sampled_batch_ph.masks : mask,
-                     # self.sampled_batch_ph.rewards : r}
+        feed_dict = {
+            self.baseline : b,
+            self.sampled_batch_ph : sampled_batch
+        }
 
         if self.pqt:
             # Sample from the priority queue
@@ -742,17 +737,16 @@ class Controller(object):
             pqt_actions = np.stack([d["actions"] for d in dicts], axis=0)
             pqt_obs = tuple([np.stack([d["obs"][i] for d in dicts], axis=0) for i in range(3)])
             pqt_priors = np.stack([d["priors"] for d in dicts], axis=0)
-            pqt_lengths = np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-            pqt_masks = np.stack([d["masks"] for d in dicts], axis=0)
-            pqt_rewards = np.zeros(shape=(pqt_actions.shape[0]), dtype=np.float32), # Unused
+            pqt_lengths = np.stack([d["lengths"] for d in dicts], axis=0)
+            pqt_rewards = np.zeros(shape=(pqt_actions.shape[0]), dtype=np.float32) # Unused
             pqt_batch = Batch(actions=pqt_actions, obs=pqt_obs,
-                priors=pqt_priors, lengths=pqt_lengths, masks=pqt_masks,
-                rewards=pqt_rewards)
+                              priors=pqt_priors, lengths=pqt_lengths,
+                              rewards=pqt_rewards)
 
             # Update the feed_dict
             feed_dict.update({
                 self.pqt_batch_ph : pqt_batch
-                })
+            })
 
         if self.ppo:
             # Compute old_neglogp to be used for training
@@ -765,11 +759,9 @@ class Controller(object):
                 self.rng.shuffle(indices)
                 minibatches = np.array_split(indices, self.ppo_n_mb)
                 for i, mb in enumerate(minibatches):
-                    mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size, self.sampled_batch_ph["masks"]]}
+                    mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size]}
                     mb_feed_dict.update({
                         self.baseline : b,
-                        # TBD: Update remaining batch placeholders
-                        self.sampled_batch_ph.masks : mask[mb, :],
                         self.batch_size : len(mb)
                         })
 
@@ -835,7 +827,7 @@ def trig_ancestors(tokens, arities, trig_tokens):
     size) and L is the length of each sequence. In some cases, expressions may
     already be complete; in these cases, this function sees the start of a new
     expression, even though the return value for these elements won't matter
-    because they will be masked in loss calculations.
+    because their gradients will be zero because of sequence_length.
 
     Parameters
     __________
@@ -892,7 +884,7 @@ def parents_siblings(tokens, arities, parent_adjust):
     size) and L is the length of each sequence. In some cases, expressions may
     already be complete; in these cases, this function sees the start of a new
     expression, even though the return value for these elements won't matter
-    because they will be masked in loss calculations.
+    because their gradients will be zero because of sequence_length.
 
     Parameters
     __________

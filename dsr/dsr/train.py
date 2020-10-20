@@ -393,11 +393,9 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
-        # Compute actions mask
-        mask = np.zeros_like(actions, dtype=np.float32) # Shape: (batch_size, max_length)
-        for i,p in enumerate(programs):
-            length = min(len(p.traversal), controller.max_length)
-            mask[i, :length] = 1.0
+        # Compute sequence lengths
+        lengths = np.array([min(len(p.traversal), controller.max_length)
+                            for p in programs], dtype=np.int32)
 
         # Update the priority queue
         # NOTE: Updates with at most one expression per batch
@@ -410,16 +408,15 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                 "actions" : actions[i],
                 "obs" : [o[i] for o in obs],
                 "priors" : priors[i],
-                "masks" : mask[i],
+                "lengths" : lengths[i],
                 "program" : p
             }
             # Always push unique item if the queue isn't full
             priority_queue.push(score, item, extra_data)
 
         # Create the Batch
-        lengths = np.full(shape=(actions.shape[0]), fill_value=controller.max_length, dtype=np.int32)
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-            lengths=lengths, masks=mask, rewards=r)
+                              lengths=lengths, rewards=r)
 
         # Train the controller
         summaries = controller.train_step(b, sampled_batch, priority_queue)
