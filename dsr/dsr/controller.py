@@ -250,7 +250,6 @@ class Controller(object):
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
-        self.r = tf.placeholder(dtype=tf.float32, shape=(None,), name="r")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
 
         # Parameter assertions/warnings
@@ -562,24 +561,25 @@ class Controller(object):
         # Generates dictionary containing placeholders needed for a batch of sequences
         def make_batch_ph(name):
             with tf.name_scope(name):
-                dict_ = {
+                batch_ph = {
                     "actions" : tf.placeholder(tf.int32, [None, max_length]),
                     "obs" : (tf.placeholder(tf.int32, [None, max_length]),
                              tf.placeholder(tf.int32, [None, max_length]),
                              tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None,]),
-                    "masks" : tf.placeholder(tf.float32, [None, max_length])
+                    "masks" : tf.placeholder(tf.float32, [None, max_length]),
+                    "rewards" : tf.placeholder(tf.float32, [None], name="r")
                 }
 
-            return dict_
+            return batch_ph
 
         def safe_cross_entropy(p, logq, axis=-1):
             safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
             return - tf.reduce_sum(p * safe_logq, axis)
 
         # Generates tensor for neglogp of a batch given actions, obs, priors, masks, and lengths
-        def make_neglogp_and_entropy(actions, obs, priors, masks, lengths):
+        def make_neglogp_and_entropy(actions, obs, priors, masks, lengths, **kwargs):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
                                               inputs=get_input(obs),
@@ -627,6 +627,7 @@ class Controller(object):
         with tf.name_scope("losses"):
 
             neglogp, entropy = make_neglogp_and_entropy(**self.sampled_batch)
+            r = self.sampled_batch["rewards"]
 
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
@@ -639,7 +640,7 @@ class Controller(object):
                 self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
                 ratio = tf.exp(self.old_neglogp_ph - neglogp)
                 clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
-                ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (self.r - self.baseline), clipped_ratio * (self.r - self.baseline)))
+                ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (r - self.baseline), clipped_ratio * (r - self.baseline)))
                 loss += ppo_loss
 
                 # Define PPO diagnostics
@@ -650,7 +651,7 @@ class Controller(object):
             # Policy gradient loss
             else:
                 if not pqt or (pqt and pqt_use_pg):
-                    pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
+                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")
                     loss += pg_loss
 
             # Priority queue training loss
@@ -673,9 +674,9 @@ class Controller(object):
                     tf.summary.scalar("pqt_loss", pqt_loss)
                 tf.summary.scalar("entropy_loss", entropy_loss)
                 tf.summary.scalar("total_loss", self.loss)
-                tf.summary.scalar("reward", tf.reduce_mean(self.r))
+                tf.summary.scalar("reward", tf.reduce_mean(r))
                 tf.summary.scalar("baseline", self.baseline)
-                tf.summary.histogram("reward", self.r)
+                tf.summary.histogram("reward", r)
                 tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch["masks"], axis=0))
                 self.summaries = tf.summary.merge_all()
 
@@ -725,13 +726,13 @@ class Controller(object):
     def train_step(self, r, b, actions, obs, priors, mask, priority_queue):
         """Computes loss, trains model, and returns summaries."""
 
-        feed_dict = {self.r : r,
-                     self.baseline : b,
+        feed_dict = {self.baseline : b,
                      self.sampled_batch["actions"] : actions,
                      self.sampled_batch["obs"] : obs,
                      self.sampled_batch["lengths"] : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
                      self.sampled_batch["priors"] : priors,
-                     self.sampled_batch["masks"] : mask}
+                     self.sampled_batch["masks"] : mask,
+                     self.sampled_batch["rewards"] : r}
 
         if self.pqt:
             # Sample from the priority queue
