@@ -9,6 +9,7 @@ from numba import jit, prange
 
 from dsr.program import Program
 from dsr.language_model import LanguageModelPrior
+from dsr.utils import Batch
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
@@ -571,6 +572,7 @@ class Controller(object):
                     "masks" : tf.placeholder(tf.float32, [None, max_length]),
                     "rewards" : tf.placeholder(tf.float32, [None], name="r")
                 }
+                batch_ph = Batch(**batch_ph)
 
             return batch_ph
 
@@ -578,22 +580,22 @@ class Controller(object):
             safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
             return - tf.reduce_sum(p * safe_logq, axis)
 
-        # Generates tensor for neglogp of a batch given actions, obs, priors, masks, and lengths
-        def make_neglogp_and_entropy(actions, obs, priors, masks, lengths, **kwargs):
+        # Generates tensor for neglogp of a given batch
+        def make_neglogp_and_entropy(B):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
-                                              inputs=get_input(obs),
-                                              sequence_length=lengths,
+                                              inputs=get_input(B.obs),
+                                              sequence_length=B.lengths,
                                               dtype=tf.float32)
-            logits += priors
+            logits += B.priors
             
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
             # Negative log probabilities of sequences
-            actions_one_hot = tf.one_hot(actions, depth=n_choices, axis=-1, dtype=tf.float32)
+            actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
-            neglogp = tf.reduce_sum(neglogp_per_step * masks, axis=1) # Sum over time dim
+            neglogp = tf.reduce_sum(neglogp_per_step * B.masks, axis=1) # Sum over time dim
 
             # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
@@ -608,10 +610,10 @@ class Controller(object):
 
             if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
                 entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-                entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time dim
+                entropy = tf.reduce_sum(entropy_per_step * B.masks, axis=1) # Sum over time dim
             else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
                 entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                entropy = tf.reduce_sum(entropy_per_step * masks, axis=1) # Sum over time dim
+                entropy = tf.reduce_sum(entropy_per_step * B.masks, axis=1) # Sum over time dim
 
             return neglogp, entropy
 
@@ -626,8 +628,8 @@ class Controller(object):
         # Setup losses
         with tf.name_scope("losses"):
 
-            neglogp, entropy = make_neglogp_and_entropy(**self.sampled_batch_ph)
-            r = self.sampled_batch_ph["rewards"]
+            neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
+            r = self.sampled_batch_ph.rewards
 
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
@@ -656,7 +658,7 @@ class Controller(object):
 
             # Priority queue training loss
             if pqt:
-                pqt_neglogp, _ = make_neglogp_and_entropy(**self.pqt_batch_ph)
+                pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
 
@@ -677,7 +679,7 @@ class Controller(object):
                 tf.summary.scalar("reward", tf.reduce_mean(r))
                 tf.summary.scalar("baseline", self.baseline)
                 tf.summary.histogram("reward", r)
-                tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch_ph["masks"], axis=0))
+                tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch_ph.masks, axis=0))
                 self.summaries = tf.summary.merge_all()
 
 
@@ -723,16 +725,16 @@ class Controller(object):
         return actions, obs, priors
 
 
-    def train_step(self, r, b, actions, obs, priors, mask, priority_queue):
+    def train_step(self, b, sampled_batch, priority_queue):
         """Computes loss, trains model, and returns summaries."""
 
         feed_dict = {self.baseline : b,
-                     self.sampled_batch_ph["actions"] : actions,
-                     self.sampled_batch_ph["obs"] : obs,
-                     self.sampled_batch_ph["lengths"] : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-                     self.sampled_batch_ph["priors"] : priors,
-                     self.sampled_batch_ph["masks"] : mask,
-                     self.sampled_batch_ph["rewards"] : r}
+                     self.sampled_batch_ph : sampled_batch}
+                     # self.sampled_batch_ph.obs : obs,
+                     # self.sampled_batch_ph.lengths : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
+                     # self.sampled_batch_ph.priors : priors,
+                     # self.sampled_batch_ph.masks : mask,
+                     # self.sampled_batch_ph.rewards : r}
 
         if self.pqt:
             # Sample from the priority queue
@@ -740,15 +742,16 @@ class Controller(object):
             pqt_actions = np.stack([d["actions"] for d in dicts], axis=0)
             pqt_obs = tuple([np.stack([d["obs"][i] for d in dicts], axis=0) for i in range(3)])
             pqt_priors = np.stack([d["priors"] for d in dicts], axis=0)
+            pqt_lengths = np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
             pqt_masks = np.stack([d["masks"] for d in dicts], axis=0)
+            pqt_rewards = np.zeros(shape=(pqt_actions.shape[0]), dtype=np.float32), # Unused
+            pqt_batch = Batch(actions=pqt_actions, obs=pqt_obs,
+                priors=pqt_priors, lengths=pqt_lengths, masks=pqt_masks,
+                rewards=pqt_rewards)
 
             # Update the feed_dict
             feed_dict.update({
-                self.pqt_batch_ph["actions"] : pqt_actions,
-                self.pqt_batch_ph["obs"] : pqt_obs,
-                self.pqt_batch_ph["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-                self.pqt_batch_ph["priors"] : pqt_priors,
-                self.pqt_batch_ph["masks"] : pqt_masks
+                self.pqt_batch_ph : pqt_batch
                 })
 
         if self.ppo:
@@ -765,7 +768,8 @@ class Controller(object):
                     mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size, self.sampled_batch_ph["masks"]]}
                     mb_feed_dict.update({
                         self.baseline : b,
-                        self.sampled_batch_ph["masks"] : mask[mb, :],
+                        # TBD: Update remaining batch placeholders
+                        self.sampled_batch_ph.masks : mask[mb, :],
                         self.batch_size : len(mb)
                         })
 
