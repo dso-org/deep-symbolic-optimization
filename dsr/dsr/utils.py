@@ -7,7 +7,7 @@ from collections import namedtuple
 
 
 Batch = namedtuple(
-    "Batch", ["actions", "obs", "priors", "lengths", "masks", "rewards"])
+    "Batch", ["actions", "obs", "priors", "lengths", "rewards"])
 
 
 def is_float(s):
