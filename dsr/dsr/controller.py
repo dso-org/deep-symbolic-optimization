@@ -617,17 +617,17 @@ class Controller(object):
 
 
         # On policy batch
-        self.sampled_batch = make_batch_ph("sampled_batch")
+        self.sampled_batch_ph = make_batch_ph("sampled_batch")
 
         # PQT batch
         if pqt:
-            self.pqt_batch = make_batch_ph("pqt_batch")
+            self.pqt_batch_ph = make_batch_ph("pqt_batch")
 
         # Setup losses
         with tf.name_scope("losses"):
 
-            neglogp, entropy = make_neglogp_and_entropy(**self.sampled_batch)
-            r = self.sampled_batch["rewards"]
+            neglogp, entropy = make_neglogp_and_entropy(**self.sampled_batch_ph)
+            r = self.sampled_batch_ph["rewards"]
 
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
@@ -656,7 +656,7 @@ class Controller(object):
 
             # Priority queue training loss
             if pqt:
-                pqt_neglogp, _ = make_neglogp_and_entropy(**self.pqt_batch)
+                pqt_neglogp, _ = make_neglogp_and_entropy(**self.pqt_batch_ph)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
 
@@ -677,7 +677,7 @@ class Controller(object):
                 tf.summary.scalar("reward", tf.reduce_mean(r))
                 tf.summary.scalar("baseline", self.baseline)
                 tf.summary.histogram("reward", r)
-                tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch["masks"], axis=0))
+                tf.summary.histogram("length", tf.reduce_sum(self.sampled_batch_ph["masks"], axis=0))
                 self.summaries = tf.summary.merge_all()
 
 
@@ -727,12 +727,12 @@ class Controller(object):
         """Computes loss, trains model, and returns summaries."""
 
         feed_dict = {self.baseline : b,
-                     self.sampled_batch["actions"] : actions,
-                     self.sampled_batch["obs"] : obs,
-                     self.sampled_batch["lengths"] : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-                     self.sampled_batch["priors"] : priors,
-                     self.sampled_batch["masks"] : mask,
-                     self.sampled_batch["rewards"] : r}
+                     self.sampled_batch_ph["actions"] : actions,
+                     self.sampled_batch_ph["obs"] : obs,
+                     self.sampled_batch_ph["lengths"] : np.full(shape=(actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
+                     self.sampled_batch_ph["priors"] : priors,
+                     self.sampled_batch_ph["masks"] : mask,
+                     self.sampled_batch_ph["rewards"] : r}
 
         if self.pqt:
             # Sample from the priority queue
@@ -744,11 +744,11 @@ class Controller(object):
 
             # Update the feed_dict
             feed_dict.update({
-                self.pqt_batch["actions"] : pqt_actions,
-                self.pqt_batch["obs"] : pqt_obs,
-                self.pqt_batch["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
-                self.pqt_batch["priors"] : pqt_priors,
-                self.pqt_batch["masks"] : pqt_masks
+                self.pqt_batch_ph["actions"] : pqt_actions,
+                self.pqt_batch_ph["obs"] : pqt_obs,
+                self.pqt_batch_ph["lengths"] : np.full(shape=(pqt_actions.shape[0]), fill_value=self.max_length, dtype=np.int32),
+                self.pqt_batch_ph["priors"] : pqt_priors,
+                self.pqt_batch_ph["masks"] : pqt_masks
                 })
 
         if self.ppo:
@@ -762,10 +762,10 @@ class Controller(object):
                 self.rng.shuffle(indices)
                 minibatches = np.array_split(indices, self.ppo_n_mb)
                 for i, mb in enumerate(minibatches):
-                    mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size, self.sampled_batch["masks"]]}
+                    mb_feed_dict = {k : v[mb] for k, v in feed_dict.items() if k not in [self.baseline, self.batch_size, self.sampled_batch_ph["masks"]]}
                     mb_feed_dict.update({
                         self.baseline : b,
-                        self.sampled_batch["masks"] : mask[mb, :],
+                        self.sampled_batch_ph["masks"] : mask[mb, :],
                         self.batch_size : len(mb)
                         })
 
