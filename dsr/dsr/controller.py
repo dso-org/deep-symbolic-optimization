@@ -723,30 +723,14 @@ class Controller(object):
         return actions, obs, priors
 
 
-    def train_step(self, b, sampled_batch, priority_queue):
+    def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
 
         feed_dict = {
             self.baseline : b,
-            self.sampled_batch_ph : sampled_batch
+            self.sampled_batch_ph : sampled_batch,
+            self.pqt_batch_ph : pqt_batch
         }
-
-        if self.pqt:
-            # Sample from the priority queue
-            dicts = [extra_data for (item, extra_data) in priority_queue.random_sample(self.pqt_batch_size)]
-            pqt_actions = np.stack([d["actions"] for d in dicts], axis=0)
-            pqt_obs = tuple([np.stack([d["obs"][i] for d in dicts], axis=0) for i in range(3)])
-            pqt_priors = np.stack([d["priors"] for d in dicts], axis=0)
-            pqt_lengths = np.stack([d["lengths"] for d in dicts], axis=0)
-            pqt_rewards = np.zeros(shape=(pqt_actions.shape[0]), dtype=np.float32) # Unused
-            pqt_batch = Batch(actions=pqt_actions, obs=pqt_obs,
-                              priors=pqt_priors, lengths=pqt_lengths,
-                              rewards=pqt_rewards)
-
-            # Update the feed_dict
-            feed_dict.update({
-                self.pqt_batch_ph : pqt_batch
-            })
 
         if self.ppo:
             # Compute old_neglogp to be used for training
