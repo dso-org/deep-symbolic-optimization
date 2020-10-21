@@ -401,12 +401,15 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=lengths, rewards=r)
 
-        # Update the priority queue
+        # Update and sample from the priority queue
         if priority_queue is not None:
             priority_queue.update(programs, sampled_batch)
+            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+        else:
+            pqt_batch = None
 
         # Train the controller
-        summaries = controller.train_step(b, sampled_batch, priority_queue)
+        summaries = controller.train_step(b, sampled_batch, pqt_batch)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
