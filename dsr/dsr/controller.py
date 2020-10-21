@@ -734,9 +734,13 @@ class Controller(object):
 
         feed_dict = {
             self.baseline : b,
-            self.sampled_batch_ph : sampled_batch,
-            self.pqt_batch_ph : pqt_batch
+            self.sampled_batch_ph : sampled_batch
         }
+
+        if self.pqt:
+            feed_dict.update({
+                self.pqt_batch_ph : pqt_batch
+            })
 
         if self.ppo:
             # Compute old_neglogp to be used for training
