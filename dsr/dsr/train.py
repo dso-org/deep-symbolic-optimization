@@ -15,7 +15,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch
 from dsr.language_model import LanguageModelPrior
 
 # Ignore TensorFlow warnings
@@ -393,31 +393,23 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             with open(output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
-        # Compute actions mask
-        mask = np.zeros_like(actions, dtype=np.float32) # Shape: (batch_size, max_length)
-        for i,p in enumerate(programs):
-            length = min(len(p.traversal), controller.max_length)
-            mask[i, :length] = 1.0
+        # Compute sequence lengths
+        lengths = np.array([min(len(p.traversal), controller.max_length)
+                            for p in programs], dtype=np.int32)
 
-        # Update the priority queue
-        # NOTE: Updates with at most one expression per batch
+        # Create the Batch
+        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                              lengths=lengths, rewards=r)
+
+        # Update and sample from the priority queue
         if priority_queue is not None:
-            i = np.argmax(r)
-            p = programs[i]
-            score = p.r
-            item = p.tokens.tostring()
-            extra_data = {
-                "actions" : actions[i],
-                "obs" : [o[i] for o in obs],
-                "priors" : priors[i],
-                "masks" : mask[i],
-                "program" : p
-            }
-            # Always push unique item if the queue isn't full
-            priority_queue.push(score, item, extra_data)
+            priority_queue.update(programs, sampled_batch)
+            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+        else:
+            pqt_batch = None
 
         # Train the controller
-        summaries = controller.train_step(r, b, actions, obs, priors, mask, priority_queue)
+        summaries = controller.train_step(b, sampled_batch, pqt_batch)
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()

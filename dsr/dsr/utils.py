@@ -3,6 +3,11 @@
 import heapq
 import functools
 import numpy as np
+from collections import namedtuple
+
+
+Batch = namedtuple(
+    "Batch", ["actions", "obs", "priors", "lengths", "rewards"])
 
 
 def is_float(s):
@@ -214,6 +219,46 @@ class MaxUniquePriorityQueue(object):
         """
         for _, item, extra_data in heapq.nlargest(len(self.heap), self.heap):
             yield item, extra_data
+
+    def sample_batch(self, sample_size):
+        """Randomly select items from the queue and return them as a Batch."""
+
+        dicts = [extra_data for (item, extra_data) in self.random_sample(sample_size)]
+        actions = np.stack([d["actions"] for d in dicts], axis=0)
+        obs = tuple([np.stack([d["obs"][i] for d in dicts], axis=0) for i in range(3)])
+        priors = np.stack([d["priors"] for d in dicts], axis=0)
+        lengths = np.array([d["lengths"] for d in dicts], dtype=np.int32)
+        rewards = np.array([d["program"].r for d in dicts], dtype=np.float32)
+        batch = Batch(actions=actions, obs=obs, priors=priors, lengths=lengths,
+                      rewards=rewards)
+        return batch
+
+    def update(self, programs, batch):
+        """
+        Update the queue with the single best Program in a batch of Programs.
+
+        Parameters
+        ----------
+
+        programs : list of Program
+            List of Programs.
+
+        batch : Batch
+            Batch data corresponding to Programs.
+        """
+
+        i = np.argmax(batch.rewards)
+        p = programs[i]
+        score = p.r
+        item = p.tokens.tostring()
+        extra_data = {
+            "actions" : batch.actions[i],
+            "obs" : [o[i] for o in batch.obs],
+            "priors" : batch.priors[i],
+            "lengths" : batch.lengths[i],
+            "program" : p
+        }
+        self.push(score, item, extra_data)
 
     def __len__(self):
         return len(self.heap)
