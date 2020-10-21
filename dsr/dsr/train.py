@@ -397,26 +397,13 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in programs], dtype=np.int32)
 
-        # Update the priority queue
-        # NOTE: Updates with at most one expression per batch
-        if priority_queue is not None:
-            i = np.argmax(r)
-            p = programs[i]
-            score = p.r
-            item = p.tokens.tostring()
-            extra_data = {
-                "actions" : actions[i],
-                "obs" : [o[i] for o in obs],
-                "priors" : priors[i],
-                "lengths" : lengths[i],
-                "program" : p
-            }
-            # Always push unique item if the queue isn't full
-            priority_queue.push(score, item, extra_data)
-
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=lengths, rewards=r)
+
+        # Update the priority queue
+        if priority_queue is not None:
+            priority_queue.update(programs, sampled_batch)
 
         # Train the controller
         summaries = controller.train_step(b, sampled_batch, priority_queue)

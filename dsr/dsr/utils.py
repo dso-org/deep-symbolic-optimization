@@ -220,6 +220,33 @@ class MaxUniquePriorityQueue(object):
         for _, item, extra_data in heapq.nlargest(len(self.heap), self.heap):
             yield item, extra_data
 
+    def update(self, programs, batch):
+        """
+        Update the queue with the single best Program in a batch of Programs.
+
+        Parameters
+        ----------
+
+        programs : list of Program
+            List of Programs.
+
+        batch : Batch
+            Batch data corresponding to Programs.
+        """
+
+        i = np.argmax(batch.rewards)
+        p = programs[i]
+        score = p.r
+        item = p.tokens.tostring()
+        extra_data = {
+            "actions" : batch.actions[i],
+            "obs" : [o[i] for o in batch.obs],
+            "priors" : batch.priors[i],
+            "lengths" : batch.lengths[i],
+            "program" : p
+        }
+        self.push(score, item, extra_data)
+
     def __len__(self):
         return len(self.heap)
 
