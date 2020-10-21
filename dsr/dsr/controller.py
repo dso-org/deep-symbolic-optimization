@@ -590,10 +590,16 @@ class Controller(object):
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
+            # Generate mask from sequence lengths
+            # NOTE: Using this mask for neglogp and entropy actually does NOT
+            # affect training because gradients are zero outside the lengths.
+            # However, the mask makes tensorflow summaries accurate.
+            mask = tf.sequence_mask(B.lengths, maxlen=self.max_length, dtype=tf.float32)
+
             # Negative log probabilities of sequences
             actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
-            neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time dim
+            neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
 
             # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
@@ -608,10 +614,10 @@ class Controller(object):
 
             if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
                 entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-                entropy = tf.reduce_sum(entropy_per_step, axis=1) # Sum over time dim
+                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
             else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
                 entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                entropy = tf.reduce_sum(entropy_per_step, axis=1) # Sum over time dim
+                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
 
             return neglogp, entropy
 
