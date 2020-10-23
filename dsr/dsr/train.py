@@ -15,7 +15,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch, make_output_files
 from dsr.language_model import LanguageModelPrior
 
 # Ignore TensorFlow warnings
@@ -168,41 +168,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Create log file
     if output_file is not None:
-        os.makedirs(logdir, exist_ok=True)
-        output_file = os.path.join(logdir, output_file)
-        prefix, _ = os.path.splitext(output_file)
-        all_r_output_file = "{}_all_r.npy".format(prefix)
-        hof_output_file = "{}_hof.csv".format(prefix)
-        pf_output_file = "{}_pf.csv".format(prefix)
-        with open(output_file, 'w') as f:
-            # r_best : Maximum across all iterations so far
-            # r_max : Maximum across this iteration's batch
-            # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
-            # r_avg_sub : Average across this iteration's epsilon-subset batch
-            # n_unique_* : Number of unique Programs in batch
-            # n_novel_* : Number of never-before-seen Programs per batch
-            # a_ent_* : Empirical positional entropy across sequences averaged over positions 
-            # invalid_avg_* : Fraction of invalid Programs per batch
-            headers = ["base_r_best",
-                       "base_r_max",
-                       "base_r_avg_full",
-                       "base_r_avg_sub",
-                       "r_best",
-                       "r_max",
-                       "r_avg_full",
-                       "r_avg_sub",
-                       "l_avg_full",
-                       "l_avg_sub",
-                       "ewma",
-                       "n_unique_full",
-                       "n_unique_sub",
-                       "n_novel_full",
-                       "n_novel_sub",
-                       "a_ent_full",
-                       "a_ent_sub",
-                       "invalid_avg_full",
-                       "invalid_avg_sub"]
-            f.write("{}\n".format(",".join(headers)))
+        all_r_output_file, hof_output_file, pf_output_file = make_output_files(logdir, output_file)
 
     # TBD: REFACTOR
     # Set the complexity functions
