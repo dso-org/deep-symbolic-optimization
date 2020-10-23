@@ -65,6 +65,18 @@ def make_output_files(logdir, output_file):
 
     output_file : string
         Name of output file.
+
+    Returns:
+    --------
+
+    all_r_output_file : string
+        all_r output filename
+    
+    hof_output_file : string
+        hof output filename
+
+    pf_output_file : string
+        pf output filename
     """
     os.makedirs(logdir, exist_ok=True)
     output_file = os.path.join(logdir, output_file)
