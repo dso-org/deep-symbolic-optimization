@@ -1,5 +1,6 @@
 """Utility functions used in deep symbolic regression."""
 
+import os
 import heapq
 import functools
 import numpy as np
@@ -8,7 +9,6 @@ from collections import namedtuple
 
 Batch = namedtuple(
     "Batch", ["actions", "obs", "priors", "lengths", "rewards"])
-import os
 
 
 def is_float(s):
@@ -53,7 +53,7 @@ def is_pareto_efficient(costs):
     return is_efficient_mask
 
 
-def make_output_files(logdir, output_file):
+def setup_output_files(logdir, output_file):
     """
     Generates the output files for training.
 
