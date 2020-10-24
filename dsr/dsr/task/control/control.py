@@ -7,6 +7,7 @@ except ImportError:
 
 import numpy as np
 
+import dsr
 from dsr.program import Program, from_str_tokens
 from . import utils as U
 
@@ -83,13 +84,12 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     if "Bullet" in name:
         env = U.TimeFeatureWrapper(env)
 
-    # Set the library and stochasticity (need to do this now in case there are symbolic actions)
+    # Set the library (need to do this now in case there are symbolic actions)
     if fix_seeds and stochastic:
         print("WARNING: fix_seeds=True renders task deterministic. Overriding to stochastic=False.")
         stochastic = False
     n_input_var = env.observation_space.shape[0]
     Program.set_library(function_set, n_input_var, protected)
-    Program.set_stochastic(stochastic)
 
     # Configuration assertions
     assert len(env.observation_space.shape) == 1, "Only support vector observation spaces."
@@ -126,7 +126,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         # Pre-specified symbolic policy
         elif isinstance(spec, list) or isinstance(spec, str):
             str_tokens = spec
-            p = from_str_tokens(str_tokens, optimize=False)
+            p = from_str_tokens(str_tokens, optimize=False, skip_cache=True)
             symbolic_actions[i] = p
 
         else:
@@ -214,4 +214,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     }
     
 
-    return reward, evaluate, function_set, n_input_var, stochastic, extra_info
+    task = dsr.task.Task(reward_function=reward,
+                evaluate=evaluate,
+                function_set=function_set,
+                n_input_var=n_input_var,
+                stochastic=stochastic,
+                extra_info=extra_info)
+
+    return task

@@ -242,12 +242,12 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         print("\nInitial parameter means:")
         print_var_means()
 
-    # For stochastic Programs, store each base_r computation for each unique traversal
-    if Program.stochastic:
+    # For stochastic Tasks, store each base_r computation for each unique traversal
+    if Program.task.stochastic:
         base_r_history = {} # Dict from Program str to list of base_r values
-        # It's not really clear stochastic Programs with const should enter the hof
-        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Programs."
-        assert not pareto_front, "Pareto front not supported with stochastic Programs."
+        # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
+        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Tasks."
+        assert not pareto_front, "Pareto front not supported with stochastic Tasks."
     else:
         base_r_history = None
 
@@ -264,7 +264,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
     for step in range(n_epochs):
 
         # Set of str representations for all Programs ever seen
-        s_history = set(base_r_history.keys() if Program.stochastic else Program.cache.keys())
+        s_history = set(base_r_history.keys() if Program.task.stochastic else Program.cache.keys())
 
         # Sample batch of expressions from controller
         # Shape of actions: (batch_size, max_length)
@@ -470,8 +470,8 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
     # Save the hall of fame
     if hof is not None and hof > 0:
 
-        # For stochastic Programs, average each unique Program's base_r_history,
-        if Program.stochastic:
+        # For stochastic Tasks, average each unique Program's base_r_history,
+        if Program.task.stochastic:
 
             # Define a helper function to generate a Program from its tostring() value
             def from_token_string(str_tokens, optimize):
@@ -613,10 +613,9 @@ def main():
 
     # Define the task
     from dsr.task import set_task
-    reward_function, eval_function, function_set, n_input_var = make_task(**config_task)
-    Program.set_reward_function(reward_function)
-    Program.set_eval_function(eval_function)
-    Program.set_library(function_set, n_input_var)
+    task = make_task(**config_task)
+    Program.set_task(task)
+    Program.set_library(task.function_set, task.n_input_var)
     Program.set_execute()
 
     with tf.Session() as sess:

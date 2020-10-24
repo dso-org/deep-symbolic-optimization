@@ -1,6 +1,7 @@
 import numpy as np
 
-from .dataset import Dataset
+import dsr
+from dsr.task.regression.dataset import Dataset
 
 
 def make_regression_task(name, metric, metric_params, extra_metric_test,
@@ -46,7 +47,8 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
     Returns
     -------
 
-    See dsr.task.task.make_task().
+    task : Task
+        Dynamically created Task object whose methods contains closures.
     """
     
     # Define closures for dataset and metric
@@ -156,7 +158,14 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
     extra_info = {}
 
-    return reward, evaluate, dataset.function_set, dataset.n_input_var, stochastic, extra_info
+    task = dsr.task.Task(reward_function=reward,
+                evaluate=evaluate,
+                function_set=dataset.function_set,
+                n_input_var=dataset.n_input_var,
+                stochastic=stochastic,
+                extra_info=extra_info)
+
+    return task
 
 
 def make_regression_metric(name, y_train, *args):
