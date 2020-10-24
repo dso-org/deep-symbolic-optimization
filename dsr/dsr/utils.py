@@ -55,7 +55,7 @@ def is_pareto_efficient(costs):
 
 def setup_output_files(logdir, output_file):
     """
-    Generates the output files for training.
+    Writes the main output file header and returns the reward, hall of fame, and Pareto front config filenames.
 
     Parameters:
     -----------
