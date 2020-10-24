@@ -15,7 +15,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch, make_output_files
+from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch, setup_output_files
 from dsr.language_model import LanguageModelPrior
 
 # Ignore TensorFlow warnings
@@ -168,7 +168,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
     # Create log file
     if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file = make_output_files(logdir, output_file)
+        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file)
 
     # TBD: REFACTOR
     # Set the complexity functions
