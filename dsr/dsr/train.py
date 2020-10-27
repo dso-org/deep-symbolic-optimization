@@ -194,7 +194,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
         if n_cores_batch == -1:
             n_cores_batch = multiprocessing.cpu_count()
         if n_cores_batch > 1:
-            pool = multiprocessing.Pool(n_cores_batch)            
+            pool = multiprocessing.Pool(n_cores_batch)
 
     # Create the priority queue
     k = controller.pqt_k
@@ -414,7 +414,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
-            all_r = all_r[:(step + 1)]            
+            all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
             break
         if early_stopping and p_base_r_best.evaluate.get("success"):
@@ -468,7 +468,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             #         p.sympy_expr = result[0]
             # else:
             #     results = list(map(sympy_work, programs))
-            # str_sympy_exprs = [result[1] for result in results]    
+            # str_sympy_exprs = [result[1] for result in results]
             # unique_ids = np.unique(str_sympy_exprs, return_index=True)[1].tolist()
             # na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
             # programs = list(map(programs.__getitem__, unique_ids + na_ids))
