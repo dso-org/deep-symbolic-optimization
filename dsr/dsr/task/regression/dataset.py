@@ -64,7 +64,7 @@ class Dataset(object):
                  function_set=None, extra_data_dir=None,
                  dataset_size_multiplier=None, shuffle_data=True,
                  train_fraction=0.8, experiment_root=None, logdir=None, backup=False):
-        print('-- Building dataset --')
+        output_message = '\n-- Building dataset -----------------\n'
         # Set all relevant paths
         try:
             # Set experiment path
@@ -84,7 +84,7 @@ class Dataset(object):
             if file is not None:
                 benchmark_path = os.path.join(task_root, file)
                 benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
-                print('Benchmark path                 :', benchmark_path)
+                output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
         except:
             assert False, 'Dataset.__init__(): Could not load benchmarks from {}'.format(benchmark_path)
 
@@ -99,7 +99,7 @@ class Dataset(object):
             try:
                 dataset_path = os.path.join(data_root, "{}.csv".format(name))
                 data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
-                print('Loading data from file         : {}'.format(dataset_path))
+                output_message += 'Loading data from file         : {}\n'.format(dataset_path)
             except:
                 assert False, 'Dataset.__init__(): Could not load data set from {}'.format(dataset_path)
             # Perform some data augmentation if necessary
@@ -161,7 +161,7 @@ class Dataset(object):
 
         # Expressions
         else:
-            print('Generating data for benchmark  : {}'.format(name))
+            output_message += 'Generating data for benchmark  : {}\n'.format(name)
             row = benchmark_df.loc[name]
             function_set_aux = row["function_set"]
             self.n_input_var = row["variables"]
@@ -205,7 +205,7 @@ class Dataset(object):
             try:
                 function_set_df = pd.read_csv(function_set_path, index_col=0)
                 self.function_set = function_set_df.loc[function_set_aux].tolist()[0].strip().split(',')
-                print('Loading function set from      : {}'.format(function_set_path))
+                output_message += 'Loading function set from      : {}\n'.format(function_set_path)
             except:
                 assert False, 'Dataset.__init__(): Could not load function set {} from {}'.format(function_set_aux, function_set_path)
             # Replace hard-coded constants with their float values
@@ -219,12 +219,11 @@ class Dataset(object):
         else:
             assert False, "Dataset.__init__(): Function set unknown type: {}".format(type(function_set))
 
-        print('Function set                   : {} --> {}'.format(function_set_aux, self.function_set))
+        output_message += 'Function set                   : {} --> {}\n'.format(function_set_aux, self.function_set)
         if backup:
             self.save_dataset(logdir, name)
-        print('--------------------------------')
-        #import sys
-        #sys.exit("THE END")
+        output_message += '-------------------------------------\n\n'
+        print(output_message)
 
     def make_X(self, spec):
         """Creates X values based on specification"""
