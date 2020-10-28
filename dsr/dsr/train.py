@@ -60,7 +60,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
     ----------
     sess : tf.Session
         TenorFlow Session object.
-    
+
     controller : dsr.controller.Controller
         Controller object used to generate Programs.
 
@@ -252,7 +252,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
             # Filter programs that have not yet computed base_r
             # TBD: Refactor with needs_optimizing flag or similar?
             programs_to_optimize = list(set([p for p in programs if "base_r" not in p.__dict__]))
-            
+
             # Optimize and compute base_r
             results = pool.map(work, programs_to_optimize)
             for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
