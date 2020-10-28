@@ -58,6 +58,17 @@ class Dataset(object):
 
     train_fraction : float, optional
         Fraction of dataset used for training. Only work for external datasets.
+
+    experiment_root : str, optional
+        Directory where the files that are used for the generation of the
+        dataset are stored.
+
+    logdir : str, optional
+        Directory where experiment logfiles are saved.
+
+    backup : bool, optional
+        Save generated or loaded dataset in logdir. Will only work if
+        logdir is set.
     """
 
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
@@ -65,28 +76,21 @@ class Dataset(object):
                  dataset_size_multiplier=None, shuffle_data=True,
                  train_fraction=0.8, experiment_root=None, logdir=None, backup=False):
         output_message = '\n-- Building dataset -----------------\n'
-        # Set all relevant paths
-        try:
-            # Set experiment path
-            if experiment_root is None or "experiment_root" not in locals():
-                task_root = resource_filename("dsr.task", "regression")
-            else:
-                task_root = os.path.join(experiment_root)
-            # Set data path
-            if extra_data_dir is not None:
-                data_root = os.path.join(task_root, extra_data_dir)
-            else:
-                data_root = os.path.join(task_root, "")
-        except:
-            assert False, 'Dataset.__init__(): Could not set task or data path.'
+        # Set experiment path
+        if experiment_root is None:
+            task_root = resource_filename("dsr.task", "regression")
+        else:
+            task_root = os.path.join(experiment_root)
+        # Set data path
+        if extra_data_dir is not None:
+            data_root = os.path.join(task_root, extra_data_dir)
+        else:
+            data_root = os.path.join(task_root, "")
         # Load benchmark data if available
-        try:
-            if file is not None:
-                benchmark_path = os.path.join(task_root, file)
-                benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
-                output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
-        except:
-            assert False, 'Dataset.__init__(): Could not load benchmarks from {}'.format(benchmark_path)
+        if file is not None:
+            benchmark_path = os.path.join(task_root, file)
+            benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
+            output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
 
         # Random number generator used for sampling X values
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
@@ -96,12 +100,9 @@ class Dataset(object):
 
         # Raw dataset
         if "benchmark_df" not in locals() or name not in benchmark_df.index:
-            try:
-                dataset_path = os.path.join(data_root, "{}.csv".format(name))
-                data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
-                output_message += 'Loading data from file         : {}\n'.format(dataset_path)
-            except:
-                assert False, 'Dataset.__init__(): Could not load data set from {}'.format(dataset_path)
+            dataset_path = os.path.join(data_root, "{}.csv".format(name))
+            data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
+            output_message += 'Loading data from file         : {}\n'.format(dataset_path)
             # Perform some data augmentation if necessary
             if noise is not None and noise != 0:
                 print("Warning: Noise will not be applied to real-world dataset.")
@@ -302,8 +303,8 @@ class Dataset(object):
         return pretty(self.sympy_expr)
 
     def save_dataset(self, logdir, name):
-        save_path = os.path.join(logdir,'data_{}.csv'.format(name))
         try:
+            save_path = os.path.join(logdir,'data_{}.csv'.format(name))
             np.savetxt(
                 save_path,
                 np.concatenate(
@@ -315,7 +316,7 @@ class Dataset(object):
             )
             print('Saved dataset to               : {}'.format(save_path))
         except:
-            print("Warning: Error when trying to save dataset.")
+            print("Warning: Could not save dataset.")
 
 
 def plot_dataset(d, output_filename):
