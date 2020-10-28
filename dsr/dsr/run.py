@@ -179,7 +179,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
         config_training["logdir"],
         "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
     logdir = config_training["logdir"]
-    if "backup" in config_task["dataset"] and config_task["dataset"]["backup"]:
+    if "dataset" in config_task and "backup" in config_task["dataset"] and config_task["dataset"]["backup"]:
         config_task["dataset"]["logdir"] = logdir
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
