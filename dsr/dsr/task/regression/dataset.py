@@ -52,24 +52,47 @@ class Dataset(object):
 
     dataset_size_multiplier : float, optional
         Multiplier for size of the dataset. Only works for expressions.
-        
+
     shuffle_data : bool, optional
         Shuffle the dataset. Only work for external datasets.
-        
+
     train_fraction : float, optional
         Fraction of dataset used for training. Only work for external datasets.
+
+    experiment_root : str, optional
+        Directory where the files that are used for the generation of the
+        dataset are stored.
+
+    logdir : str, optional
+        Directory where experiment logfiles are saved.
+
+    backup : bool, optional
+        Save generated or loaded dataset in logdir. Will only work if
+        logdir is set.
     """
 
     def __init__(self, file, name, noise=None, seed=0, preprocess=None,
                  function_set=None, extra_data_dir=None,
                  dataset_size_multiplier=None, shuffle_data=True,
-                 train_fraction=0.8):
-
-        # Read in benchmark dataset information
-        task_root = resource_filename("dsr.task", "regression")
-        root = os.path.join(task_root, "data") # Root data directory
-        benchmark_path = os.path.join(task_root, file)
-        df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
+                 train_fraction=0.8, experiment_root=None, logdir=None, backup=False):
+        output_message = '\n-- Building dataset -----------------\n'
+        # Set experiment path
+        if experiment_root is None:
+            task_root = resource_filename("dsr.task", "regression")
+        else:
+            task_root = os.path.join(experiment_root)
+        # Set data path
+        if extra_data_dir is not None:
+            data_root = os.path.join(task_root, extra_data_dir)
+        else:
+            data_root = os.path.join(task_root, "")
+        # Load benchmark data if available
+        if file is not None:
+            benchmark_path = os.path.join(task_root, file)
+            benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
+            output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
+        else:
+            benchmark_df = None
 
         # Random number generator used for sampling X values
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
@@ -77,21 +100,14 @@ class Dataset(object):
 
         self.dataset_size_multiplier = dataset_size_multiplier if dataset_size_multiplier is not None else 1.0
 
-        # Load raw dataset from external directory
-        root_changed = False
-        if extra_data_dir is not None:
-            root = os.path.join(extra_data_dir,"")
-            root_changed = True
-
         # Raw dataset
-        if name not in df.index:
-
+        if benchmark_df is None or name not in benchmark_df.index:
+            dataset_path = os.path.join(data_root, "{}.csv".format(name))
+            data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
+            output_message += 'Loading data from file         : {}\n'.format(dataset_path)
+            # Perform some data augmentation if necessary
             if noise is not None and noise != 0:
                 print("Warning: Noise will not be applied to real-world dataset.")
-
-            dataset_path = os.path.join(root, name + ".csv")
-            print("Loading dataset " + str(dataset_path))
-            data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
             if shuffle_data:
                 data = data.sample(frac=1, random_state=self.rng).reset_index(drop=True) # Shuffle rows
             data = data.values
@@ -114,11 +130,15 @@ class Dataset(object):
                 min_ = np.min(data, axis=0)
                 max_ = np.max(data, axis=0)
                 data = (data - min_) / (max_ - min_)
-            
+            elif preprocess == None:
+                pass
+            else:
+                assert False, 'Dataset.__init__(): Preprocessing function {} unknown'.format(preprocess)
+
             self.n_input_var = data.shape[1] - 1
 
             n_train = int(train_fraction * data.shape[0]) # default: 80-20 train-test split
-            assert n_train >= 1, "Invalid train_fraction : There must be a least one point in training set."
+            assert n_train >= 1, "Dataset.__init__(): Invalid train_fraction: need at least one point in training set."
             if n_train == data.shape[0]:
                 print("Warning: Empty test set.")
 
@@ -137,19 +157,23 @@ class Dataset(object):
             self.train_spec = None
             self.test_spec = None
 
-            function_set_aux = "Real" # Default value of library
+            if function_set is None:
+                function_set_aux = "Real" # Default value of library
+            else:
+                function_set_aux = function_set
 
-        # Expression dataset
+        # Expressions
         else:
-            row = df.loc[name]
+            output_message += 'Generating data for benchmark  : {}\n'.format(name)
+            row = benchmark_df.loc[name]
             function_set_aux = row["function_set"]
             self.n_input_var = row["variables"]
 
-            # Create symbolic expression        
+            # Create symbolic expression
             self.sympy_expr = parse_expr(row["sympy"])
             self.numpy_expr = self.make_numpy_expr(row["numpy"])
             self.fp_constant = "Float" in srepr(self.sympy_expr)
-            self.int_constant = "Integer" in srepr(self.sympy_expr)        
+            self.int_constant = "Integer" in srepr(self.sympy_expr)
 
             # Create X values
             train_spec = ast.literal_eval(row["train_spec"])
@@ -169,34 +193,41 @@ class Dataset(object):
 
             # Add Gaussian noise
             if noise is not None:
-                assert noise >= 0, "Noise must be non-negative."
+                assert noise >= 0, "Dataset.__init__(): Noise must be non-negative."
                 y_rms = np.sqrt(np.mean(self.y_train**2))
                 scale = noise * y_rms
                 self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
                 self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
 
-        # If root has changed
-        if root_changed:
-            root = resource_filename("dsr.task", "regression/data/")
-            
-        # Create the function set (list of str/float)
-        function_set_path = os.path.join(task_root, "function_sets.csv")
-        df = pd.read_csv(function_set_path, index_col=0)
-        self.function_set = df.loc[function_set_aux].tolist()[0].strip().split(',')
-
-        # Replace hard-coded constants with their float values
-        def is_number(s):
-            try:
-                float(s)
-                return True
-            except ValueError:
-                return False
-        self.function_set = [float(f) if is_number(f) else f for f in self.function_set]
-
-        # Overwrite the function set
-        if function_set is not None:
+        # Load the function set
+        if isinstance(function_set_aux, list):
             self.function_set = function_set
-    
+        elif isinstance(function_set_aux, str):
+            # Create the function set (list of str/float)
+            function_set_path = os.path.join(task_root, "function_sets.csv")
+            try:
+                function_set_df = pd.read_csv(function_set_path, index_col=0)
+                self.function_set = function_set_df.loc[function_set_aux].tolist()[0].strip().split(',')
+                output_message += 'Loading function set from      : {}\n'.format(function_set_path)
+            except:
+                assert False, 'Dataset.__init__(): Could not load function set {} from {}'.format(function_set_aux, function_set_path)
+            # Replace hard-coded constants with their float values
+            def is_number(s):
+                try:
+                    float(s)
+                    return True
+                except ValueError:
+                    return False
+            self.function_set = [float(f) if is_number(f) else f for f in self.function_set]
+        else:
+            assert False, "Dataset.__init__(): Function set unknown type: {}".format(type(function_set))
+
+        output_message += 'Function set                   : {} --> {}\n'.format(function_set_aux, self.function_set)
+        if backup:
+            self.save_dataset(logdir, name)
+        output_message += '-------------------------------------\n\n'
+        print(output_message)
+
     def make_X(self, spec):
         """Creates X values based on specification"""
 
@@ -224,7 +255,6 @@ class Dataset(object):
                 feature = np.linspace(start=start, stop=stop, num=n, endpoint=True)
             else:
                 raise ValueError("Did not recognize specification for {}: {}.".format(input_var, spec[input_var]))
-            
             features.append(feature)
 
         # Do multivariable combinations
@@ -274,6 +304,22 @@ class Dataset(object):
     def __repr__(self):
         return pretty(self.sympy_expr)
 
+    def save_dataset(self, logdir, name):
+        try:
+            save_path = os.path.join(logdir,'data_{}.csv'.format(name))
+            np.savetxt(
+                save_path,
+                np.concatenate(
+                    (
+                        np.hstack((self.X_train, self.y_train[..., np.newaxis])),
+                        np.hstack((self.X_test, self.y_test[..., np.newaxis]))
+                    ), axis=0),
+                delimiter=',', fmt='%1.5f'
+            )
+            print('Saved dataset to               : {}'.format(save_path))
+        except:
+            print("Warning: Could not save dataset.")
+
 
 def plot_dataset(d, output_filename):
     """Plot Dataset with underlying ground truth."""
@@ -286,7 +332,7 @@ def plot_dataset(d, output_filename):
 
     # Draw the actual points
     plt.scatter(d.X_train, d.y_train)
-    
+
     plt.title(output_filename[:-4], fontsize=7)
     plt.show()
 
@@ -302,7 +348,7 @@ def save_dataset(d, output_filename):
     for X, y, output_filename in zip(Xs, ys, output_filenames):
         print("Saving to {}".format(output_filename))
         y = np.reshape(y, (y.shape[0],1))
-        XY = np.concatenate((X,y), axis=1)        
+        XY = np.concatenate((X,y), axis=1)
         pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)
 
 
@@ -319,7 +365,7 @@ def main(file, plot, save_csv, sweep):
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
     expressions = [parse_expr(expression) for expression in df["sympy"]]
-    for expression, name in zip(expressions, names):        
+    for expression, name in zip(expressions, names):
 
         if not name.startswith("Nguyen") and not name.startswith("Constant") and not name.startswith("Custom"):
             continue
@@ -345,7 +391,6 @@ def main(file, plot, save_csv, sweep):
                     datasets.append(d)
                     output_filename = "{}_n{:.2f}_d{:.0f}.csv".format(name, noise, dataset_size_multiplier)
                     output_filenames.append(output_filename)
-        
         # Plot and/or save datasets
         for d, output_filename in zip(datasets, output_filenames):
             if plot and d.X_train.shape[1] == 1:
