@@ -60,7 +60,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     else:
         pool = None
 
-    # Set the task for the parent process    
+    # Set the task for the parent process
     set_task(config_task)
 
     start = time.time()
@@ -70,11 +70,11 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
     # Reset cache and TensorFlow graph
     Program.clear_cache()
-    tf.reset_default_graph()        
-    
+    tf.reset_default_graph()
+
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
-  
+
     with tf.Session() as sess:
 
         # Instantiate the controller w/ language model

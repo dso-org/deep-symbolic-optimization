@@ -68,12 +68,12 @@ class Dataset(object):
         # Set all relevant paths
         try:
             # Set experiment path
-            if experiment_root is None or not "experiment_root" in locals():
+            if experiment_root is None or "experiment_root" not in locals():
                 task_root = resource_filename("dsr.task", "regression")
             else:
                 task_root = os.path.join(experiment_root)
             # Set data path
-            if not extra_data_dir is None:
+            if extra_data_dir is not None:
                 data_root = os.path.join(task_root, extra_data_dir)
             else:
                 data_root = os.path.join(task_root, "")
@@ -81,7 +81,7 @@ class Dataset(object):
             assert False, 'Dataset.__init__(): Could not set task or data path.'
         # Load benchmark data if available
         try:
-            if not file is None:
+            if file is not None:
                 benchmark_path = os.path.join(task_root, file)
                 benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
                 print('Benchmark path                 :', benchmark_path)
@@ -95,7 +95,7 @@ class Dataset(object):
         self.dataset_size_multiplier = dataset_size_multiplier if dataset_size_multiplier is not None else 1.0
 
         # Raw dataset
-        if not "benchmark_df" in locals() or not name in benchmark_df.index:
+        if "benchmark_df" not in locals() or name not in benchmark_df.index:
             try:
                 dataset_path = os.path.join(data_root, "{}.csv".format(name))
                 data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
