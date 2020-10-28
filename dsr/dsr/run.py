@@ -178,10 +178,11 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     config_training["logdir"] = os.path.join(
         config_training["logdir"],
         "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
+    logdir = config_training["logdir"]
     if "backup" in config_task["dataset"] and config_task["dataset"]["backup"]:
-        config_task["dataset"]["logdir"] = config_training["logdir"]
-    os.makedirs(config_training["logdir"], exist_ok=True)
-    output_filename = os.path.join(config_training["logdir"], output_filename)
+        config_task["dataset"]["logdir"] = logdir
+    os.makedirs(logdir, exist_ok=True)
+    output_filename = os.path.join(logdir, output_filename)
     # Use benchmark name from config if not specified as command-line arg
     if len(b) == 0:
         if isinstance(config_task["name"], str):
@@ -218,10 +219,10 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     print("Running {} for n={} on benchmarks {}".format(method, mc, unique_benchmarks))
 
     # Write terminal command and config.json into log directory
-    cmd_filename = os.path.join(config_training["logdir"], "cmd.out")
+    cmd_filename = os.path.join(logdir, "cmd.out")
     with open(cmd_filename, 'w') as f:
         print(" ".join(sys.argv), file=f)
-    config_filename = os.path.join(config_training["logdir"], "config.json")
+    config_filename = os.path.join(logdir, "config.json")
     with open(config_filename, 'w') as f:
         json.dump(config, f, indent=4)
 
@@ -229,7 +230,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     if method == "dsr":
         work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
     elif method == "gp":
-        work = partial(train_gp, logdir=config_training["logdir"], config_task=config_task, config_gp=config_gp)
+        work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
     write_header = True
