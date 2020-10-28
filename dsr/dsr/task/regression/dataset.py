@@ -91,6 +91,8 @@ class Dataset(object):
             benchmark_path = os.path.join(task_root, file)
             benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
             output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
+        else:
+            benchmark_df = None
 
         # Random number generator used for sampling X values
         seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
@@ -99,7 +101,7 @@ class Dataset(object):
         self.dataset_size_multiplier = dataset_size_multiplier if dataset_size_multiplier is not None else 1.0
 
         # Raw dataset
-        if "benchmark_df" not in locals() or name not in benchmark_df.index:
+        if benchmark_df is None or name not in benchmark_df.index:
             dataset_path = os.path.join(data_root, "{}.csv".format(name))
             data = pd.read_csv(dataset_path, header=None) # Assuming data file does not have header rows
             output_message += 'Loading data from file         : {}\n'.format(dataset_path)
