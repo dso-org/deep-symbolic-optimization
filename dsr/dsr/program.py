@@ -15,7 +15,7 @@ from dsr.utils import cached_property
 import dsr.utils as U
 
 
-def from_str_tokens(str_tokens, optimize):
+def from_str_tokens(str_tokens, optimize, skip_cache=False):
     """
     Memoized function to generate a Program from a list of str and/or float.
     See from_tokens() for details.
@@ -27,6 +27,9 @@ def from_str_tokens(str_tokens, optimize):
         str and/or floats.
 
     optimize : bool
+        See from_tokens().
+
+    skip_cache : bool
         See from_tokens().
 
     Returns
@@ -59,7 +62,7 @@ def from_str_tokens(str_tokens, optimize):
         raise ValueError("Input must be list or string.")
 
     # Generate base Program (with "const" for constants)
-    p = from_tokens(traversal, optimize=optimize)
+    p = from_tokens(traversal, optimize=optimize, skip_cache=skip_cache)
 
     # Replace any constants
     p.set_constants(constants)
@@ -67,7 +70,7 @@ def from_str_tokens(str_tokens, optimize):
     return p
 
 
-def from_tokens(tokens, optimize):
+def from_tokens(tokens, optimize, skip_cache=False):
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -85,6 +88,10 @@ def from_tokens(tokens, optimize):
     optimize : bool
         Whether to optimize the program before returning it.
 
+    skip_cache : bool
+        Whether to bypass the cache when creating the program (used for
+        previously learned symbolic actions in DSP).
+
     Returns
     _______
     program : Program
@@ -101,10 +108,12 @@ def from_tokens(tokens, optimize):
     else:
         tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
 
-    # For stochastic Programs, there is no cache; always generate a new Program.
+    # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
-    if Program.stochastic:
+    if skip_cache:
+        p = Program(tokens, optimize=optimize)
+    elif Program.task.stochastic:
         p = Program(tokens, optimize=optimize)
     else:
         key = tokens.tostring()
@@ -173,6 +182,7 @@ class Program(object):
     """
 
     # Static variables
+    task = None             # Task
     library = None          # List of operators/terminals for each token
     arities = None          # Array of arities for each token
     reward_function = None  # Reward function
@@ -351,6 +361,13 @@ class Program(object):
 
 
     @classmethod
+    def set_task(cls, task):
+        """Sets the class' Task"""
+
+        Program.task = task
+
+
+    @classmethod
     def set_const_optimizer(cls, name, **kwargs):
         """Sets the class' constant optimizer"""
 
@@ -448,27 +465,6 @@ class Program(object):
 
 
     @classmethod
-    def set_reward_function(cls, reward_function):
-        """Sets the class reward function."""
-
-        Program.reward_function = reward_function
-
-
-    @classmethod
-    def set_eval_function(cls, eval_function):
-        """Sets the class eval function."""
-
-        Program.eval_function = eval_function
-
-
-    @classmethod
-    def set_stochastic(cls, stochastic):
-        """Sets the class stochasticity."""
-
-        Program.stochastic = stochastic
-
-
-    @classmethod
     def set_library(cls, operators, n_input_var, protected):
         """Sets the class library and arities."""
 
@@ -555,7 +551,7 @@ class Program(object):
         """Evaluates and returns the base reward of the program on the training
         set"""
 
-        return self.reward_function()
+        return self.task.reward_function(self)
 
 
     @cached_property
@@ -569,7 +565,7 @@ class Program(object):
     def evaluate(self):
         """Evaluates and returns the evaluation metrics of the program."""
 
-        return self.eval_function()
+        return self.task.evaluate(self)
 
 
     @cached_property
