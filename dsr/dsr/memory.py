@@ -1,9 +1,7 @@
 """Classes for memory buffers, priority queues, and quantile estimation."""
 
 import heapq
-from typing import Tuple
 from collections import namedtuple
-from dataclasses import dataclass
 
 import numpy as np
 
@@ -34,33 +32,6 @@ def get_samples(batch, key):
         lengths=batch.lengths[key],
         rewards=batch.rewards[key])
     return batch
-
-# @dataclass
-# class Batch:
-#     """An iterable dataclass for a batch of samples."""
-
-#     actions: np.ndarray
-#     obs: Tuple[np.ndarray]
-#     priors: np.ndarray
-#     lengths: np.ndarray
-#     rewards: np.ndarray
-
-#     def __post_init__(self):
-#         L = self.actions.shape[0]
-#         assert len(self.obs) == 3, "Expected 3 observations."
-#         print([o.shape for o in self.obs])
-#         exit()
-#         assert L == self.priors.shape[0]
-#         assert L == self.lengths.shape[0]
-#         assert L == self.rewards.shape[0]
-
-#     def __getitem__(self, key):
-#         return Batch(
-#             actions=self.actions[key],
-#             obs=tuple(o[key] for o in self.obs),
-#             priors=self.priors[key],
-#             lengths=self.lengths[key],
-#             rewards=self.rewards[key])
 
 
 # Adapted from https://github.com/tensorflow/models/blob/1af55e018eebce03fb61bba9959a04672536107d/research/brain_coder/common/utils.py
