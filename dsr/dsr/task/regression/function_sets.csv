@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-name,function_set
-Koza,"add,sub,mul,div,sin,cos,exp,log"
-CKoza,"add,sub,mul,div,sin,cos,exp,log,const"
-Korns,"add,sub,mul,div,sin,cos,exp,log,n2,n3,sqrt,tan,tanh,const"
-Keijzer,"add,mul,inv,neg,sqrt,const"
-Vladislavleva-A,"add,sub,mul,div,n2"
-Vladislavleva-B,"add,sub,mul,div,n2,exp,expneg,const"
-Vladislavleva-C,"add,sub,mul,div,n2,exp,expneg,sin,cos"
-Real,"add,sub,mul,div,sin,cos,exp,log"
-None,"add,sub,mul,div,sin,cos,exp,log"
-=======
 name,function_set
 Koza,"add,sub,mul,div,sin,cos,exp,log"
 CKoza,"add,sub,mul,div,sin,cos,exp,log,const"
@@ -24,4 +12,3 @@ Real,"add,sub,mul,div,sin,cos,exp,log"
 None,"add,sub,mul,div,sin,cos,exp,log"
 Jin,"add,sub,mul,div,sin,cos,exp,n2,n3,const"
 GrammarVAE,"add,mul,div,sin,exp,1.0,2.0,3.0"
->>>>>>> 32210d1545ec63cce7cd00a69a4c00fbb456e147

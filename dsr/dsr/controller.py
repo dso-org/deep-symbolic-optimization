@@ -10,6 +10,8 @@ from numba import jit, prange
 from dsr.program import Program
 from dsr.language_model import LanguageModelPrior
 
+import sys
+
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
     RNNCell wrapper that adds a linear layer to the output.
@@ -628,6 +630,9 @@ class Controller(object):
 
             neglogp, entropy = make_neglogp_and_entropy(**self.sampled_batch)
 
+            ###neglogp = tf.Print(neglogp, [neglogp], message="neglogp: ", summarize=50)
+
+
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
@@ -635,6 +640,25 @@ class Controller(object):
             # PPO loss
             if ppo:
                 assert not pqt, "PPO is not compatible with PQT"
+                '''
+                    Nate:  Neglogp is basically the sum of the train run softmax times the action one-hot instantiation.
+                           
+                           The ratio is lower if the softmax is more like the one-hot at t than it was at t-1.
+                           
+                           PPO loss is then:
+                           
+                               -tf.reduce_mean(tf.minimum(ratio * (self.r - self.baseline), clipped_ratio * (self.r - self.baseline)))
+                               
+                           while the usual loss is:
+                           
+                               tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
+                               
+                           Thus, the loss is almost the same, the key difference is the ratio. 
+                           
+                           The effect is to increase loss if the softmax is more muddled. (?)
+                           
+                '''
+
 
                 self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
                 ratio = tf.exp(self.old_neglogp_ph - neglogp)
@@ -650,7 +674,12 @@ class Controller(object):
             # Policy gradient loss
             else:
                 if not pqt or (pqt and pqt_use_pg):
+                    # Baseline is the worst of the current samples r
                     pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
+                    
+                    ###pg_loss = tf.Print(pg_loss, [pg_loss], message="pg loss: ")
+                    
+                    # Loss already is set to entropy loss
                     loss += pg_loss
 
             # Priority queue training loss
@@ -658,6 +687,9 @@ class Controller(object):
                 pqt_neglogp, _ = make_neglogp_and_entropy(**self.off_policy_batch)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
+
+            #print(loss)
+            #loss = tf.Print(loss, [loss], message="loss: ")
 
             self.loss = loss
 

@@ -46,9 +46,13 @@ def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def sympy_work(p):
-    sympy_expr = p.sympy_expr
+    
+    ##sympy_expr = p.sympy_expr
+    sympy_expr = "N/A"
     str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
+
     return sympy_expr, str_sympy_expr
+
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -161,7 +165,7 @@ def learn(sess, controller, pool, gp_controller,
     result : dict
         A dict describing the best-fit expression (determined by base_r).
     """
-
+    
     all_r_size              = batch_size
 
     if gp_controller is not None:
@@ -170,6 +174,7 @@ def learn(sess, controller, pool, gp_controller,
         gp_verbose              = gp_controller.config_gp_meld["verbose"]
         if gp_controller.config_gp_meld["train_n"]:
             all_r_size              = batch_size+gp_controller.config_gp_meld["train_n"]
+            #all_r_size              = gp_controller.config_gp_meld["train_n"]
         else:
             all_r_size              = batch_size+1
     else:
@@ -308,6 +313,7 @@ def learn(sess, controller, pool, gp_controller,
         if run_gp_meld:
             
             deap_programs, deap_obs, deap_actions, return_gp_obs = gp_controller(actions)
+            #deap_programs, deap_obs, deap_actions, return_gp_obs = gp_controller(np.empty((0,actions.shape[1]), dtype=np.int32))
             
             nevals += gp_controller.nevals
             
@@ -350,15 +356,21 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-                
+            '''
+            programs    = deap_programs
+            actions     = deap_actions
+            priors      = np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32)
+            obs         = [deap_obs[0], deap_obs[1], deap_obs[2]]
+            ''' 
         # Retrieve metrics
 
-        base_r  = np.array([p.base_r for p in programs])
-        r       = np.array([p.r for p in programs])
-        l       = np.array([len(p.traversal) for p in programs])
-        s       = [p.str for p in programs] # Str representations of Programs
-        invalid = np.array([p.invalid for p in programs], dtype=bool)
-        all_r[step]     = base_r
+        base_r      = np.array([p.base_r for p in programs])
+        r           = np.array([p.r for p in programs])
+        l           = np.array([len(p.traversal) for p in programs])
+        s           = [p.str for p in programs] # Str representations of Programs
+        on_policy   = np.array([p.on_policy for p in programs])
+        invalid     = np.array([p.invalid for p in programs], dtype=bool)
+        all_r[step] = base_r
 
         if eval_all:
             success = [p.evaluate.get("success") for p in programs]
@@ -425,6 +437,7 @@ def learn(sess, controller, pool, gp_controller,
             actions     = actions[keep, :]
             obs         = [o[keep, :] for o in obs]
             priors      = priors[keep, :, :]
+            on_policy   = on_policy[keep]
             '''
             actions = actions[keep, :]
             obs = [o[keep, :] for o in obs]
@@ -437,6 +450,9 @@ def learn(sess, controller, pool, gp_controller,
             invalid = invalid[keep]
             '''
 
+        ###print("on policy {}".format(on_policy))
+        ###print("r train {}".format(r_train))
+
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r       = np.clip(r,        -1e6, 1e6)
         r_train = np.clip(r_train,  -1e6, 1e6)
@@ -446,9 +462,9 @@ def learn(sess, controller, pool, gp_controller,
         if baseline == "ewma_R":
             ewma = np.mean(r_train) if ewma is None else alpha*np.mean(r_train) + (1 - alpha)*ewma
             b_train = ewma
-        elif baseline == "R_e":
+        elif baseline == "R_e": # Default
             ewma = -1
-            b_train = np.min(r_train)
+            b_train = np.min(r_train) # The worst of the lot
         elif baseline == "ewma_R_e":
             ewma = np.min(r_train) if ewma is None else alpha*np.min(r_train) + (1 - alpha)*ewma
             b_train = ewma
@@ -514,7 +530,8 @@ def learn(sess, controller, pool, gp_controller,
 
         # Train the controller
         summaries = controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
-        if summary:
+        
+        if summary:    
             writer.add_summary(summaries, step)
             writer.flush()
 
@@ -594,9 +611,11 @@ def learn(sess, controller, pool, gp_controller,
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
 
+    
     # Save the hall of fame
+    
     if hof is not None and hof > 0:
-
+        
         # For stochastic Programs, average each unique Program's base_r_history,
         if Program.stochastic:
 
@@ -604,7 +623,7 @@ def learn(sess, controller, pool, gp_controller,
             def from_token_string(str_tokens, optimize):
                 tokens = np.fromstring(str_tokens, dtype=np.int32)
                 return from_tokens(tokens, optimize=optimize)
-
+    
             # Generate each unique Program and manually set its base_r to the average of its base_r_history
             keys = base_r_history.keys() # str_tokens for each unique Program
             vals = base_r_history.values() # base_r histories for each unique Program
@@ -614,6 +633,7 @@ def learn(sess, controller, pool, gp_controller,
                 p.count = len(base_r) # HACK
                 _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
 
+        
         # For deterministic Programs, just use the cache
         else:
             programs = list(Program.cache.values()) # All unique Programs found during training
@@ -629,6 +649,7 @@ def learn(sess, controller, pool, gp_controller,
             unique_ids = np.unique(str_sympy_exprs, return_index=True)[1].tolist()
             na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
             programs = list(map(programs.__getitem__, unique_ids + na_ids))
+        
 
         base_r = [p.base_r for p in programs]
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
@@ -646,6 +667,7 @@ def learn(sess, controller, pool, gp_controller,
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
         df.to_csv(hof_output_file, header=True, index=False)
+    
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -702,6 +724,7 @@ def learn(sess, controller, pool, gp_controller,
     # Close the pool
     if pool is not None:
         pool.close()
+    
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best

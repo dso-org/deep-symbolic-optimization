@@ -535,7 +535,7 @@ class GPController:
         max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
         min_len                 = 4         # Min expression length for gp. Ideally should match RL max length
         steps                   = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
-        rand_pop_n              = 50        # Random population to append to RL actions for GP, 100 is a good number. 0 turns this off.
+        rand_pop_n              = 50        # Random population to append to RL actions for GP, 100 is a good number. 0 turns this off. (Bug: needs to be at least 1?)
         pop_pad                 = 0         # We can add actions more than once exanding GP population x many times. Maybe try 3. 0 turns this off. 
         fitness_metric          = "nmse"    # nmse or nrmse
         recycle_max_size        = 0         # If not zero, we hold over GP population from prior epochs. 1500 works well if we want to do this. 
@@ -598,11 +598,11 @@ class GPController:
     
     def __call__(self, actions):
         
-        individuals     = [self.creator.Individual(tokens_to_DEAP(a, self.pset)) for a in actions]
+        individuals     = [self.creator.Individual(tokens_to_DEAP(a, self.pset)) for a in actions] # Sometimes crashes here, no self.creator.Individual
         
         if self.config_gp_meld["rand_pop_n"] > 0:
             individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
-        
+                
         # we can recycle some of the old GP population. 
         if self.config_gp_meld["recycle_max_size"] > 0:  
             self.algorithms.append_population(individuals, max_size=self.config_gp_meld["recycle_max_size"])
@@ -639,7 +639,7 @@ class GPController:
     def __del__(self):
         
         del self.creator.FitnessMin
-        del self.creator.Individual
+        ###del self.creator.Individual
 
         
 def make_fitness(metric):
@@ -821,7 +821,7 @@ def get_top_program(halloffame, actions):
     
     deap_obs        = [np.expand_dims(deap_action,axis=0), np.expand_dims(deap_parent,axis=0), np.expand_dims(deap_sibling,axis=0)]
     deap_action     = np.expand_dims(deap_action,axis=0)    
-    deap_program    = [from_tokens(deap_tokens, optimize=True)]
+    deap_program    = [from_tokens(deap_tokens, optimize=True, on_policy=False)]
 
     return deap_program, deap_obs, deap_action
     
@@ -847,6 +847,8 @@ def get_top_n_programs(population, n, actions):
         #print(p)
         # we have to check because population members are not nessesarily unique
         if str(p) not in p_items_val:
+            #print(p.fitness.values)
+            #print(str(p))
             p_items.append(p)
             p_items_val.append(str(p))
             tot += 1
@@ -867,7 +869,7 @@ def get_top_n_programs(population, n, actions):
     for i,p in enumerate(population):
         deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
         deap_action[i,1:]               = deap_tokens[:-1]
-        deap_program.append(from_tokens(deap_tokens, optimize=True))
+        deap_program.append(from_tokens(deap_tokens, optimize=True, on_policy=False))
         
         for j in range(deap_expr_length-1):       
             p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
