@@ -140,7 +140,7 @@ def from_str_tokens(str_tokens, optimize):
 
     return p
 
-def from_tokens(tokens, optimize):
+def from_tokens(tokens, optimize, on_policy=True):
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -174,14 +174,14 @@ def from_tokens(tokens, optimize):
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
     if Program.stochastic:
-        p = Program(tokens, optimize=optimize)
+        p = Program(tokens, optimize=optimize, on_policy=on_policy)
     else:
         key = tokens.tostring()
         if key in Program.cache:
             p = Program.cache[key]
             p.count += 1
         else:
-            p = Program(tokens, optimize=optimize)
+            p = Program(tokens, optimize=optimize, on_policy=on_policy)
             Program.cache[key] = p
 
     return p
@@ -393,13 +393,15 @@ class Program(object):
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
         
-    def __init__(self, tokens, optimize):
+    def __init__(self, tokens, optimize, on_policy=True):
 
         self._tokens_to_program(tokens)
         
         if optimize:
             _ = self.optimize()
-        self.count = 1
+            
+        self.count      = 1
+        self.on_policy  = on_policy
     
     def _tokens_to_program(self, tokens):
         
@@ -438,10 +440,7 @@ class Program(object):
         """
 
         if self.len_traversal > 1:
-            print("Before {}".format(get_size(self.new_traversal)))
-            R = self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
-            print("After {}".format(get_size(self.new_traversal)))
-            return R
+            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
         else:
             return self.python_execute(X)
     
