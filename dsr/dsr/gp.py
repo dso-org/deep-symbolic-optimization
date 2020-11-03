@@ -595,6 +595,7 @@ class GPController:
         self.population             = []
         self.logbook                = []
         self.nevals                 = 0
+        self.return_gp_obs          = None
     
     def __call__(self, actions):
         
@@ -629,12 +630,12 @@ class GPController:
          
         if self.config_gp_meld["train_n"] > 1:
             deap_programs, deap_obs, deap_actions      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions)
-            return_gp_obs                              = True
+            self.return_gp_obs                         = True
         else:
             deap_programs, deap_obs, deap_actions      = get_top_program(self.halloffame, actions)
-            return_gp_obs                              = self.config_gp_meld["train_n"]
+            self.return_gp_obs                         = self.config_gp_meld["train_n"]
             
-        return deap_programs, deap_obs, deap_actions, return_gp_obs
+        return deap_programs, deap_obs, deap_actions
     
     def __del__(self):
         

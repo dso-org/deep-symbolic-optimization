@@ -1,8 +1,14 @@
 """Utility functions used in deep symbolic regression."""
 
+import os
 import heapq
 import functools
 import numpy as np
+from collections import namedtuple
+
+
+Batch = namedtuple(
+    "Batch", ["actions", "obs", "priors", "lengths", "rewards"])
 
 
 def is_float(s):
@@ -45,6 +51,70 @@ def is_pareto_efficient(costs):
     is_efficient_mask = np.zeros(n_points, dtype=bool)
     is_efficient_mask[is_efficient] = True
     return is_efficient_mask
+
+
+def setup_output_files(logdir, output_file):
+    """
+    Writes the main output file header and returns the reward, hall of fame, and Pareto front config filenames.
+
+    Parameters:
+    -----------
+
+    logdir : string
+        Directory to log to.
+
+    output_file : string
+        Name of output file.
+
+    Returns:
+    --------
+
+    all_r_output_file : string
+        all_r output filename
+    
+    hof_output_file : string
+        hof output filename
+
+    pf_output_file : string
+        pf output filename
+    """
+    os.makedirs(logdir, exist_ok=True)
+    output_file = os.path.join(logdir, output_file)
+    prefix, _ = os.path.splitext(output_file)
+    all_r_output_file = "{}_all_r.npy".format(prefix)
+    hof_output_file = "{}_hof.csv".format(prefix)
+    pf_output_file = "{}_pf.csv".format(prefix)
+    with open(output_file, 'w') as f:
+        # r_best : Maximum across all iterations so far
+        # r_max : Maximum across this iteration's batch
+        # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
+        # r_avg_sub : Average across this iteration's epsilon-subset batch
+        # n_unique_* : Number of unique Programs in batch
+        # n_novel_* : Number of never-before-seen Programs per batch
+        # a_ent_* : Empirical positional entropy across sequences averaged over positions 
+        # invalid_avg_* : Fraction of invalid Programs per batch
+        headers = ["base_r_best",
+                    "base_r_max",
+                    "base_r_avg_full",
+                    "base_r_avg_sub",
+                    "r_best",
+                    "r_max",
+                    "r_avg_full",
+                    "r_avg_sub",
+                    "l_avg_full",
+                    "l_avg_sub",
+                    "ewma",
+                    "n_unique_full",
+                    "n_unique_sub",
+                    "n_novel_full",
+                    "n_novel_sub",
+                    "a_ent_full",
+                    "a_ent_sub",
+                    "invalid_avg_full",
+                    "invalid_avg_sub"]
+        f.write("{}\n".format(",".join(headers)))
+
+    return all_r_output_file, hof_output_file, pf_output_file
 
 class cached_property(object):
     """
@@ -214,6 +284,46 @@ class MaxUniquePriorityQueue(object):
         """
         for _, item, extra_data in heapq.nlargest(len(self.heap), self.heap):
             yield item, extra_data
+
+    def sample_batch(self, sample_size):
+        """Randomly select items from the queue and return them as a Batch."""
+
+        dicts = [extra_data for (item, extra_data) in self.random_sample(sample_size)]
+        actions = np.stack([d["actions"] for d in dicts], axis=0)
+        obs = tuple([np.stack([d["obs"][i] for d in dicts], axis=0) for i in range(3)])
+        priors = np.stack([d["priors"] for d in dicts], axis=0)
+        lengths = np.array([d["lengths"] for d in dicts], dtype=np.int32)
+        rewards = np.array([d["program"].r for d in dicts], dtype=np.float32)
+        batch = Batch(actions=actions, obs=obs, priors=priors, lengths=lengths,
+                      rewards=rewards)
+        return batch
+
+    def update(self, programs, batch):
+        """
+        Update the queue with the single best Program in a batch of Programs.
+
+        Parameters
+        ----------
+
+        programs : list of Program
+            List of Programs.
+
+        batch : Batch
+            Batch data corresponding to Programs.
+        """
+
+        i = np.argmax(batch.rewards)
+        p = programs[i]
+        score = p.r
+        item = p.tokens.tostring()
+        extra_data = {
+            "actions" : batch.actions[i],
+            "obs" : [o[i] for o in batch.obs],
+            "priors" : batch.priors[i],
+            "lengths" : batch.lengths[i],
+            "program" : p
+        }
+        self.push(score, item, extra_data)
 
     def __len__(self):
         return len(self.heap)

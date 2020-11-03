@@ -67,7 +67,7 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     else:
         pool = None
 
-    # Set the task for the parent process    
+    # Set the task for the parent process
     set_task(config_task)
 
     start = time.time()
@@ -77,11 +77,11 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
     # Reset cache and TensorFlow graph
     Program.clear_cache()
-    tf.reset_default_graph()        
-    
+    tf.reset_default_graph()
+
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
-  
+
     with tf.Session() as sess:
 
         # Instantiate the controller w/ language model
@@ -179,7 +179,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     # Required configs
     config_task = config["task"]            # Task specification parameters
     config_training = config["training"]    # Training hyperparameters
-    
+
     # Optional configs
     config_controller = config.get("controller")                        # Controller hyperparameters
     config_language_model_prior = config.get("language_model_prior")    # Language model hyperparameters
@@ -189,21 +189,26 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     # Create output directories
     if output_filename is None:
         output_filename = "benchmark_{}.csv".format(method)
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    config_training["logdir"] += "_" + timestamp
+    config_training["logdir"] = os.path.join(
+        config_training["logdir"],
+        "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
     logdir = config_training["logdir"]
+    if "dataset" in config_task and "backup" in config_task["dataset"] and config_task["dataset"]["backup"]:
+        config_task["dataset"]["logdir"] = logdir
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
-
     # Use benchmark name from config if not specified as command-line arg
     if len(b) == 0:
-        b = (config_task["name"],)
+        if isinstance(config_task["name"], str):
+            b = (config_task["name"],)
+        elif isinstance(config_task["name"], list):
+            b = tuple(config_task["name"])
 
     # HACK: DSR-specific shortcut to run all Nguyen benchmarks
     benchmarks = list(b)
     if "Nguyen" in benchmarks:
         benchmarks.remove("Nguyen")
-        benchmarks += ["Nguyen-{}".format(i+1) for i in range(12)]    
+        benchmarks += ["Nguyen-{}".format(i+1) for i in range(12)]
 
     # Generate benchmark-seed pairs for each MC. When passed to the TF RNG,
     # seeds will be added to checksums on the benchmark names
