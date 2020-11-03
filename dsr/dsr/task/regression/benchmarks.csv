@@ -43,7 +43,7 @@ Nguyen-10,2,2*sin(x1)*cos(x2),2*sin(x1)*cos(x2),"{""all"":{""U"":[0,1,20]}}",Non
 Nguyen-11,2,exp(x2*log(x1)),"pow(x1,x2)","{""all"":{""U"":[0,1,20]}}",None,Koza
 Nguyen-12,2,(x1**4)-(x1**3)+(x2**2)/2-x2,"pow(x1,4)-pow(x1,3)+div(pow(x2,2),2)-x2","{""all"":{""U"":[0,1,20]}}",None,Koza
 Nguyen-12a,2,(x1**4)-(x1**3)+(x2**2)/2-x2,"pow(x1,4)-pow(x1,3)+div(pow(x2,2),2)-x2","{""all"":{""U"":[0,10,20]}}",None,Koza
-Constant-1,1,3.39*(x1**3)+2.12*(x1**2)+1.78*x1,"3.39*pow(x1,3)+2.12*pow(x1,2)+1.78*x1","{""all"":{""U"":[-1,1,200000]}}",None,CKoza
+Constant-1,1,3.39*(x1**3)+2.12*(x1**2)+1.78*x1,"3.39*pow(x1,3)+2.12*pow(x1,2)+1.78*x1","{""all"":{""U"":[-1,1,20]}}",None,CKoza
 Constant-2,1,sin((x1**2))*cos(x1)-0.75,"sin(pow(x1,2))*cos(x1)-0.75","{""all"":{""U"":[-1,1,20]}}",None,CKoza
 Constant-3,2,sin(1.5*x1)*cos(0.5*x2),sin(1.5*x1)*cos(0.5*x2),"{""all"":{""U"":[0,1,20]}}",None,CKoza
 Constant-4,2,2.7*exp(x2*log(x1)),"2.7*pow(x1,x2)","{""all"":{""U"":[0,1,20]}}",None,CKoza
