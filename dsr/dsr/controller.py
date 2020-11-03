@@ -11,8 +11,6 @@ from dsr.program import Program
 from dsr.language_model import LanguageModelPrior
 from dsr.utils import Batch
 
-import sys
-
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
     RNNCell wrapper that adds a linear layer to the output.
