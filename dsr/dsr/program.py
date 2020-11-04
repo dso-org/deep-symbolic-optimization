@@ -716,9 +716,6 @@ class Program(object):
 
         print("Library:\n\t{}".format(Program.str_library))
 
-    @classmethod
-    def set_primitive_set(cls, primitive_set):
-        cls.primitive_set = primitive_set
 
     @cached_property
     def complexity(self):
