@@ -321,8 +321,13 @@ def learn(sess, controller, pool, gp_controller,
 
             
         # Retrieve metrics
+        '''
+            base_r:   is the reward regardless of complexity penalty.
+            r:        is reward with complexity subtracted. Note, if complexity_weight is 0 in the config, base_r = r
+        '''
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
+        
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
         on_policy   = np.array([p.on_policy for p in programs])
