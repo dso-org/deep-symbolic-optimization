@@ -19,6 +19,7 @@ from dsr.const import make_const_optimizer
 from dsr.task.regression.dataset import Dataset
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.controller import parents_siblings
+from scipy.signal._max_len_seq import max_len_seq
 
 try:
     from deap import gp 
@@ -118,7 +119,7 @@ def check_const(ind):
     for i, name in enumerate(names):
         if name in UNARY_TOKENS and names[i+1] == "const":
             return True
-        if name in BINARY_TOKENS and names[i+1] == "const" and names[i+1] == "const":
+        if name in BINARY_TOKENS and names[i+1] == "const" and names[i+2] == "const":
             return True
     return False
 
@@ -190,7 +191,63 @@ def checkConstraint(max_length, min_length, max_depth):
         return wrapper
 
     return decorator
+
+# library_length = program.L
+def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
         
+    priors = np.zeros((max_exp_length, Program.L), dtype=np.float32)
+    
+    trig_descendant     = False
+    const_tokens        = 0
+    dangling            = 0
+    
+    offset              = 0 # should offset be 0 or 1?
+    
+    for i,t in enumerate(tokens): 
+        
+        dangling    += Program.arities[t] - 1
+        
+        # check trig descendants
+        if t in Program.trig_tokens:
+            trig_descendant = True
+            trig_dangling   = 1
+        elif trig_descendant:
+            priors[i, Program.trig_tokens] = -np.inf
+            if t in Program.binary_tokens:
+                trig_dangling += 1
+            elif t not in Program.unary_tokens:
+                trig_dangling -= 1
+            if trig_dangling == 0:
+                trig_descendant = False
+        
+        '''
+        if i < len(tokens) - 2:
+            if t in Program.binary_tokens:
+                if tokens[i+1] == Program.const_token:
+                    priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
+        '''
+        if i < len(tokens) - 1:
+            
+            if t in Program.inverse_tokens:
+                priors[i+offset, Program.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
+            '''
+            if t in Program.unary_tokens:
+                priors[i+offset, Program.const_token] = -np.inf         # Cannot have const inside unary token
+            '''
+            if t == Program.const_token:
+                const_tokens += 1
+                if const_tokens >= max_const:
+                    priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
+      
+            if (i + 2) >= max_len // 2:
+                remaining   = max_len - (i + 1)
+                
+                if dangling >= remaining - 1:
+                    priors[i+offset, Program.binary_tokens] = -np.inf
+                elif dangling == remaining:
+                    priors[i+offset, Program.unary_tokens]  = -np.inf
+                    
+    return priors
         
 class GenericAlgorithm:
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
@@ -590,7 +647,7 @@ class GPController:
                                                           verbose        = config_gp_meld["verbose"]
                                                           )   
         
-        self.config_gp_meld         = config_gp_meld
+        self.config_gp_meld         = config_gp_meld        
         self.halloffame             = []
         self.population             = []
         self.logbook                = []
@@ -629,13 +686,13 @@ class GPController:
             self.nevals += n
          
         if self.config_gp_meld["train_n"] > 1:
-            deap_programs, deap_obs, deap_actions      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions)
-            self.return_gp_obs                         = True
+            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"])
+            self.return_gp_obs                                      = True
         else:
-            deap_programs, deap_obs, deap_actions      = get_top_program(self.halloffame, actions)
-            self.return_gp_obs                         = self.config_gp_meld["train_n"]
+            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_program(self.halloffame, actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"])
+            self.return_gp_obs                                      = self.config_gp_meld["train_n"]
             
-        return deap_programs, deap_obs, deap_actions
+        return deap_programs, deap_obs, deap_actions, deap_priors
     
     def __del__(self):
         
@@ -799,7 +856,7 @@ def stringify_for_sympy(f):
 
 
 
-def get_top_program(halloffame, actions):
+def get_top_program(halloffame, actions, max_const, max_len):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
     max_tok                         = len(Program.library)
@@ -811,6 +868,8 @@ def get_top_program(halloffame, actions):
     deap_action     = np.empty(deap_tokens.shape[0], dtype=np.int32)
     deap_action[1:] = deap_tokens[:-1]
     deap_action[0]  = max_tok
+       
+    deap_priors     = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len)
     
     for i in range(deap_expr_length-1):       
         p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
@@ -824,11 +883,11 @@ def get_top_program(halloffame, actions):
     deap_action     = np.expand_dims(deap_action,axis=0)    
     deap_program    = [from_tokens(deap_tokens, optimize=True, on_policy=False)]
 
-    return deap_program, deap_obs, deap_action
+    return deap_program, deap_obs, deap_action, deap_prior
     
     
     
-def get_top_n_programs(population, n, actions):
+def get_top_n_programs(population, n, actions, max_const, max_len):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
         
@@ -864,6 +923,7 @@ def get_top_n_programs(population, n, actions):
     deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
+    deap_priors         = np.empty((len(population),actions.shape[1], Program.L), dtype=np.int32)
     deap_action[:,0]    = max_tok
     deap_program        = []
     
@@ -871,6 +931,8 @@ def get_top_n_programs(population, n, actions):
         deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
         deap_action[i,1:]               = deap_tokens[:-1]
         deap_program.append(from_tokens(deap_tokens, optimize=True, on_policy=False))
+        
+        deap_priors[i,]                 = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len)
         
         for j in range(deap_expr_length-1):       
             p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
@@ -881,8 +943,8 @@ def get_top_n_programs(population, n, actions):
     deap_sibling[:,0]   = max_tok
 
     deap_obs            = [deap_action, deap_parent, deap_sibling]
-    
-    return deap_program, deap_obs, deap_action
+        
+    return deap_program, deap_obs, deap_action, deap_priors
 
 
 def generic_train(toolbox, hof, algorithm,

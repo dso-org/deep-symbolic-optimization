@@ -12,10 +12,9 @@ from collections import defaultdict
 import tensorflow as tf
 import pandas as pd
 import numpy as np
-import sympy
 
-from dsr.controller import Controller, parents_siblings
-from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
+from dsr.controller import Controller
+from dsr.program import Program, from_tokens
 from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch, setup_output_files
 from dsr.language_model import LanguageModelPrior
 
@@ -276,7 +275,7 @@ def learn(sess, controller, pool, gp_controller,
                 structures. It will return programs, observations, actions that are compat with 
                 the current way we do things in train.py.
             '''            
-            deap_programs, deap_obs, deap_actions = gp_controller(actions)
+            deap_programs, deap_obs, deap_actions, deap_priors = gp_controller(actions)
             
             nevals += gp_controller.nevals
             
@@ -317,7 +316,8 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-            priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
+            priors      = np.append(priors, deap_priors, axis=0)
+            #priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
 
             
         # Retrieve metrics
