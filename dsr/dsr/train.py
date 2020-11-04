@@ -358,9 +358,15 @@ def learn(sess, controller, pool, gp_controller,
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
         
-        # Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
-        # Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
+        '''
+            Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
+            Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
         
+            GP Integration note:
+            
+            For the moment, GP samples get added on top of the epsilon samples making it slightly larger. 
+            This will be changed in the future when we integrate off policy support.
+        '''
         if epsilon is not None and epsilon < 1.0:
             n_keep      = int(epsilon * batch_size) # Number of top indices to keep
             keep        = np.zeros(shape=(base_r.shape[0],), dtype=bool)
@@ -497,12 +503,15 @@ def learn(sess, controller, pool, gp_controller,
         # Update new best expression
         new_r_best = False
         new_base_r_best = False
+        
         if prev_r_best is None or r_max > prev_r_best:
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
+            
         if prev_base_r_best is None or base_r_max > prev_base_r_best:
             new_base_r_best = True
             p_base_r_best = programs[np.argmax(base_r)]
+            
         prev_r_best = r_best
         prev_base_r_best = base_r_best
 
