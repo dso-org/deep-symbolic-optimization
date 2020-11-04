@@ -356,7 +356,7 @@ def learn(sess, controller, pool, logdir="./log", n_epochs=None, n_samples=1e6,
                          invalid_avg_full,
                          invalid_avg_sub
                          ]], dtype=np.float32)
-            with open(output_file, 'ab') as f:
+            with open(os.path.join(logdir, output_file), 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
         # Compute sequence lengths
