@@ -26,9 +26,10 @@ from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
 from dsr.task import set_task
+import dsr.gp as gp_dsr
 
 
-def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training):
+def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training, config_gp_meld):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     # Override the benchmark name
@@ -43,10 +44,16 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
         tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
         from dsr.controller import Controller
         from dsr.train import learn
-
-    except:
-        pass
-
+    except ModuleNotFoundError: # Specific subclass of ImportError for when module is not found, probably needs to be excepted first
+        print("One or more libraries not found")
+        raise ModuleNotFoundError
+    except ImportError:
+        # Have we already imported tf? If so, this is the error we want to dodge. 
+        if 'tf' in globals():
+            pass
+        else:
+            raise ImportError
+    
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
     if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
@@ -84,12 +91,18 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
             language_model_prior = None
         controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
 
+        if config_gp_meld is not None and config_gp_meld["run_gp_meld"]:
+            gp_controller           = gp_dsr.GPController(config_gp_meld, config_task, config_training)
+        else:
+            gp_controller           = None
+
         # Train the controller
         result = {"name" : name, "seed" : seed} # Name and seed are listed first
-        result.update(learn(sess, controller, pool, **config_training))
+        result.update(learn(sess, controller, pool, gp_controller, **config_training))
         result["t"] = time.time() - start # Time listed last
 
         return result
+
 
 
 def train_gp(name_and_seed, logdir, config_task, config_gp):
@@ -171,6 +184,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     config_controller = config.get("controller")                        # Controller hyperparameters
     config_language_model_prior = config.get("language_model_prior")    # Language model hyperparameters
     config_gp = config.get("gp")                                        # GP hyperparameters
+    config_gp_meld = config.get('gp_meld')
 
     # Create output directories
     if output_filename is None:
@@ -228,7 +242,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training)
+        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training, config_gp_meld=config_gp_meld)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
