@@ -351,7 +351,6 @@ def learn(sess, controller, pool, gp_controller,
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
-        max_item = np.argmax(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
