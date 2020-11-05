@@ -2,6 +2,7 @@
 
 import array
 import os
+import warnings
 from textwrap import indent
 
 import numpy as np
@@ -13,6 +14,57 @@ from dsr.functions import function_map, Function
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
+
+
+try:
+    from deap import gp 
+except ImportError:
+    gp = None
+    
+def _finish_tokens(tokens):
+    """
+    Finish the token strings to make sure they are a valid program. 
+    
+    We know we have a valid program if all arities a cancled out by 
+    a the same number of terminals. Once we reach a point in the string
+    where these aq equal, we cut the string of tokens. Otherwise, the 
+    tokens are not yet a valid program. The solution is to keep adding 
+    terminals until they fully counterweight the arities. 
+    
+    We have to do this since we emit programs as strings which can leave
+    them over or under complete. 
+    
+    Parameters
+    ----------
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. 
+        
+    Returns
+    _______
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. "Dangling" programs are
+        completed with repeated "x1" until the expression completes.
+        
+    """
+    
+    arities         = np.array([Program.arities[t] for t in tokens])
+    # Number of dangling nodes, returns the cumsum up to each point
+    # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
+    dangling        = 1 + np.cumsum(arities - 1) 
+    
+    if 0 in dangling:
+        # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
+        expr_length     = 1 + np.argmax(dangling == 0)
+        tokens          = tokens[:expr_length]
+    else:
+        # We never reach a zero point. keep adding terminal tokens until we do. 
+        # If we only have one var then we just pad with zeros. 
+        tokens          = np.append(tokens, np.random.randint(0, high=Program.n_input_var, size=dangling[-1])) #Extend with valid variables until string is valid. 
+    
+    
+    return tokens
 
 
 def from_str_tokens(str_tokens, optimize, skip_cache=False):
@@ -69,8 +121,7 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
 
     return p
 
-
-def from_tokens(tokens, optimize, skip_cache=False):
+def from_tokens(tokens, optimize, skip_cache=False, on_policy=True):
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -99,33 +150,154 @@ def from_tokens(tokens, optimize, skip_cache=False):
         or generated from scratch.
     """
 
-    # Truncate expressions that complete early; extend ones that don't complete
-    arities = np.array([Program.arities[t] for t in tokens])
-    dangling = 1 + np.cumsum(arities - 1) # Number of dangling nodes
-    if 0 in dangling:
-        expr_length = 1 + np.argmax(dangling == 0)
-        tokens = tokens[:expr_length]
-    else:
-        tokens = np.append(tokens, [0]*dangling[-1]) # Extend with x1's
+    '''
+        Truncate expressions that complete early; extend ones that don't complete
+    '''
+    tokens = _finish_tokens(tokens)
 
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
     if skip_cache:
-        p = Program(tokens, optimize=optimize)
+        p = Program(tokens, optimize=optimize, on_policy=on_policy)
     elif Program.task.stochastic:
-        p = Program(tokens, optimize=optimize)
+        p = Program(tokens, optimize=optimize, on_policy=on_policy)
     else:
         key = tokens.tostring()
         if key in Program.cache:
             p = Program.cache[key]
             p.count += 1
         else:
-            p = Program(tokens, optimize=optimize)
+            p = Program(tokens, optimize=optimize, on_policy=on_policy)
             Program.cache[key] = p
 
     return p
 
+def DEAP_to_tokens(individual, tokens_size):
+        
+    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
+    assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
+
+    l = min(len(individual),tokens_size)
+  
+    tokens = np.zeros(tokens_size,dtype=np.int32)
+    
+    for i in range(l):
+        
+        t = individual[i]
+        
+        if isinstance(t, gp.Terminal):
+            if t.name is "const":
+                # Get the constant token, this will not store the actual const (TO DO, fix somehow)
+                tokens[i] = Program.const_token
+            else:
+                # Get the int which is contained in "ARG{}",
+                tokens[i] = int(t.name[3:])
+        else:
+            # Get the index number for this op from the op list in Program.library
+            tokens[i] = Program.str_library.index(t.name)
+            
+    arities         = np.array([Program.arities[t] for t in tokens])
+    dangling        = 1 + np.cumsum(arities - 1) 
+    expr_length     = 1 + np.argmax(dangling == 0)
+  
+    return tokens, expr_length
+    
+def tokens_to_DEAP(tokens, primitive_set):
+    """
+    Transforms DSR standard tokens into DEAP format tokens.
+
+    DSR and DEAP format are very similar, but we need to translate it over. 
+
+    Parameters
+    ----------
+    tokens : list of integers
+        A list of integers corresponding to tokens in the library. The list
+        defines an expression's pre-order traversal. "Dangling" programs are
+        completed with repeated "x1" until the expression completes.
+
+    primitive_set : gp.PrimitiveSet
+        This should contain the list of primitives we will use. One way to create this is:
+        
+            # Create the primitive set
+            pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
+
+            # Add input variables
+            rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
+            pset.renameArguments(**rename_kwargs)
+
+            # Add primitives
+            for k, v in function_map.items():
+                if k in dataset.function_set:
+                    pset.addPrimitive(v.function, v.arity, name=v.name) 
+
+    Returns
+    _______
+    individual : gp.PrimitiveTree
+        This is a specialized list that contains points to element from primitive_set that were mapped based 
+        on the translation of the tokens. 
+    """
+        
+    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
+    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
+    assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
+    assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
+    
+    '''
+        Truncate expressions that complete early; extend ones that don't complete
+    '''
+    tokens  = _finish_tokens(tokens)
+             
+    plist   = []        
+    
+    for t in tokens:
+        
+        node = Program.library[t]
+
+        if isinstance(node, float) or isinstance(node, str):
+            '''
+                NUMBER - Library supplied floating point constant. 
+                    
+                    Typically this is a constant parameter we want to optimize. Its value may change. 
+            '''
+            try:
+                p = primitive_set.mapping["const"]
+                p.value = 1.0 #node
+                plist.append(p)
+            except ValueError:
+                print("ERROR: Cannot add \"const\" from DEAP primitve set")
+                
+        elif isinstance(node, int):
+            '''
+                NUMBER - Values from input X at location given by value in node
+                
+                    This is usually the raw data point numerical values. Its value should not change. 
+            '''
+            try:
+                plist.append(primitive_set.mapping["x{}".format(node+1)])
+            except ValueError:
+                print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
+                
+        else:
+            '''
+                FUNCTION - Name should map from Program. Be sure to add all function map items into PrimativeSet before call. 
+                
+                    This is any common function with a name like "sin" or "log". 
+                    We assume right now all functions work on floating points. 
+            '''
+            try:
+                plist.append(primitive_set.mapping[node.name])
+            except ValueError:
+                print("ERROR: Cannot add function \"{}\" from DEAP primitve set".format(node.name))
+            
+    individual = gp.PrimitiveTree(plist)
+    
+    '''
+        Look. You've got it all wrong. You don't need to follow me. 
+        You don't need to follow anybody! You've got to think for yourselves. 
+        You're all individuals! 
+    '''
+    return individual
 
 class Program(object):
     """
@@ -188,6 +360,7 @@ class Program(object):
     reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
     cache = {}
+    primitive_set = None
     
     # Additional derived static variables
     L = None                # Length of library
@@ -200,35 +373,39 @@ class Program(object):
     const_token = None      # Token corresponding to constant
     inverse_tokens = None   # Dict of token to inverse tokens
     parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
+    n_input_var = None      # Number of x{} variables
 
     # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
         
-    def __init__(self, tokens, optimize):
+    def __init__(self, tokens, optimize, on_policy=True):
+        
         """
         Builds the program from a list of tokens, optimizes the constants
         against training data, and evalutes the reward.
         """
-    
+        
         self.traversal      = [Program.library[t] for t in tokens]
         self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
-        self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
         self.len_traversal  = len(self.traversal)
-        
+            
         if self.have_cython and self.len_traversal > 1:
+            self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
             self.new_traversal  = [Program.library[t] for t in tokens]
             self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
             self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
         
-        self.tokens = tokens
-        self.invalid = False
-        self.str = tokens.tostring()
+        self.tokens     = tokens
+        self.invalid    = False
+        self.str        = tokens.tostring()        
+        
         if optimize:
             _ = self.optimize()
-        self.count = 1        
-        
+            
+        self.count      = 1
+        self.on_policy  = on_policy # Note if a program was created on policy
         
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
@@ -469,9 +646,10 @@ class Program(object):
         """Sets the class library and arities."""
 
         # Add input variables
-        Program.library = list(range(n_input_var))
+        Program.n_input_var = n_input_var
+        Program.library     = list(range(n_input_var))
         Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
-        Program.arities = [0] * n_input_var
+        Program.arities     = [0] * n_input_var
 
         for i, op in enumerate(operators):
 
@@ -550,24 +728,29 @@ class Program(object):
     def base_r(self):
         """Evaluates and returns the base reward of the program on the training
         set"""
-
-        return self.task.reward_function(self)
-
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.task.reward_function(self)
 
     @cached_property
     def r(self):
         """Evaluates and returns the reward of the program on the training
         set"""
-        return self.base_r - self.complexity
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.base_r - self.complexity
 
 
     @cached_property
     def evaluate(self):
         """Evaluates and returns the evaluation metrics of the program."""
-
-        return self.task.evaluate(self)
-
-
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.task.evaluate(self)
+    
     @cached_property
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
@@ -606,6 +789,7 @@ class Program(object):
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
+        print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))
@@ -698,8 +882,22 @@ def convert_to_sympy(node):
     elif node.val == "neg":
         node.val = Node("Mul")
         node.children.append(Node("-1"))
-
+        
+    elif node.val == "n2":
+        node.val = "Pow"
+        node.children.append(Node("2"))
+        
+    elif node.val == "n3":
+        node.val = "Pow"
+        node.children.append(Node("3"))
+        
+    elif node.val == "n4":
+        node.val = "Pow"
+        node.children.append(Node("4"))
+        
     for child in node.children:
         convert_to_sympy(child)
+        
 
+        
     return node

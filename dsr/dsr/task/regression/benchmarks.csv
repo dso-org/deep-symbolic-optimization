@@ -42,6 +42,7 @@ Nguyen-9,2,sin(x1)+sin(x2**2),"sin(x1)+sin(pow(x2,2))","{""all"":{""U"":[0,1,20]
 Nguyen-10,2,2*sin(x1)*cos(x2),2*sin(x1)*cos(x2),"{""all"":{""U"":[0,1,20]}}",None,Koza
 Nguyen-11,2,exp(x2*log(x1)),"pow(x1,x2)","{""all"":{""U"":[0,1,20]}}",None,Koza
 Nguyen-12,2,(x1**4)-(x1**3)+(x2**2)/2-x2,"pow(x1,4)-pow(x1,3)+div(pow(x2,2),2)-x2","{""all"":{""U"":[0,1,20]}}",None,Koza
+Nguyen-12a,2,(x1**4)-(x1**3)+(x2**2)/2-x2,"pow(x1,4)-pow(x1,3)+div(pow(x2,2),2)-x2","{""all"":{""U"":[0,10,20]}}",None,Koza
 Constant-1,1,3.39*(x1**3)+2.12*(x1**2)+1.78*x1,"3.39*pow(x1,3)+2.12*pow(x1,2)+1.78*x1","{""all"":{""U"":[-1,1,20]}}",None,CKoza
 Constant-2,1,sin((x1**2))*cos(x1)-0.75,"sin(pow(x1,2))*cos(x1)-0.75","{""all"":{""U"":[-1,1,20]}}",None,CKoza
 Constant-3,2,sin(1.5*x1)*cos(0.5*x2),sin(1.5*x1)*cos(0.5*x2),"{""all"":{""U"":[0,1,20]}}",None,CKoza
@@ -57,7 +58,9 @@ Custom-4,1,log(x1+1)+log((x1**2)+1)+log(x1),"log(x1+1)+log(pow(x1,2)+1)+log(x1)"
 Custom-5,2,(x1**4)-(x1**3)+(x2**2)-x2,"pow(x1,4)-pow(x1,3)+pow(x2,2)-x2","{""all"":{""U"":[0,1,20]}}",None,Koza
 Custom-6,1,4*x1**4+3*x1**3+2*x1**2+x1,"4*pow(x1,4)+3*pow(x1,3)+2*pow(x1,2)+x1","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-7,1,(exp(x1)-exp(-x1))/1,"div(exp(x1)-exp(-1*x1),2)","{""all"":{""U"":[-1,1,20]}}",None,Koza
+Custom-7a,1,(exp(x1)-exp(-x1))/2,"div(exp(x1)-exp(-1*x1),2)","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-8,1,(exp(x1)+exp(-x1))/1,"div(exp(x1)+exp(-1*x1),2)","{""all"":{""U"":[-1,1,20]}}",None,Koza
+Custom-8a,1,(exp(x1)+exp(-x1))/2,"div(exp(x1)+exp(-1*x1),2)","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-9,1,(x1**9)+(x1**8)+(x1**7)+(x1**6)+(x1**5)+(x1**4)+(x1**3)+(x1**2)+x1,"pow(x1,9)+pow(x1,8)+pow(x1,7)+pow(x1,6)+pow(x1,5)+pow(x1,4)+pow(x1,3)+pow(x1,2)+x1","{""all"":{""U"":[-1,1,20]}}",None,Koza
 Custom-10,2,6*sin(x1)*cos(x2),6*sin(x1)*cos(x2),"{""all"":{""U"":[0,1,20]}}",None,Koza
 Custom-11,2,((x1**2)*(x2**2))/(x1+x2),"div(pow(x1,2)*pow(x2,2),(x1+x2))","{""all"":{""U"":[-1,1,50]}}",None,None
@@ -79,6 +82,9 @@ Poly-10,10,x1*x2+x3*x4+x5*x6+x1*x7*x9+x3*x6*x10,x1*x2+x3*x4+x5*x6+x1*x7*x9+x3*x6
 R1,1,((x1+1)**3)/((x1**2)-x1+1),"div(pow(x1+1,3),pow(x1,2)-x1+1)","{""all"":{""E"":[-1,1,20]}}","{""all"":{""E"":[-1,1,20]}}",None
 R2,1,((x1**5)-3*(x1**3)+1)/((x1**2)+1),"div((pow(x1,5)-3*pow(x1,3)+1),(pow(x1,2)+1))","{""all"":{""E"":[-1,1,20]}}","{""all"":{""E"":[-1,1,20]}}",None
 R3,1,((x1**6)+(x1**5))/((x1**4)+(x1**3)+(x1**2)+x1+1),"div((pow(x1,6)+pow(x1,5)),(pow(x1,4)+pow(x1,3)+pow(x1,2)+x1+1))","{""all"":{""E"":[-1,1,20]}}","{""all"":{""E"":[-1,1,20]}}",None
+R1a,1,((x1+1)**3)/((x1**2)-x1+1),"div(pow(x1+1,3),pow(x1,2)-x1+1)","{""all"":{""E"":[-10,10,20]}}","{""all"":{""E"":[-10,10,20]}}",None
+R2a,1,((x1**5)-3*(x1**3)+1)/((x1**2)+1),"div((pow(x1,5)-3*pow(x1,3)+1),(pow(x1,2)+1))","{""all"":{""E"":[-10,10,20]}}","{""all"":{""E"":[-10,10,20]}}",None
+R3a,1,((x1**6)+(x1**5))/((x1**4)+(x1**3)+(x1**2)+x1+1),"div((pow(x1,6)+pow(x1,5)),(pow(x1,4)+pow(x1,3)+pow(x1,2)+x1+1))","{""all"":{""E"":[-10,10,20]}}","{""all"":{""E"":[-10,10,20]}}",None
 Sine,1,sin(x1)+sin(x1+(x1**2)),"sin(x1)+sin(x1+pow(x1,2))","{""all"":{""E"":[0,6.2,0.1]}}",None,None
 Vladislavleva-1,2,(exp(-((x1-1)**2)))/(1.2+((x2-2.5)**2)),"div(exp(-pow(x1-1,2)),(1.2+pow((x2-2.5),2)))","{""all"":{""U"":[0.3,4,100]}}","{""all"":{""E"":[-0.5,10.5,0.05]}}",Vladislavleva-B
 Vladislavleva-2,1,exp(-x1)*(x1**3)*cos(x1)*sin(x1)*(cos(x1)*(sin(x1)**2)-1),"exp(-x1)*pow(x1,3)*cos(x1)*sin(x1)*(cos(x1)*pow(sin(x1),2)-1)","{""all"":{""E"":[0.05,10,0.1]}}","{""all"":{""E"":[-0.5,10.5,0.05]}}",Vladislavleva-C

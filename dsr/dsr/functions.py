@@ -48,6 +48,9 @@ def expneg(x1):
 def n3(x1):
     return np.power(x1, 3)
 
+def n4(x1):
+    return np.power(x1, 4)
+
 def sigmoid(x1):
     return 1 / (1 + np.exp(-x1))
 
@@ -85,8 +88,10 @@ unprotected_ops = [
     Function(logabs, "logabs", arity=1, complexity=4),
     Function(expneg, "expneg", arity=1, complexity=4),
     Function(n3, "n3", arity=1, complexity=3),
+    Function(n4, "n4", arity=1, complexity=3),
     Function(sigmoid, "sigmoid", arity=1, complexity=4),
     Function(harmonic, "harmonic", arity=1, complexity=4)
+
 ]
 
 
@@ -124,10 +129,13 @@ def protected_n2(x1):
 def protected_n3(x1):
     with np.errstate(over='ignore'):
         return np.where(np.abs(x1) < 1e6, np.power(x1, 3), 0.0)
+    
+def protected_n4(x1):
+    with np.errstate(over='ignore'):
+        return np.where(np.abs(x1) < 1e6, np.power(x1, 4), 0.0)
 
 def protected_sigmoid(x1):
     return 1 / (1 + protected_expneg(x1))
-
 
 # Annotate protected ops
 protected_ops = [
@@ -135,6 +143,7 @@ protected_ops = [
     Function(protected_div, "div", arity=2, complexity=2),
 
     # Protected unary operators
+
     Function(protected_exp, "exp", arity=1, complexity=4),
     Function(protected_log, "log", arity=1, complexity=4),
     Function(protected_log, "logabs", arity=1, complexity=4), # Protected logabs is support, but redundant
@@ -143,7 +152,8 @@ protected_ops = [
     Function(protected_expneg, "expneg", arity=1, complexity=4),
     Function(protected_n2, "n2", arity=1, complexity=2),
     Function(protected_n3, "n3", arity=1, complexity=3),
-    Function(protected_sigmoid, "sigmoid", arity=1, complexity=4),
+    Function(protected_n4, "n4", arity=1, complexity=3),
+    Function(protected_sigmoid, "sigmoid", arity=1, complexity=4)
 ]
 
 # Add unprotected ops to function map
@@ -158,3 +168,4 @@ function_map.update({
 
 UNARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 1])
 BINARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 2])
+
