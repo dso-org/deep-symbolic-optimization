@@ -625,6 +625,11 @@ class Controller(object):
         # On policy batch
         self.sampled_batch_ph = make_batch_ph("sampled_batch")
 
+        # Memory batch
+        self.memory_batch_ph = make_batch_ph("memory_batch")
+        memory_neglogp, _ = make_neglogp_and_entropy(self.memory_batch_ph)
+        self.memory_probs = tf.exp(-memory_neglogp)
+
         # PQT batch
         if pqt:
             self.pqt_batch_ph = make_batch_ph("pqt_batch")
@@ -729,6 +734,17 @@ class Controller(object):
         actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
 
         return actions, obs, priors
+
+
+    def compute_probs(self, memory_batch):
+        """Compute the probabilities of a Batch."""
+
+        feed_dict = {
+            self.memory_batch_ph : memory_batch
+        }
+
+        probs = self.sess.run([self.memory_probs], feed_dict=feed_dict)[0]
+        return probs
 
 
     def train_step(self, b, sampled_batch, pqt_batch):
