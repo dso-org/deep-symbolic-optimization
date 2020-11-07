@@ -428,6 +428,64 @@ def learn(sess, controller, pool, gp_controller,
                     sample_w = np.repeat((1 - memory_w.sum()) / N, N)
                     combined_w = np.concatenate([memory_w, sample_w])
 
+                ##### VARIANCE DIAGNOSTIC #####
+                run_variance_diagnostic = False
+                variance_diagnostic_threshold = 0.05
+                if run_variance_diagnostic and \
+                        memory_w.sum() > variance_diagnostic_threshold and \
+                        len(memory_queue) == memory_queue.capacity:
+                    empirical_quantiles = []
+                    memory_augmented_quantiles = []
+                    print("Running experiments...")
+                    n_experiments = 1000
+                    for exp in range(n_experiments):
+                        actions, obs, priors = controller.sample(batch_size)
+                        programs = [from_tokens(a, optimize=True) for a in actions]
+                        r = np.array([p.r for p in programs])
+                        quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
+                        empirical_quantiles.append(quantile)
+                        programs
+                        unique_programs = [p for p in programs if p.str not in memory_queue.unique_items]
+                        N = len(unique_programs)
+                        sample_r = [p.r for p in unique_programs]
+                        combined_r = np.concatenate([memory_r, sample_r])
+                        if N == 0:
+                            print("WARNING: Found no unique samples in batch!")
+                            combined_w = memory_w / memory_w.sum() # Renormalize
+                        else:
+                            sample_w = np.repeat((1 - memory_w.sum()) / N, N)
+                            combined_w = np.concatenate([memory_w, sample_w])
+                        # Find the quantile
+                        sorted_indices = np.argsort(combined_r)
+                        sorted_w = combined_w[sorted_indices]
+                        sorted_r = combined_r[sorted_indices]
+                        cum_sorted_w = np.cumsum(sorted_w)
+                        i_quantile = np.argmax(cum_sorted_w >= 1 - epsilon)
+                        quantile = sorted_r[i_quantile]
+                        memory_augmented_quantiles.append(quantile)
+                    empirical_quantiles = np.array(empirical_quantiles)
+                    memory_augmented_quantiles = np.array(memory_augmented_quantiles)
+                    print("Memory weight:", memory_w.sum())
+                    print("Empirical quantile:", np.mean(empirical_quantiles), np.var(empirical_quantiles))
+                    print("Memory augmented quantile:", np.mean(memory_augmented_quantiles), np.var(memory_augmented_quantiles))
+                    actions, obs, priors = controller.sample(int(1e6))
+                    programs = [from_tokens(a, optimize=True) for a in actions]
+                    r = np.array([p.r for p in programs])
+                    true_quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
+                    print("'True' empirical quantile:", true_quantile)
+                    print("Empirical quantile bias:", np.mean(np.abs(empirical_quantiles - true_quantile)))
+                    print("Memory-augmented quantile bias:", np.mean(np.abs(memory_augmented_quantiles - true_quantile)))
+                    print(memory_w.sum())
+                    print(true_quantile)
+                    print(np.mean(empirical_quantiles))
+                    print(np.mean(memory_augmented_quantiles))
+                    print(np.mean(np.abs(empirical_quantiles - true_quantile)))
+                    print(np.mean(np.abs(memory_augmented_quantiles - true_quantile)))
+                    print(np.var(empirical_quantiles))
+                    print(np.var(memory_augmented_quantiles))
+                    exit()
+                ##### VARIANCE DIAGNOSTIC #####
+
                 # Sanity check: total weight should sum to 1
                 total_weight = memory_w.sum() + sample_w.sum()
                 assert round(total_weight, 5) == 1, "Total weight ({}) should \
