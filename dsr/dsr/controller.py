@@ -9,7 +9,7 @@ from numba import jit, prange
 
 from dsr.program import Program
 from dsr.language_model import LanguageModelPrior
-from dsr.utils import Batch
+from dsr.memory import Batch
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """

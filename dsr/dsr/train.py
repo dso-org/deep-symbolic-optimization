@@ -15,7 +15,8 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch, setup_output_files
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
+from dsr.memory import Batch, UniquePriorityProgramQueue
 from dsr.language_model import LanguageModelPrior
 
 try:
@@ -219,8 +220,7 @@ def learn(sess, controller, pool, gp_controller,
     # Create the priority queue
     k = controller.pqt_k
     if controller.pqt and k is not None and k > 0:
-        from collections import deque
-        priority_queue = MaxUniquePriorityQueue(capacity=k)
+        priority_queue = UniquePriorityProgramQueue(capacity=k)
     else:
         priority_queue = None
 
@@ -493,7 +493,7 @@ def learn(sess, controller, pool, gp_controller,
 
         # Update and sample from the priority queue
         if priority_queue is not None:
-            priority_queue.update(programs, sampled_batch)
+            priority_queue.push_best(sampled_batch, programs)
             pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
         else:
             pqt_batch = None
@@ -661,7 +661,8 @@ def learn(sess, controller, pool, gp_controller,
     if verbose and priority_queue is not None:
         for i, item in enumerate(priority_queue.iter_in_order()):
             print("\nPriority queue entry {}:".format(i))
-            item[1]["program"].print_stats()
+            p = Program.cache[item[0]]
+            p.print_stats()
 
     # Compute the pareto front
     if pareto_front:
