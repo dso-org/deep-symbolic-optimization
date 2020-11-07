@@ -637,7 +637,8 @@ def learn(sess, controller, pool, gp_controller,
             writer.flush()
 
         # Update the memory queue
-        memory_queue.push_batch(sampled_batch, programs)
+        if memory_queue is not None:
+            memory_queue.push_batch(sampled_batch, programs)
 
         # Update new best expression
         new_r_best = False
