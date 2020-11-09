@@ -234,11 +234,12 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
             if t in Program.unary_tokens:
                 priors[i+offset, Program.const_token] = -np.inf         # Cannot have const inside unary token
             '''
+            '''
             if t == Program.const_token:
                 const_tokens += 1
                 if const_tokens >= max_const:
                     priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
-      
+            '''
             if (i + 2) >= max_len // 2:
                 remaining   = max_len - (i + 1)
                 

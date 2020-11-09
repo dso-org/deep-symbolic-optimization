@@ -260,6 +260,8 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
             pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             write_header = False
 
+    print("Results saved to: {}".format(output_filename))
+
 
 if __name__ == "__main__":
     main()
