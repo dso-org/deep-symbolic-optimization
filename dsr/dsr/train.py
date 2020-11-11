@@ -327,6 +327,7 @@ def learn(sess, controller, pool, gp_controller,
         '''
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
+        r_train     = r
         
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
