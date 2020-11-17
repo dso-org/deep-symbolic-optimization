@@ -352,8 +352,8 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-            priors      = np.append(priors, deap_priors, axis=0)
-            #priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
+            #priors      = np.append(priors, deap_priors, axis=0)
+            priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
 
             
         # Retrieve metrics
@@ -363,6 +363,7 @@ def learn(sess, controller, pool, gp_controller,
         '''
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
+        r_train     = r
         
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
@@ -370,7 +371,7 @@ def learn(sess, controller, pool, gp_controller,
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
         all_r[step] = base_r
 
-        if eval_all:
+        if eval_all:            
             success = [p.evaluate.get("success") for p in programs]
             # Check for success before risk-seeking, but don't break until after
             if any(success):
@@ -387,7 +388,6 @@ def learn(sess, controller, pool, gp_controller,
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
-        max_item = np.argmax(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
@@ -708,6 +708,7 @@ def learn(sess, controller, pool, gp_controller,
         columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
+        print("Saving Hall of Fame to {}".format(hof_output_file))
         df.to_csv(hof_output_file, header=True, index=False)
     
 
@@ -756,8 +757,9 @@ def learn(sess, controller, pool, gp_controller,
         columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
         pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(pf_results, columns=columns)
+        print("Saving Pareto Front to {}".format(pf_output_file))
         df.to_csv(pf_output_file, header=True, index=False)
-
+        
         # Look for a success=True case within the Pareto front
         for p in pf:
             if p.evaluate.get("success"):
@@ -780,10 +782,7 @@ def learn(sess, controller, pool, gp_controller,
         "expression" : repr(p.sympy_expr),
         "traversal" : repr(p)
         })
-    
-    if output_file is not None:
-        print("Results saved to: {}".format(output_file))
-    
+        
     return result
 
 # TBD: Should add a test instead of a main function
