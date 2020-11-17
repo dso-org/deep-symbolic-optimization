@@ -1,10 +1,9 @@
 import random
 import operator
-import importlib
 import copy
 import warnings
 from functools import partial, wraps
-from itertools import chain, compress
+from itertools import chain
 from collections import defaultdict
 from operator import attrgetter
 
@@ -12,17 +11,14 @@ from numba import jit, prange, int32, void # not yet used
 
 import numpy as np
 
-import sympy
-
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.const import make_const_optimizer
 from dsr.task.regression.dataset import Dataset
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.controller import parents_siblings
-from scipy.signal._max_len_seq import max_len_seq
 
 try:
-    from deap import gp 
+    from deap import gp
     from deap import base
     from deap import tools
     from deap import creator
@@ -33,8 +29,8 @@ except ImportError:
     tools       = None
     creator     = None
     algorithms  = None
-    
-    
+
+
 class GenWithRLIndividuals:
     """ Forces the generator to select a user provided member first, such as one
         created by RL. Then, when we run out, create them in the usual manner with DEAP.
@@ -76,9 +72,7 @@ def multi_mutate(individual, expr, pset):
     """ Randomly select one of four types of mutation with even odds for each.
     """
     v = np.random.randint(0,4)
-    
-    #v = 0
-    
+
     if v == 0:
         individual = gp.mutUniform(individual, expr, pset)
     elif v == 1:     
@@ -89,7 +83,6 @@ def multi_mutate(individual, expr, pset):
         individual = gp.mutShrink(individual)
         
     return individual
-        
 
 
 TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
@@ -1001,5 +994,3 @@ if __name__ == "__main__":
     hof, logbook            = generic_train(toolbox, hof, algorithms)
     
     print(hof)
-
-    
