@@ -49,6 +49,15 @@ class Token():
 
 
 class Constant(Token):
+    """
+    A Token with a "value" attribute, whose function returns the value.
+
+    Parameters
+    ----------
+    value : float
+        Value of the constant.
+    """
+
     def __init__(self, value=None):
         if value is not None:
             value = np.atleast_1d(value)
@@ -114,7 +123,7 @@ class Library():
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
         self.var_tokens = np.array([t for t in range(self.L) if self[t].input_var], dtype=np.int32)
-        # self.float_tokens = np.array([t for t in range(self.L) if isinstance(self.library[t], np.float32)], dtype=np.int32)
+        self.float_tokens = np.array([t for t in range(self.L) if isinstance(self[t], Constant)], dtype=np.int32)
         self.trig_tokens = np.array([t for t in range(self.L) if self[t].name in trig_names], dtype=np.int32)
 
         inverse_tokens = {
