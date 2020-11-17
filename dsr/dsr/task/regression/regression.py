@@ -1,12 +1,14 @@
 import numpy as np
 
 import dsr
+from dsr.library import Library
+from dsr.functions import create_tokens
 from dsr.task.regression.dataset import Dataset
 
 
 def make_regression_task(name, metric, metric_params, extra_metric_test,
     extra_metric_test_params, dataset, reward_noise=0.0, reward_noise_type="r",
-    threshold=1e-12, normalize_variance=False):
+    protected=False, threshold=1e-12, normalize_variance=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -40,6 +42,9 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
     normalize_variance : bool
         If True and reward_noise_type=="r", reward is multiplied by
         1 / sqrt(1 + 12*reward_noise**2) (We assume r is U[0,1]).
+
+    protected : bool
+        Whether to use protected functions.
 
     threshold : float
         Threshold of NMSE on noiseless data used to determine success.
@@ -154,14 +159,18 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
         return info
 
+    tokens = create_tokens(n_input_var=dataset.n_input_var,
+                           function_set=dataset.function_set,
+                           protected=protected)
+    library = Library(tokens)
+
     stochastic = reward_noise > 0.0
 
     extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
                 evaluate=evaluate,
-                function_set=dataset.function_set,
-                n_input_var=dataset.n_input_var,
+                library=library,
                 stochastic=stochastic,
                 extra_info=extra_info)
 
