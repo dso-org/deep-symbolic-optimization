@@ -46,7 +46,8 @@
         "hof": null,
         "use_memory": true,
         "memory_capacity": 1e3,
-        "warm_start": null
+        "warm_start": null,
+        "memory_threshold": 0
    },
    "controller": {
       "cell": "lstm",
