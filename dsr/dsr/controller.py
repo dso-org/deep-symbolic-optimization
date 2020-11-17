@@ -1,15 +1,12 @@
 """Controller used to generate distribution over hierarchical, variable-length objects."""
 
-from functools import partial
-
 import tensorflow as tf
 import numpy as np
-from scipy import signal
 from numba import jit, prange
 
 from dsr.program import Program
-from dsr.language_model import LanguageModelPrior
 from dsr.memory import Batch
+
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
@@ -39,7 +36,7 @@ class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
 
     def zero_state(self, batch_size, dtype):
         return self.cell.zero_state(batch_size, dtype)
-    
+
 
 class Controller(object):
     """
@@ -93,7 +90,7 @@ class Controller(object):
 
     observe_sibling : bool
         Observe sibling token?
-    
+
     constrain_const : bool
         Prevent constants with unary parents or constant siblings?
 

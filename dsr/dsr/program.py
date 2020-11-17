@@ -353,10 +353,9 @@ class Program(object):
 
     # Static variables
     task = None             # Task
-    library = None          # List of operators/terminals for each token
+    library = None          # Library
     const_optimizer = None  # Function to optimize constants
     cache = {}
-    primitive_set = None
 
     # Cython-related static variables
     have_cython = None      # Do we have cython installed
@@ -366,8 +365,8 @@ class Program(object):
     def __init__(self, tokens, optimize, on_policy=True):
 
         """
-        Builds the program from a list of tokens, optimizes the constants
-        against training data, and evalutes the reward.
+        Builds the Program from a list of Tokens, optimizes the Constants
+        against reward function, and evalutes the reward.
         """
         
         self.traversal      = [Program.library[t] for t in tokens]
@@ -377,7 +376,6 @@ class Program(object):
         if self.have_cython and self.len_traversal > 1:
             self.is_input_var    = array.array('i', [t.input_var is not None for t in self.traversal])
         
-        self.tokens     = tokens
         self.invalid    = False
         self.str        = tokens.tostring()        
         
@@ -506,6 +504,9 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
+            # Create a new instance of Constant instead of changing the "values"
+            # attribute, otherwise all Programs will have the same instnace and
+            # just overwrite each other's value.
             self.traversal[self.const_pos[i]] = Constant(const)
 
 
