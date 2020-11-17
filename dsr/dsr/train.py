@@ -15,9 +15,10 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
-from dsr.memory import Batch, UniquePriorityProgramQueue
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
+from dsr.memory import Batch, make_queue
 from dsr.language_model import LanguageModelPrior
+from dsr.variance import quantile_variance
 
 try:
     from deap import tools
@@ -57,7 +58,8 @@ def learn(sess, controller, pool, gp_controller,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          pareto_front=False, debug=0):
+          pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
+          warm_start=None, memory_threshold=None):
 
 
     """
@@ -156,6 +158,20 @@ def learn(sess, controller, pool, gp_controller,
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
 
+    use_memory : bool, optional
+        If True, use memory queue for reward quantile estimation.
+
+    memory_capacity : int
+        Capacity of memory queue.
+
+    warm_start : int or None
+        Number of samples to warm start the memory queue. If None, uses
+        batch_size.
+
+    memory_threshold : float or None
+        If not None, run quantile variance/bias estimate experiments after
+        memory weight exceeds memory_threshold.
+
     Returns
     -------
     result : dict
@@ -220,9 +236,29 @@ def learn(sess, controller, pool, gp_controller,
     # Create the priority queue
     k = controller.pqt_k
     if controller.pqt and k is not None and k > 0:
-        priority_queue = UniquePriorityProgramQueue(capacity=k)
+        priority_queue = make_queue(priority=True, capacity=k)
     else:
         priority_queue = None
+
+    # Create the memory queue
+    if use_memory:
+        assert epsilon is not None and epsilon < 1.0, \
+            "Memory queue is only used with risk-seeking."
+        memory_queue = make_queue(controller=controller, priority=False,
+                                  capacity=int(memory_capacity))
+
+        # Warm start the queue
+        # TBD: Parallelize. Abstract sampling a Batch
+        warm_start = warm_start if warm_start is not None else batch_size
+        actions, obs, priors = controller.sample(warm_start)
+        programs = [from_tokens(a, optimize=True) for a in actions]
+        r = np.array([p.r for p in programs])
+        l = np.array([len(p.traversal) for p in programs])
+        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                              lengths=l, rewards=r)
+        memory_queue.push_batch(sampled_batch, programs)
+    else:
+        memory_queue = None
 
     if debug >= 1:
         print("\nInitial parameter means:")
@@ -373,10 +409,41 @@ def learn(sess, controller, pool, gp_controller,
             This will be changed in the future when we integrate off policy support.
         '''
         if epsilon is not None and epsilon < 1.0:
-            n_keep      = int(epsilon * batch_size) # Number of top indices to keep
-            keep        = np.zeros(shape=(base_r.shape[0],), dtype=bool)
-            keep[np.argsort(r)[-n_keep:]] = True
-            
+
+            # Compute reward quantile estimate
+            if use_memory: # Memory-augmented quantile
+
+                # Get subset of Programs not in buffer
+                unique_programs = [p for p in programs \
+                                   if p.str not in memory_queue.unique_items]
+                N = len(unique_programs)
+
+                # Get rewards
+                memory_r = memory_queue.get_rewards()
+                sample_r = [p.r for p in unique_programs]
+                combined_r = np.concatenate([memory_r, sample_r])
+
+                # Compute quantile weights
+                memory_w = memory_queue.compute_probs()
+                if N == 0:
+                    print("WARNING: Found no unique samples in batch!")
+                    combined_w = memory_w / memory_w.sum() # Renormalize
+                else:
+                    sample_w = np.repeat((1 - memory_w.sum()) / N, N)
+                    combined_w = np.concatenate([memory_w, sample_w])
+
+                # Quantile variance/bias estimates
+                if memory_threshold is not None:
+                    print("Memory weight:", memory_w.sum())
+                    if memory_w.sum() > memory_threshold:
+                        quantile_variance(memory_queue, controller, batch_size, epsilon, step)
+
+                # Compute the weighted quantile
+                quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
+
+            else: # Empirical quantile
+                quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
+
             # These guys can contain the GP solutions if we run GP
             '''
                 Here we get the returned as well as stored programs and properties. 
@@ -387,6 +454,7 @@ def learn(sess, controller, pool, gp_controller,
                 contain the GP program items. 
             '''
 
+            keep        = base_r >= quantile
             base_r      = base_r[keep]
             l           = l[keep]
             s           = list(compress(s, keep))
@@ -504,6 +572,10 @@ def learn(sess, controller, pool, gp_controller,
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
+
+        # Update the memory queue
+        if memory_queue is not None:
+            memory_queue.push_batch(sampled_batch, programs)
 
         # Update new best expression
         new_r_best = False
