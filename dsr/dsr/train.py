@@ -456,14 +456,11 @@ def learn(sess, controller, pool, gp_controller,
                         else:
                             sample_w = np.repeat((1 - memory_w.sum()) / N, N)
                             combined_w = np.concatenate([memory_w, sample_w])
-                        # Find the quantile
-                        sorted_indices = np.argsort(combined_r)
-                        sorted_w = combined_w[sorted_indices]
-                        sorted_r = combined_r[sorted_indices]
-                        cum_sorted_w = np.cumsum(sorted_w)
-                        i_quantile = np.argmax(cum_sorted_w >= 1 - epsilon)
-                        quantile = sorted_r[i_quantile]
+
+                        # Compute the weighted quantile
+                        quantile = U.weighted_quantile(values=combined_r, weights=combined_w)
                         memory_augmented_quantiles.append(quantile)
+
                     empirical_quantiles = np.array(empirical_quantiles)
                     memory_augmented_quantiles = np.array(memory_augmented_quantiles)
                     print("Memory weight:", memory_w.sum())
