@@ -375,10 +375,7 @@ class Program(object):
         self.len_traversal  = len(self.traversal)
 
         if self.have_cython and self.len_traversal > 1:
-            self.new_traversal  = [Program.library[t] for t in tokens]
-            self.var_pos        = [i for i, t in enumerate(self.traversal) if t.input_var is not None]
-            self.float_pos      = [i for i, t in enumerate(self.traversal) if isinstance(t, Constant)] # Constant placeholder + floating-point positions
-            self.is_function    = array.array('i', [t.input_var is None for t in self.new_traversal])
+            self.is_input_var    = array.array('i', [t.input_var is not None for t in self.traversal])
         
         self.tokens     = tokens
         self.invalid    = False
@@ -406,7 +403,7 @@ class Program(object):
         """
 
         if self.len_traversal > 1:
-            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
+            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.is_input_var)
         else:
             return self.python_execute(X)
     
@@ -509,9 +506,7 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            token = Constant(const)
-            self.traversal[self.const_pos[i]] = token
-            self.new_traversal[self.const_pos[i]] = token
+            self.traversal[self.const_pos[i]] = Constant(const)
 
 
     @classmethod
