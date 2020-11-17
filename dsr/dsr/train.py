@@ -420,7 +420,7 @@ def learn(sess, controller, pool, gp_controller,
 
                 # Compute quantile weights
                 memory_w = memory_queue.compute_probs()
-                print("Memory weight:", memory_w.sum())
+                # print("Memory weight:", memory_w.sum())
                 if N == 0:
                     print("WARNING: Found no unique samples in batch!")
                     combined_w = memory_w / memory_w.sum() # Renormalize
