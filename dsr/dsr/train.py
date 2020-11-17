@@ -15,7 +15,7 @@ import numpy as np
 
 from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
 from dsr.memory import Batch, make_queue
 from dsr.language_model import LanguageModelPrior
 
@@ -458,7 +458,7 @@ def learn(sess, controller, pool, gp_controller,
                             combined_w = np.concatenate([memory_w, sample_w])
 
                         # Compute the weighted quantile
-                        quantile = U.weighted_quantile(values=combined_r, weights=combined_w)
+                        quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
                         memory_augmented_quantiles.append(quantile)
 
                     empirical_quantiles = np.array(empirical_quantiles)
@@ -489,18 +489,8 @@ def learn(sess, controller, pool, gp_controller,
                 assert round(total_weight, 5) == 1, "Total weight ({}) should \
                     equal 1.0.".format(total_weight)
 
-                # Find the quantile:
-                # Given ordered samples x_1 <= ... <= x_n, with corresponding
-                # weights w_1, ..., w_n, where sum_i(w_i) = 1.0, the weighted
-                # quantile is the minimum x_i for which the cumulative sum up to
-                # x_i is greater than or equal to 1 - epsilon.
-                # Quantile = min{ x_i | x_1 + ... + x_i >= 1 - epsilon }
-                sorted_indices = np.argsort(combined_r)
-                sorted_w = combined_w[sorted_indices]
-                sorted_r = combined_r[sorted_indices]
-                cum_sorted_w = np.cumsum(sorted_w)
-                i_quantile = np.argmax(cum_sorted_w >= 1 - epsilon) # Returns first instance of True
-                quantile = sorted_r[i_quantile]
+                # Compute the weighted quantile
+                quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
 
             else: # Empirical quantile
                 quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
