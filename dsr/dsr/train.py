@@ -420,9 +420,9 @@ def learn(sess, controller, pool, gp_controller,
 
                 # Compute quantile weights
                 memory_w = memory_queue.compute_probs()
-                # print("Memory weight:", memory_w.sum())
                 if N == 0:
                     print("WARNING: Found no unique samples in batch!")
+                    sample_w = np.repeat(np.float32(None), 0) # Dummy used in total_weight computation
                     combined_w = memory_w / memory_w.sum() # Renormalize
                 else:
                     sample_w = np.repeat((1 - memory_w.sum()) / N, N)
@@ -431,6 +431,8 @@ def learn(sess, controller, pool, gp_controller,
                 ##### VARIANCE DIAGNOSTIC #####
                 run_variance_diagnostic = False
                 variance_diagnostic_threshold = 0.05
+                if run_variance_diagnostic:
+                    print("Memory weight:", memory_w.sum())
                 if run_variance_diagnostic and \
                         memory_w.sum() > variance_diagnostic_threshold and \
                         len(memory_queue) == memory_queue.capacity:
