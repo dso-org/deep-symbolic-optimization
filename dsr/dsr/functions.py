@@ -1,40 +1,11 @@
-"""Functions used in symbolic regression."""
+"""Common Tokens used for executable Programs."""
 
 import numpy as np
 from fractions import Fraction
 
+from dsr.library import Token, Constant
+
 GAMMA = 0.57721566490153286060651209008240243104215933593992
-
-
-class Function(object):
-    """
-    Callable function class used as nodes in a Program.
-
-    Parameters
-    ----------
-
-    function : callable
-        Function that returns a np.ndarray with the same shape as its arguments.
-
-    name : str
-        Name of the function used for Program visualization.
-
-    arity : int
-        Number of arguments.
-
-    complexity : int
-        Complexity of the operator.
-    """
-
-    def __init__(self, function, name, arity, complexity):
-        self.function = function
-        self.name = name
-        self.arity = arity
-        self.complexity = complexity
-
-
-    def __call__(self, *args):
-        return self.function(*args)
 
 
 """Define custom unprotected operators"""
@@ -64,34 +35,33 @@ def harmonic(x1):
 # Annotate unprotected ops
 unprotected_ops = [
     # Binary operators
-    Function(np.add, "add", arity=2, complexity=1),
-    Function(np.subtract, "sub", arity=2, complexity=1),
-    Function(np.multiply, "mul", arity=2, complexity=1),
-    Function(np.divide, "div", arity=2, complexity=2),
+    Token(np.add, "add", arity=2, complexity=1),
+    Token(np.subtract, "sub", arity=2, complexity=1),
+    Token(np.multiply, "mul", arity=2, complexity=1),
+    Token(np.divide, "div", arity=2, complexity=2),
 
     # Built-in unary operators
-    Function(np.sin, "sin", arity=1, complexity=3),
-    Function(np.cos, "cos", arity=1, complexity=3),
-    Function(np.tan, "tan", arity=1, complexity=4),
-    Function(np.exp, "exp", arity=1, complexity=4),
-    Function(np.log, "log", arity=1, complexity=4),
-    Function(np.sqrt, "sqrt", arity=1, complexity=4),
-    Function(np.square, "n2", arity=1, complexity=2),
-    Function(np.negative, "neg", arity=1, complexity=1),
-    Function(np.abs, "abs", arity=1, complexity=2),
-    Function(np.maximum, "max", arity=1, complexity=4),
-    Function(np.minimum, "min", arity=1, complexity=4),
-    Function(np.tanh, "tanh", arity=1, complexity=4),
-    Function(np.reciprocal, "inv", arity=1, complexity=2),
+    Token(np.sin, "sin", arity=1, complexity=3),
+    Token(np.cos, "cos", arity=1, complexity=3),
+    Token(np.tan, "tan", arity=1, complexity=4),
+    Token(np.exp, "exp", arity=1, complexity=4),
+    Token(np.log, "log", arity=1, complexity=4),
+    Token(np.sqrt, "sqrt", arity=1, complexity=4),
+    Token(np.square, "n2", arity=1, complexity=2),
+    Token(np.negative, "neg", arity=1, complexity=1),
+    Token(np.abs, "abs", arity=1, complexity=2),
+    Token(np.maximum, "max", arity=1, complexity=4),
+    Token(np.minimum, "min", arity=1, complexity=4),
+    Token(np.tanh, "tanh", arity=1, complexity=4),
+    Token(np.reciprocal, "inv", arity=1, complexity=2),
 
     # Custom unary operators
-    Function(logabs, "logabs", arity=1, complexity=4),
-    Function(expneg, "expneg", arity=1, complexity=4),
-    Function(n3, "n3", arity=1, complexity=3),
-    Function(n4, "n4", arity=1, complexity=3),
-    Function(sigmoid, "sigmoid", arity=1, complexity=4),
-    Function(harmonic, "harmonic", arity=1, complexity=4)
-
+    Token(logabs, "logabs", arity=1, complexity=4),
+    Token(expneg, "expneg", arity=1, complexity=4),
+    Token(n3, "n3", arity=1, complexity=3),
+    Token(n4, "n4", arity=1, complexity=3),
+    Token(sigmoid, "sigmoid", arity=1, complexity=4),
+    Token(harmonic, "harmonic", arity=1, complexity=4)
 ]
 
 
@@ -129,7 +99,7 @@ def protected_n2(x1):
 def protected_n3(x1):
     with np.errstate(over='ignore'):
         return np.where(np.abs(x1) < 1e6, np.power(x1, 3), 0.0)
-    
+
 def protected_n4(x1):
     with np.errstate(over='ignore'):
         return np.where(np.abs(x1) < 1e6, np.power(x1, 4), 0.0)
@@ -140,20 +110,20 @@ def protected_sigmoid(x1):
 # Annotate protected ops
 protected_ops = [
     # Protected binary operators
-    Function(protected_div, "div", arity=2, complexity=2),
+    Token(protected_div, "div", arity=2, complexity=2),
 
     # Protected unary operators
 
-    Function(protected_exp, "exp", arity=1, complexity=4),
-    Function(protected_log, "log", arity=1, complexity=4),
-    Function(protected_log, "logabs", arity=1, complexity=4), # Protected logabs is support, but redundant
-    Function(protected_sqrt, "sqrt", arity=1, complexity=4),
-    Function(protected_inv, "inv", arity=1, complexity=2),
-    Function(protected_expneg, "expneg", arity=1, complexity=4),
-    Function(protected_n2, "n2", arity=1, complexity=2),
-    Function(protected_n3, "n3", arity=1, complexity=3),
-    Function(protected_n4, "n4", arity=1, complexity=3),
-    Function(protected_sigmoid, "sigmoid", arity=1, complexity=4)
+    Token(protected_exp, "exp", arity=1, complexity=4),
+    Token(protected_log, "log", arity=1, complexity=4),
+    Token(protected_log, "logabs", arity=1, complexity=4), # Protected logabs is support, but redundant
+    Token(protected_sqrt, "sqrt", arity=1, complexity=4),
+    Token(protected_inv, "inv", arity=1, complexity=2),
+    Token(protected_expneg, "expneg", arity=1, complexity=4),
+    Token(protected_n2, "n2", arity=1, complexity=2),
+    Token(protected_n3, "n3", arity=1, complexity=3),
+    Token(protected_n4, "n4", arity=1, complexity=3),
+    Token(protected_sigmoid, "sigmoid", arity=1, complexity=4)
 ]
 
 # Add unprotected ops to function map
@@ -169,3 +139,57 @@ function_map.update({
 UNARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 1])
 BINARY_TOKENS = set([op.name for op in function_map.values() if op.arity == 2])
 
+
+def create_tokens(n_input_var, function_set, protected):
+    """
+    Helper function to create Tokens.
+
+    Parameters
+    ----------
+    n_input_var : int
+        Number of input variable Tokens.
+
+    function_set : list
+        Names of registered Tokens, or floats that will create new Tokens.
+
+    protected : bool
+        Whether to use protected versions of registered Tokens.
+    """
+
+    tokens = []
+
+    # Create input variable Tokens
+    for i in range(n_input_var):
+        token = Token(name="x{}".format(i + 1), arity=0, complexity=1,
+                      function=None, input_var=i)
+        tokens.append(token)
+
+    for op in function_set:
+
+        # Registered Token
+        if op in function_map:
+            # Overwrite available protected operators
+            if protected and not op.startswith("protected_"):
+                protected_op = "protected_{}".format(op)
+                if protected_op in function_map:
+                    op = protected_op
+
+            token = function_map[op]
+
+        # Hard-coded floating-point constant
+        elif isinstance(op, float) or isinstance(op, int):
+            name = str(op)
+            value = np.atleast_1d(np.float32(op))
+            function = lambda : value
+            token = Token(name=name, arity=0, complexity=1, function=function)
+
+        # Constant placeholder (to-be-optimized)
+        elif op == "const":
+            token = Constant()
+
+        else:
+            raise ValueError("Operation {} not recognized.".format(op))
+
+        tokens.append(token)
+
+    return tokens

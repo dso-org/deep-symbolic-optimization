@@ -6,7 +6,6 @@
 
 import numpy as np
 import array
-from dsr.functions import function_map, Function
 
 # Cython specific C imports
 cimport numpy as np
@@ -39,7 +38,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     #sp              = 0 # allow a dummy first row, requires a none type function with arity of -1
     
     # Init some ints
-    cdef int        sp              = -1
+    cdef int        sp              = -1 # Stack pointer
     cdef int        Xs              = X.shape[0]
     
     # Give cdef hints for object types  
@@ -50,11 +49,11 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     cdef list       stack_end
     cdef object     stack_end_function
     
-    for n in float_pos:
-        new_traversal[n] = np.repeat(traversal[n], Xs) #>>> 5% of overhead
+    # for n in float_pos:
+    #     new_traversal[n].value = np.repeat(traversal[n].value, Xs) # 5% of overhead
         
     for n in var_pos:
-        new_traversal[n] = X[:, traversal[n]] 
+        new_traversal[n] = X[:, traversal[n].input_var]
                    
     for i in range(len_traversal):
         
@@ -76,12 +75,12 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
         # Keep on doing this so long as arity matches up, we can 
         # add in numbers above and complete the arity later.
         while stack_count[sp] == arity:
-            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) #>>> 85% of overhead
+            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) # 85% of overhead
 
             # I think we can get rid of this line, but will require a major rewrite.
             if sp == 0:    
-                for n in float_pos:
-                    new_traversal[n] = None
+                # for n in float_pos:
+                #     new_traversal[n] = None
                 return intermediate_result
             
             sp -= 1
