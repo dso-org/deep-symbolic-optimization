@@ -422,7 +422,6 @@ def learn(sess, controller, pool, gp_controller,
                 memory_w = memory_queue.compute_probs()
                 if N == 0:
                     print("WARNING: Found no unique samples in batch!")
-                    sample_w = np.repeat(np.float32(None), 0) # Dummy used in total_weight computation
                     combined_w = memory_w / memory_w.sum() # Renormalize
                 else:
                     sample_w = np.repeat((1 - memory_w.sum()) / N, N)
@@ -453,7 +452,6 @@ def learn(sess, controller, pool, gp_controller,
                         combined_r = np.concatenate([memory_r, sample_r])
                         if N == 0:
                             print("WARNING: Found no unique samples in batch!")
-                            sample_w = np.repeat(np.float32(None), 0) # Dummy used in total_weight computation
                             combined_w = memory_w / memory_w.sum() # Renormalize
                         else:
                             sample_w = np.repeat((1 - memory_w.sum()) / N, N)
@@ -485,11 +483,6 @@ def learn(sess, controller, pool, gp_controller,
                     print(np.var(memory_augmented_quantiles))
                     exit()
                 ##### VARIANCE DIAGNOSTIC #####
-
-                # Sanity check: total weight should sum to 1
-                total_weight = memory_w.sum() + sample_w.sum()
-                assert round(total_weight, 5) == 1, "Total weight ({}) should \
-                    equal 1.0.".format(total_weight)
 
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
