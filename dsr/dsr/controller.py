@@ -273,7 +273,7 @@ class Controller(object):
             self.constrain_const = False
 
         if constrain_float and len(lib.float_tokens) == 0:
-            print("Warning: constrain_float=True will have no effect because there are no hard-coded constant tokens.")
+            print("Warning: constrain_float=True will have no effect because there are no constant tokens.")
             self.constrain_float = False
 
         if max_const is None:
