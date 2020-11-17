@@ -10,7 +10,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import gym
 
-from dsr.functions import function_map, Function
+from dsr.functions import Token, Constant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -49,7 +49,7 @@ def _finish_tokens(tokens):
         
     """
     
-    arities         = np.array([Program.arities[t] for t in tokens])
+    arities         = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
     dangling        = 1 + np.cumsum(arities - 1) 
@@ -59,11 +59,9 @@ def _finish_tokens(tokens):
         expr_length     = 1 + np.argmax(dangling == 0)
         tokens          = tokens[:expr_length]
     else:
-        # We never reach a zero point. keep adding terminal tokens until we do. 
-        # If we only have one var then we just pad with zeros. 
-        tokens          = np.append(tokens, np.random.randint(0, high=Program.n_input_var, size=dangling[-1])) #Extend with valid variables until string is valid. 
-    
-    
+        # Extend with valid variables until string is valid
+        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+
     return tokens
 
 
@@ -93,18 +91,18 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
     # Convert str to list of str
     if isinstance(str_tokens, str):
         str_tokens = str_tokens.split(",")
-    
+
     # Convert list of str|float to list of tokens
     if isinstance(str_tokens, list):
         traversal = []
         constants = []
         for s in str_tokens:
-            if s in Program.str_library:
-                t = Program.str_library.index(s.lower())
+            if s in Program.library.names:
+                t = Program.library.names.index(s.lower())
             elif U.is_float(s):
                 assert "const" not in str_tokens, "Currently does not support both placeholder and hard-coded constants."
                 assert not optimize, "Currently does not support optimization with hard-coded constants."
-                t = Program.const_token
+                t = Program.library.const_token
                 constants.append(float(s))
             else:
                 raise ValueError("Did not recognize token {}.".format(s))
@@ -189,15 +187,15 @@ def DEAP_to_tokens(individual, tokens_size):
         if isinstance(t, gp.Terminal):
             if t.name is "const":
                 # Get the constant token, this will not store the actual const (TO DO, fix somehow)
-                tokens[i] = Program.const_token
+                tokens[i] = Program.library.const_token
             else:
                 # Get the int which is contained in "ARG{}",
                 tokens[i] = int(t.name[3:])
         else:
             # Get the index number for this op from the op list in Program.library
-            tokens[i] = Program.str_library.index(t.name)
+            tokens[i] = Program.library.names.index(t.name)
             
-    arities         = np.array([Program.arities[t] for t in tokens])
+    arities         = np.array([Program.library.arities[t] for t in tokens])
     dangling        = 1 + np.cumsum(arities - 1) 
     expr_length     = 1 + np.argmax(dangling == 0)
   
@@ -356,46 +354,31 @@ class Program(object):
     # Static variables
     task = None             # Task
     library = None          # List of operators/terminals for each token
-    arities = None          # Array of arities for each token
-    reward_function = None  # Reward function
     const_optimizer = None  # Function to optimize constants
     cache = {}
     primitive_set = None
-    
-    # Additional derived static variables
-    L = None                # Length of library
-    terminal_tokens = None  # Tokens corresponding to terminals
-    float_tokens = None     # Tokens corresponding to hard-coded floats
-    var_tokens = None       # Tokens corresponding to input variables
-    unary_tokens = None     # Tokens corresponding to unary operators
-    binary_tokens = None    # Tokens corresponding to binary operators
-    trig_tokens = None      # Tokens corresponding to trig functions
-    const_token = None      # Token corresponding to constant
-    inverse_tokens = None   # Dict of token to inverse tokens
-    parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
-    n_input_var = None      # Number of x{} variables
 
     # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
-        
+
     def __init__(self, tokens, optimize, on_policy=True):
-        
+
         """
         Builds the program from a list of tokens, optimizes the constants
         against training data, and evalutes the reward.
         """
         
         self.traversal      = [Program.library[t] for t in tokens]
-        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
+        self.const_pos      = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
         self.len_traversal  = len(self.traversal)
-            
+
         if self.have_cython and self.len_traversal > 1:
-            self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
             self.new_traversal  = [Program.library[t] for t in tokens]
-            self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
-            self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
+            self.var_pos        = [i for i, t in enumerate(self.traversal) if t.input_var is not None]
+            self.float_pos      = [i for i, t in enumerate(self.traversal) if isinstance(t, Constant)] # Constant placeholder + floating-point positions
+            self.is_function    = array.array('i', [t.input_var is None for t in self.new_traversal])
         
         self.tokens     = tokens
         self.invalid    = False
@@ -442,30 +425,30 @@ class Program(object):
             The result of executing the program on X.
         """
 
-        # Check for single-node programs
-        node = self.traversal[0]
-        if isinstance(node, float):
-            return np.repeat(node, X.shape[0])
-        if isinstance(node, int):
-            return X[:, node]
+        # # Check for single-node programs
+        # node = self.traversal[0]
+        # if isinstance(node, float):
+        #     return np.repeat(node, X.shape[0])
+        # if isinstance(node, int):
+        #     return X[:, node]
 
         apply_stack = []
 
         for node in self.traversal:
 
-            if isinstance(node, Function):
-                apply_stack.append([node])
-            else:
-                # Lazily evaluate later
-                apply_stack[-1].append(node)
+            apply_stack.append([node])
 
             while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
                 # Apply functions that have sufficient arguments
-                function = apply_stack[-1][0]
-                terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
-                             else X[:, t] if isinstance(t, int)
-                             else t for t in apply_stack[-1][1:]]
-                intermediate_result = function(*terminals)
+                token = apply_stack[-1][0]
+                terminals = apply_stack[-1][1:]
+                # terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
+                #              else X[:, t] if isinstance(t, int)
+                #              else t for t in apply_stack[-1][1:]]
+                if token.input_var is not None:
+                    intermediate_result = X[:, token.input_var]
+                else:
+                    intermediate_result = token(*terminals)
                 if len(apply_stack) != 1:
                     apply_stack.pop()
                     apply_stack[-1].append(intermediate_result)
@@ -499,7 +482,7 @@ class Program(object):
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)
-            r = self.reward_function()
+            r = self.task.reward_function(self)
             obj = -r # Constant optimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
@@ -507,7 +490,6 @@ class Program(object):
             self.invalid = False
 
             return obj
-
         
         assert self.execute is not None, "set_execute needs to be called first"
         
@@ -527,7 +509,9 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            self.traversal[self.const_pos[i]] = const
+            token = Constant(const)
+            self.traversal[self.const_pos[i]] = token
+            self.new_traversal[self.const_pos[i]] = token
 
 
     @classmethod
@@ -542,6 +526,7 @@ class Program(object):
         """Sets the class' Task"""
 
         Program.task = task
+        Program.library = task.library
 
 
     @classmethod
@@ -641,82 +626,6 @@ class Program(object):
             Program.execute = unsafe_execute
 
 
-    @classmethod
-    def set_library(cls, operators, n_input_var, protected):
-        """Sets the class library and arities."""
-
-        # Add input variables
-        Program.n_input_var = n_input_var
-        Program.library     = list(range(n_input_var))
-        Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
-        Program.arities     = [0] * n_input_var
-
-        for i, op in enumerate(operators):
-
-            # Function
-            if op in function_map:
-
-                # Prepend available protected operators with "protected_"
-                if protected and not op.startswith("protected_"):
-                    protected_op = "protected_{}".format(op)                    
-                    if protected_op in function_map:
-                        op = protected_op
-
-                op = function_map[op]
-                Program.library.append(op)
-                Program.str_library.append(op.name)
-                Program.arities.append(op.arity)
-
-            # Hard-coded floating-point constant
-            elif isinstance(op, float) or isinstance(op, int):
-                op = np.float32(op)
-                Program.library.append(op)
-                Program.str_library.append(str(op))
-                Program.arities.append(0)
-
-            # Constant placeholder (to-be-optimized)
-            elif op == "const":
-                Program.library.append(op)
-                Program.str_library.append(op)
-                Program.arities.append(0)
-                Program.const_token = i + n_input_var
-
-            else:
-                raise ValueError("Operation {} not recognized.".format(op))
-
-        Program.arities = np.array(Program.arities, dtype=np.int32)
-
-        count = 0
-        Program.parent_adjust = np.full_like(Program.arities, -1)
-        for i in range(len(Program.arities)):
-            if Program.arities[i] > 0:
-                Program.parent_adjust[i] = count
-                count += 1
-
-        Program.L = len(Program.library)
-        trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
-        trig_names += ["arc" + name for name in trig_names]
-        Program.var_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], int)], dtype=np.int32)
-        Program.float_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], np.float32)], dtype=np.int32)
-        Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
-        Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
-        Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
-        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], Function) and Program.library[t].name in trig_names], dtype=np.int32)
-
-        inverse_tokens = {
-            "inv" : "inv",
-            "neg" : "neg",
-            "exp" : "log",
-            "log" : "exp",
-            "sqrt" : "n2",
-            "n2" : "sqrt"
-        }
-        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, Function)}
-        Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
-
-        print("Library:\n\t{}".format(Program.str_library))
-
-
     @cached_property
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
@@ -755,7 +664,7 @@ class Program(object):
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
 
-        complexity = sum([t.complexity if isinstance(t, Function) else 1 for t in self.traversal])
+        complexity = sum([t.complexity if isinstance(t, Token) else 1 for t in self.traversal])
         return complexity
 
 
@@ -830,7 +739,7 @@ def build_tree(traversal, order="preorder"):
     if order == "preorder":
         op = traversal.pop(0)
 
-        if isinstance(op, Function):
+        if isinstance(op, Token):
             val = op.name
             if val in capital:
                 val = val.capitalize()
