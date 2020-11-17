@@ -451,6 +451,7 @@ def learn(sess, controller, pool, gp_controller,
                         combined_r = np.concatenate([memory_r, sample_r])
                         if N == 0:
                             print("WARNING: Found no unique samples in batch!")
+                            sample_w = np.repeat(np.float32(None), 0) # Dummy used in total_weight computation
                             combined_w = memory_w / memory_w.sum() # Renormalize
                         else:
                             sample_w = np.repeat((1 - memory_w.sum()) / N, N)
