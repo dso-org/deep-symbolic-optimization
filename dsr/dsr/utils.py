@@ -130,24 +130,30 @@ class cached_property(object):
         return value
 
 
-def weighted_quantile(values, weights):
+def weighted_quantile(values, weights, q):
     """
     Computes the weighted quantile, equivalent to the exact quantile of the
     empirical distribution.
+
+    Given ordered samples x_1 <= ... <= x_n, with corresponding weights w_1,
+    ..., w_n, where sum_i(w_i) = 1.0, the weighted quantile is the minimum x_i
+    for which the cumulative sum up to x_i is greater than or equal to 1.
+
+    Quantile = min{ x_i | x_1 + ... + x_i >= q }
     """
 
     sorted_indices = np.argsort(values)
     sorted_weights = weights[sorted_indices]
     sorted_values = values[sorted_indices]
     cum_sorted_weights = np.cumsum(sorted_weights)
-    i_quantile = np.argmax(cum_sorted_weights >= 1 - epsilon)
+    i_quantile = np.argmax(cum_sorted_weights >= q)
     quantile = sorted_values[i_quantile]
 
     # NOTE: This implementation is equivalent to (but much faster than) the
     # following:
     # from scipy import stats
     # empirical_dist = stats.rv_discrete(name='empirical_dist', values=(values, weights))
-    # quantile = empirical_dist.ppf(1 - epsilon)
+    # quantile = empirical_dist.ppf(q)
 
     return quantile
 
