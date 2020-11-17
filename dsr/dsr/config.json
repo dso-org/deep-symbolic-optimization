@@ -2,16 +2,13 @@
    "task": {
       "task_type" : "regression",
       "name" : "Nguyen-1",
+      "function_set": null,
       "dataset" : {
          "file": "benchmarks.csv",
          "name" : null,
          "noise": null,
-         "extra_data_dir": null,
-         "function_set": null,
-         "shuffle_data": false,
-         "train_fraction": 0.8,
-         "backup": false,
-         "experiment_root": null
+         "root": null,
+         "backup": false
       },
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],
@@ -47,7 +44,7 @@
         "use_memory": true,
         "memory_capacity": 1e3,
         "warm_start": null,
-        "memory_threshold": 0
+        "memory_threshold": null
    },
    "controller": {
       "cell": "lstm",
@@ -113,7 +110,7 @@
       "max_const" : 3
    },
    "gp_meld": {
-   		"run_gp_meld"             	: false,
+   		"run_gp_meld"             	: true,
         "init_population_size"    	: 1,
         "p_crossover"             	: 0.5,    
         "p_mutate"                	: 0.5,    
