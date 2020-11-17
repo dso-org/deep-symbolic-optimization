@@ -130,6 +130,29 @@ class cached_property(object):
         return value
 
 
+def weighted_quantile(values, weights):
+    """
+    Computes the weighted quantile, equivalent to the exact quantile of the
+    empirical distribution.
+    """
+
+    sorted_indices = np.argsort(values)
+    sorted_weights = weights[sorted_indices]
+    sorted_values = values[sorted_indices]
+    cum_sorted_weights = np.cumsum(sorted_weights)
+    i_quantile = np.argmax(cum_sorted_weights >= 1 - epsilon)
+    quantile = sorted_values[i_quantile]
+
+    # NOTE: This implementation is equivalent to (but much faster than) the
+    # following:
+    # from scipy import stats
+    # empirical_dist = stats.rv_discrete(name='empirical_dist', values=(values, weights))
+    # quantile = empirical_dist.ppf(1 - epsilon)
+
+    return quantile
+
+
+
 # Entropy computation in batch
 def empirical_entropy(labels):
 
