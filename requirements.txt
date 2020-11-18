@@ -1,3 +1,4 @@
+pytest
 cython
 numpy
 tensorflow==1.14
