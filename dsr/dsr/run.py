@@ -10,7 +10,6 @@ import json
 import time
 from datetime import datetime
 import multiprocessing
-from copy import deepcopy
 from functools import partial
 from pkg_resources import resource_filename
 import zlib
@@ -21,20 +20,21 @@ import pandas as pd
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
 
+from dsr import DeepSymbolicOptimizer
 from dsr.program import Program
 from dsr.task.regression.dataset import Dataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
-from dsr.task import set_task
 import dsr.gp as gp_dsr
 
 
-def train_dsr(name_and_seed, config_task, config_controller, config_language_model_prior, config_training, config_gp_meld):
+def train_dsr(name_and_seed, config):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
-    # Override the benchmark name
+    # Override the benchmark name and output file
     name, seed = name_and_seed
-    config_task["name"] = name
+    config["task"]["name"] = name
+    config["training"]["output_file"] = "dsr_{}_{}.csv".format(name, seed)
 
     # Try importing TensorFlow (with suppressed warnings), Controller, and learn
     # When parallelizing across tasks, these will already be imported, hence try/except
@@ -56,24 +56,9 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
 
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
-    if config_task["task_type"] == "control" and config_training["n_cores_batch"] > 1:
+    if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
         import gym
         gym.make(name)
-
-    # Create the pool and set the task for each worker
-    n_cores_batch = config_training["n_cores_batch"]
-    if n_cores_batch > 1:
-        pool = multiprocessing.Pool(n_cores_batch, initializer=set_task, initargs=(config_task,))
-    else:
-        pool = None
-
-    # Set the task for the parent process
-    set_task(config_task)
-
-    start = time.time()
-
-    # Rename the output file
-    config_training["output_file"] = "dsr_{}_{}.csv".format(name, seed)
 
     # Reset cache and TensorFlow graph
     Program.clear_cache()
@@ -82,27 +67,14 @@ def train_dsr(name_and_seed, config_task, config_controller, config_language_mod
     # Shift actual seed by checksum to ensure it's different across different benchmarks
     tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
 
-    with tf.Session() as sess:
+    # Train the model
+    model = DeepSymbolicOptimizer(config)
+    start = time.time()
+    result = {"name" : name, "seed" : seed} # Name and seed are listed first
+    result.update(model.train())
+    result["t"] = time.time() - start
 
-        # Instantiate the controller w/ language model
-        if config_controller["use_language_model_prior"] and config_language_model_prior is not None:
-            language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
-        else:
-            language_model_prior = None
-        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
-
-        if config_gp_meld is not None and config_gp_meld["run_gp_meld"]:
-            gp_controller           = gp_dsr.GPController(config_gp_meld, config_task, config_training)
-        else:
-            gp_controller           = None
-
-        # Train the controller
-        result = {"name" : name, "seed" : seed} # Name and seed are listed first
-        result.update(learn(sess, controller, pool, gp_controller, **config_training))
-        result["t"] = time.time() - start # Time listed last
-
-        return result
-
+    return result
 
 
 def train_gp(name_and_seed, logdir, config_task, config_gp):
@@ -242,7 +214,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # Define the work
     if method == "dsr":
-        work = partial(train_dsr, config_task=config_task, config_controller=config_controller, config_language_model_prior=config_language_model_prior, config_training=config_training, config_gp_meld=config_gp_meld)
+        work = partial(train_dsr, config=config)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
