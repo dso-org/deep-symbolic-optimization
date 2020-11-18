@@ -206,6 +206,8 @@ def learn(sess, controller, pool, gp_controller,
     # Create log file
     if output_file is not None:
         all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file)
+    else:
+        all_r_output_file = hof_output_file = pf_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -708,9 +710,10 @@ def learn(sess, controller, pool, gp_controller,
         columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
-        print("Saving Hall of Fame to {}".format(hof_output_file))
-        df.to_csv(hof_output_file, header=True, index=False)
-    
+        if hof_output_file is not None:
+            print("Saving Hall of Fame to {}".format(hof_output_file))
+            df.to_csv(hof_output_file, header=True, index=False)
+        
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -757,9 +760,10 @@ def learn(sess, controller, pool, gp_controller,
         columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
         pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(pf_results, columns=columns)
-        print("Saving Pareto Front to {}".format(pf_output_file))
-        df.to_csv(pf_output_file, header=True, index=False)
-        
+        if pf_output_file is not None:
+            print("Saving Pareto Front to {}".format(pf_output_file))
+            df.to_csv(pf_output_file, header=True, index=False)
+
         # Look for a success=True case within the Pareto front
         for p in pf:
             if p.evaluate.get("success"):
