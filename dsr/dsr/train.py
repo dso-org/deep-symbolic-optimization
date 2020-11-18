@@ -1,23 +1,18 @@
 """Defines main training loop for deep symbolic regression."""
 
 import os
-import sys
-import json
 import multiprocessing
 from itertools import compress
 from datetime import datetime
-from textwrap import indent
 from collections import defaultdict
 
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 
-from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
 from dsr.memory import Batch, make_queue
-from dsr.language_model import LanguageModelPrior
 from dsr.variance import quantile_variance
 
 try:
