@@ -36,7 +36,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
           const_params=None, alpha=0.1, epsilon=0.01, num_cores=1,
           verbose=True, summary=True, output_file=None, save_all_r=False,
           baseline="ewma_R", b_jumpstart=True, early_stopping=False,
-          threshold=1e-12, debug=0):
+          threshold=1e-12, debug=0, return_estimator=False):
     """
     Executes the main training loop.
 
@@ -226,7 +226,7 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
         # Retrieve metrics
         nmse = np.array([p.nmse for p in programs])
         base_r = np.array([p.base_r for p in programs])
-        r = np.array([p.r for p in programs])        
+        r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         all_r[step] = base_r
 
@@ -402,7 +402,10 @@ def learn(sess, controller, logdir="./log", n_epochs=None, n_samples=1e6, batch_
             "expression" : repr(p.sympy_expr),
             "traversal" : repr(p)
             }
-    return result
+    if return_estimator:
+        return p
+    else:
+        return result
 
 
 def main():
@@ -433,7 +436,7 @@ def main():
 
 
 if __name__ == "__main__":
-    
+
     if len(sys.argv) > 1 and int(sys.argv[1]) == 1:
         import cProfile
         cProfile.run('main()', sort='cumtime')
