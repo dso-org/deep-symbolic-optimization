@@ -47,7 +47,7 @@
         "use_memory": true,
         "memory_capacity": 1e3,
         "warm_start": null,
-        "memory_threshold": 0
+        "memory_threshold": null
    },
    "controller": {
       "cell": "lstm",
