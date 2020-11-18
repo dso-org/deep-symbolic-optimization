@@ -24,7 +24,6 @@ from dsr import DeepSymbolicOptimizer
 from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
-from dsr.language_model import LanguageModelPrior
 import dsr.gp as gp_dsr
 
 
