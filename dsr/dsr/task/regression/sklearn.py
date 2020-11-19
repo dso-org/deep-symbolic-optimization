@@ -21,6 +21,13 @@ class DeepSymbolicRegressor(DeepSymbolicOptimizer,
         config = deepcopy(self.config)
         config["task"]["task_type"] = "regression"
         config["task"]["dataset"] = (X, y)
+
+        # TBD: Add support for gp-meld and sklearn interface. Currently, gp-meld
+        # relies on BenchmarkDataset objects, not (X, y) data.
+        if config["gp_meld"].get("run_gp_meld"):
+            print("WARNING: GP-meld not yet supported for sklearn interface.")
+        config["gp_meld"]["run_gp_meld"] = False
+
         self.update_config(config)
 
         train_result = self.train()
