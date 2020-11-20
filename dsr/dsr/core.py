@@ -1,6 +1,7 @@
 """Core deep symbolic optimizer construct."""
 
 import json
+import zlib
 from collections import defaultdict
 from multiprocessing import Pool
 
@@ -35,10 +36,12 @@ class DeepSymbolicOptimizer():
 
     def __init__(self, config=None):
         self.update_config(config)
+        self.seed()
 
     def train(self):
         pool = self.make_pool()
-        sess, controller = self.make_controller()
+        sess = tf.Session()
+        controller = self.make_controller(sess)
         gp_controller = self.make_gp_controller()
 
         # Train the model
@@ -62,10 +65,22 @@ class DeepSymbolicOptimizer():
         self.config_controller = self.config["controller"]
         self.config_gp_meld = self.config["gp_meld"]
 
-    def make_controller(self):
-        sess = tf.Session()
+    def seed(self, seed_=0):
+        """Set the tensorflow seed, which will be offset by a checksum on the
+        task name to ensure seeds differ across different tasks."""
+
+        if "name" in self.config_task:
+            task_name = self.config_task["name"]
+        else:
+            task_name = ""
+        seed_ += zlib.adler32(task_name.encode("utf-8"))
+        tf.set_random_seed(seed_)
+
+        return seed_
+
+    def make_controller(self, sess):
         controller = Controller(sess, **self.config_controller)
-        return sess, controller
+        return controller
 
     def make_gp_controller(self):
         if self.config_gp_meld.get("run_gp_meld"):

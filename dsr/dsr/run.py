@@ -63,11 +63,9 @@ def train_dsr(name_and_seed, config):
     Program.clear_cache()
     tf.reset_default_graph()
 
-    # Shift actual seed by checksum to ensure it's different across different benchmarks
-    tf.set_random_seed(seed + zlib.adler32(name.encode("utf-8")))
-
     # Train the model
     model = DeepSymbolicOptimizer(config)
+    model.seed(seed)
     start = time.time()
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
     result.update(model.train())
