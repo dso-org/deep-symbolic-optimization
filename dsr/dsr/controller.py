@@ -1,15 +1,12 @@
 """Controller used to generate distribution over hierarchical, variable-length objects."""
 
-from functools import partial
-
 import tensorflow as tf
 import numpy as np
-from scipy import signal
 from numba import jit, prange
 
 from dsr.program import Program
-from dsr.language_model import LanguageModelPrior
 from dsr.memory import Batch
+
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     """
@@ -39,7 +36,7 @@ class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
 
     def zero_state(self, batch_size, dtype):
         return self.cell.zero_state(batch_size, dtype)
-    
+
 
 class Controller(object):
     """
@@ -93,7 +90,7 @@ class Controller(object):
 
     observe_sibling : bool
         Observe sibling token?
-    
+
     constrain_const : bool
         Prevent constants with unary parents or constant siblings?
 
@@ -223,10 +220,12 @@ class Controller(object):
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
+        lib = Program.library
+
         # Hyperparameters
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.constrain_const = constrain_const and "const" in Program.library
+        self.constrain_const = constrain_const and "const" in lib.names
         self.constrain_trig = constrain_trig
         self.constrain_inv = constrain_inv
         self.constrain_min_len = constrain_min_len
@@ -247,7 +246,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = Program.L
+        n_choices = lib.L
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -266,19 +265,19 @@ class Controller(object):
                 print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
                 self.min_length = None
 
-        if constrain_const and Program.const_token is None:
+        if constrain_const and lib.const_token is None:
             print("Warning: constrain_const=True will have no effect because there is no constant token.")
             self.constrain_const = False
 
-        if constrain_float and len(Program.float_tokens) == 0:
-            print("Warning: constrain_float=True will have no effect because there are no hard-coded constant tokens.")
+        if constrain_float and len(lib.float_tokens) == 0:
+            print("Warning: constrain_float=True will have no effect because there are no constant tokens.")
             self.constrain_float = False
 
         if max_const is None:
             assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
         else:
             assert max_const >= 1, "Must have max num const at least 1."
-            if Program.const_token is None:
+            if lib.const_token is None:
                 print("Warning: max_const={} will have no effect because there is no constant token.".format(max_const))
                 self.constrain_num_const = False
                 self.max_const = None
@@ -321,9 +320,9 @@ class Controller(object):
             cell = LinearWrapper(cell=cell, output_size=n_choices)
 
             # Define input dimensions
-            n_action_inputs = n_choices + 1 # Library tokens + empty token
-            n_parent_inputs = n_choices + 1 - len(Program.terminal_tokens) # Parent sub-library tokens + empty token
-            n_sibling_inputs = n_choices + 1 # Library tokens + empty tokens
+            n_action_inputs = n_choices + 1 # lib tokens + empty token
+            n_parent_inputs = n_choices + 1 - len(lib.terminal_tokens) # Parent sub-lib tokens + empty token
+            n_sibling_inputs = n_choices + 1 # lib tokens + empty tokens
 
             # Create embeddings
             if embedding:
@@ -344,7 +343,7 @@ class Controller(object):
                 initial_obs += (obs,)            
 
             # Define prior on logits; currently only used to apply hard constraints
-            arities = np.array([Program.arities[i] for i in range(n_choices)])
+            arities = np.array([lib.arities[i] for i in range(n_choices)])
             prior = np.zeros(n_choices, dtype=np.float32)
             if self.min_length is not None and self.min_length > 1:
                 prior[arities == 0] = -np.inf
@@ -387,50 +386,50 @@ class Controller(object):
                 i = actions.shape[1] - 1 # Current index
                 action = actions[:, -1] # Current action
 
-                prior = np.zeros((n, Program.L), dtype=np.float32)
+                prior = np.zeros((n, lib.L), dtype=np.float32)
 
                 # Depending on the constraints, may need to compute parents and siblings
                 if self.compute_parents_siblings:
-                    parent, sibling = parents_siblings(actions, arities=Program.arities, parent_adjust=Program.parent_adjust)
+                    parent, sibling = parents_siblings(actions, arities=lib.arities, parent_adjust=lib.parent_adjust)
                 else:
                     parent = np.zeros(n, dtype=np.int32)
                     sibling = np.zeros(n, dtype=np.int32)
 
                 # Update dangling with (arity - 1) for each element in action
-                dangling += Program.arities[action] - 1
+                dangling += lib.arities[action] - 1
 
                 # Constrain unary of constant or binary of two constants
                 if self.constrain_const:
                     # Use action instead of parent here because it's really adj_parent
-                    constraints = np.isin(action, Program.unary_tokens) # Unary action (or unary parent)
-                    constraints += sibling == Program.const_token # Constant sibling
-                    prior += make_prior(constraints, [Program.const_token], Program.L)
+                    constraints = np.isin(action, lib.unary_tokens) # Unary action (or unary parent)
+                    constraints += sibling == lib.const_token # Constant sibling
+                    prior += make_prior(constraints, [lib.const_token], lib.L)
                 
                 # Constrain trig function with trig function ancestor
                 if self.constrain_trig:
-                    constraints = trig_ancestors(actions, Program.arities, Program.trig_tokens)
-                    prior += make_prior(constraints, Program.trig_tokens, Program.L)
+                    constraints = trig_ancestors(actions, lib.arities, lib.trig_tokens)
+                    prior += make_prior(constraints, lib.trig_tokens, lib.L)
                 
                 # Constrain inverse unary operators
                 if self.constrain_inv:
-                    for p, c in Program.inverse_tokens.items():
+                    for p, c in lib.inverse_tokens.items():
                         # No need to compute parents because only unary operators are constrained
                         # by their inverse, and action == parent for all unary operators
                         constraints = action == p
-                        prior += make_prior(constraints, [c], Program.L)
+                        prior += make_prior(constraints, [c], lib.L)
                 
                 # Constrain total number of constants
                 if self.constrain_num_const:
-                    constraints = np.sum(actions == Program.const_token, axis=1) == self.max_const
-                    prior += make_prior(constraints, [Program.const_token], Program.L)
+                    constraints = np.sum(actions == lib.const_token, axis=1) == self.max_const
+                    prior += make_prior(constraints, [lib.const_token], lib.L)
 
                 # Constrain expressions without input variables
                 if self.constrain_float:
                     # Constrain when:
                     # 1) the expression would end if a terminal is chosen and
                     # 2) there are no input variables
-                    constraints = (dangling == 1) & (np.sum(np.isin(actions, Program.var_tokens), axis=1) == 0)
-                    prior += make_prior(constraints, Program.float_tokens, Program.L)
+                    constraints = (dangling == 1) & (np.sum(np.isin(actions, lib.var_tokens), axis=1) == 0)
+                    prior += make_prior(constraints, lib.float_tokens, lib.L)
 
                 # Constrain maximum sequence length
                 # Never need to constrain max length for first half of expression
@@ -438,15 +437,15 @@ class Controller(object):
                     remaining = self.max_length - (i + 1)
                     assert sum(dangling > remaining) == 0, (dangling, remaining)
                     constraints = dangling >= remaining - 1 # Constrain binary
-                    prior += make_prior(constraints, Program.binary_tokens, Program.L)
+                    prior += make_prior(constraints, lib.binary_tokens, lib.L)
                     constraints = dangling == remaining # Constrain unary
-                    prior += make_prior(constraints, Program.unary_tokens, Program.L)
+                    prior += make_prior(constraints, lib.unary_tokens, lib.L)
 
                 # Constrain minimum sequence length
                 # Constrain terminals when dangling == 1 until selecting the (min_length)th token
                 if self.constrain_min_len and (i + 2) < self.min_length:
                     constraints = dangling == 1 # Constrain terminals
-                    prior += make_prior(constraints, Program.terminal_tokens, Program.L)
+                    prior += make_prior(constraints, lib.terminal_tokens, lib.L)
 
                 # Language Model prior
                 if self.use_language_model_prior and self.language_model_prior is not None:
@@ -474,7 +473,7 @@ class Controller(object):
                 action.set_shape([None])
                 parent.set_shape([None])
                 sibling.set_shape([None])                
-                prior.set_shape([None, Program.L])
+                prior.set_shape([None, lib.L])
                 dangling.set_shape([None])
 
                 return obs, prior, dangling

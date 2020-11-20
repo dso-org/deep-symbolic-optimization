@@ -22,7 +22,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
 
 from dsr.program import Program
-from dsr.task.regression.dataset import Dataset
+from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.language_model import LanguageModelPrior
 from dsr.task import set_task
@@ -116,7 +116,7 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
     # Load the dataset
     config_dataset = config_task["dataset"]
     config_dataset["name"] = name
-    dataset = Dataset(**config_dataset)
+    dataset = BenchmarkDataset(**config_dataset)
 
     # Fit the GP
     gp = gpsr.GP(dataset=dataset, **config_gp)

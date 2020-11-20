@@ -6,7 +6,6 @@
 
 import numpy as np
 import array
-from dsr.functions import function_map, Function
 
 # Cython specific C imports
 cimport numpy as np
@@ -21,7 +20,7 @@ cdef int *stack_count   = <int *> malloc(1024 * sizeof(int))
 
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function  
-def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal, list float_pos, list var_pos, int[:] is_function):    
+def execute(np.ndarray X, int len_traversal, list traversal, int[:] is_input_var):    
             
     """Executes the program according to X.
 
@@ -39,7 +38,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     #sp              = 0 # allow a dummy first row, requires a none type function with arity of -1
     
     # Init some ints
-    cdef int        sp              = -1
+    cdef int        sp              = -1 # Stack pointer
     cdef int        Xs              = X.shape[0]
     
     # Give cdef hints for object types  
@@ -50,20 +49,14 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
     cdef list       stack_end
     cdef object     stack_end_function
     
-    for n in float_pos:
-        new_traversal[n] = np.repeat(traversal[n], Xs) #>>> 5% of overhead
-        
-    for n in var_pos:
-        new_traversal[n] = X[:, traversal[n]] 
-                   
     for i in range(len_traversal):
         
-        if is_function[i]:
+        if not is_input_var[i]:
             sp += 1
             # Move this to the front with a memset call
             stack_count[sp]                     = 0
             # Store the reference to stack_count[sp] rather than keep calling
-            apply_stack[sp][stack_count[sp]]    = new_traversal[i]
+            apply_stack[sp][stack_count[sp]]    = traversal[i]
             stack_end                           = apply_stack[sp]
             # The first element is the function itself
             stack_end_function                  = stack_end[0]
@@ -71,17 +64,15 @@ def execute(np.ndarray X, int len_traversal, list traversal, list new_traversal,
         else:
             # Not a function, so lazily evaluate later
             stack_count[sp] += 1
-            stack_end[stack_count[sp]]          = new_traversal[i]
+            stack_end[stack_count[sp]]          = X[:, traversal[i].input_var]
 
         # Keep on doing this so long as arity matches up, we can 
         # add in numbers above and complete the arity later.
         while stack_count[sp] == arity:
-            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) #>>> 85% of overhead
+            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) # 85% of overhead
 
             # I think we can get rid of this line, but will require a major rewrite.
             if sp == 0:    
-                for n in float_pos:
-                    new_traversal[n] = None
                 return intermediate_result
             
             sp -= 1
