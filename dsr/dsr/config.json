@@ -2,16 +2,13 @@
    "task": {
       "task_type" : "regression",
       "name" : "Nguyen-1",
+      "function_set": null,
       "dataset" : {
-         "file": "benchmarks.csv",
+         "benchmark_source": "benchmarks.csv",
          "name" : null,
          "noise": null,
-         "extra_data_dir": null,
-         "function_set": null,
-         "shuffle_data": false,
-         "train_fraction": 0.8,
-         "backup": false,
-         "experiment_root": null
+         "root": null,
+         "backup": false
       },
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],

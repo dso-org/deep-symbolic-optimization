@@ -13,7 +13,7 @@ import numpy as np
 
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.const import make_const_optimizer
-from dsr.task.regression.dataset import Dataset
+from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.controller import parents_siblings
 
@@ -597,7 +597,7 @@ class GPController:
         '''
             
         config_dataset              = config_task["dataset"]
-        dataset                     = Dataset(**config_dataset)
+        dataset                     = BenchmarkDataset(**config_dataset)
                     
         const_params                = config_training['const_params']
         have_const                  = "const" in dataset.function_set       
@@ -981,7 +981,7 @@ if __name__ == "__main__":
     
     config_dataset          = config_task["dataset"]
     config_dataset["name"]  = 'R1'
-    dataset                 = Dataset(**config_dataset)
+    dataset                 = BenchmarkDataset(**config_dataset)
 
     pset, const_opt         = create_primitive_set(dataset)
     hof                     = tools.HallOfFame(maxsize=1)                   # Create a Hall of Fame object
