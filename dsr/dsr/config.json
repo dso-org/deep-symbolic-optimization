@@ -4,7 +4,7 @@
       "name" : "Nguyen-1",
       "function_set": null,
       "dataset" : {
-         "file": "benchmarks.csv",
+         "benchmark_source": "benchmarks.csv",
          "name" : null,
          "noise": null,
          "root": null,

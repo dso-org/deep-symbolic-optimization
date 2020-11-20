@@ -23,11 +23,11 @@ class BenchmarkDataset(object):
     name : str
         Name of benchmark expression.
 
-    file : str, optional
-        Filename of CSV with benchmark expressions.
+    benchmark_source : str, optional
+        Filename of CSV descibing benchmark expressions.
 
     root : str, optional
-        Directory containing file and function_sets.csv.
+        Directory containing benchmark_source and function_sets.csv.
 
     noise : float, optional
         If not None, Gaussian noise is added to the y values with standard
@@ -47,14 +47,14 @@ class BenchmarkDataset(object):
         Save generated dataset in logdir if logdir is provided.
     """
 
-    def __init__(self, name, file="benchmarks.csv", root=None, noise=None,
-                 dataset_size_multiplier=None, seed=0, logdir=None,
+    def __init__(self, name, benchmark_source="benchmarks.csv", root=None,
+                 noise=None, dataset_size_multiplier=None, seed=0, logdir=None,
                  backup=False):
 
         # Load benchmark data
         if root is None:
             root = resource_filename("dsr.task", "regression")
-        benchmark_path = os.path.join(root, file)
+        benchmark_path = os.path.join(root, benchmark_source)
         benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
 
         # Set random number generator used for sampling X values
@@ -226,11 +226,11 @@ def save_dataset(d, output_filename):
 @click.option('--plot', is_flag=True)
 @click.option('--save_csv', is_flag=True)
 @click.option('--sweep', is_flag=True)
-def main(file, plot, save_csv, sweep):
+def main(benchmark_source, plot, save_csv, sweep):
     """Plots all benchmark expressions."""
 
     regression_path = resource_filename("dsr.task", "regression/")
-    benchmark_path = os.path.join(regression_path, file)
+    benchmark_path = os.path.join(regression_path, benchmark_source)
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
     for name in names:
@@ -242,7 +242,9 @@ def main(file, plot, save_csv, sweep):
         output_filenames = []
 
         # Noiseless
-        d = BenchmarkDataset(name=name, file=file, noise=None)
+        d = BenchmarkDataset(name=name,
+                             benchmark_source=benchmark_source,
+                             noise=None)
         datasets.append(d)
         output_filename = "{}.csv".format(name)
         output_filenames.append(output_filename)
@@ -253,8 +255,10 @@ def main(file, plot, save_csv, sweep):
             dataset_size_multipliers = [1.0, 10.0]
             for noise in noises:
                 for dataset_size_multiplier in dataset_size_multipliers:
-                    d = Dataset(file, name, noise=noise,
-                        dataset_size_multiplier=dataset_size_multiplier)
+                    d = Dataset(name=name,
+                                benchmark_source=benchmark_source,
+                                noise=noise,
+                                dataset_size_multiplier=dataset_size_multiplier)
                     datasets.append(d)
                     output_filename = "{}_n{:.2f}_d{:.0f}.csv".format(name, noise, dataset_size_multiplier)
                     output_filenames.append(output_filename)
