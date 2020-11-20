@@ -26,7 +26,7 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
         benchmark dataset.
 
     dataset : dict, str, or tuple
-        If dict: .dataset.Dataset kwargs.
+        If dict: .dataset.BenchmarkDataset kwargs.
         If str: filename of dataset.
         If tuple: (X, y) data
 
