@@ -82,7 +82,7 @@ def set_task(config_task):
     from task config."""
 
     # Use of protected functions is the same for all tasks, so it's handled separately
-    protected = config_task["protected"] if "protected" in config_task else True
+    protected = config_task["protected"] if "protected" in config_task else False
 
     Program.set_execute(protected)
     task = make_task(**config_task)
