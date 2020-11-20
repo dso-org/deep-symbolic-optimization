@@ -110,7 +110,7 @@
       "max_const" : 3
    },
    "gp_meld": {
-   		"run_gp_meld"             	: true,
+   		"run_gp_meld"             	: false,
         "init_population_size"    	: 1,
         "p_crossover"             	: 0.5,    
         "p_mutate"                	: 0.5,    
