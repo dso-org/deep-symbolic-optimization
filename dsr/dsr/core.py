@@ -11,6 +11,7 @@ from dsr.task import set_task
 from dsr.controller import Controller
 from dsr.gp import GPController
 from dsr.train import learn
+from dsr.program import Program
 
 
 class DeepSymbolicOptimizer():
@@ -36,9 +37,14 @@ class DeepSymbolicOptimizer():
 
     def __init__(self, config=None):
         self.update_config(config)
-        self.seed()
 
-    def train(self):
+    def train(self, seed=0):
+
+        # Clear the cache, reset the compute graph, and set the seed
+        Program.clear_cache()
+        tf.reset_default_graph()
+        self.seed(seed) # Must be called _after_ resetting graph
+
         pool = self.make_pool()
         sess = tf.Session()
         controller = self.make_controller(sess)
