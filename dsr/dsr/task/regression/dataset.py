@@ -9,7 +9,6 @@ import zlib
 import click
 import pandas as pd
 import numpy as np
-from matplotlib import pyplot as plt
 
 from dsr.functions import function_map
 
@@ -24,7 +23,7 @@ class BenchmarkDataset(object):
         Name of benchmark expression.
 
     benchmark_source : str, optional
-        Filename of CSV descibing benchmark expressions.
+        Filename of CSV describing benchmark expressions.
 
     root : str, optional
         Directory containing benchmark_source and function_sets.csv.
@@ -47,21 +46,24 @@ class BenchmarkDataset(object):
         Save generated dataset in logdir if logdir is provided.
     """
 
-    def __init__(self, name, benchmark_source="benchmarks.csv", root=None,
-                 noise=None, dataset_size_multiplier=None, seed=0, logdir=None,
+    def __init__(self, name, benchmark_source="benchmarks.csv", root=None, noise=0.0,
+                 dataset_size_multiplier=1.0, seed=0, logdir=None,
                  backup=False):
+        # Set class variables
+        self.name = name
+        self.seed = seed
+        self.noise = noise if noise is not None else 0.0
+        self.dataset_size_multiplier = dataset_size_multiplier if dataset_size_multiplier is not None else 1.0
+
+        # Set random number generator used for sampling X values
+        seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
+        self.rng = np.random.RandomState(seed)
 
         # Load benchmark data
         if root is None:
             root = resource_filename("dsr.task", "regression")
         benchmark_path = os.path.join(root, benchmark_source)
         benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
-
-        # Set random number generator used for sampling X values
-        seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
-        self.rng = np.random.RandomState(seed)
-
-        self.dataset_size_multiplier = dataset_size_multiplier if dataset_size_multiplier is not None else 1.0
         row = benchmark_df.loc[name]
         self.n_input_var = row["variables"]
 
@@ -85,12 +87,13 @@ class BenchmarkDataset(object):
         self.y_test_noiseless = self.y_test.copy()
 
         # Add Gaussian noise
-        if noise is not None:
-            assert noise >= 0, "Dataset.__init__(): Noise must be non-negative."
+        if self.noise > 0:
             y_rms = np.sqrt(np.mean(self.y_train**2))
-            scale = noise * y_rms
+            scale = self.noise * y_rms
             self.y_train += self.rng.normal(loc=0, scale=scale, size=self.y_train.shape)
             self.y_test += self.rng.normal(loc=0, scale=scale, size=self.y_test.shape)
+        elif self.noise < 0:
+            print('WARNING: Ignoring negative noise value: {}'.format(self.noise))
 
         # Load default function set
         function_set_path = os.path.join(root, "function_sets.csv")
@@ -98,15 +101,14 @@ class BenchmarkDataset(object):
         function_set_name = row["function_set"]
         self.function_set = function_set_df.loc[function_set_name].tolist()[0].strip().split(',')
 
-        # Backup the dataset
-        if backup:
-            self.save_dataset(logdir, name)
-
+        # Prepare status output
         output_message = '\n-- Building dataset -----------------\n'
         output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
         output_message += 'Generated data for benchmark   : {}\n'.format(name)
         output_message += 'Function set path              : {}\n'.format(function_set_path)
         output_message += 'Function set                   : {} --> {}\n'.format(function_set_name, self.function_set)
+        if backup and logdir is not None:
+            output_message += self.save(logdir)
         output_message += '-------------------------------------\n\n'
         print(output_message)
 
@@ -147,9 +149,7 @@ class BenchmarkDataset(object):
 
         return X
 
-
     def make_numpy_expr(self, s):
-
         # This isn't pretty, but unlike sympy's lambdify, this ensures we use
         # our protected functions. Otherwise, some expressions may have large
         # error even if the functional form is correct due to the training set
@@ -172,10 +172,11 @@ class BenchmarkDataset(object):
 
         return numpy_expr
 
-
-    def save_dataset(self, logdir, name):
+    def save(self, logdir='./'):
+        save_path = os.path.join(logdir,'data_{}_n{:.2f}_d{:.0f}_s{}.csv'.format(
+                self.name, self.noise, self.dataset_size_multiplier, self.seed))
         try:
-            save_path = os.path.join(logdir,'data_{}.csv'.format(name))
+            os.makedirs(logdir, exist_ok=True)
             np.savetxt(
                 save_path,
                 np.concatenate(
@@ -185,44 +186,46 @@ class BenchmarkDataset(object):
                     ), axis=0),
                 delimiter=',', fmt='%1.5f'
             )
-            print('Saved dataset to               : {}'.format(save_path))
+            return 'Saved dataset to               : {}\n'.format(save_path)
         except:
-            print("Warning: Could not save dataset.")
+            import sys
+            e = sys.exc_info()[0]
+            print("WARNING: Could not save dataset: {}".format(e))
 
+    def plot(self, logdir='./'):
+        """Plot Dataset with underlying ground truth."""
+        if self.X_train.shape[1] == 1:
+            from matplotlib import pyplot as plt
+            save_path = os.path.join(logdir,'plot_{}_n{:.2f}_d{:.0f}_s{}.png'.format(
+                    self.name, self.noise, self.dataset_size_multiplier, self.seed))
 
-def plot_dataset(d, output_filename):
-    """Plot Dataset with underlying ground truth."""
-
-    # Draw ground truth expression
-    bounds = list(list(d.train_spec.values())[0].values())[0][:2]
-    x = np.linspace(bounds[0], bounds[1], endpoint=True, num=100)
-    y = d.numpy_expr(x[:, None])
-    plt.plot(x, y)
-
-    # Draw the actual points
-    plt.scatter(d.X_train, d.y_train)
-
-    plt.title(output_filename[:-4], fontsize=7)
-    plt.show()
-
-
-def save_dataset(d, output_filename):
-    """Save a Dataset's train and test sets to CSV."""
-
-    regression_data_path = resource_filename("dsr.task", "regression/data/")
-    output_filename = os.path.join(regression_data_path, output_filename)
-    Xs = [d.X_train, d.X_test]
-    ys = [d.y_train, d.y_test]
-    output_filenames = [output_filename, output_filename[:-4] + "_test.csv"]
-    for X, y, output_filename in zip(Xs, ys, output_filenames):
-        print("Saving to {}".format(output_filename))
-        y = np.reshape(y, (y.shape[0],1))
-        XY = np.concatenate((X,y), axis=1)
-        pd.DataFrame(XY).to_csv(output_filename, header=None, index=False)
+            # Draw ground truth expression
+            bounds = list(list(self.train_spec.values())[0].values())[0][:2]
+            x = np.linspace(bounds[0], bounds[1], endpoint=True, num=100)
+            y = self.numpy_expr(x[:, None])
+            plt.plot(x, y, color='red', linestyle='dashed')
+            # Draw the actual points
+            plt.scatter(self.X_train, self.y_train)
+            # Add a title
+            plt.title(
+                "{} N:{} M:{} S:{}".format(
+                    self.name, self.noise, self.dataset_size_multiplier, self.seed),
+                fontsize=7)
+            try:
+                os.makedirs(logdir, exist_ok=True)
+                plt.savefig(save_path)
+                print('Saved plot to                  : {}'.format(save_path))
+            except:
+                import sys
+                e = sys.exc_info()[0]
+                print("WARNING: Could not plot dataset: {}".format(e))
+            plt.close()
+        else:
+            print("WARNING: Plotting only supported for 2D datasets.")
 
 
 @click.command()
-@click.argument("file", default="benchmarks.csv")
+@click.argument("benchmark_source", default="benchmarks.csv")
 @click.option('--plot', is_flag=True)
 @click.option('--save_csv', is_flag=True)
 @click.option('--sweep', is_flag=True)
@@ -231,6 +234,7 @@ def main(benchmark_source, plot, save_csv, sweep):
 
     regression_path = resource_filename("dsr.task", "regression/")
     benchmark_path = os.path.join(regression_path, benchmark_source)
+    save_dir = os.path.join(regression_path, 'log')
     df = pd.read_csv(benchmark_path, encoding="ISO-8859-1")
     names = df["name"].to_list()
     for name in names:
@@ -239,15 +243,12 @@ def main(benchmark_source, plot, save_csv, sweep):
             continue
 
         datasets = []
-        output_filenames = []
 
         # Noiseless
-        d = BenchmarkDataset(name=name,
-                             benchmark_source=benchmark_source,
-                             noise=None)
+        d = BenchmarkDataset(
+            name=name,
+            benchmark_source=benchmark_source)
         datasets.append(d)
-        output_filename = "{}.csv".format(name)
-        output_filenames.append(output_filename)
 
         # Generate all combinations of noise levels and dataset size multipliers
         if sweep and name.startswith("Nguyen"):
@@ -255,19 +256,19 @@ def main(benchmark_source, plot, save_csv, sweep):
             dataset_size_multipliers = [1.0, 10.0]
             for noise in noises:
                 for dataset_size_multiplier in dataset_size_multipliers:
-                    d = Dataset(name=name,
-                                benchmark_source=benchmark_source,
-                                noise=noise,
-                                dataset_size_multiplier=dataset_size_multiplier)
+                    d = BenchmarkDataset(
+                        name=name,
+                        benchmark_source=benchmark_source,
+                        noise=noise,
+                        dataset_size_multiplier=dataset_size_multiplier,
+                        backup=save_csv,
+                        logdir=save_dir)
                     datasets.append(d)
-                    output_filename = "{}_n{:.2f}_d{:.0f}.csv".format(name, noise, dataset_size_multiplier)
-                    output_filenames.append(output_filename)
+
         # Plot and/or save datasets
-        for d, output_filename in zip(datasets, output_filenames):
-            if plot and d.X_train.shape[1] == 1:
-                plot_dataset(d, output_filename)
-            if save_csv:
-                save_dataset(d, output_filename)
+        for dataset in datasets:
+            if plot and dataset.X_train.shape[1] == 1:
+                dataset.plot(save_dir)
 
 if __name__ == "__main__":
     main()
