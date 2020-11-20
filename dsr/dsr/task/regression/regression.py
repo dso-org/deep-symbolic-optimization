@@ -1,14 +1,16 @@
 import numpy as np
+import pandas as pd
 
 import dsr
 from dsr.library import Library
 from dsr.functions import create_tokens
-from dsr.task.regression.dataset import Dataset
+from dsr.task.regression.dataset import BenchmarkDataset
 
 
-def make_regression_task(name, metric, metric_params, extra_metric_test,
-    extra_metric_test_params, dataset, reward_noise=0.0, reward_noise_type="r",
-    protected=False, threshold=1e-12, normalize_variance=False):
+def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
+    metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
+    reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
+    normalize_variance=False, protected=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-
@@ -16,7 +18,18 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
     Parameters
     ----------
-   
+    name : str or None
+        Name of regression benchmark, if using benchmark dataset.
+
+    function_set : list or None
+        List of allowable functions. If None, uses function_set according to
+        benchmark dataset.
+
+    dataset : dict, str, or tuple
+        If dict: .dataset.BenchmarkDataset kwargs.
+        If str: filename of dataset.
+        If tuple: (X, y) data
+
     metric : str
         Name of reward function metric to use.
 
@@ -28,9 +41,6 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
     extra_metric_test_params : list
         List of metric-specific parameters for extra test metric.
-
-    dataset : dict
-        Dict of .dataset.Dataset kwargs.
 
     reward_noise : float
         Noise level to use when computing reward.
@@ -55,18 +65,44 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
     task : Task
         Dynamically created Task object whose methods contains closures.
     """
-    
-    # Define closures for dataset and metric
-    dataset["name"] = name # TBD: Refactor to not have two instances of "name"
-    dataset = Dataset(**dataset)
-    X_train = dataset.X_train
-    y_train = dataset.y_train
-    X_test = dataset.X_test
-    y_test = dataset.y_test
-    y_train_noiseless = dataset.y_train_noiseless
-    y_test_noiseless = dataset.y_test_noiseless
-    var_y_test = np.var(dataset.y_test) # Save time by only computing this once
-    var_y_test_noiseless = np.var(dataset.y_test_noiseless) # Save time by only computing this once
+
+    X_test = y_test = y_test_noiseless = None
+
+    # Benchmark dataset config
+    if isinstance(dataset, dict):
+        dataset["name"] = name
+        benchmark = BenchmarkDataset(**dataset)
+        X_train = benchmark.X_train
+        y_train = benchmark.y_train
+        X_test = benchmark.X_test
+        y_test = benchmark.y_test
+        y_test_noiseless = benchmark.y_test_noiseless
+
+        # Unless specified, use the benchmark's default function_set
+        if function_set is None:
+            function_set = benchmark.function_set
+
+    # Dataset filename
+    elif isinstance(dataset, str):
+        df = pd.read_csv(dataset, header=None) # Assuming data file does not have header rows
+        X_train = df.values[:, :-1]
+        y_train = df.values[:, -1]
+
+    # sklearn-like (X, y) data
+    elif isinstance(dataset, tuple):
+        X_train = dataset[0]
+        y_train = dataset[1]
+
+    if X_test is None:
+        X_test = X_train
+        y_test = y_train
+        y_test_noiseless = y_test
+
+    # Save time by only computing these once
+    var_y_test = np.var(y_test)
+    var_y_test_noiseless = np.var(y_test_noiseless)
+
+    # Define closures for metric
     metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
     if extra_metric_test is not None:
         print("Setting extra test metric to {}.".format(extra_metric_test))
@@ -80,7 +116,6 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
             scale = reward_noise * y_rms_train
         elif reward_noise_type == "r":
             scale = reward_noise
-
 
     def reward(p):
 
@@ -159,8 +194,8 @@ def make_regression_task(name, metric, metric_params, extra_metric_test,
 
         return info
 
-    tokens = create_tokens(n_input_var=dataset.n_input_var,
-                           function_set=dataset.function_set,
+    tokens = create_tokens(n_input_var=X_train.shape[1],
+                           function_set=function_set,
                            protected=protected)
     library = Library(tokens)
 
