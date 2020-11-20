@@ -1,10 +1,9 @@
 import random
 import operator
-import importlib
 import copy
 import warnings
 from functools import partial, wraps
-from itertools import chain, compress
+from itertools import chain
 from collections import defaultdict
 from operator import attrgetter
 
@@ -12,17 +11,14 @@ from numba import jit, prange, int32, void # not yet used
 
 import numpy as np
 
-import sympy
-
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.const import make_const_optimizer
-from dsr.task.regression.dataset import Dataset
+from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
 from dsr.controller import parents_siblings
-from scipy.signal._max_len_seq import max_len_seq
 
 try:
-    from deap import gp 
+    from deap import gp
     from deap import base
     from deap import tools
     from deap import creator
@@ -33,8 +29,8 @@ except ImportError:
     tools       = None
     creator     = None
     algorithms  = None
-    
-    
+
+
 class GenWithRLIndividuals:
     """ Forces the generator to select a user provided member first, such as one
         created by RL. Then, when we run out, create them in the usual manner with DEAP.
@@ -76,9 +72,7 @@ def multi_mutate(individual, expr, pset):
     """ Randomly select one of four types of mutation with even odds for each.
     """
     v = np.random.randint(0,4)
-    
-    #v = 0
-    
+
     if v == 0:
         individual = gp.mutUniform(individual, expr, pset)
     elif v == 1:     
@@ -89,7 +83,6 @@ def multi_mutate(individual, expr, pset):
         individual = gp.mutShrink(individual)
         
     return individual
-        
 
 
 TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
@@ -192,10 +185,9 @@ def checkConstraint(max_length, min_length, max_depth):
 
     return decorator
 
-# library_length = program.L
 def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
         
-    priors = np.zeros((max_exp_length, Program.L), dtype=np.float32)
+    priors = np.zeros((max_exp_length, Program.library.L), dtype=np.float32)
     
     trig_descendant     = False
     const_tokens        = 0
@@ -205,48 +197,47 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
     
     for i,t in enumerate(tokens): 
         
-        dangling    += Program.arities[t] - 1
+        dangling    += Program.library.arities[t] - 1
         
         # check trig descendants
-        if t in Program.trig_tokens:
+        if t in Program.library.trig_tokens:
             trig_descendant = True
             trig_dangling   = 1
         elif trig_descendant:
-            priors[i, Program.trig_tokens] = -np.inf
-            if t in Program.binary_tokens:
+            priors[i, Program.library.trig_tokens] = -np.inf
+            if t in Program.library.binary_tokens:
                 trig_dangling += 1
-            elif t not in Program.unary_tokens:
+            elif t not in Program.library.unary_tokens:
                 trig_dangling -= 1
             if trig_dangling == 0:
                 trig_descendant = False
         
         '''
         if i < len(tokens) - 2:
-            if t in Program.binary_tokens:
-                if tokens[i+1] == Program.const_token:
-                    priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
+            if t in Program.library.binary_tokens:
+                if tokens[i+1] == Program.library.const_token:
+                    priors[i+2, Program.library.const_token] = -np.inf     # The second token cannot be const if the first is        
         '''
         if i < len(tokens) - 1:
             
-            if t in Program.inverse_tokens:
-                priors[i+offset, Program.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
+            if t in Program.library.inverse_tokens:
+                priors[i+offset, Program.library.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
             '''
-            if t in Program.unary_tokens:
-                priors[i+offset, Program.const_token] = -np.inf         # Cannot have const inside unary token
+            if t in Program.library.unary_tokens:
+                priors[i+offset, Program.library.const_token] = -np.inf         # Cannot have const inside unary token
             '''
-            '''
-            if t == Program.const_token:
+            if t == Program.library.const_token:
                 const_tokens += 1
                 if const_tokens >= max_const:
-                    priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
-            '''
+                    priors[i+offset:, Program.library.const_token] = -np.inf      # Cap the number of consts
+      
             if (i + 2) >= max_len // 2:
                 remaining   = max_len - (i + 1)
                 
                 if dangling >= remaining - 1:
-                    priors[i+offset, Program.binary_tokens] = -np.inf
+                    priors[i+offset, Program.library.binary_tokens] = -np.inf
                 elif dangling == remaining:
-                    priors[i+offset, Program.unary_tokens]  = -np.inf
+                    priors[i+offset, Program.library.unary_tokens]  = -np.inf
                     
     return priors
         
@@ -606,7 +597,7 @@ class GPController:
         '''
             
         config_dataset              = config_task["dataset"]
-        dataset                     = Dataset(**config_dataset)
+        dataset                     = BenchmarkDataset(**config_dataset)
                     
         const_params                = config_training['const_params']
         have_const                  = "const" in dataset.function_set       
@@ -860,7 +851,7 @@ def stringify_for_sympy(f):
 def get_top_program(halloffame, actions, max_const, max_len):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
-    max_tok                         = len(Program.library)
+    max_tok                         = Program.library.L
     deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
        
     deap_parent     = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
@@ -873,11 +864,11 @@ def get_top_program(halloffame, actions, max_const, max_len):
     deap_priors     = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len)
     
     for i in range(deap_expr_length-1):       
-        p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+        p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
         deap_parent[i+1]    = p
         deap_sibling[i+1]   = s
     
-    deap_parent[0]  = max_tok - len(Program.terminal_tokens)
+    deap_parent[0]  = max_tok - len(Program.library.terminal_tokens)
     deap_sibling[0] = max_tok
     
     deap_obs        = [np.expand_dims(deap_action,axis=0), np.expand_dims(deap_parent,axis=0), np.expand_dims(deap_sibling,axis=0)]
@@ -919,12 +910,12 @@ def get_top_n_programs(population, n, actions, max_const, max_len):
         
     population          = p_items    
 
-    max_tok             = len(Program.library)
+    max_tok             = Program.library.L
     
     deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
-    deap_priors         = np.empty((len(population),actions.shape[1], Program.L), dtype=np.int32)
+    deap_priors         = np.empty((len(population),actions.shape[1], Program.library.L), dtype=np.int32)
     deap_action[:,0]    = max_tok
     deap_program        = []
     
@@ -936,11 +927,11 @@ def get_top_n_programs(population, n, actions, max_const, max_len):
         deap_priors[i,]                 = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len)
         
         for j in range(deap_expr_length-1):       
-            p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+            p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
             deap_parent[i,j+1]      = p
             deap_sibling[i,j+1]     = s
     
-    deap_parent[:,0]    = max_tok - len(Program.terminal_tokens)
+    deap_parent[:,0]    = max_tok - len(Program.library.terminal_tokens)
     deap_sibling[:,0]   = max_tok
 
     deap_obs            = [deap_action, deap_parent, deap_sibling]
@@ -990,7 +981,7 @@ if __name__ == "__main__":
     
     config_dataset          = config_task["dataset"]
     config_dataset["name"]  = 'R1'
-    dataset                 = Dataset(**config_dataset)
+    dataset                 = BenchmarkDataset(**config_dataset)
 
     pset, const_opt         = create_primitive_set(dataset)
     hof                     = tools.HallOfFame(maxsize=1)                   # Create a Hall of Fame object
@@ -1003,5 +994,3 @@ if __name__ == "__main__":
     hof, logbook            = generic_train(toolbox, hof, algorithms)
     
     print(hof)
-
-    

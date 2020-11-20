@@ -6,6 +6,7 @@ from typing import Callable, List, Dict, Any
 from dsr.task.regression.regression import make_regression_task
 from dsr.task.control.control import make_control_task
 from dsr.program import Program
+from dsr.library import Library
 
 
 @dataclass(frozen=True)
@@ -24,11 +25,8 @@ class Task:
         specific evaluation metrics (primitives). Special optional key "success"
         is used for determining early stopping during training.
 
-    function_set : list
-        List of allowable functions (see functions.py for supported functions).
-
-    n_input_var : int
-        Number of input variables.
+    library : Library
+        Library of Tokens.
 
     stochastic : bool
         Whether the reward function of the task is stochastic.
@@ -40,8 +38,7 @@ class Task:
 
     reward_function: Callable[[Program], float]
     evaluate: Callable[[Program], float]
-    function_set: List[Any]
-    n_input_var: int
+    library: Library
     stochastic: bool
     extra_info: Dict[str, Any]
 
@@ -75,19 +72,18 @@ def make_task(task_type, **config_task):
         "regression" : make_regression_task,
         "control" : make_control_task
     }
-    
+
     task = task_dict[task_type](**config_task)
     return task
 
 
 def set_task(config_task):
-    """Helper function to make set the Program class Task, execute function,
-    and library from task config."""
+    """Helper function to make set the Program class Task and execute function
+    from task config."""
 
     # Use of protected functions is the same for all tasks, so it's handled separately
-    protected = config_task.pop("protected") if "protected" in config_task else False
+    protected = config_task["protected"] if "protected" in config_task else False
 
     Program.set_execute(protected)
     task = make_task(**config_task)
     Program.set_task(task)
-    Program.set_library(task.function_set, task.n_input_var, protected)
