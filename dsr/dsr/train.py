@@ -1,23 +1,18 @@
 """Defines main training loop for deep symbolic regression."""
 
 import os
-import sys
-import json
 import multiprocessing
 from itertools import compress
 from datetime import datetime
-from textwrap import indent
 from collections import defaultdict
 
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 
-from dsr.controller import Controller
 from dsr.program import Program, from_tokens
 from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
 from dsr.memory import Batch, make_queue
-from dsr.language_model import LanguageModelPrior
 from dsr.variance import quantile_variance
 
 try:
@@ -788,42 +783,3 @@ def learn(sess, controller, pool, gp_controller,
         })
         
     return result
-
-# TBD: Should add a test instead of a main function
-def main():
-    """
-    Loads the config file, creates the task and controller, and starts the
-    training loop.
-    """
-
-    # Load the config file
-    config_filename = 'config.json'
-    with open(config_filename, encoding='utf-8') as f:
-        config = json.load(f)
-
-    config_task = config["task"]                # Task specification hyperparameters
-    config_training = config["training"]        # Training hyperparameters
-    config_controller = config["controller"]    # Controller hyperparameters
-    config_language_model_prior = config["language_model_prior"]            # Language model hyperparameters
-
-    # Define the task
-    from dsr.task import set_task
-    task = make_task(**config_task)
-    Program.set_task(task)
-    Program.set_library(task.function_set, task.n_input_var)
-    Program.set_execute()
-
-    with tf.Session() as sess:
-        # Instantiate the controller
-        language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
-        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
-        learn(sess, controller, **config_training)
-
-
-if __name__ == "__main__":
-
-    if len(sys.argv) > 1 and int(sys.argv[1]) == 1:
-        import cProfile
-        cProfile.run('main()', sort='cumtime')
-    else:
-        main()
