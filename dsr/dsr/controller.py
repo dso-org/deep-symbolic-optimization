@@ -50,6 +50,9 @@ class Controller(object):
     sess : tf.Session
         TenorFlow Session object.
 
+    prior : dsr.prior.JointPrior
+        JointPrior object used to adjust probabilities during sampling.
+
     summary : bool
         Write tensorboard summaries?
 
@@ -91,50 +94,6 @@ class Controller(object):
     observe_sibling : bool
         Observe sibling token?
 
-    constrain_const : bool
-        Prevent constants with unary parents or constant siblings?
-
-    constrain_trig : bool
-        Prevent trig functions with trig function ancestors?
-
-    constrain_inv : bool
-        Prevent unary function with inverse unary function parent?
-
-    constrain_min_len : bool
-        Prevent terminals that would cause the expression to be shorter than
-        min_length? If False, only trivial expressions (length 1) are prevented.
-
-    constrain_max_len : bool
-        Prevent unary/binary functions that would cause the expression to exceed
-        max_length? If False, sampling ends after max_length and dangling nodes
-        are filled in with x1's.
-
-    constrain_num_const : bool
-        Prevent constants that would exceed max_const?
-
-    constrain_float : bool
-        Prevent expressions without any input variables (i.e. expressions whose
-        terminals are only hard-coded constants or the const token)?
-
-    min_length : int (>= 1) or None
-        Minimum length of a sampled traversal when constrain_min_len=True. If
-        None or constrain_min_len=False, expressions have no minimum length.
-
-    max_length : int (>= 3)
-        Maximum length of a sampled traversal.
-
-    max_const : int (>= 1) or None
-        Maximum number of constants of a sampled traversal when
-        constrain_num_const=True. If None or constrain_num_const=False,
-        expressions may have any number of constants.
-
-    use_language_model_prior : bool
-        Use loaded mathematical language model as prior?
-        If language_model_prior is None, it will be ignored.
-
-    language_model_prior: LanguageModelPrior object or None
-        Loaded mathematical language model to get prior.
-
     use_old_entropy : bool
         Use old entropy.
 
@@ -170,7 +129,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, debug=0, summary=True,
+    def __init__(self, sess, prior, debug=0, summary=True,
                  # Architecture hyperparameter
                  # RNN cell hyperparameters
                  cell='lstm',
@@ -187,20 +146,6 @@ class Controller(object):
                  observe_action=True,
                  observe_parent=True,
                  observe_sibling=True,
-                 # Constraint hyperparameters
-                 constrain_const=True,
-                 constrain_trig=True,
-                 constrain_inv=True,
-                 constrain_min_len=True,
-                 constrain_max_len=True,
-                 constrain_num_const=False,
-                 constrain_float=False,
-                 min_length=2,
-                 max_length=30,
-                 max_const=None,
-                 # Language model hyperparameters
-                 use_language_model_prior=False,
-                 language_model_prior=None,
                  # Loss hyperparameters
                  use_old_entropy=False,
                  entropy_weight=0.0,
@@ -217,26 +162,18 @@ class Controller(object):
                  pqt_use_pg=False):
 
         self.sess = sess
+        self.prior = prior
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
         lib = Program.library
 
+        # FIX
+        max_length = self.max_length = 30
+
         # Hyperparameters
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.constrain_const = constrain_const and "const" in lib.names
-        self.constrain_trig = constrain_trig
-        self.constrain_inv = constrain_inv
-        self.constrain_min_len = constrain_min_len
-        self.constrain_max_len = constrain_max_len
-        self.constrain_num_const = constrain_num_const
-        self.constrain_float = constrain_float
-        self.min_length = min_length
-        self.max_length = max_length
-        self.max_const = max_const
-        self.use_language_model_prior = use_language_model_prior
-        self.language_model_prior=language_model_prior
         self.use_old_entropy = use_old_entropy
         self.entropy_weight = entropy_weight
         self.ppo = ppo
@@ -254,44 +191,45 @@ class Controller(object):
 
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
-        assert max_length >= 3, "Must have max length at least 3."
 
-        if min_length is None:
-            assert not constrain_min_len, "Cannot constrain min length when min_length=None"
-        else:
-            assert min_length >= 1, "Must have min length at least 1."
-            assert max_length >= min_length, "Min length cannot exceed max length."
-            if not constrain_min_len:
-                print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
-                self.min_length = None
+        # assert max_length >= 3, "Must have max length at least 3."
 
-        if constrain_const and lib.const_token is None:
-            print("Warning: constrain_const=True will have no effect because there is no constant token.")
-            self.constrain_const = False
+        # if min_length is None:
+        #     assert not constrain_min_len, "Cannot constrain min length when min_length=None"
+        # else:
+        #     assert min_length >= 1, "Must have min length at least 1."
+        #     assert max_length >= min_length, "Min length cannot exceed max length."
+        #     if not constrain_min_len:
+        #         print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
+        #         self.min_length = None
 
-        if constrain_float and len(lib.float_tokens) == 0:
-            print("Warning: constrain_float=True will have no effect because there are no constant tokens.")
-            self.constrain_float = False
+        # if constrain_const and Program.const_token is None:
+        #     print("Warning: constrain_const=True will have no effect because there is no constant token.")
+        #     self.constrain_const = False
 
-        if max_const is None:
-            assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
-        else:
-            assert max_const >= 1, "Must have max num const at least 1."
-            if lib.const_token is None:
-                print("Warning: max_const={} will have no effect because there is no constant token.".format(max_const))
-                self.constrain_num_const = False
-                self.max_const = None
-            elif not constrain_num_const:
-                print("Warning: max_const={} will not be respected because constrain_num_const=False. Overriding to None.".format(max_const))
-                self.max_const = None
+        # if constrain_float and len(Program.float_tokens) == 0:
+        #     print("Warning: constrain_float=True will have no effect because there are no hard-coded constant tokens.")
+        #     self.constrain_float = False
+
+        # if max_const is None:
+        #     assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
+        # else:
+        #     assert max_const >= 1, "Must have max num const at least 1."
+        #     if Program.const_token is None:
+        #         print("Warning: max_const={} will have no effect because there is no constant token.".format(max_const))
+        #         self.constrain_num_const = False
+        #         self.max_const = None
+        #     elif not constrain_num_const:
+        #         print("Warning: max_const={} will not be respected because constrain_num_const=False. Overriding to None.".format(max_const))
+        #         self.max_const = None
 
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
-                                             self.constrain_const])
+                                             self.prior.requires_parents_siblings])
 
-        if self.use_language_model_prior and language_model_prior is None:
-            print("Warning: use_language_model_prior=True will be ignored because LanguageModelPrior is not configured (null).")
-            self.use_language_model_prior = False
+        # if self.use_language_model_prior and language_model_prior is None:
+        #     print("Warning: use_language_model_prior=True will be ignored because LanguageModelPrior is not configured (null).")
+        #     self.use_language_model_prior = False
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -342,15 +280,19 @@ class Controller(object):
                 obs = tf.broadcast_to(obs, [self.batch_size])
                 initial_obs += (obs,)            
 
-            # Define prior on logits; currently only used to apply hard constraints
-            arities = np.array([lib.arities[i] for i in range(n_choices)])
-            prior = np.zeros(n_choices, dtype=np.float32)
-            if self.min_length is not None and self.min_length > 1:
-                prior[arities == 0] = -np.inf
-            prior = tf.constant(prior, dtype=tf.float32)
+            # Get initial prior
+            initial_prior = np.zeros(n_choices, dtype=np.float32)
+            initial_prior = tf.constant(initial_prior, dtype=tf.float32)
             prior_dims = tf.stack([self.batch_size, n_choices])
-            prior = tf.broadcast_to(prior, prior_dims)
-            initial_prior = prior
+            initial_prior = tf.broadcast_to(initial_prior, prior_dims)
+            # arities = np.array([Program.arities[i] for i in range(n_choices)])
+            # prior = np.zeros(n_choices, dtype=np.float32)
+            # if self.min_length is not None and self.min_length > 1:
+            #     prior[arities == 0] = -np.inf
+            # prior = tf.constant(prior, dtype=tf.float32)
+            # prior_dims = tf.stack([self.batch_size, n_choices])
+            # prior = tf.broadcast_to(prior, prior_dims)
+            # initial_prior = prior
 
 
             # Returns concatenated one-hot or embeddings from observation tokens
@@ -386,8 +328,6 @@ class Controller(object):
                 i = actions.shape[1] - 1 # Current index
                 action = actions[:, -1] # Current action
 
-                prior = np.zeros((n, lib.L), dtype=np.float32)
-
                 # Depending on the constraints, may need to compute parents and siblings
                 if self.compute_parents_siblings:
                     parent, sibling = parents_siblings(actions, arities=lib.arities, parent_adjust=lib.parent_adjust)
@@ -398,58 +338,60 @@ class Controller(object):
                 # Update dangling with (arity - 1) for each element in action
                 dangling += lib.arities[action] - 1
 
-                # Constrain unary of constant or binary of two constants
-                if self.constrain_const:
-                    # Use action instead of parent here because it's really adj_parent
-                    constraints = np.isin(action, lib.unary_tokens) # Unary action (or unary parent)
-                    constraints += sibling == lib.const_token # Constant sibling
-                    prior += make_prior(constraints, [lib.const_token], lib.L)
+                prior = self.prior(actions, parent, sibling, dangling)
+
+                # # Constrain unary of constant or binary of two constants
+                # if self.constrain_const:
+                #     # Use action instead of parent here because it's really adj_parent
+                #     constraints = np.isin(action, Program.unary_tokens) # Unary action (or unary parent)
+                #     constraints += sibling == Program.const_token # Constant sibling
+                #     prior += make_prior(constraints, [Program.const_token], Program.L)
                 
-                # Constrain trig function with trig function ancestor
-                if self.constrain_trig:
-                    constraints = trig_ancestors(actions, lib.arities, lib.trig_tokens)
-                    prior += make_prior(constraints, lib.trig_tokens, lib.L)
+                # # Constrain trig function with trig function ancestor
+                # if self.constrain_trig:
+                #     constraints = trig_ancestors(actions, Program.arities, Program.trig_tokens)
+                #     prior += make_prior(constraints, Program.trig_tokens, Program.L)
                 
-                # Constrain inverse unary operators
-                if self.constrain_inv:
-                    for p, c in lib.inverse_tokens.items():
-                        # No need to compute parents because only unary operators are constrained
-                        # by their inverse, and action == parent for all unary operators
-                        constraints = action == p
-                        prior += make_prior(constraints, [c], lib.L)
+                # # Constrain inverse unary operators
+                # if self.constrain_inv:
+                #     for p, c in Program.inverse_tokens.items():
+                #         # No need to compute parents because only unary operators are constrained
+                #         # by their inverse, and action == parent for all unary operators
+                #         constraints = action == p
+                #         prior += make_prior(constraints, [c], Program.L)
                 
-                # Constrain total number of constants
-                if self.constrain_num_const:
-                    constraints = np.sum(actions == lib.const_token, axis=1) == self.max_const
-                    prior += make_prior(constraints, [lib.const_token], lib.L)
+                # # Constrain total number of constants
+                # if self.constrain_num_const:
+                #     constraints = np.sum(actions == Program.const_token, axis=1) == self.max_const
+                #     prior += make_prior(constraints, [Program.const_token], Program.L)
 
-                # Constrain expressions without input variables
-                if self.constrain_float:
-                    # Constrain when:
-                    # 1) the expression would end if a terminal is chosen and
-                    # 2) there are no input variables
-                    constraints = (dangling == 1) & (np.sum(np.isin(actions, lib.var_tokens), axis=1) == 0)
-                    prior += make_prior(constraints, lib.float_tokens, lib.L)
+                # # Constrain expressions without input variables
+                # if self.constrain_float:
+                #     # Constrain when:
+                #     # 1) the expression would end if a terminal is chosen and
+                #     # 2) there are no input variables
+                #     constraints = (dangling == 1) & (np.sum(np.isin(actions, Program.var_tokens), axis=1) == 0)
+                #     prior += make_prior(constraints, Program.float_tokens, Program.L)
 
-                # Constrain maximum sequence length
-                # Never need to constrain max length for first half of expression
-                if self.constrain_max_len and (i + 2) >= self.max_length // 2:   
-                    remaining = self.max_length - (i + 1)
-                    assert sum(dangling > remaining) == 0, (dangling, remaining)
-                    constraints = dangling >= remaining - 1 # Constrain binary
-                    prior += make_prior(constraints, lib.binary_tokens, lib.L)
-                    constraints = dangling == remaining # Constrain unary
-                    prior += make_prior(constraints, lib.unary_tokens, lib.L)
+                # # Constrain maximum sequence length
+                # # Never need to constrain max length for first half of expression
+                # if self.constrain_max_len and (i + 2) >= self.max_length // 2:   
+                #     remaining = self.max_length - (i + 1)
+                #     assert sum(dangling > remaining) == 0, (dangling, remaining)
+                #     constraints = dangling >= remaining - 1 # Constrain binary
+                #     prior += make_prior(constraints, Program.binary_tokens, Program.L)
+                #     constraints = dangling == remaining # Constrain unary
+                #     prior += make_prior(constraints, Program.unary_tokens, Program.L)
 
-                # Constrain minimum sequence length
-                # Constrain terminals when dangling == 1 until selecting the (min_length)th token
-                if self.constrain_min_len and (i + 2) < self.min_length:
-                    constraints = dangling == 1 # Constrain terminals
-                    prior += make_prior(constraints, lib.terminal_tokens, lib.L)
+                # # Constrain minimum sequence length
+                # # Constrain terminals when dangling == 1 until selecting the (min_length)th token
+                # if self.constrain_min_len and (i + 2) < self.min_length:
+                #     constraints = dangling == 1 # Constrain terminals
+                #     prior += make_prior(constraints, Program.terminal_tokens, Program.L)
 
-                # Language Model prior
-                if self.use_language_model_prior and self.language_model_prior is not None:
-                    prior += self.language_model_prior.get_lm_prior(action)
+                # # Language Model prior
+                # if self.use_language_model_prior and self.language_model_prior is not None:
+                #     prior += self.language_model_prior.get_lm_prior(action)
 
                 return action, parent, sibling, prior, dangling
 
@@ -725,8 +667,8 @@ class Controller(object):
         """Sample batch of n expressions"""
         
         # initialize language_model_prior
-        if self.use_language_model_prior and self.language_model_prior is not None:
-            self.language_model_prior.next_state = None
+        # if self.use_language_model_prior and self.language_model_prior is not None:
+        #     self.language_model_prior.next_state = None
 
         feed_dict = {self.batch_size : n}
 

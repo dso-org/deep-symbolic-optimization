@@ -20,6 +20,8 @@
       "reward_noise_type" : "r",
       "normalize_variance" : false
    },
+   "prior": {
+   },
    "training": {
       "logdir": "./log",
         "n_epochs": null,
@@ -58,17 +60,6 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "constrain_const": true,
-      "constrain_trig": true,
-      "constrain_inv": true,
-      "constrain_min_len": true,
-      "constrain_max_len": true,
-      "constrain_num_const": false,
-      "constrain_float": false,
-      "use_language_model_prior": false,
-      "min_length": 4,
-      "max_length": 30,
-      "max_const": 3,
       "use_old_entropy": false,
       "entropy_weight": 0.005,
       "ppo": false,
