@@ -37,24 +37,30 @@ class DeepSymbolicOptimizer():
 
     def __init__(self, config=None):
         self.update_config(config)
+        self.sess = None
 
-    def train(self, seed=0):
+    def setup(self, seed=0):
 
         # Clear the cache, reset the compute graph, and set the seed
         Program.clear_cache()
         tf.reset_default_graph()
         self.seed(seed) # Must be called _after_ resetting graph
 
-        pool = self.make_pool()
-        sess = tf.Session()
-        controller = self.make_controller(sess)
-        gp_controller = self.make_gp_controller()
+        self.pool = self.make_pool()
+        self.sess = tf.Session()
+        self.controller = self.make_controller()
+        self.gp_controller = self.make_gp_controller()
+
+    def train(self, seed=0):
+
+        # Setup the model
+        self.setup(seed)
 
         # Train the model
-        result = learn(sess,
-                       controller,
-                       pool,
-                       gp_controller,
+        result = learn(self.sess,
+                       self.controller,
+                       self.pool,
+                       self.gp_controller,
                        **self.config_training)
         return result
 
@@ -84,8 +90,8 @@ class DeepSymbolicOptimizer():
 
         return seed_
 
-    def make_controller(self, sess):
-        controller = Controller(sess, **self.config_controller)
+    def make_controller(self):
+        controller = Controller(self.sess, **self.config_controller)
         return controller
 
     def make_gp_controller(self):
@@ -110,3 +116,15 @@ class DeepSymbolicOptimizer():
         set_task(self.config_task)
 
         return pool
+
+    def save(self, save_path):
+
+        saver = tf.train.Saver()
+        saver.save(self.sess, save_path)
+
+    def load(self, load_path):
+
+        if self.sess is None:
+            self.setup()
+        saver = tf.train.Saver()
+        saver.restore(self.sess, load_path)
