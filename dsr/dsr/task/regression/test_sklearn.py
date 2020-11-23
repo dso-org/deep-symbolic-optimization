@@ -1,16 +1,10 @@
+from pkg_resources import resource_filename
+
 import pytest
 import numpy as np
 
 from dsr import DeepSymbolicRegressor
-
-
-SEED = 0
-N_SAMPLES = 10
-BATCH_SIZE = 5
-CONFIG_TRAINING_OVERRIDE = {
-    "n_samples" : N_SAMPLES,
-    "batch_size" : BATCH_SIZE
-}
+from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 
 
 @pytest.fixture
@@ -18,9 +12,11 @@ def model():
     return DeepSymbolicRegressor()
 
 
-@pytest.mark.parametrize("config", ["../../config.json"])
+@pytest.mark.parametrize("config", ["config.json"])
 def test_task(model, config):
     """Test regression for various configs."""
+
+    config = resource_filename("dsr", config)
 
     # Generate some data
     np.random.seed(0)
