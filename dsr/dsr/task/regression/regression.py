@@ -98,6 +98,10 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
         y_test = y_train
         y_test_noiseless = y_test
 
+    if function_set is None:
+        print("WARNING: Function set not provided. Using default set.")
+        function_set = ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
+
     # Save time by only computing these once
     var_y_test = np.var(y_test)
     var_y_test_noiseless = np.var(y_test_noiseless)

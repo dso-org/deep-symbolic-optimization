@@ -65,6 +65,7 @@ def train_dsr(name_and_seed, config):
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
+    result.pop("program")
 
     return result
 

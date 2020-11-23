@@ -779,7 +779,8 @@ def learn(sess, controller, pool, gp_controller,
     result.update(p.evaluate)
     result.update({
         "expression" : repr(p.sympy_expr),
-        "traversal" : repr(p)
+        "traversal" : repr(p),
+        "program" : p
         })
         
     return result
