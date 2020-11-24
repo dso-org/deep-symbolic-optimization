@@ -146,3 +146,23 @@ class Library():
             i = val
 
         return self.tokens[i]
+
+    def tokenize(self, inputs):
+        """Convert inputs to list of Tokens."""
+
+        # TBD non-list should return non-list
+
+        if isinstance(inputs, str):
+            inputs = inputs.split(',')
+        elif not isinstance(inputs, list):
+            inputs = [inputs]
+        tokens = [input_ if isinstance(input_, Token) else self[input_] for input_ in inputs]
+        return tokens
+
+    def actionize(self, inputs):
+        """Convert inputs to list of 'actions', i.e. ints corresponding to
+        Tokens in the Library."""
+
+        tokens = self.tokenize(inputs)
+        actions = [self.tokens.index(t) for t in tokens]
+        return actions
