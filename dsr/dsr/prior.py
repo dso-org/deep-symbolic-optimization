@@ -10,7 +10,8 @@ def make_prior(library, config_prior):
         "length" : LengthConstraint,
         "child" : ChildConstraint,
         "descendant" : DescendantConstraint,
-        "repeat" : RepeatConstraint
+        "repeat" : RepeatConstraint,
+        "inverse" : InverseUnaryConstraint
     }
 
     priors = []
@@ -137,8 +138,8 @@ class DescendantConstraint(Constraint):
         """
 
         Prior.__init__(self, library)
-        self.descendants = descendants
-        self.ancestors = ancestors
+        self.descendants = library.actionize(descendants)
+        self.ancestors = library.actionize(ancestors)
 
     def __call__(self, actions, parent, sibling, dangling):
         raise NotImplementedError
@@ -153,22 +154,41 @@ class ChildConstraint(Constraint):
         Parameters
         ----------
         children : list of Tokens
-            C
+            Tokens which cannot be children of corresponding Tokens in parents.
+
+        parents : list of Tokens
+            Tokens which cannot be parents of corresponding Tokens in children.
         """
 
         Prior.__init__(self, library)
-        self.children = children
-        self.parents = parents
+        self.children = library.actionize(children)
+        self.parents = library.actionize(parents)
+        self.adj_parents = library.parent_adjust[parents]
+
+        assert [p.arity > 0 for p in library.tokenize(parents)], \
+            "Terminal Tokens cannot be parents."
 
     def __call__(self, actions, parent, sibling, dangling):
 
         prior = self.zeros(actions)
 
-        for c, p in zip(self.children, self.parents):
-            mask = parent == p
+        for c, adj_p in zip(self.children, self.adj_parents):
+            mask = parent == adj_p
             prior += self.make_constraint(mask, [c])
 
         return prior
+
+
+class InverseUnaryConstraint(ChildConstraint):
+    """Class that constrains unary Tokens from being the child of corresponding
+    inverse unary Tokens."""
+
+    def __init__(self, library):
+        parents = list(library.inverse_tokens.keys())
+        children = list(library.inverse_tokens.values())
+        ChildConstraint.__init__(self, library,
+                                 children=children,
+                                 parents=parents)
 
 
 class RepeatConstraint(Constraint):
@@ -250,13 +270,3 @@ class LengthConstraint(Constraint):
             prior += self.make_constraint(mask, self.library.terminal_tokens)
 
         return prior
-
-
-config_prior = {
-    # Constrain a trig function from being a descendant of another trig function
-    "descendant" : [["trig"],
-                    ["trig"]],
-
-    # Constrain children from being inverse unary operators of their parent
-    "child" : []
-}

@@ -21,7 +21,8 @@
       "normalize_variance" : false
    },
    "prior": {
-      "length" : {"min_" : 4, "max_" : 30}
+      "length" : {"min_" : 4, "max_" : 30},
+      "inverse" : {}
    },
    "training": {
       "logdir": "./log",
