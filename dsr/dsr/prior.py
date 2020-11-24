@@ -17,7 +17,7 @@ def make_prior(library, config_prior):
     for prior_type, prior_args in config_prior.items():
         assert prior_type in prior_dict, \
             "Unrecognized prior type: {}".format(prior_type)
-        prior = prior_dict[prior_type](*prior_args)
+        prior = prior_dict[prior_type](library, **prior_args)
         priors.append(prior)
 
     joint_prior = JointPrior(library, priors)
@@ -32,7 +32,7 @@ class JointPrior():
         Parameters
         ----------
         library : Library
-            The Library assocaited with the Priors.
+            The Library associated with the Priors.
 
         priors : list of Prior
             The individual Priors to be joined.
@@ -46,6 +46,12 @@ class JointPrior():
 
         # TBD: Determine
         self.requires_parents_siblings = True
+
+    def initial_prior(self):
+        combined_prior = np.zeros((self.L,), dtype=np.float32)
+        for prior in self.priors:
+            combined_prior += prior.initial_prior()
+        return combined_prior
 
     def __call__(self, actions, parent, sibling, dangling):
         zero_prior = np.zeros((actions.shape[0], self.L), dtype=np.float32)
@@ -70,6 +76,9 @@ class Prior():
         batch_size = actions.shape[0]
         prior = np.zeros((batch_size, self.L), dtype=np.float32)
         return prior
+
+    def initial_prior(self):
+        return np.zeros((self.L,), dtype=np.float32)
 
     def __call__(self, actions, parent, sibling, dangling):
         raise NotImplementedError
@@ -212,6 +221,12 @@ class LengthConstraint(Constraint):
         self.min = min_
         self.max = max_
 
+    def initial_prior(self):
+        prior = Prior.initial_prior(self)
+        for t in self.library.terminal_tokens:
+            prior[t] = -np.inf
+        return prior
+
     def __call__(self, actions, parent, sibling, dangling):
 
         # Initialize the prior
@@ -219,9 +234,9 @@ class LengthConstraint(Constraint):
         i = actions.shape[1] - 1 # Current time
 
         # Never need to constrain max length for first half of expression
-        if self.max_ is not None and (i + 2) >= self.max_ // 2:
-            remaining = self.max_ - (i + 1)
-            assert sum(dangling > remaining) == 0, (dangling, remaining)
+        if self.max is not None and (i + 2) >= self.max // 2:
+            remaining = self.max - (i + 1)
+            # assert sum(dangling > remaining) == 0, (dangling, remaining)
             # TBD: For loop over arities
             mask = dangling >= remaining - 1 # Constrain binary
             prior += self.make_constraint(mask, self.library.binary_tokens)
@@ -230,7 +245,7 @@ class LengthConstraint(Constraint):
 
         # Constrain terminals when dangling == 1 until selecting the
         # (min_length)th token
-        if self.min_ is not None and (i + 2) < self.min_:
+        if self.min is not None and (i + 2) < self.min:
             mask = dangling == 1 # Constrain terminals
             prior += self.make_constraint(mask, self.library.terminal_tokens)
 
