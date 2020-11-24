@@ -14,6 +14,21 @@ import numpy as np
 BATCH_SIZE = 1000
 
 
+def assert_invalid(model, cases):
+    batch = make_batch(model, cases)
+    logp = model.controller.compute_probs(batch, log=True)
+    print(batch)
+    assert all(np.isneginf(logp)), \
+        "Found invalid case with probability > 0."
+
+
+def assert_valid(model, cases):
+    batch = make_batch(model, cases)
+    logp = model.controller.compute_probs(batch, log=True)
+    assert all(logp > -np.inf), \
+        "Found valid case with probability 0."
+
+
 def make_sequence(model, L):
     """Utility function to generate a sequence of length L"""
     X = Program.library.input_tokens[0]
@@ -39,7 +54,11 @@ def make_batch(model, cases):
 
     batch_size = len(cases)
     L = model.controller.max_length
+
+    # Pad actions to maximum length
     actions = np.array([a + [0] * (L - len(a)) for a in cases], dtype=np.int32)
+
+    # Initialize obs
     prev_actions = np.zeros_like(actions)
     parents = np.zeros_like(actions)
     siblings = np.zeros_like(actions)
@@ -87,6 +106,50 @@ def make_batch(model, cases):
     rewards = np.zeros(batch_size, dtype=np.float32)
     batch = Batch(actions, obs, priors, lengths, rewards)
     return batch
+
+
+def test_child(model):
+
+    library = Program.library
+    parents = library.actionize("log,exp,mul")
+    children = library.actionize("exp,log,sin")
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["child"] = {"children" : children, "parents" : parents}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    # For each parent-child pair, generate invalid cases where child is one of
+    # parent's children.
+    X = Program.library.input_tokens[0]
+    assert X not in children, \
+        "Error in test case specification. Do not include x1 in children."
+    invalid_cases = []
+    for p, c in zip(parents, children):
+        arity = library.tokenize(p)[0].arity
+        for i in range(arity):
+            before = i
+            after = arity - i - 1
+            case = [p] + [X] * before + [c] + [X] * after
+            invalid_cases.append(case)
+    assert_invalid(model, invalid_cases)
+
+
+def test_inverse(model):
+
+    library = Program.library
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["inverse"] = {}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    # Generate invalid cases for each inverse
+    invalid_cases = []
+    invalid_cases.append(library.actionize("mul,sin,x1,exp,log,x1"))
+    for t1, t2 in library.inverse_tokens.items():
+        invalid_cases.append([t1, t2])
+        invalid_cases.append([t2, t1])
+    assert_invalid(model, invalid_cases)
 
 
 @pytest.mark.parametrize("minmax", [(10, 10), (4, 30), (None, 10), (10, None)])
@@ -142,12 +205,5 @@ def test_length(model, minmax):
         case = make_sequence(model, max_)
         valid_cases.append(case)
 
-    valid_batch = make_batch(model, valid_cases)
-    valid_logps = model.controller.compute_probs(valid_batch, log=True)
-    assert all(valid_logps > -np.inf), \
-        "Found valid case with probability 0."
-
-    invalid_batch = make_batch(model, invalid_cases)
-    invalid_logps = model.controller.compute_probs(invalid_batch, log=True)
-    assert all(np.isneginf(invalid_logps)), \
-        "Found invalid case with probability > 0."
+    assert_valid(model, valid_cases)
+    assert_invalid(model, invalid_cases)
