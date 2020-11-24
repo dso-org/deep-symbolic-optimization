@@ -2,10 +2,10 @@
 
 import tensorflow as tf
 import numpy as np
-from numba import jit, prange
 
 from dsr.program import Program
 from dsr.memory import Batch
+from dsr.subroutines import parents_siblings
 
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
@@ -741,150 +741,35 @@ class Controller(object):
         return summaries
 
 
-def make_prior(constraints, constraint_tokens, library_length):
-    """
-    Given a batch of constraints and the corresponding tokens to be constrained,
-    returns a prior that is added to the logits when sampling the next action.
+# def make_prior(constraints, constraint_tokens, library_length):
+#     """
+#     Given a batch of constraints and the corresponding tokens to be constrained,
+#     returns a prior that is added to the logits when sampling the next action.
 
-    For example, given library_length=5 and constraint_tokens=[1,2], a
-    constrained row of the prior will be: [0.0, -np.inf, -np.inf, 0.0, 0.0].
+#     For example, given library_length=5 and constraint_tokens=[1,2], a
+#     constrained row of the prior will be: [0.0, -np.inf, -np.inf, 0.0, 0.0].
 
-    Parameters
-    __________
+#     Parameters
+#     __________
 
-    constraints : np.ndarray, shape=(batch_size,), dtype=np.bool_
-        Batch of constraints.
+#     constraints : np.ndarray, shape=(batch_size,), dtype=np.bool_
+#         Batch of constraints.
 
-    constraint_tokens : np.ndarray, dtype=np.int32
-        Array of which tokens to constrain.
+#     constraint_tokens : np.ndarray, dtype=np.int32
+#         Array of which tokens to constrain.
 
-    library_length : int
-        Length of library.
+#     library_length : int
+#         Length of library.
 
-    Returns
-    _______
+#     Returns
+#     _______
 
-    prior : np.ndarray, shape=(batch_size, library_length), dtype=np.float32
-        Prior adjustment to logits given constraints. Since these are hard
-        constraints, ach element is either 0.0 or -np.inf.
-    """
+#     prior : np.ndarray, shape=(batch_size, library_length), dtype=np.float32
+#         Prior adjustment to logits given constraints. Since these are hard
+#         constraints, ach element is either 0.0 or -np.inf.
+#     """
 
-    prior = np.zeros((constraints.shape[0], library_length), dtype=np.float32)
-    for t in constraint_tokens:
-        prior[constraints == True, t] = -np.inf
-    return prior
-
-
-@jit(nopython=True, parallel=True)
-def trig_ancestors(tokens, arities, trig_tokens):
-    """
-    Given a batch of action sequences, determines whether the next element of
-    the sequence has an ancestor that is a trigonometric function.
-    
-    The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence. In some cases, expressions may
-    already be complete; in these cases, this function sees the start of a new
-    expression, even though the return value for these elements won't matter
-    because their gradients will be zero because of sequence_length.
-
-    Parameters
-    __________
-
-    tokens : np.ndarray, shape=(N, L), dtype=np.int32
-        Batch of action sequences. Values correspond to library indices.
-
-    arities : np.ndarray, dtype=np.int32
-        Array of arities corresponding to library indices.
-
-    trig_tokens : np.ndarray, dtype=np.int32
-        Array of tokens corresponding to trig functions.
-
-    Returns
-    _______
-
-    ancestors : np.ndarray, shape=(N,), dtype=np.bool_
-        Whether the next element of each sequence has a trig function ancestor.
-    """
-
-    N, L = tokens.shape
-    ancestors = np.zeros(shape=(N,), dtype=np.bool_)
-    # Parallelized loop over action sequences
-    for r in prange(N):
-        dangling = 0
-        threshold = None # If None, current branch does not have trig ancestor
-        for c in range(L):
-            arity = arities[tokens[r, c]]
-            dangling += arity - 1
-            # Turn "on" if a trig function is found
-            # Remain "on" until branch completes
-            if threshold is None:
-                for trig_token in trig_tokens:
-                    if tokens[r, c] == trig_token:
-                        threshold = dangling - 1
-                        break
-            # Turn "off" once the branch completes
-            else:                
-                if dangling == threshold:
-                    threshold = None
-        # If the sequences ended "on", then there is a trig ancestor
-        if threshold is not None:
-            ancestors[r] = True
-    return ancestors
-
-
-@jit(nopython=True, parallel=True)
-def parents_siblings(tokens, arities, parent_adjust):
-    """
-    Given a batch of action sequences, computes and returns the parents and
-    siblings of the next element of the sequence.
-
-    The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence. In some cases, expressions may
-    already be complete; in these cases, this function sees the start of a new
-    expression, even though the return value for these elements won't matter
-    because their gradients will be zero because of sequence_length.
-
-    Parameters
-    __________
-
-    tokens : np.ndarray, shape=(N, L), dtype=np.int32
-        Batch of action sequences. Values correspond to library indices.
-
-    arities : np.ndarray, dtype=np.int32
-        Array of arities corresponding to library indices.
-
-    parent_adjust : np.ndarray, dtype=np.int32
-        Array of parent sub-library index corresponding to library indices.
-
-    Returns
-    _______
-
-    adj_parents : np.ndarray, shape=(N,), dtype=np.int32
-        Adjusted parents of the next element of each action sequence.
-
-    siblings : np.ndarray, shape=(N,), dtype=np.int32
-        Siblings of the next element of each action sequence.
-
-    """
-    N, L = tokens.shape
-    
-    empty_parent = np.max(parent_adjust) + 1 # Empty token is after all non-empty tokens
-    empty_sibling = len(arities) # Empty token is after all non-empty tokens
-    adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
-    siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)
-    # Parallelized loop over action sequences
-    for r in prange(N):
-        arity = arities[tokens[r, -1]]
-        if arity > 0: # Parent is the previous element; no sibling
-            adj_parents[r] = parent_adjust[tokens[r, -1]]
-            continue
-        dangling = 0
-        # Loop over elements in an action sequence
-        for c in range(L):
-            arity = arities[tokens[r, L - c - 1]]
-            dangling += arity - 1
-            if dangling == 0: # Parent is L-c-1, sibling is the next
-                adj_parents[r] = parent_adjust[tokens[r, L - c - 1]]
-                siblings[r] = tokens[r, L - c]
-                break
-    return adj_parents, siblings
+#     prior = np.zeros((constraints.shape[0], library_length), dtype=np.float32)
+#     for t in constraint_tokens:
+#         prior[constraints == True, t] = -np.inf
+#     return prior
