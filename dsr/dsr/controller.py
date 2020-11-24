@@ -281,7 +281,7 @@ class Controller(object):
                 initial_obs += (obs,)            
 
             # Get initial prior
-            initial_prior = np.zeros(n_choices, dtype=np.float32)
+            initial_prior = self.prior.initial_prior()
             initial_prior = tf.constant(initial_prior, dtype=tf.float32)
             prior_dims = tf.stack([self.batch_size, n_choices])
             initial_prior = tf.broadcast_to(initial_prior, prior_dims)
@@ -570,6 +570,7 @@ class Controller(object):
         self.memory_batch_ph = make_batch_ph("memory_batch")
         memory_neglogp, _ = make_neglogp_and_entropy(self.memory_batch_ph)
         self.memory_probs = tf.exp(-memory_neglogp)
+        self.memory_logps = -memory_neglogp
 
         # PQT batch
         if pqt:
@@ -677,14 +678,18 @@ class Controller(object):
         return actions, obs, priors
 
 
-    def compute_probs(self, memory_batch):
+    def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
 
         feed_dict = {
             self.memory_batch_ph : memory_batch
         }
 
-        probs = self.sess.run([self.memory_probs], feed_dict=feed_dict)[0]
+        if log:
+            fetch = self.memory_logps
+        else:
+            fetch = self.memory_probs
+        probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
         return probs
 
 
