@@ -43,20 +43,21 @@ def make_sequence(model, L):
     return case
 
 
-def make_batch(model, cases):
+def make_batch(model, actions):
     """
-    Utility function to generate a Batch from cases.
+    Utility function to generate a Batch from (unfinished) actions.
 
     This uses essentially the same logic as controller.py's loop_fn, except
     actions are prescribed instead of samples. Is there a way to refactor these
     with less code reuse?
     """
 
-    batch_size = len(cases)
+    batch_size = len(actions)
     L = model.controller.max_length
 
     # Pad actions to maximum length
-    actions = np.array([a + [0] * (L - len(a)) for a in cases], dtype=np.int32)
+    actions = np.array([a + [0] * (L - len(a)) for a in actions],
+                       dtype=np.int32)
 
     # Initialize obs
     prev_actions = np.zeros_like(actions)
@@ -108,7 +109,87 @@ def make_batch(model, cases):
     return batch
 
 
+def test_descendant(model):
+    """Test cases for DescendantConstraint."""
+
+    descendants = "add,mul"
+    ancestors = "exp,log"
+
+    library = Program.library
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["descendant"] = {
+        "descendants" : descendants,
+        "ancestors" : ancestors
+    }
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    descendants = library.actionize(descendants)
+    ancestors = library.actionize(ancestors)
+
+    U = [i for i in library.unary_tokens
+         if i not in ancestors and i not in descendants][0]
+    B = [i for i in library.binary_tokens
+         if i not in ancestors and i not in descendants][0]
+
+    # For each D-A combination, generate invalid cases where A is an ancestor
+    # of D
+    invalid_cases = []
+    for A in ancestors:
+        for D in descendants:
+            invalid_cases.append([A, D])
+            invalid_cases.append([A] * 10 + [D])
+            invalid_cases.append([A] + [U, B] * 5 + [D])
+    assert_invalid(model, invalid_cases)
+
+    # For each D-A combination, generate valid cases where A is not an ancestor
+    # of D
+    valid_cases = []
+    for A in ancestors:
+        for D in descendants:
+            valid_cases.append([U, D])
+            valid_cases.append([D] + [U] * 10 + [A])
+    assert_valid(model, valid_cases)
+
+
+def test_trig(model):
+    """Test cases for TrigConstraint."""
+
+    library = Program.library
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["trig"] = {}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    X = library.input_tokens[0]
+    U = [i for i in library.unary_tokens
+         if i not in library.trig_tokens][0]
+    B = library.binary_tokens[0]
+
+    # For each trig-trig combination, generate invalid cases where one Token is
+    # a descendant the other
+    invalid_cases = []
+    trig_tokens = library.trig_tokens
+    for t1 in trig_tokens:
+        for t2 in trig_tokens:
+            invalid_cases.append([t1, t2, X]) # E.g. sin(cos(x))
+            invalid_cases.append([t1, B, X, t2, X]) # E.g. sin(x + cos(x))
+            invalid_cases.append([t1] + [U] * 10 + [t2, X])
+    assert_invalid(model, invalid_cases)
+
+    # For each trig-trig pair, generate valid cases where one Token is the
+    # sibling the other
+    valid_cases = []
+    for t1 in trig_tokens:
+        for t2 in trig_tokens:
+            valid_cases.append([B, U, t1, X, t2, X]) # E.g. log(sin(x)) + cos(x)
+            valid_cases.append([B, t1, X, t2, X]) # E.g. sin(x) + cos(x)
+            valid_cases.append([U] + valid_cases[-1]) # E.g. log(sin(x) + cos(x))
+    assert_valid(model, valid_cases)
+
+
 def test_child(model):
+    """Test cases for ChildConstraint."""
 
     library = Program.library
     parents = library.actionize("log,exp,mul")
@@ -121,7 +202,7 @@ def test_child(model):
 
     # For each parent-child pair, generate invalid cases where child is one of
     # parent's children.
-    X = Program.library.input_tokens[0]
+    X = library.input_tokens[0]
     assert X not in children, \
         "Error in test case specification. Do not include x1 in children."
     invalid_cases = []
@@ -136,6 +217,7 @@ def test_child(model):
 
 
 def test_inverse(model):
+    """Test cases for InverseConstraint."""
 
     library = Program.library
     model.config_prior = {} # Turn off all other Priors
@@ -145,7 +227,7 @@ def test_inverse(model):
 
     # Generate invalid cases for each inverse
     invalid_cases = []
-    invalid_cases.append(library.actionize("mul,sin,x1,exp,log,x1"))
+    invalid_cases.append(library.actionize("mul,sin,x1,exp,log,x1").tolist())
     for t1, t2 in library.inverse_tokens.items():
         invalid_cases.append([t1, t2])
         invalid_cases.append([t2, t1])
@@ -154,7 +236,7 @@ def test_inverse(model):
 
 @pytest.mark.parametrize("minmax", [(10, 10), (4, 30), (None, 10), (10, None)])
 def test_length(model, minmax):
-    """Test length constraints."""
+    """Test cases for LengthConstraint."""
 
     min_, max_ = minmax
     model.config_prior = {} # Turn off all other Priors
