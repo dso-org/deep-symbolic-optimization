@@ -158,16 +158,24 @@ class RelationalConstraint(Constraint):
             mask = ancestors(actions=actions,
                              arities=self.library.arities,
                              ancestor_tokens=self.effectors)
+            prior = self.make_constraint(mask, self.targets)
 
         elif self.relationship == "child":
             parents = self.effectors
             adj_parents = self.library.parent_adjust[parents]
             mask = np.isin(parent, adj_parents)
+            prior = self.make_constraint(mask, self.targets)
 
+        # The sibling relationship is reflexive: if A is a sibling of B, then B
+        # is also a sibling of A. Thus, we combine two priors, where targets
+        # and effectors are swapped.
         elif self.relationship == "sibling":
             mask = np.isin(sibling, self.effectors)
+            prior = self.make_constraint(mask, self.targets)
 
-        prior = self.make_constraint(mask, self.targets)
+            mask = np.isin(sibling, self.targets)
+            prior += self.make_constraint(mask, self.effectors)
+
         return prior
 
 
