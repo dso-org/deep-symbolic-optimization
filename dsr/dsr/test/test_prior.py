@@ -227,6 +227,37 @@ def test_child(model):
     assert_invalid(model, invalid_cases)
 
 
+def test_sibling(model):
+    """Test cases for sibling RelationalConstraint."""
+
+    library = Program.library
+    targets = library.actionize("sin,cos")
+    effectors = library.actionize("x1")
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["relational"] = {
+        "targets" : targets,
+        "effectors" : effectors,
+        "relationship" : "sibling"
+    }
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    # Generate valid test cases
+    valid_cases = []
+    valid_cases.append(library.actionize("mul,sin,x1,cos,x1").tolist())
+    valid_cases.append(library.actionize("sin,cos,x1").tolist())
+    valid_cases.append(library.actionize("add,add,sin,mul,x1,x1,cos,x1,x1").tolist())
+    assert_valid(model, valid_cases)
+
+    # Generate invalid test cases
+    invalid_cases = []
+    invalid_cases.append(library.actionize("add,x1,sin,x1").tolist())
+    invalid_cases.append(library.actionize("add,sin,x1,x1").tolist())
+    invalid_cases.append(library.actionize("add,add,sin,mul,x1,x1,x1,sin,x1").tolist())
+    assert_invalid(model, invalid_cases)
+
+
 def test_inverse(model):
     """Test cases for InverseConstraint."""
 
