@@ -2,7 +2,7 @@
 
 import pytest
 
-from dsr.test.test_core import model
+from dsr.core import DeepSymbolicOptimizer
 from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dsr.program import from_tokens, Program
 from dsr.memory import Batch
@@ -12,6 +12,11 @@ import numpy as np
 
 
 BATCH_SIZE = 1000
+
+
+@pytest.fixture
+def model():
+    return DeepSymbolicOptimizer("config.json")
 
 
 def assert_invalid(model, cases):
@@ -110,17 +115,19 @@ def make_batch(model, actions):
 
 
 def test_descendant(model):
-    """Test cases for DescendantConstraint."""
+    """Test cases for descendant RelationalConstraint."""
 
     descendants = "add,mul"
     ancestors = "exp,log"
 
     library = Program.library
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["descendant"] = {
-        "descendants" : descendants,
-        "ancestors" : ancestors
+    model.config_prior["relational"] = {
+        "targets" : descendants,
+        "effectors" : ancestors,
+        "relationship" : "descendant"
     }
+
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -189,14 +196,18 @@ def test_trig(model):
 
 
 def test_child(model):
-    """Test cases for ChildConstraint."""
+    """Test cases for child RelationalConstraint."""
 
     library = Program.library
     parents = library.actionize("log,exp,mul")
     children = library.actionize("exp,log,sin")
 
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["child"] = {"children" : children, "parents" : parents}
+    model.config_prior["relational"] = {
+        "targets" : children,
+        "effectors" : parents,
+        "relationship" : "child"
+    }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -224,6 +235,12 @@ def test_inverse(model):
     model.config_prior["inverse"] = {}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+
+    # Generate valid cases
+    valid_cases = []
+    valid_cases.append(library.actionize("exp,sin,log,cos,exp,x1").tolist())
+    valid_cases.append(library.actionize("mul,sin,log,x1,exp,cos,x1").tolist())
+    assert_valid(model, valid_cases)
 
     # Generate invalid cases for each inverse
     invalid_cases = []
