@@ -9,9 +9,8 @@ def make_prior(library, config_prior):
     """Factory function for JointPrior object."""
 
     prior_dict = {
+        "relational" : RelationalConstraint,
         "length" : LengthConstraint,
-        "child" : ChildConstraint,
-        "descendant" : DescendantConstraint,
         "repeat" : RepeatConstraint,
         "inverse" : InverseUnaryConstraint,
         "trig" : TrigConstraint
@@ -123,93 +122,97 @@ class Constraint(Prior):
         return prior
 
 
-class DescendantConstraint(Constraint):
-    """Class that constrains any tokens in descendants from being the
-    descendants of any tokens in ancestors"""
+class RelationalConstraint(Constraint):
+    """
+    Class that adds the following constraint:
 
-    def __init__(self, library, descendants, ancestors):
-        """
-        Parameters
-        ----------
-        descendants : list of Tokens
-            List of all Tokens to be constrained if they are the descendants
-            of any Token in ancestors.
+        Constrain (all of) `targets` from being the `relationship` of (any of)
+        `effectors`.
 
-        ancestors : list of Tokens
-            List of all Tokens that will constrain any Tokens in descendants
-            from being descendants.
-        """
+    Parameters
+    ----------
+    targets : list of Tokens
+        List of Tokens, all of which will be constrained if any of effectors
+        are the given relationship.
 
+    effectors : list of Tokens
+        List of Tokens, any of which will cause all constrained_tokens to be
+        constrained if they are the given relationship.
+
+    relationship : choice of ["child", "descendant", "sibling"]
+        The type of relationship to constrain.
+    """
+
+    def __init__(self, library, targets, effectors, relationship):
         Prior.__init__(self, library)
-        self.descendants = library.actionize(descendants)
-        self.ancestors = library.actionize(ancestors)
+        self.targets = library.actionize(targets)
+        self.effectors = library.actionize(effectors)
+        self.relationship = relationship
 
-        assert [p.arity > 0 for p in library.tokenize(ancestors)], \
-            "Terminal Tokens cannot be ancestors."
-
-    def __call__(self, actions, parent, sibling, dangling):
-        mask = ancestors(actions=actions,
-                         arities=self.library.arities,
-                         ancestor_tokens=self.ancestors)
-        prior = self.make_constraint(mask, self.descendants)
-        return prior
-
-
-class TrigConstraint(DescendantConstraint):
-    """Class that constrains trig Tokens from being the desendants of any
-    trig Tokens."""
-
-    def __init__(self, library):
-        ancestors = descendants = library.trig_tokens
-        DescendantConstraint.__init__(self, library,
-                                      ancestors=ancestors,
-                                      descendants=descendants)
-
-
-class ChildConstraint(Constraint):
-    """Class that pair-wise constrains each Token in children from being the
-    child of the corresponding Token in parents"""
-
-    def __init__(self, library, children, parents):
-        """
-        Parameters
-        ----------
-        children : list of Tokens
-            Tokens which cannot be children of corresponding Tokens in parents.
-
-        parents : list of Tokens
-            Tokens which cannot be parents of corresponding Tokens in children.
-        """
-
-        Prior.__init__(self, library)
-        self.children = library.actionize(children)
-        self.parents = library.actionize(parents)
-        self.adj_parents = library.parent_adjust[parents]
-
-        assert [p.arity > 0 for p in library.tokenize(parents)], \
-            "Terminal Tokens cannot be parents."
+        # TBD assertions
 
     def __call__(self, actions, parent, sibling, dangling):
 
-        prior = self.zeros(actions)
+        # The ancestors subroutine already loops over effectors
+        if self.relationship == "descendant":
+            mask = ancestors(actions=actions,
+                             arities=self.library.arities,
+                             ancestor_tokens=self.effectors)
 
-        for c, adj_p in zip(self.children, self.adj_parents):
-            mask = parent == adj_p
-            prior += self.make_constraint(mask, [c])
+        elif self.relationship == "child":
+            parents = self.effectors
+            adj_parents = self.library.parent_adjust[parents]
+            mask = np.isin(parent, adj_parents)
 
+        elif self.relationship == "sibling":
+            mask = np.isin(sibling, self.effectors)
+
+        prior = self.make_constraint(mask, self.targets)
         return prior
 
 
-class InverseUnaryConstraint(ChildConstraint):
-    """Class that constrains unary Tokens from being the child of corresponding
-    inverse unary Tokens."""
+class TrigConstraint(RelationalConstraint):
+    """Class that constrains trig Tokens from being the desendants of trig
+    Tokens."""
 
     def __init__(self, library):
-        parents = list(library.inverse_tokens.keys())
-        children = list(library.inverse_tokens.values())
-        ChildConstraint.__init__(self, library,
-                                 children=children,
-                                 parents=parents)
+        targets = library.trig_tokens
+        relationship = "descendant"
+        effectors = library.trig_tokens
+        RelationalConstraint.__init__(self, library,
+                                      targets=targets,
+                                      effectors=effectors,
+                                      relationship=relationship)
+
+
+class InverseUnaryConstraint(RelationalConstraint):
+    """Class that constrains each unary Token from being the child of its
+    corresponding inverse unary Tokens."""
+
+    def __init__(self, library):
+        Prior.__init__(self, library)
+        self.priors = []
+        for target, effector in library.inverse_tokens.items():
+            targets = [target]
+            effectors = [effector]
+            prior = RelationalConstraint(library,
+                                         targets=targets,
+                                         effectors=effectors,
+                                         relationship="child")
+            self.priors.append(prior)
+
+    def __call__(self, actions, parent, sibling, dangling):
+        prior = sum([prior(actions, parent, sibling, dangling)
+                     for prior in self.priors])
+        return prior
+
+        # targets = list(library.inverse_tokens.keys())
+        # relationship = "child"
+        # effectors = list(library.inverse_tokens.values())
+        # RelationalConstraint.__init__(self, library,
+        #                               targets=targets,
+        #                               effectors=effectors,
+        #                               relationship=relationship)
 
 
 class RepeatConstraint(Constraint):
