@@ -63,10 +63,10 @@ def parents_siblings(tokens, arities, parent_adjust):
 
 
 @jit(nopython=True, parallel=True)
-def trig_ancestors(tokens, arities, trig_tokens):
+def ancestors(actions, arities, ancestor_tokens):
     """
     Given a batch of action sequences, determines whether the next element of
-    the sequence has an ancestor that is a trigonometric function.
+    the sequence has an ancestor in ancestor_tokens.
 
     The batch has shape (N, L), where N is the number of sequences (i.e. batch
     size) and L is the length of each sequence. In some cases, expressions may
@@ -77,36 +77,37 @@ def trig_ancestors(tokens, arities, trig_tokens):
     Parameters
     __________
 
-    tokens : np.ndarray, shape=(N, L), dtype=np.int32
+    actions : np.ndarray, shape=(N, L), dtype=np.int32
         Batch of action sequences. Values correspond to library indices.
 
     arities : np.ndarray, dtype=np.int32
         Array of arities corresponding to library indices.
 
-    trig_tokens : np.ndarray, dtype=np.int32
-        Array of tokens corresponding to trig functions.
+    ancestor_tokens : np.ndarray, dtype=np.int32
+        Array of ancestor library indices to check.
 
     Returns
     _______
 
-    ancestors : np.ndarray, shape=(N,), dtype=np.bool_
-        Whether the next element of each sequence has a trig function ancestor.
+    mask : np.ndarray, shape=(N,), dtype=np.bool_
+        Mask of whether the next element of each sequence has an ancestor in
+        ancestor_tokens.
     """
 
-    N, L = tokens.shape
-    ancestors = np.zeros(shape=(N,), dtype=np.bool_)
+    N, L = actions.shape
+    mask = np.zeros(shape=(N,), dtype=np.bool_)
     # Parallelized loop over action sequences
     for r in prange(N):
         dangling = 0
         threshold = None # If None, current branch does not have trig ancestor
         for c in range(L):
-            arity = arities[tokens[r, c]]
+            arity = arities[actions[r, c]]
             dangling += arity - 1
             # Turn "on" if a trig function is found
             # Remain "on" until branch completes
             if threshold is None:
-                for trig_token in trig_tokens:
-                    if tokens[r, c] == trig_token:
+                for trig_token in ancestor_tokens:
+                    if actions[r, c] == trig_token:
                         threshold = dangling - 1
                         break
             # Turn "off" once the branch completes
@@ -115,5 +116,5 @@ def trig_ancestors(tokens, arities, trig_tokens):
                     threshold = None
         # If the sequences ended "on", then there is a trig ancestor
         if threshold is not None:
-            ancestors[r] = True
-    return ancestors
+            mask[r] = True
+    return mask

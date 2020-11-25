@@ -142,8 +142,10 @@ class Library():
 
         if isinstance(val, str):
             i = self.names.index(val)
-        else:
+        elif isinstance(val, (int, np.integer)):
             i = val
+        else:
+            raise ValueError("Library must be indexed by str or int, not {}.".format(type(val)))
 
         return self.tokens[i]
 
@@ -154,15 +156,16 @@ class Library():
 
         if isinstance(inputs, str):
             inputs = inputs.split(',')
-        elif not isinstance(inputs, list):
+        elif not isinstance(inputs, list) and not isinstance(inputs, np.ndarray): # TBD FIX HACK
             inputs = [inputs]
         tokens = [input_ if isinstance(input_, Token) else self[input_] for input_ in inputs]
         return tokens
 
     def actionize(self, inputs):
-        """Convert inputs to list of 'actions', i.e. ints corresponding to
+        """Convert inputs to array of 'actions', i.e. ints corresponding to
         Tokens in the Library."""
 
         tokens = self.tokenize(inputs)
-        actions = [self.tokens.index(t) for t in tokens]
+        actions = np.array([self.tokens.index(t) for t in tokens],
+                           dtype=np.int32)
         return actions

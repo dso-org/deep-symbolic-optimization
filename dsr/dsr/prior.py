@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from dsr.subroutines import ancestors
+
 
 def make_prior(library, config_prior):
     """Factory function for JointPrior object."""
@@ -11,7 +13,8 @@ def make_prior(library, config_prior):
         "child" : ChildConstraint,
         "descendant" : DescendantConstraint,
         "repeat" : RepeatConstraint,
-        "inverse" : InverseUnaryConstraint
+        "inverse" : InverseUnaryConstraint,
+        "trig" : TrigConstraint
     }
 
     priors = []
@@ -141,8 +144,26 @@ class DescendantConstraint(Constraint):
         self.descendants = library.actionize(descendants)
         self.ancestors = library.actionize(ancestors)
 
+        assert [p.arity > 0 for p in library.tokenize(ancestors)], \
+            "Terminal Tokens cannot be ancestors."
+
     def __call__(self, actions, parent, sibling, dangling):
-        raise NotImplementedError
+        mask = ancestors(actions=actions,
+                         arities=self.library.arities,
+                         ancestor_tokens=self.ancestors)
+        prior = self.make_constraint(mask, self.descendants)
+        return prior
+
+
+class TrigConstraint(DescendantConstraint):
+    """Class that constrains trig Tokens from being the desendants of any
+    trig Tokens."""
+
+    def __init__(self, library):
+        ancestors = descendants = library.trig_tokens
+        DescendantConstraint.__init__(self, library,
+                                      ancestors=ancestors,
+                                      descendants=descendants)
 
 
 class ChildConstraint(Constraint):
