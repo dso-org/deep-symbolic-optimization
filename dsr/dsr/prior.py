@@ -13,7 +13,8 @@ def make_prior(library, config_prior):
         "length" : LengthConstraint,
         "repeat" : RepeatConstraint,
         "inverse" : InverseUnaryConstraint,
-        "trig" : TrigConstraint
+        "trig" : TrigConstraint,
+        "const" : ConstConstraint
     }
 
     priors = []
@@ -219,12 +220,25 @@ class TrigConstraint(RelationalConstraint):
 
     def __init__(self, library):
         targets = library.trig_tokens
-        relationship = "descendant"
         effectors = library.trig_tokens
         RelationalConstraint.__init__(self, library,
                                       targets=targets,
                                       effectors=effectors,
-                                      relationship=relationship)
+                                      relationship="descendant")
+
+
+class ConstConstraint(RelationalConstraint):
+    """Class that constrains the const Token from being the only unique child
+    of all non-terminal Tokens."""
+
+    def __init__(self, library):
+        targets = library.const_token
+        effectors = np.concatenate([library.unary_tokens,
+                                    library.binary_tokens])
+        RelationalConstraint.__init__(self, library,
+                                      targets=targets,
+                                      effectors=effectors,
+                                      relationship="uchild")
 
 
 class InverseUnaryConstraint(Constraint):

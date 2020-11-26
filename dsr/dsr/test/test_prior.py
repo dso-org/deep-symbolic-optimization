@@ -259,6 +259,33 @@ def test_uchild(model):
     assert_invalid(model, invalid_cases)
 
 
+def test_const(model):
+    """Test cases for ConstConstraint."""
+
+    # This test case needs the const Token before creating the model
+    model.config["task"]["name"] = "Constant-1"
+    model.pool = model.make_pool() # Resets Program.task with new Task
+
+    library = Program.library
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["const"] = {}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    # Generate valid test cases
+    valid_cases = []
+    valid_cases.append(library.actionize("mul,const,x1").tolist())
+    valid_cases.append(library.actionize("sub,const,sub,const,x1").tolist())
+    assert_valid(model, valid_cases)
+
+    # Generate invalid test cases
+    invalid_cases = []
+    invalid_cases.append(library.actionize("sin,const").tolist())
+    invalid_cases.append(library.actionize("mul,const,const").tolist())
+    invalid_cases.append(library.actionize("sin,add,const,const").tolist())
+    assert_invalid(model, invalid_cases)
+
+
 def test_sibling(model):
     """Test cases for sibling RelationalConstraint."""
 
