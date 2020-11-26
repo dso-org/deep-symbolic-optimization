@@ -65,6 +65,12 @@ class JointPrior():
         # TBD: Status report if any samples have no choices
         return combined_prior
 
+    def describe(self):
+        print("-- Building prior -------------------")
+        message = "\n".join(prior.describe() for prior in self.priors)
+        print(message)
+        print("-------------------------------------")
+
 
 class Prior():
     """Abstract class whose call method return logits."""
@@ -85,6 +91,10 @@ class Prior():
 
     def __call__(self, actions, parent, sibling, dangling):
         raise NotImplementedError
+
+    def describe(self):
+        message = "No description."
+        return message
 
 
 class Constraint(Prior):
@@ -126,7 +136,7 @@ class RelationalConstraint(Constraint):
     """
     Class that adds the following constraint:
 
-        Constrain (all of) `targets` from being the `relationship` of (any of)
+        Constrain (any of) `targets` from being the `relationship` of (any of)
         `effectors`.
 
     Parameters
@@ -153,7 +163,6 @@ class RelationalConstraint(Constraint):
 
     def __call__(self, actions, parent, sibling, dangling):
 
-        # The ancestors subroutine already loops over effectors
         if self.relationship == "descendant":
             mask = ancestors(actions=actions,
                              arities=self.library.arities,
@@ -166,17 +175,42 @@ class RelationalConstraint(Constraint):
             mask = np.isin(parent, adj_parents)
             prior = self.make_constraint(mask, self.targets)
 
-        # The sibling relationship is reflexive: if A is a sibling of B, then B
-        # is also a sibling of A. Thus, we combine two priors, where targets
-        # and effectors are swapped.
         elif self.relationship == "sibling":
+            # The sibling relationship is reflexive: if A is a sibling of B,
+            # then B is also a sibling of A. Thus, we combine two priors, where
+            # targets and effectors are swapped.
             mask = np.isin(sibling, self.effectors)
             prior = self.make_constraint(mask, self.targets)
-
             mask = np.isin(sibling, self.targets)
             prior += self.make_constraint(mask, self.effectors)
 
+        elif self.relationship == "uchild":
+            # Case 1: parent is a unary effector
+            unary_effectors = np.intersect1d(self.effectors,
+                                             self.library.unary_tokens)
+            adj_unary_effectors = self.library.parent_adjust[unary_effectors]
+            mask = np.isin(parent, adj_unary_effectors)
+            # Case 2: sibling is a target and parent is an effector
+            adj_effectors = self.library.parent_adjust[self.effectors]
+            mask += np.logical_and(np.isin(sibling, self.targets),
+                                   np.isin(parent, adj_effectors))
+            prior = self.make_constraint(mask, [self.targets])
+
         return prior
+
+    def describe(self):
+
+        targets = ", ".join([self.library.names[t] for t in self.targets])
+        effectors = ", ".join([self.library.names[t] for t in self.effectors])
+        relationship = {
+            "child" : "a child",
+            "sibling" : "a sibling",
+            "descendant" : "a descendant",
+            "uchild" : "the only unique child"
+        }[self.relationship]
+        message = "[{}] cannot be {} of [{}]." \
+                  .format(targets, relationship, effectors)
+        return message
 
 
 class TrigConstraint(RelationalConstraint):
@@ -193,7 +227,7 @@ class TrigConstraint(RelationalConstraint):
                                       relationship=relationship)
 
 
-class InverseUnaryConstraint(RelationalConstraint):
+class InverseUnaryConstraint(Constraint):
     """Class that constrains each unary Token from being the child of its
     corresponding inverse unary Tokens."""
 
@@ -214,13 +248,9 @@ class InverseUnaryConstraint(RelationalConstraint):
                      for prior in self.priors])
         return prior
 
-        # targets = list(library.inverse_tokens.keys())
-        # relationship = "child"
-        # effectors = list(library.inverse_tokens.values())
-        # RelationalConstraint.__init__(self, library,
-        #                               targets=targets,
-        #                               effectors=effectors,
-        #                               relationship=relationship)
+    def describe(self):
+        message = [prior.describe() for prior in self.priors]
+        return "\n".join(message)
 
 
 class RepeatConstraint(Constraint):
@@ -302,3 +332,13 @@ class LengthConstraint(Constraint):
             prior += self.make_constraint(mask, self.library.terminal_tokens)
 
         return prior
+
+    def describe(self):
+        message = []
+        if self.min is not None:
+            message.append("Sequences have minimum length {}.".format(self.min))
+        if self.max is not None:
+            message.append("Sequences have maximum length {}.".format(self.max))
+        message = "\n".join(message)
+        return message
+        
