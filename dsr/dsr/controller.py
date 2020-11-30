@@ -690,6 +690,9 @@ class Controller(object):
             self.train_op = optimizer.apply_gradients(self.grads_and_vars)
             # The two lines above are equivalent to:
             # self.train_op = optimizer.minimize(self.loss)
+        with tf.name_scope("grad_norm"):
+            self.grads, _ = list(zip(*self.grads_and_vars))
+            self.norms = tf.global_norm(self.grads)
 
         if debug >= 1:
             total_parameters = 0
@@ -721,7 +724,10 @@ class Controller(object):
                 tf.summary.histogram("length", self.sampled_batch_ph.lengths)
                 for g, v in self.grads_and_vars:
                     tf.summary.histogram(v.name, v)
+                    tf.summary.scalar(v.name + '_norm', tf.norm(v))
                     tf.summary.histogram(v.name + '_grad', g)
+                    tf.summary.scalar(v.name + '_grad_norm', tf.norm(g))
+                tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
     def sample(self, n):
