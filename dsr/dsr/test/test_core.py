@@ -42,4 +42,6 @@ def test_model_parity(model, cached_results):
     model.train()
     results = model.sess.run(tf.trainable_variables())
 
-    np.testing.assert_equal(results, cached_results)
+    cached_results = np.concatenate([a.flatten() for a in cached_results])
+    results = np.concatenate([a.flatten() for a in results])
+    np.testing.assert_array_almost_equal(results, cached_results)
