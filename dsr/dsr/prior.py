@@ -3,6 +3,7 @@
 import numpy as np
 
 from dsr.subroutines import ancestors
+from dsr.library import TokenNotFoundError
 
 
 def make_prior(library, config_prior):
@@ -18,13 +19,26 @@ def make_prior(library, config_prior):
     }
 
     priors = []
+    warnings = []
     for prior_type, prior_args in config_prior.items():
         assert prior_type in prior_dict, \
-            "Unrecognized prior type: {}".format(prior_type)
-        prior = prior_dict[prior_type](library, **prior_args)
-        priors.append(prior)
+            "Unrecognized prior type: {}.".format(prior_type)
+        try:
+            prior_class = prior_dict[prior_type]
+            prior = prior_class(library, **prior_args)
+            priors.append(prior)
+        except TokenNotFoundError:
+            warning = "Prior '{}' with arguments {} uses tokens not in the " \
+                "Library; skipping.".format(prior_class.__name__, prior_args)
+            warnings.append(warning)
 
     joint_prior = JointPrior(library, priors)
+
+    print("-- Building prior -------------------")
+    print("\n".join(["WARNING: " + message for message in warnings]))
+    print(joint_prior.describe())
+    print("-------------------------------------")
+
     return joint_prior
 
 
@@ -48,8 +62,9 @@ class JointPrior():
         assert all([prior.library is library for prior in priors]), \
             "All Libraries must be identical."
 
-        # TBD: Determine
-        self.requires_parents_siblings = True
+        self.requires_parents_siblings = True # TBD: Determine
+
+        self.describe()
 
     def initial_prior(self):
         combined_prior = np.zeros((self.L,), dtype=np.float32)
@@ -67,10 +82,8 @@ class JointPrior():
         return combined_prior
 
     def describe(self):
-        print("-- Building prior -------------------")
         message = "\n".join(prior.describe() for prior in self.priors)
-        print(message)
-        print("-------------------------------------")
+        return message
 
 
 class Prior():
