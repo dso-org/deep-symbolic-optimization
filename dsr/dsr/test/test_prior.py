@@ -300,17 +300,17 @@ def test_uchild(model):
 
     # Generate valid test cases
     valid_cases = []
-    valid_cases.append(library.actionize("mul,x1,x1").tolist())
-    valid_cases.append(library.actionize("sub,x1,sub,x1,sub,x1,sin,x1").tolist())
-    valid_cases.append(library.actionize("sub,sub,sub,x1,sin,x1,x1").tolist())
-    valid_cases.append(library.actionize("sub,sin,x1,sin,x1").tolist())
+    valid_cases.append("mul,x1,x1")
+    valid_cases.append("sub,x1,sub,x1,sub,x1,sin,x1")
+    valid_cases.append("sub,sub,sub,x1,sin,x1,x1")
+    valid_cases.append("sub,sin,x1,sin,x1")
     assert_valid(model, valid_cases)
 
     # Generate invalid test cases
     invalid_cases = []
-    invalid_cases.append(library.actionize("add,sub,x1,x1,sin,x1").tolist())
-    invalid_cases.append(library.actionize("sin,sub,x1,x1").tolist())
-    invalid_cases.append(library.actionize("sub,sub,sub,x1,x1,x1").tolist())
+    invalid_cases.append("add,sub,x1,x1,sin,x1")
+    invalid_cases.append("sin,sub,x1,x1")
+    invalid_cases.append("sub,sub,sub,x1,x1,x1")
     assert_invalid(model, invalid_cases)
 
 
@@ -329,15 +329,15 @@ def test_const(model):
 
     # Generate valid test cases
     valid_cases = []
-    valid_cases.append(library.actionize("mul,const,x1").tolist())
-    valid_cases.append(library.actionize("sub,const,sub,const,x1").tolist())
+    valid_cases.append("mul,const,x1")
+    valid_cases.append("sub,const,sub,const,x1")
     assert_valid(model, valid_cases)
 
     # Generate invalid test cases
     invalid_cases = []
-    invalid_cases.append(library.actionize("sin,const").tolist())
-    invalid_cases.append(library.actionize("mul,const,const").tolist())
-    invalid_cases.append(library.actionize("sin,add,const,const").tolist())
+    invalid_cases.append("sin,const")
+    invalid_cases.append("mul,const,const")
+    invalid_cases.append("sin,add,const,const")
     assert_invalid(model, invalid_cases)
 
 
@@ -359,16 +359,16 @@ def test_sibling(model):
 
     # Generate valid test cases
     valid_cases = []
-    valid_cases.append(library.actionize("mul,sin,x1,cos,x1").tolist())
-    valid_cases.append(library.actionize("sin,cos,x1").tolist())
-    valid_cases.append(library.actionize("add,add,sin,mul,x1,x1,cos,x1,x1").tolist())
+    valid_cases.append("mul,sin,x1,cos,x1")
+    valid_cases.append("sin,cos,x1")
+    valid_cases.append("add,add,sin,mul,x1,x1,cos,x1,x1")
     assert_valid(model, valid_cases)
 
     # Generate invalid test cases
     invalid_cases = []
-    invalid_cases.append(library.actionize("add,x1,sin,x1").tolist())
-    invalid_cases.append(library.actionize("add,sin,x1,x1").tolist())
-    invalid_cases.append(library.actionize("add,add,sin,mul,x1,x1,x1,sin,x1").tolist())
+    invalid_cases.append("add,x1,sin,x1")
+    invalid_cases.append("add,sin,x1,x1")
+    invalid_cases.append("add,add,sin,mul,x1,x1,x1,sin,x1")
     assert_invalid(model, invalid_cases)
 
 
@@ -383,13 +383,13 @@ def test_inverse(model):
 
     # Generate valid cases
     valid_cases = []
-    valid_cases.append(library.actionize("exp,sin,log,cos,exp,x1").tolist())
-    valid_cases.append(library.actionize("mul,sin,log,x1,exp,cos,x1").tolist())
+    valid_cases.append("exp,sin,log,cos,exp,x1")
+    valid_cases.append("mul,sin,log,x1,exp,cos,x1")
     assert_valid(model, valid_cases)
 
     # Generate invalid cases for each inverse
     invalid_cases = []
-    invalid_cases.append(library.actionize("mul,sin,x1,exp,log,x1").tolist())
+    invalid_cases.append("mul,sin,x1,exp,log,x1")
     for t1, t2 in library.inverse_tokens.items():
         invalid_cases.append([t1, t2])
         invalid_cases.append([t2, t1])
