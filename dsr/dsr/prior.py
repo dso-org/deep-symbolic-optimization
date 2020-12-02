@@ -95,19 +95,41 @@ class Prior():
         self.L = library.L
 
     def zeros(self, actions):
-        """Helper function to generate the starting prior."""
+        """Helper function to generate a starting prior of zeros."""
 
         batch_size = actions.shape[0]
         prior = np.zeros((batch_size, self.L), dtype=np.float32)
         return prior
 
     def initial_prior(self):
+        """
+        Compute initial prior, before any actions are selected.
+
+        Returns
+        -------
+        initial_prior : array
+            Initial logit adjustment before actions are selected. Shape is
+            (self.L,) as it will be broadcast to batch size later.
+        """
+
         return np.zeros((self.L,), dtype=np.float32)
 
     def __call__(self, actions, parent, sibling, dangling):
+        """
+        Compute the prior (logit adjustment) given the current actions.
+
+        Returns
+        -------
+        prior : array
+            Logit adjustment for selecting next action. Shape is (batch_size,
+            self.L).
+        """
+
         raise NotImplementedError
 
     def describe(self):
+        """Describe the Prior."""
+
         message = "No description."
         return message
 
