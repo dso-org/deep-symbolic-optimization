@@ -20,6 +20,7 @@ def model():
 
 
 def assert_invalid(model, cases):
+    cases = [Program.library.actionize(case) for case in cases]
     batch = make_batch(model, cases)
     logp = model.controller.compute_probs(batch, log=True)
     print(batch)
@@ -28,6 +29,7 @@ def assert_invalid(model, cases):
 
 
 def assert_valid(model, cases):
+    cases = [Program.library.actionize(case) for case in cases]
     batch = make_batch(model, cases)
     logp = model.controller.compute_probs(batch, log=True)
     assert all(logp > -np.inf), \
@@ -61,8 +63,8 @@ def make_batch(model, actions):
     L = model.controller.max_length
 
     # Pad actions to maximum length
-    actions = np.array([a + [0] * (L - len(a)) for a in actions],
-                       dtype=np.int32)
+    actions = np.array([np.pad(a, (0, L - len(a)), "constant")
+                        for a in actions], dtype=np.int32)
 
     # Initialize obs
     prev_actions = np.zeros_like(actions)
@@ -112,6 +114,32 @@ def make_batch(model, actions):
     rewards = np.zeros(batch_size, dtype=np.float32)
     batch = Batch(actions, obs, priors, lengths, rewards)
     return batch
+
+
+def test_repeat(model):
+    """Test cases for RepeatConstraint."""
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["repeat"] = {
+        "tokens" : ["sin", "cos"],
+        "min_" : None, # Not yet supported
+        "max_" : 2
+    }
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    invalid_cases = []
+    invalid_cases.append(["sin"] * 3)
+    invalid_cases.append(["cos"] * 3)
+    invalid_cases.append(["sin", "cos", "sin"])
+    invalid_cases.append(["mul", "sin"] * 3)
+    invalid_cases.append(["mul", "sin", "x1", "sin", "mul", "cos"])
+    assert_invalid(model, invalid_cases)
+
+    valid_cases = []
+    valid_cases.append(["mul"] + ["sin"] * 2 + ["log"] * 2)
+    valid_cases.append(["sin"] + ["mul", "exp"] * 4 + ["cos"])
+    assert_valid(model, valid_cases)
 
 
 def test_descendant(model):
