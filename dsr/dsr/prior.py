@@ -15,7 +15,8 @@ def make_prior(library, config_prior):
         "repeat" : RepeatConstraint,
         "inverse" : InverseUnaryConstraint,
         "trig" : TrigConstraint,
-        "const" : ConstConstraint
+        "const" : ConstConstraint,
+        "no_inputs" : NoInputsConstraint
     }
 
     priors = []
@@ -252,6 +253,25 @@ class ConstConstraint(RelationalConstraint):
                                       targets=targets,
                                       effectors=effectors,
                                       relationship="uchild")
+
+
+class NoInputsConstraint(Constraint):
+    """Class that constrains sequences without input variables.
+
+    NOTE: This *should* be a special case of RepeatConstraint, but is not yet
+    supported."""
+
+    def __init__(self, library):
+        Prior.__init__(self, library)
+
+    def __call__(self, actions, parent, sibling, dangling):
+        # Constrain when:
+        # 1) the expression would end if a terminal is chosen and
+        # 2) there are no input variables
+        mask = (dangling == 1) & \
+               (np.sum(np.isin(actions, self.library.var_tokens), axis=1) == 0)
+        prior = self.make_constraint(mask, self.library.float_tokens)
+        return prior
 
 
 class InverseUnaryConstraint(Constraint):
