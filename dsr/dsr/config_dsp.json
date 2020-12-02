@@ -61,7 +61,8 @@
    "prior": {
       "length": {"min_": 4, "max_": 30},
       "inverse": {},
-      "trig": {}
+      "trig": {},
+      "no_inputs" : {}
    },
    "gp": {
       "population_size": 1000,

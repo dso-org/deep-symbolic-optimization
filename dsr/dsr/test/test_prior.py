@@ -142,6 +142,33 @@ def test_repeat(model):
     assert_valid(model, valid_cases)
 
 
+def test_no_inputs(model):
+    """Test cases for NoInputsConstraint."""
+
+    # This test case needs a float Token before creating the model
+    model.config["task"]["name"] = "Constant-1"
+    model.pool = model.make_pool() # Resets Program.task with new Task
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["no_inputs"] = {}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    invalid_cases = []
+    invalid_cases.append("sin,const")
+    invalid_cases.append("mul,const,const")
+    invalid_cases.append("log,exp,const")
+    assert_invalid(model, invalid_cases)
+
+    valid_cases = []
+    valid_cases.append(["sin"] * 10)
+    valid_cases.append(["mul"] * 5)
+    valid_cases.append("mul,const")
+    valid_cases.append("mul,const,x1")
+    valid_cases.append("mul,x1,x1")
+    assert_valid(model, valid_cases)
+
+
 def test_descendant(model):
     """Test cases for descendant RelationalConstraint."""
 
