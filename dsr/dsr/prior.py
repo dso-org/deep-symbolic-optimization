@@ -305,12 +305,14 @@ class RepeatConstraint(Constraint):
         self.max = max_
         self.tokens = library.actionize(tokens)
 
+        assert min_ is None, "Repeat minimum constraints are not yet " \
+            "supported. This requires knowledge of length constraints."
+
     def __call__(self, actions, parent, sibling, dangling):
         counts = np.sum(np.isin(actions, self.tokens), axis=1)
         prior = self.zeros(actions)
         if self.min is not None:
-            raise NotImplementedError("Repeat minimum constraints are not yet \
-                supported. This requires knowledge of length constraints.")
+            raise NotImplementedError
         if self.max is not None:
             mask = counts >= self.max
             prior += self.make_constraint(mask, self.tokens)
