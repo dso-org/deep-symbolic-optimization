@@ -141,13 +141,20 @@ class Library():
         """Shortcut to get Token by name or index."""
 
         if isinstance(val, str):
-            i = self.names.index(val)
+            try:
+                i = self.names.index(val)
+            except ValueError:
+                raise TokenNotFoundError("Token {} does not exist.".format(val))
         elif isinstance(val, (int, np.integer)):
             i = val
         else:
             raise ValueError("Library must be indexed by str or int, not {}.".format(type(val)))
 
-        return self.tokens[i]
+        try:
+            token = self.tokens[i]
+        except IndexError:
+            raise TokenNotFoundError("Token index {} does not exist".format(i))
+        return token
 
     def tokenize(self, inputs):
         """Convert inputs to list of Tokens."""
@@ -169,3 +176,7 @@ class Library():
         actions = np.array([self.tokens.index(t) for t in tokens],
                            dtype=np.int32)
         return actions
+
+
+class TokenNotFoundError(Exception):
+    pass
