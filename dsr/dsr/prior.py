@@ -268,21 +268,21 @@ class InverseUnaryConstraint(Constraint):
 
 
 class RepeatConstraint(Constraint):
-    """Class that constrains a particular Token to appear between a minimum
-    and/or maximum number of times"""
+    """Class that constrains Tokens to appear between a minimum and/or maximum
+    number of times."""
 
     def __init__(self, library, tokens, min_=None, max_=None):
         """
         Parameters
         ----------
         tokens : Token or list of Tokens
-            Token(s) which should each appear between min_ and max_ times.
+            Token(s) which should, in total, occur between min_ and max_ times.
 
         min_ : int or None
-            Minimum length of the Program.
+            Minimum number of times tokens should occur.
 
         max_ : int or None
-            Maximum length of the Program.
+            Maximum number of times tokens should occur.
         """
 
         Prior.__init__(self, library)
@@ -290,10 +290,30 @@ class RepeatConstraint(Constraint):
             "At least one of (min_, max_) must not be None."
         self.min = min_
         self.max = max_
-        self.tokens = list(tokens)
+        self.tokens = library.actionize(tokens)
 
     def __call__(self, actions, parent, sibling, dangling):
-        raise NotImplementedError
+        counts = np.sum(np.isin(actions, self.tokens), axis=1)
+        prior = self.zeros(actions)
+        if self.min is not None:
+            raise NotImplementedError("Repeat minimum constraints are not yet \
+                supported. This requires knowledge of length constraints.")
+        if self.max is not None:
+            mask = counts >= self.max
+            prior += self.make_constraint(mask, self.tokens)
+        return prior
+
+    def describe(self):
+        if self.min is None:
+            message = "[{}] cannot occur more than {} times."\
+                .format(self.tokens, self.max)
+        elif self.max is None:
+            message = "[{}] must occur at least {} times."\
+                .format(self.tokens, self.min)
+        else:
+            message = "[{}] must occur between {} and {} times."\
+                .format(self.tokens, self.min, self.max)
+        return message
 
 
 class LengthConstraint(Constraint):
@@ -355,4 +375,3 @@ class LengthConstraint(Constraint):
             message.append("Sequences have maximum length {}.".format(self.max))
         message = "\n".join(message)
         return message
-        
