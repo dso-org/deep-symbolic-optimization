@@ -117,9 +117,9 @@ def check_const(ind):
 
     names = [node.name for node in ind]
     for i, name in enumerate(names):
-        if name in UNARY_TOKENS and names[i+1] == "const":
+        if name in UNARY_TOKENS and "const" in names[i+1]:
             return True
-        if name in BINARY_TOKENS and names[i+1] == "const" and names[i+2] == "const":
+        if name in BINARY_TOKENS and "const" in names[i+1] and "const" in names[i+2]:
             return True
     return False
 
@@ -526,7 +526,7 @@ class GenericEvaluate:
 
         if self.optimize:
             # Retrieve symbolic constants
-            const_idxs = [i for i, node in enumerate(individual) if node.name == "const"]
+            const_idxs = [i for i, node in enumerate(individual) if node.name == "mutable_const"]
 
             # HACK: If early stopping threshold has been reached, don't do training optimization
             # Check if best individual has NMSE below threshold on test set
@@ -539,7 +539,7 @@ class GenericEvaluate:
             def obj(consts):                
                 for i, const in zip(const_idxs, consts):
                     individual[i] = gp.Terminal(const, False, object)
-                    individual[i].name = "const" # For good measure
+                    individual[i].name = "mutable_const" # For good measure
                 #print(individual)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -568,7 +568,7 @@ class GenericEvaluate:
             
             for i, const in zip(const_idxs, optimized_consts):
                 individual[i] = gp.Terminal(const, False, object)
-                individual[i].name = "const" # This is necessary to ensure the constant is re-optimized in the next generation
+                individual[i].name = "mutable_const" # This is necessary to ensure the constant is re-optimized in the next generation
 
         return self._finish_eval(individual, self.X_train, self.train_fitness)
 
@@ -741,12 +741,14 @@ def create_primitive_set(dataset,
     for k, v in function_map.items():
         if k in dataset.function_set:
             pset.addPrimitive(v.function, v.arity, name=v.name)    
-    
+            
     # Are we optimizing a const?               
     if have_const:
+        # Need to differentiate between mutable and non mutable const
         const_params    = const_params if const_params is not None else {}
         const_opt       = make_const_optimizer(const_optimizer, **const_params)
-        pset.addTerminal(1.0, name="const")     
+        pset.addTerminal(1.0, name="mutable_const")  
+        pset.addTerminal(1.0, name="user_const")   
     else:
         const_opt       = None   
         
@@ -787,7 +789,7 @@ def create_toolbox(pset, eval_func,
     if const and max_const is not None:
         assert isinstance(max_const,int)
         assert max_const >= 0
-        num_const = lambda ind : len([node for node in ind if node.name == "const"])
+        num_const = lambda ind : len([node for node in ind if node.name == "mutable_const"])
         toolbox.decorate("mate",   gp.staticLimit(key=num_const, max_value=max_const))
         toolbox.decorate("mutate", gp.staticLimit(key=num_const, max_value=max_const))
 
