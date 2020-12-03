@@ -24,14 +24,27 @@ def make_prior(library, config_prior):
     for prior_type, prior_args in config_prior.items():
         assert prior_type in prior_dict, \
             "Unrecognized prior type: {}.".format(prior_type)
+        prior_class = prior_dict[prior_type]
+
+        # Attempt to build the Prior. Any Prior can fail if it references a
+        # Token not in the Library.
         try:
-            prior_class = prior_dict[prior_type]
             prior = prior_class(library, **prior_args)
-            priors.append(prior)
+            warning = prior.validate()
         except TokenNotFoundError:
-            warning = "Prior '{}' with arguments {} uses tokens not in the " \
-                "Library; skipping.".format(prior_class.__name__, prior_args)
+            prior = None
+            warning = "Uses Tokens not in the Library."
+
+        # Add warning context
+        if warning is not None:
+            warning = "Skipping invalid '{}' with arguments {}. " \
+                "Reason: {}" \
+                .format(prior_class.__name__, prior_args, warning)
             warnings.append(warning)
+
+        # Add the Prior if there are no warnings
+        if warning is None:
+            priors.append(prior)
 
     joint_prior = JointPrior(library, priors)
 
@@ -93,6 +106,20 @@ class Prior():
     def __init__(self, library):
         self.library = library
         self.L = library.L
+
+    def validate(self):
+        """
+        Determine whether the Prior has a valid configuration. This is useful
+        when other algorithmic parameters may render the Prior degenerate. For
+        example, having a TrigConstraint with no trig Tokens.
+
+        Returns
+        -------
+        message : str or None
+            Error message if Prior is invalid, or None if it is valid.
+        """
+
+        return None
 
     def zeros(self, actions):
         """Helper function to generate a starting prior of zeros."""
@@ -171,7 +198,7 @@ class Constraint(Prior):
 
 class RelationalConstraint(Constraint):
     """
-    Class that adds the following constraint:
+    Class that constrains the following:
 
         Constrain (any of) `targets` from being the `relationship` of (any of)
         `effectors`.
@@ -183,10 +210,10 @@ class RelationalConstraint(Constraint):
         are the given relationship.
 
     effectors : list of Tokens
-        List of Tokens, any of which will cause all constrained_tokens to be
-        constrained if they are the given relationship.
+        List of Tokens, any of which will cause all targets to be constrained
+        if they are the given relationship.
 
-    relationship : choice of ["child", "descendant", "sibling"]
+    relationship : choice of ["child", "descendant", "sibling", "uchild"]
         The type of relationship to constrain.
     """
 
@@ -196,7 +223,20 @@ class RelationalConstraint(Constraint):
         self.effectors = library.actionize(effectors)
         self.relationship = relationship
 
-        # TBD assertions
+    def validate(self):
+        message = []
+        if self.relationship in ["child", "descendant", "uchild"]:
+            if np.isin(self.effectors, self.library.terminal_tokens).any():
+                message = "{} relationship cannot have terminal effectors." \
+                          .format(self.relationship.capitalize())
+                return message
+        if len(self.targets) == 0:
+            message = "There are no target Tokens."
+            return message
+        if len(self.effectors) == 0:
+            message = "There are no effector Tokens."
+            return message
+        return None
 
     def __call__(self, actions, parent, sibling, dangling):
 
@@ -286,6 +326,13 @@ class NoInputsConstraint(Constraint):
     def __init__(self, library):
         Prior.__init__(self, library)
 
+    def validate(self):
+        if len(self.library.float_tokens) == 0:
+            message = "There are no Constant tokens, so all sequences will" \
+                      "have an input variable."
+            return message
+        return None
+
     def __call__(self, actions, parent, sibling, dangling):
         # Constrain when:
         # 1) the expression would end if a terminal is chosen and
@@ -315,6 +362,12 @@ class InverseUnaryConstraint(Constraint):
                                          effectors=effectors,
                                          relationship="child")
             self.priors.append(prior)
+
+    def validate(self):
+        if len(self.priors) == 0:
+            message = "There are no inverse unary Token pairs in the Library."
+            return message
+        return None
 
     def __call__(self, actions, parent, sibling, dangling):
         prior = sum([prior(actions, parent, sibling, dangling)
@@ -393,10 +446,11 @@ class LengthConstraint(Constraint):
         """
 
         Prior.__init__(self, library)
-        assert min_ is not None or max_ is not None, \
-            "At least one of (min_, max_) must not be None."
         self.min = min_
         self.max = max_
+
+        assert min_ is not None or max_ is not None, \
+            "At least one of (min_, max_) must not be None."
 
     def initial_prior(self):
         prior = Prior.initial_prior(self)
