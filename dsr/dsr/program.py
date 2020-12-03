@@ -187,8 +187,10 @@ def DEAP_to_tokens(individual, tokens_size):
         t = individual[i]
         
         if isinstance(t, gp.Terminal):
-            if t.name is "const":
+            if t.name is "user_const":
                 # Get the constant token, this will not store the actual const (TO DO, fix somehow)
+                tokens[i] = t.value
+            elif t.name is "mutable_const":
                 tokens[i] = Program.const_token
             else:
                 # Get the int which is contained in "ARG{}",
@@ -254,14 +256,27 @@ def tokens_to_DEAP(tokens, primitive_set):
         
         node = Program.library[t]
 
-        if isinstance(node, float) or isinstance(node, str):
+        if isinstance(node, float) or isinstance(node, np.float):
             '''
                 NUMBER - Library supplied floating point constant. 
                     
-                    Typically this is a constant parameter we want to optimize. Its value may change. 
+                    This is a constant the user sets and should not change. 
             '''
             try:
-                p = primitive_set.mapping["const"]
+                p = primitive_set.mapping["user_const"]
+                p.value = node
+                plist.append(p)
+            except ValueError:
+                print("ERROR: Cannot add \"const\" from DEAP primitve set")
+                
+        elif isinstance(node, str):
+            '''
+                NUMBER - Blank floating point constant. 
+                    
+                    Typically this is a constant parameter we want to optimize.
+            '''
+            try:
+                p = primitive_set.mapping["mutable_const"]
                 p.value = 1.0 #node
                 plist.append(p)
             except ValueError:
