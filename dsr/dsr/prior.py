@@ -295,6 +295,10 @@ class NoInputsConstraint(Constraint):
         prior = self.make_constraint(mask, self.library.float_tokens)
         return prior
 
+    def describe(self):
+        message = "Sequences contain at least one input variable Token."
+        return message
+
 
 class InverseUnaryConstraint(Constraint):
     """Class that constrains each unary Token from being the child of its
