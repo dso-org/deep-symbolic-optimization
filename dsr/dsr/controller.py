@@ -192,37 +192,6 @@ class Controller(object):
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
 
-        # assert max_length >= 3, "Must have max length at least 3."
-
-        # if min_length is None:
-        #     assert not constrain_min_len, "Cannot constrain min length when min_length=None"
-        # else:
-        #     assert min_length >= 1, "Must have min length at least 1."
-        #     assert max_length >= min_length, "Min length cannot exceed max length."
-        #     if not constrain_min_len:
-        #         print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
-        #         self.min_length = None
-
-        # if constrain_const and Program.const_token is None:
-        #     print("Warning: constrain_const=True will have no effect because there is no constant token.")
-        #     self.constrain_const = False
-
-        # if constrain_float and len(Program.float_tokens) == 0:
-        #     print("Warning: constrain_float=True will have no effect because there are no hard-coded constant tokens.")
-        #     self.constrain_float = False
-
-        # if max_const is None:
-        #     assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
-        # else:
-        #     assert max_const >= 1, "Must have max num const at least 1."
-        #     if Program.const_token is None:
-        #         print("Warning: max_const={} will have no effect because there is no constant token.".format(max_const))
-        #         self.constrain_num_const = False
-        #         self.max_const = None
-        #     elif not constrain_num_const:
-        #         print("Warning: max_const={} will not be respected because constrain_num_const=False. Overriding to None.".format(max_const))
-        #         self.max_const = None
-
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
                                              self.prior.requires_parents_siblings])
@@ -339,59 +308,6 @@ class Controller(object):
                 dangling += lib.arities[action] - 1
 
                 prior = self.prior(actions, parent, sibling, dangling)
-
-                # # Constrain unary of constant or binary of two constants
-                # if self.constrain_const:
-                #     # Use action instead of parent here because it's really adj_parent
-                #     constraints = np.isin(action, Program.unary_tokens) # Unary action (or unary parent)
-                #     constraints += sibling == Program.const_token # Constant sibling
-                #     prior += make_prior(constraints, [Program.const_token], Program.L)
-                
-                # # Constrain trig function with trig function ancestor
-                # if self.constrain_trig:
-                #     constraints = trig_ancestors(actions, Program.arities, Program.trig_tokens)
-                #     prior += make_prior(constraints, Program.trig_tokens, Program.L)
-                
-                # # Constrain inverse unary operators
-                # if self.constrain_inv:
-                #     for p, c in Program.inverse_tokens.items():
-                #         # No need to compute parents because only unary operators are constrained
-                #         # by their inverse, and action == parent for all unary operators
-                #         constraints = action == p
-                #         prior += make_prior(constraints, [c], Program.L)
-                
-                # # Constrain total number of constants
-                # if self.constrain_num_const:
-                #     constraints = np.sum(actions == Program.const_token, axis=1) == self.max_const
-                #     prior += make_prior(constraints, [Program.const_token], Program.L)
-
-                # # Constrain expressions without input variables
-                # if self.constrain_float:
-                #     # Constrain when:
-                #     # 1) the expression would end if a terminal is chosen and
-                #     # 2) there are no input variables
-                #     constraints = (dangling == 1) & (np.sum(np.isin(actions, Program.var_tokens), axis=1) == 0)
-                #     prior += make_prior(constraints, Program.float_tokens, Program.L)
-
-                # # Constrain maximum sequence length
-                # # Never need to constrain max length for first half of expression
-                # if self.constrain_max_len and (i + 2) >= self.max_length // 2:   
-                #     remaining = self.max_length - (i + 1)
-                #     assert sum(dangling > remaining) == 0, (dangling, remaining)
-                #     constraints = dangling >= remaining - 1 # Constrain binary
-                #     prior += make_prior(constraints, Program.binary_tokens, Program.L)
-                #     constraints = dangling == remaining # Constrain unary
-                #     prior += make_prior(constraints, Program.unary_tokens, Program.L)
-
-                # # Constrain minimum sequence length
-                # # Constrain terminals when dangling == 1 until selecting the (min_length)th token
-                # if self.constrain_min_len and (i + 2) < self.min_length:
-                #     constraints = dangling == 1 # Constrain terminals
-                #     prior += make_prior(constraints, Program.terminal_tokens, Program.L)
-
-                # # Language Model prior
-                # if self.use_language_model_prior and self.language_model_prior is not None:
-                #     prior += self.language_model_prior.get_lm_prior(action)
 
                 return action, parent, sibling, prior, dangling
 
@@ -746,39 +662,5 @@ class Controller(object):
             summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
         else:
             summaries = None
-        
+
         return summaries
-
-
-# def make_prior(constraints, constraint_tokens, library_length):
-#     """
-#     Given a batch of constraints and the corresponding tokens to be constrained,
-#     returns a prior that is added to the logits when sampling the next action.
-
-#     For example, given library_length=5 and constraint_tokens=[1,2], a
-#     constrained row of the prior will be: [0.0, -np.inf, -np.inf, 0.0, 0.0].
-
-#     Parameters
-#     __________
-
-#     constraints : np.ndarray, shape=(batch_size,), dtype=np.bool_
-#         Batch of constraints.
-
-#     constraint_tokens : np.ndarray, dtype=np.int32
-#         Array of which tokens to constrain.
-
-#     library_length : int
-#         Length of library.
-
-#     Returns
-#     _______
-
-#     prior : np.ndarray, shape=(batch_size, library_length), dtype=np.float32
-#         Prior adjustment to logits given constraints. Since these are hard
-#         constraints, ach element is either 0.0 or -np.inf.
-#     """
-
-#     prior = np.zeros((constraints.shape[0], library_length), dtype=np.float32)
-#     for t in constraint_tokens:
-#         prior[constraints == True, t] = -np.inf
-#     return prior
