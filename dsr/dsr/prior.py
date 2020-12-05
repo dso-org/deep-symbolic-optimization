@@ -26,25 +26,29 @@ def make_prior(library, config_prior):
             "Unrecognized prior type: {}.".format(prior_type)
         prior_class = prior_dict[prior_type]
 
-        # Attempt to build the Prior. Any Prior can fail if it references a
-        # Token not in the Library.
-        try:
-            prior = prior_class(library, **prior_args)
-            warning = prior.validate()
-        except TokenNotFoundError:
-            prior = None
-            warning = "Uses Tokens not in the Library."
+        if isinstance(prior_args, dict):
+            prior_args = [prior_args]
+        for single_prior_args in prior_args:
 
-        # Add warning context
-        if warning is not None:
-            warning = "Skipping invalid '{}' with arguments {}. " \
-                "Reason: {}" \
-                .format(prior_class.__name__, prior_args, warning)
-            warnings.append(warning)
+            # Attempt to build the Prior. Any Prior can fail if it references a
+            # Token not in the Library.
+            try:
+                prior = prior_class(library, **single_prior_args)
+                warning = prior.validate()
+            except TokenNotFoundError:
+                prior = None
+                warning = "Uses Tokens not in the Library."
 
-        # Add the Prior if there are no warnings
-        if warning is None:
-            priors.append(prior)
+            # Add warning context
+            if warning is not None:
+                warning = "Skipping invalid '{}' with arguments {}. " \
+                    "Reason: {}" \
+                    .format(prior_class.__name__, single_prior_args, warning)
+                warnings.append(warning)
+
+            # Add the Prior if there are no warnings
+            if warning is None:
+                priors.append(prior)
 
     joint_prior = JointPrior(library, priors)
 
@@ -418,15 +422,16 @@ class RepeatConstraint(Constraint):
         return prior
 
     def describe(self):
+        names = ", ".join([self.library.names[t] for t in self.tokens])
         if self.min is None:
             message = "[{}] cannot occur more than {} times."\
-                .format(self.tokens, self.max)
+                .format(names, self.max)
         elif self.max is None:
             message = "[{}] must occur at least {} times."\
-                .format(self.tokens, self.min)
+                .format(names, self.min)
         else:
             message = "[{}] must occur between {} and {} times."\
-                .format(self.tokens, self.min, self.max)
+                .format(names, self.min, self.max)
         return message
 
 
