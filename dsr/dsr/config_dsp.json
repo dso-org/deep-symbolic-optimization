@@ -62,6 +62,7 @@
       "length": {"min_": 4, "max_": 30},
       "inverse": {},
       "trig": {},
+      "config" : {},
       "no_inputs" : {}
    },
    "gp": {

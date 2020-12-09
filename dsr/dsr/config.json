@@ -24,7 +24,8 @@
       "length" : {"min_" : 4, "max_" : 30},
       "repeat" : {"tokens" : "const", "max_" : 3},
       "inverse" : {},
-      "trig" : {}
+      "trig" : {},
+      "const" : {}
    },
    "training": {
       "logdir": "./log",
