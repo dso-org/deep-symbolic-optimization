@@ -148,7 +148,7 @@ class Library():
         elif isinstance(val, (int, np.integer)):
             i = val
         else:
-            raise ValueError("Library must be indexed by str or int, not {}.".format(type(val)))
+            raise TokenNotFoundError("Library must be indexed by str or int, not {}.".format(type(val)))
 
         try:
             token = self.tokens[i]
