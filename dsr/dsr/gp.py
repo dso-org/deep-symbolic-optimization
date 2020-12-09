@@ -15,7 +15,7 @@ from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.const import make_const_optimizer
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
-from dsr.controller import parents_siblings
+from dsr.subroutines import parents_siblings
 
 try:
     from deap import gp
