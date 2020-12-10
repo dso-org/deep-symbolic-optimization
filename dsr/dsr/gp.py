@@ -165,9 +165,9 @@ def checkConstraint(max_length, min_length, max_depth):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            keep_inds   = [copy.deepcopy(ind) for ind in args]
-            new_inds    = list(func(*args, **kwargs))
-            
+            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
+            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
+                        
             for i, ind in enumerate(new_inds):
                 
                 l = len(ind)
@@ -178,8 +178,8 @@ def checkConstraint(max_length, min_length, max_depth):
                     new_inds[i] = random.choice(keep_inds)
                 elif operator.attrgetter("height")(ind) > max_depth:
                     new_inds[i] = random.choice(keep_inds)
-                else:    
-                    names = [node.name for node in ind]
+                else:  
+                    names = [node.name for node in new_inds[i]]
                     
                     if check_inv(names):
                         new_inds[i] = random.choice(keep_inds)
@@ -192,44 +192,97 @@ def checkConstraint(max_length, min_length, max_depth):
 
     return decorator
 
-# library_length = program.L
-def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
+def popConstraint():
+    """Check a varety of constraints on a memeber. These include:
         
-    priors = np.zeros((max_exp_length, Program.L), dtype=np.float32)
+        This is a decorator function that attaches to the individual function in
+        DEAP.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+
+            while(True):
+                inds    = func(*args, **kwargs)               # Calls the wrapped function and returns results
+                names   = [node.name for node in inds]
+                    
+                if check_inv(names):
+                    continue
+                elif check_trig(names):
+                    continue
+                else:
+                    break
+                    
+            return inds
+
+        return wrapper
+
+    return decorator
+
+# library_length = program.L
+def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min_len):
+        
+    priors              = np.zeros((max_exp_length, Program.L), dtype=np.float32)
     
     trig_descendant     = False
     const_tokens        = 0
-    dangling            = 0
+    dangling            = 1
+    #trig_dangling       = 0
     
-    offset              = 0 # should offset be 0 or 1?
+    offset              = 1 # Put in constraint at t+1
     
+    #print("Tokens {}".format(tokens))
+    # Never start with a terminal token
+    priors[0, Program.terminal_tokens] = -np.inf
+        
     for i,t in enumerate(tokens): 
         
         dangling    += Program.arities[t] - 1
         
-        # check trig descendants
-        if t in Program.trig_tokens:
-            trig_descendant = True
-            trig_dangling   = 1
-        elif trig_descendant:
-            priors[i, Program.trig_tokens] = -np.inf
-            if t in Program.binary_tokens:
-                trig_dangling += 1
-            elif t not in Program.unary_tokens:
-                trig_dangling -= 1
-            if trig_dangling == 0:
-                trig_descendant = False
+        '''
+            Note, actions == tokens
+        '''
+        '''
+        if (dangling == 1) & (np.sum(np.isin(tokens, Program.var_tokens), axis=1) == 0):
+            priors[i+offset, Program.float_tokens] = -np.inf
+        '''
         
-        '''
-        if i < len(tokens) - 2:
-            if t in Program.binary_tokens:
-                if tokens[i+1] == Program.const_token:
-                    priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
-        '''
+        # check trig descendants
+        
         if i < len(tokens) - 1:
             
+            if t in Program.trig_tokens:
+                trig_descendant = True
+                trig_dangling   = 1
+            elif trig_descendant:
+                if t in Program.binary_tokens:
+                    trig_dangling += 1
+                elif t not in Program.unary_tokens:
+                    trig_dangling -= 1
+                    
+                if trig_dangling == 0:
+                    trig_descendant = False
+            
+            
+            if trig_descendant:
+                #print("P1 {}".format(priors))
+                priors[i+offset, Program.trig_tokens] = -np.inf
+                #print("P2 {}".format(priors))
+            
+            '''
+            if i < len(tokens) - 2:
+                if t in Program.binary_tokens:
+                    if tokens[i+1] == Program.const_token:
+                        priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
+            '''
+            #if i < len(tokens) - 1:
+            
+            ###
+            
             if t in Program.inverse_tokens:
+                #print("INV OK")
                 priors[i+offset, Program.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
+                
             '''
             if t in Program.unary_tokens:
                 priors[i+offset, Program.const_token] = -np.inf         # Cannot have const inside unary token
@@ -240,6 +293,12 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
                 if const_tokens >= max_const:
                     priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
             '''
+            # Constrain terminals
+            
+            if (i + 2) < min_len and dangling == 1:
+                priors[i+offset, Program.terminal_tokens] = -np.inf
+                
+            ###
             if (i + 2) >= max_len // 2:
                 remaining   = max_len - (i + 1)
                 
@@ -247,6 +306,7 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len):
                     priors[i+offset, Program.binary_tokens] = -np.inf
                 elif dangling == remaining:
                     priors[i+offset, Program.unary_tokens]  = -np.inf
+            
                     
     return priors
         
@@ -687,10 +747,10 @@ class GPController:
             self.nevals += n
          
         if self.config_gp_meld["train_n"] > 1:
-            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"])
+            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"], self.config_gp_meld["min_len"])
             self.return_gp_obs                                      = True
         else:
-            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_program(self.halloffame, actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"])
+            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_program(self.halloffame, actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"], self.config_gp_meld["min_len"])
             self.return_gp_obs                                      = self.config_gp_meld["train_n"]
             
         return deap_programs, deap_obs, deap_actions, deap_priors
@@ -775,6 +835,8 @@ def create_toolbox(pset, eval_func,
     toolbox = base.Toolbox()
     toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+    toolbox.decorate("individual", popConstraint())
+    
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("compile", gp.compile, pset=pset)
     toolbox.register("evaluate", eval_func)
@@ -783,19 +845,19 @@ def create_toolbox(pset, eval_func,
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
     toolbox.register('mutate', multi_mutate, expr=toolbox.expr_mut, pset=pset)
 
-    toolbox.decorate("mate",     checkConstraint(max_len, min_len, max_depth))
-    toolbox.decorate("mutate",   checkConstraint(max_len, min_len, max_depth))
+    toolbox.decorate("mate",        checkConstraint(max_len, min_len, max_depth))
+    toolbox.decorate("mutate",      checkConstraint(max_len, min_len, max_depth))
 
     if const and max_const is not None:
         assert isinstance(max_const,int)
         assert max_const >= 0
         num_const = lambda ind : len([node for node in ind if node.name == "mutable_const"])
-        toolbox.decorate("mate",   gp.staticLimit(key=num_const, max_value=max_const))
-        toolbox.decorate("mutate", gp.staticLimit(key=num_const, max_value=max_const))
+        toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
+        toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
 
     if const and constrain_const is True:
-        toolbox.decorate("mate",   gp.staticLimit(key=check_const, max_value=0))
-        toolbox.decorate("mutate", gp.staticLimit(key=check_const, max_value=0))
+        toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
+        toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
         
     # Create the training function
     return toolbox, creator 
@@ -859,38 +921,41 @@ def stringify_for_sympy(f):
 
 
 
-def get_top_program(halloffame, actions, max_const, max_len):
+def get_top_program(halloffame, actions, max_const, max_len, min_len):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
     max_tok                         = len(Program.library)
     deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
        
-    deap_parent     = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
-    deap_sibling    = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
+    deap_parent         = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
+    deap_sibling        = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
+    deap_obs_action     = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
     
-    deap_action     = np.empty(deap_tokens.shape[0], dtype=np.int32)
-    deap_action[1:] = deap_tokens[:-1]
-    deap_action[0]  = max_tok
+    deap_action         = np.empty(deap_tokens.shape[0], dtype=np.int32)
+    deap_obs_action[1:] = deap_tokens[:-1]
+    deap_action         = deap_tokens
+    deap_action[0]      = max_tok
        
-    deap_priors     = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len)
+    deap_prior          = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
     
     for i in range(deap_expr_length-1):       
         p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
         deap_parent[i+1]    = p
         deap_sibling[i+1]   = s
     
-    deap_parent[0]  = max_tok - len(Program.terminal_tokens)
-    deap_sibling[0] = max_tok
+    deap_parent[0]      = max_tok - len(Program.terminal_tokens)
+    deap_sibling[0]     = max_tok
+    deap_obs_action[0]  = max_tok
     
-    deap_obs        = [np.expand_dims(deap_action,axis=0), np.expand_dims(deap_parent,axis=0), np.expand_dims(deap_sibling,axis=0)]
-    deap_action     = np.expand_dims(deap_action,axis=0)    
-    deap_program    = [from_tokens(deap_tokens, optimize=True, on_policy=False)]
+    deap_obs            = [deap_obs_action, deap_parent, deap_sibling]
+    deap_action         = np.expand_dims(deap_action,axis=0)    
+    deap_program        = [from_tokens(deap_tokens, optimize=True, on_policy=False)]
 
     return deap_program, deap_obs, deap_action, deap_prior
     
     
     
-def get_top_n_programs(population, n, actions, max_const, max_len):
+def get_top_n_programs(population, n, actions, max_const, max_len, min_len):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
         
@@ -926,26 +991,41 @@ def get_top_n_programs(population, n, actions, max_const, max_len):
     deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
-    deap_priors         = np.empty((len(population),actions.shape[1], Program.L), dtype=np.int32)
+    deap_obs_action     = np.empty((len(population),actions.shape[1]), dtype=np.int32)
+    deap_priors         = np.empty((len(population),actions.shape[1], Program.L), dtype=np.float32)
     deap_action[:,0]    = max_tok
     deap_program        = []
     
     for i,p in enumerate(population):
         deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
-        deap_action[i,1:]               = deap_tokens[:-1]
+        deap_obs_action[i,1:]           = deap_tokens[:-1]
+        deap_action[i,:]                = deap_tokens
         deap_program.append(from_tokens(deap_tokens, optimize=True, on_policy=False))
         
-        deap_priors[i,]                 = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len)
+        deap_priors[i,]                 = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
         
-        for j in range(deap_expr_length-1):       
+        #print("{}".format(deap_tokens))
+        #print("{}".format(deap_priors[i,]))
+        
+        for j in range(actions.shape[1]-1):       
+            # Parent and sibling given the current action
+            # Action should be alligned with parent and sibling.
+            # The current action should be passed into function inclusivly of itself [:j+1]. 
             p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+            ###p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
             deap_parent[i,j+1]      = p
             deap_sibling[i,j+1]     = s
+            #deap_parent[i,j]      = p
+            #deap_sibling[i,j]     = s
     
-    deap_parent[:,0]    = max_tok - len(Program.terminal_tokens)
-    deap_sibling[:,0]   = max_tok
+    
+   
+    
+    deap_parent[:,0]        = max_tok - len(Program.terminal_tokens)
+    deap_sibling[:,0]       = max_tok
+    deap_obs_action[:,0]    = max_tok
 
-    deap_obs            = [deap_action, deap_parent, deap_sibling]
+    deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
         
     return deap_program, deap_obs, deap_action, deap_priors
 

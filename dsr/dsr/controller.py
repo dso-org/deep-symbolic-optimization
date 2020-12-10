@@ -569,7 +569,8 @@ class Controller(object):
                              tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None,]),
-                    "rewards" : tf.placeholder(tf.float32, [None], name="r")
+                    "rewards" : tf.placeholder(tf.float32, [None], name="r"),
+                    "on_policy" : tf.placeholder(tf.int32, [None,])
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -599,8 +600,56 @@ class Controller(object):
             # Negative log probabilities of sequences
             actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
+            
+            #neglogp_step_off_policy  =  neglogp_per_step[tf.where(tf.equal(B.on_policy,0)),:]#, neglogp_per_step), tf.zeros_like(neglogp_per_step))
+            #neglogp_step_on_policy   =  neglogp_per_step[tf.where(tf.equal(B.on_policy,1)),:]#, neglogp_per_step), tf.zeros_like(neglogp_per_step))  
+            
             neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
-
+    
+            neglogp_off_policy      =  tf.gather(neglogp, tf.where(tf.equal(B.on_policy,0)))
+            neglogp_on_policy       =  tf.gather(neglogp, tf.where(tf.equal(B.on_policy,1)))
+            
+            neglogp_off_policy_std  = tf.math.reduce_std(neglogp_off_policy)
+            neglogp_on_policy_std   = tf.math.reduce_std(neglogp_on_policy)            
+            
+            neglogp_off_policy_mean = tf.reduce_mean(neglogp_off_policy)
+            neglogp_on_policy_mean  = tf.reduce_mean(neglogp_on_policy)
+            
+            neglogp_off_policy_std  = tf.where(neglogp_off_policy_std > 0.01, neglogp_off_policy_std, 0.01)
+        
+            off_policy_mean_adj     = neglogp_on_policy_mean - neglogp_off_policy_mean 
+            off_policy_std_adj      = neglogp_on_policy_std/neglogp_off_policy_std 
+            
+            neglogp_off_policy_adj  = (neglogp_off_policy + off_policy_mean_adj)*off_policy_std_adj
+            #neglogp_off_policy_adj  = neglogp_off_policy*off_policy_std_adj
+            #neglogp_off_policy_adj  = (neglogp_off_policy + off_policy_mean_adj)
+            #neglogp_off_policy_adj  = neglogp_off_policy
+                           
+            #neglogp     = tf.Print(neglogp, [neglogp],  "Neglogp Old ", summarize=100)
+        
+            ##neglogp     = tf.concat((neglogp_on_policy,neglogp_off_policy_adj),axis=0) # This does not preserve ordering correctly
+            '''
+            #neglogp     = tf.Print(neglogp, [neglogp],  "Neglogp New ", summarize=100)
+            '''
+            '''
+            neglogp     = tf.Print(neglogp, [B.actions],  "B.actions ", summarize=10000) 
+            neglogp     = tf.Print(neglogp, [B.priors],  "B.priors ", summarize=100000) 
+            neglogp     = tf.Print(neglogp, [B.obs[0]], "Actions ", summarize=10000)
+            neglogp     = tf.Print(neglogp, [B.obs[1]], "Parent ", summarize=10000)
+            neglogp     = tf.Print(neglogp, [B.obs[2]], "Sibling ", summarize=10000)
+            '''
+            
+            '''
+            #neglogp     = tf.Print(neglogp, [neglogp_per_step],  "neglogp_per_step ", summarize=10000)
+            
+            neglogp     = tf.Print(neglogp, [neglogp_off_policy],  "Neglogp Off ", summarize=100)
+            neglogp     = tf.Print(neglogp, [neglogp_off_policy_adj],  "Neglogp Off Adj", summarize=100)
+            '''
+            '''
+            neglogp     = tf.Print(neglogp, [neglogp_on_policy_mean, neglogp_on_policy_std],  "On Policy ", summarize=100)
+            neglogp     = tf.Print(neglogp, [neglogp_off_policy_mean, neglogp_off_policy_std], "Off Policy ", summarize=100)
+            '''
+            
             # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
             # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
@@ -658,7 +707,12 @@ class Controller(object):
             else:
                 if not pqt or (pqt and pqt_use_pg):
                     # Baseline is the worst of the current samples r
-                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")                    
+                    
+                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")   
+                    '''   
+                    pg_loss = tf.Print(pg_loss, [self.baseline, r], "baseline, r ", summarize=100)    
+                    pg_loss = tf.Print(pg_loss, [(r - self.baseline) * neglogp], "Loss Elements ", summarize=100) 
+                    '''        
                     # Loss already is set to entropy loss
                     loss += pg_loss
 
