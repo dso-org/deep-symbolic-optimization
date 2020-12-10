@@ -316,8 +316,8 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-            #priors      = np.append(priors, deap_priors, axis=0)
-            priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
+            priors      = np.append(priors, deap_priors, axis=0) # Does not work right
+            #priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
 
             
         # Retrieve metrics
@@ -374,6 +374,14 @@ def learn(sess, controller, pool, gp_controller,
         '''
         if epsilon is not None and epsilon < 1.0:
             n_keep      = int(epsilon * batch_size) # Number of top indices to keep
+            
+            '''
+                We may want to keep the top GP sample, but not return it to the contoller. Since we will chop it off later
+                we extend the number of keeps by 1 so we can chop it off from some arrays later. 
+            '''  
+            if run_gp_meld and not gp_controller.return_gp_obs:
+                n_keep += 1 
+            
             keep        = np.zeros(shape=(base_r.shape[0],), dtype=bool)
             keep[np.argsort(r)[-n_keep:]] = True
             
@@ -485,12 +493,25 @@ def learn(sess, controller, pool, gp_controller,
                 np.savetxt(f, stats, delimiter=',')
 
         # Compute sequence lengths
+        '''
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in programs], dtype=np.int32)
+        '''
+        
+        lengths = np.array([min(len(p.traversal), controller.max_length)
+                            for p in p_train], dtype=np.int32)
+        '''
+        print(actions.shape)     
+        print(len(obs)) 
+        print(priors.shape)
+        print(lengths.shape)
+        print(r_train.shape)
+        print(on_policy.shape)
+        '''                      
 
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                              lengths=lengths, rewards=r_train)
+                              lengths=lengths, rewards=r_train, on_policy=on_policy)
 
         # Update and sample from the priority queue
         if priority_queue is not None:
