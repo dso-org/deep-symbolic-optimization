@@ -6,6 +6,7 @@ import numpy as np
 from dsr.program import Program
 from dsr.memory import Batch
 from dsr.subroutines import parents_siblings
+from dsr.prior import LengthConstraint
 
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
@@ -127,10 +128,13 @@ class Controller(object):
     pqt_use_pg : bool
         Use policy gradient loss when using PQT?
 
+    max_length : int or None
+        Maximum sequence length. This will be overridden if a LengthConstraint
+        with a maximum length is part of the prior.
+
     """
 
     def __init__(self, sess, prior, debug=0, summary=True,
-                 # Architecture hyperparameter
                  # RNN cell hyperparameters
                  cell='lstm',
                  num_layers=1,
@@ -159,7 +163,9 @@ class Controller(object):
                  pqt_k=10,
                  pqt_batch_size=1,
                  pqt_weight=200.0,
-                 pqt_use_pg=False):
+                 pqt_use_pg=False,
+                 # Other hyperparameters
+                 max_length=None):
 
         self.sess = sess
         self.prior = prior
@@ -168,8 +174,25 @@ class Controller(object):
 
         lib = Program.library
 
-        # FIX
-        max_length = self.max_length = 30
+        # Find max_length from the LengthConstraint prior, if it exists
+        prior_max_length = None
+        for single_prior in self.prior.priors:
+            if isinstance(single_prior, LengthConstraint):
+                if single_prior.max is not None:
+                    prior_max_length = single_prior.max
+                    self.max_length = prior_max_length
+                break
+        if prior_max_length is None:
+            assert max_length is not None, "max_length must be specified if "\
+                "there is no LengthConstraint."
+            self.max_length = max_length
+            print("WARNING: Maximum length not constrained. Sequences will "
+                  "stop at {} and complete by repeating the first input "
+                  "variable.".format(self.max_length))
+        elif max_length is not None and max_length != self.max_length:
+            print("WARNING: max_length ({}) will be overridden by value from "
+                  "LengthConstraint ({}).".format(max_length, self.max_length))
+        max_length = self.max_length
 
         # Hyperparameters
         self.observe_parent = observe_parent
@@ -385,12 +408,12 @@ class Controller(object):
                     next_priors_ta = priors_ta.write(time - 1, prior) # Write OLD prior
                     finished = next_finished = tf.logical_or(
                         finished,
-                        time >= self.max_length)
+                        time >= max_length)
                     # When implementing variable length:
                     # finished = next_finished = tf.logical_or(tf.logical_or(
                     #     finished, # Already finished
                     #     next_dangling == 0), # Currently, this will be 0 not just the first time, but also at max_length
-                    #     time >= self.max_length)
+                    #     time >= max_length)
                     next_lengths = tf.where(
                         finished, # Ever finished
                         lengths,
@@ -451,7 +474,7 @@ class Controller(object):
             # NOTE: Using this mask for neglogp and entropy actually does NOT
             # affect training because gradients are zero outside the lengths.
             # However, the mask makes tensorflow summaries accurate.
-            mask = tf.sequence_mask(B.lengths, maxlen=self.max_length, dtype=tf.float32)
+            mask = tf.sequence_mask(B.lengths, maxlen=max_length, dtype=tf.float32)
 
             # Negative log probabilities of sequences
             actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
