@@ -125,7 +125,7 @@ class Prior():
 
         return None
 
-    def zeros(self, actions):
+    def init_zeros(self, actions):
         """Helper function to generate a starting prior of zeros."""
 
         batch_size = actions.shape[0]
@@ -134,7 +134,7 @@ class Prior():
 
     def initial_prior(self):
         """
-        Compute initial prior, before any actions are selected.
+        Compute the initial prior, before any actions are selected.
 
         Returns
         -------
@@ -413,7 +413,7 @@ class RepeatConstraint(Constraint):
 
     def __call__(self, actions, parent, sibling, dangling):
         counts = np.sum(np.isin(actions, self.tokens), axis=1)
-        prior = self.zeros(actions)
+        prior = self.init_zeros(actions)
         if self.min is not None:
             raise NotImplementedError
         if self.max is not None:
@@ -466,7 +466,7 @@ class LengthConstraint(Constraint):
     def __call__(self, actions, parent, sibling, dangling):
 
         # Initialize the prior
-        prior = self.zeros(actions)
+        prior = self.init_zeros(actions)
         i = actions.shape[1] - 1 # Current time
 
         # Never need to constrain max length for first half of expression
