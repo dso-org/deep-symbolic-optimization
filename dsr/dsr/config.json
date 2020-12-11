@@ -75,7 +75,8 @@
       "pqt_k": 10,
       "pqt_batch_size": 1,
       "pqt_weight": 200.0,
-      "pqt_use_pg": false
+      "pqt_use_pg": false,
+      "max_length": null
    },
    "gp": {
       "population_size": 1000,
