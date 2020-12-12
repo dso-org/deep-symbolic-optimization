@@ -11,6 +11,7 @@ from dsr.task import set_task
 from dsr.controller import Controller
 from dsr.gp import GPController
 from dsr.train import learn
+from dsr.prior import make_prior
 from dsr.program import Program
 
 
@@ -38,6 +39,7 @@ class DeepSymbolicOptimizer():
     def __init__(self, config=None):
         self.update_config(config)
         self.sess = None
+        self.pool = self.make_pool()
 
     def setup(self, seed=0):
 
@@ -46,8 +48,8 @@ class DeepSymbolicOptimizer():
         tf.reset_default_graph()
         self.seed(seed) # Must be called _after_ resetting graph
 
-        self.pool = self.make_pool()
         self.sess = tf.Session()
+        self.prior = self.make_prior()
         self.controller = self.make_controller()
         self.gp_controller = self.make_gp_controller()
 
@@ -73,6 +75,7 @@ class DeepSymbolicOptimizer():
 
         self.config = defaultdict(dict, config)
         self.config_task = self.config["task"]
+        self.config_prior = self.config["prior"]
         self.config_training = self.config["training"]
         self.config_controller = self.config["controller"]
         self.config_gp_meld = self.config["gp_meld"]
@@ -90,8 +93,14 @@ class DeepSymbolicOptimizer():
 
         return seed_
 
+    def make_prior(self):
+        prior = make_prior(Program.library, self.config_prior)
+        return prior
+
     def make_controller(self):
-        controller = Controller(self.sess, **self.config_controller)
+        controller = Controller(self.sess,
+                                self.prior,
+                                **self.config_controller)
         return controller
 
     def make_gp_controller(self):
