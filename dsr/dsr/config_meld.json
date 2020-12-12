@@ -20,6 +20,13 @@
       "reward_noise_type" : "r",
       "normalize_variance" : false
    },
+   "prior": {
+      "length" : {"min_" : 4, "max_" : 30},
+      "repeat" : {"tokens" : "const", "max_" : 3},
+      "inverse" : {},
+      "const" : {},
+      "trig" : {}
+   },
    "training": {
       "logdir": "./log",
       "n_epochs": null,
@@ -56,16 +63,6 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "constrain_const": true,
-      "constrain_trig": true,
-      "constrain_inv": true,
-      "constrain_min_len": true,
-      "constrain_max_len": true,
-      "constrain_num_const": true,
-      "use_language_model_prior": false,
-      "min_length": 4,
-      "max_length": 30,
-      "max_const": 3,
       "use_old_entropy": false,
       "entropy_weight": 0.005,
       "ppo": false,
@@ -76,34 +73,8 @@
       "pqt_k": 10,
       "pqt_batch_size": 1,
       "pqt_weight": 200.0,
-      "pqt_use_pg": false
-   },
-   "gp": {
-      "population_size": 1000,
-      "generations": null,
-      "n_samples" : 2000000,
-      "tournament_size": 2,
-      "metric": "nmse",
-      "const_range": [
-         -1.0,
-         1.0
-      ],
-      "p_crossover": 0.95,
-      "p_mutate": 0.03,
-      "seed": 0,
-      "early_stopping": true,
-      "threshold": 1e-12,
-      "verbose": false,
-      "protected": true,
-      "constrain_const": true,
-      "constrain_trig": true,
-      "constrain_inv": true,
-      "constrain_min_len": true,
-      "constrain_max_len": true,
-      "constrain_num_const": true,
-      "min_length": 4,
-      "max_length": 30,
-      "max_const" : 3
+      "pqt_use_pg": false,
+      "max_length": 30
    },
    "gp_meld": {
    		"desc_run_gp_meld" 		  	: "Turn on the GP component to iterate with RL?",

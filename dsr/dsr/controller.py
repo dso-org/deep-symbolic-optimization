@@ -2,10 +2,11 @@
 
 import tensorflow as tf
 import numpy as np
-from numba import jit, prange
 
 from dsr.program import Program
 from dsr.memory import Batch
+from dsr.subroutines import parents_siblings
+from dsr.prior import LengthConstraint
 
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
@@ -50,6 +51,9 @@ class Controller(object):
     sess : tf.Session
         TenorFlow Session object.
 
+    prior : dsr.prior.JointPrior
+        JointPrior object used to adjust probabilities during sampling.
+
     summary : bool
         Write tensorboard summaries?
 
@@ -91,50 +95,6 @@ class Controller(object):
     observe_sibling : bool
         Observe sibling token?
 
-    constrain_const : bool
-        Prevent constants with unary parents or constant siblings?
-
-    constrain_trig : bool
-        Prevent trig functions with trig function ancestors?
-
-    constrain_inv : bool
-        Prevent unary function with inverse unary function parent?
-
-    constrain_min_len : bool
-        Prevent terminals that would cause the expression to be shorter than
-        min_length? If False, only trivial expressions (length 1) are prevented.
-
-    constrain_max_len : bool
-        Prevent unary/binary functions that would cause the expression to exceed
-        max_length? If False, sampling ends after max_length and dangling nodes
-        are filled in with x1's.
-
-    constrain_num_const : bool
-        Prevent constants that would exceed max_const?
-
-    constrain_float : bool
-        Prevent expressions without any input variables (i.e. expressions whose
-        terminals are only hard-coded constants or the const token)?
-
-    min_length : int (>= 1) or None
-        Minimum length of a sampled traversal when constrain_min_len=True. If
-        None or constrain_min_len=False, expressions have no minimum length.
-
-    max_length : int (>= 3)
-        Maximum length of a sampled traversal.
-
-    max_const : int (>= 1) or None
-        Maximum number of constants of a sampled traversal when
-        constrain_num_const=True. If None or constrain_num_const=False,
-        expressions may have any number of constants.
-
-    use_language_model_prior : bool
-        Use loaded mathematical language model as prior?
-        If language_model_prior is None, it will be ignored.
-
-    language_model_prior: LanguageModelPrior object or None
-        Loaded mathematical language model to get prior.
-
     use_old_entropy : bool
         Use old entropy.
 
@@ -168,10 +128,13 @@ class Controller(object):
     pqt_use_pg : bool
         Use policy gradient loss when using PQT?
 
+    max_length : int or None
+        Maximum sequence length. This will be overridden if a LengthConstraint
+        with a maximum length is part of the prior.
+
     """
 
-    def __init__(self, sess, debug=0, summary=True,
-                 # Architecture hyperparameter
+    def __init__(self, sess, prior, debug=0, summary=True,
                  # RNN cell hyperparameters
                  cell='lstm',
                  num_layers=1,
@@ -187,20 +150,6 @@ class Controller(object):
                  observe_action=True,
                  observe_parent=True,
                  observe_sibling=True,
-                 # Constraint hyperparameters
-                 constrain_const=True,
-                 constrain_trig=True,
-                 constrain_inv=True,
-                 constrain_min_len=True,
-                 constrain_max_len=True,
-                 constrain_num_const=False,
-                 constrain_float=False,
-                 min_length=2,
-                 max_length=30,
-                 max_const=None,
-                 # Language model hyperparameters
-                 use_language_model_prior=False,
-                 language_model_prior=None,
                  # Loss hyperparameters
                  use_old_entropy=False,
                  entropy_weight=0.0,
@@ -214,29 +163,40 @@ class Controller(object):
                  pqt_k=10,
                  pqt_batch_size=1,
                  pqt_weight=200.0,
-                 pqt_use_pg=False):
+                 pqt_use_pg=False,
+                 # Other hyperparameters
+                 max_length=None):
 
         self.sess = sess
+        self.prior = prior
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
         lib = Program.library
 
+        # Find max_length from the LengthConstraint prior, if it exists
+        prior_max_length = None
+        for single_prior in self.prior.priors:
+            if isinstance(single_prior, LengthConstraint):
+                if single_prior.max is not None:
+                    prior_max_length = single_prior.max
+                    self.max_length = prior_max_length
+                break
+        if prior_max_length is None:
+            assert max_length is not None, "max_length must be specified if "\
+                "there is no LengthConstraint."
+            self.max_length = max_length
+            print("WARNING: Maximum length not constrained. Sequences will "
+                  "stop at {} and complete by repeating the first input "
+                  "variable.".format(self.max_length))
+        elif max_length is not None and max_length != self.max_length:
+            print("WARNING: max_length ({}) will be overridden by value from "
+                  "LengthConstraint ({}).".format(max_length, self.max_length))
+        max_length = self.max_length
+
         # Hyperparameters
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.constrain_const = constrain_const and "const" in lib.names
-        self.constrain_trig = constrain_trig
-        self.constrain_inv = constrain_inv
-        self.constrain_min_len = constrain_min_len
-        self.constrain_max_len = constrain_max_len
-        self.constrain_num_const = constrain_num_const
-        self.constrain_float = constrain_float
-        self.min_length = min_length
-        self.max_length = max_length
-        self.max_const = max_const
-        self.use_language_model_prior = use_language_model_prior
-        self.language_model_prior=language_model_prior
         self.use_old_entropy = use_old_entropy
         self.entropy_weight = entropy_weight
         self.ppo = ppo
@@ -254,44 +214,14 @@ class Controller(object):
 
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
-        assert max_length >= 3, "Must have max length at least 3."
-
-        if min_length is None:
-            assert not constrain_min_len, "Cannot constrain min length when min_length=None"
-        else:
-            assert min_length >= 1, "Must have min length at least 1."
-            assert max_length >= min_length, "Min length cannot exceed max length."
-            if not constrain_min_len:
-                print("Warning: min_length={} will not be respected because constrain_min_len=False. Overriding to None.".format(min_length))
-                self.min_length = None
-
-        if constrain_const and lib.const_token is None:
-            print("Warning: constrain_const=True will have no effect because there is no constant token.")
-            self.constrain_const = False
-
-        if constrain_float and len(lib.float_tokens) == 0:
-            print("Warning: constrain_float=True will have no effect because there are no constant tokens.")
-            self.constrain_float = False
-
-        if max_const is None:
-            assert not constrain_num_const, "Cannot constrain max num consts when max_const=None"
-        else:
-            assert max_const >= 1, "Must have max num const at least 1."
-            if lib.const_token is None:
-                print("Warning: max_const={} will have no effect because there is no constant token.".format(max_const))
-                self.constrain_num_const = False
-                self.max_const = None
-            elif not constrain_num_const:
-                print("Warning: max_const={} will not be respected because constrain_num_const=False. Overriding to None.".format(max_const))
-                self.max_const = None
 
         self.compute_parents_siblings = any([self.observe_parent,
                                              self.observe_sibling,
-                                             self.constrain_const])
+                                             self.prior.requires_parents_siblings])
 
-        if self.use_language_model_prior and language_model_prior is None:
-            print("Warning: use_language_model_prior=True will be ignored because LanguageModelPrior is not configured (null).")
-            self.use_language_model_prior = False
+        # if self.use_language_model_prior and language_model_prior is None:
+        #     print("Warning: use_language_model_prior=True will be ignored because LanguageModelPrior is not configured (null).")
+        #     self.use_language_model_prior = False
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -342,15 +272,19 @@ class Controller(object):
                 obs = tf.broadcast_to(obs, [self.batch_size])
                 initial_obs += (obs,)            
 
-            # Define prior on logits; currently only used to apply hard constraints
-            arities = np.array([lib.arities[i] for i in range(n_choices)])
-            prior = np.zeros(n_choices, dtype=np.float32)
-            if self.min_length is not None and self.min_length > 1:
-                prior[arities == 0] = -np.inf
-            prior = tf.constant(prior, dtype=tf.float32)
+            # Get initial prior
+            initial_prior = self.prior.initial_prior()
+            initial_prior = tf.constant(initial_prior, dtype=tf.float32)
             prior_dims = tf.stack([self.batch_size, n_choices])
-            prior = tf.broadcast_to(prior, prior_dims)
-            initial_prior = prior
+            initial_prior = tf.broadcast_to(initial_prior, prior_dims)
+            # arities = np.array([Program.arities[i] for i in range(n_choices)])
+            # prior = np.zeros(n_choices, dtype=np.float32)
+            # if self.min_length is not None and self.min_length > 1:
+            #     prior[arities == 0] = -np.inf
+            # prior = tf.constant(prior, dtype=tf.float32)
+            # prior_dims = tf.stack([self.batch_size, n_choices])
+            # prior = tf.broadcast_to(prior, prior_dims)
+            # initial_prior = prior
 
 
             # Returns concatenated one-hot or embeddings from observation tokens
@@ -386,8 +320,6 @@ class Controller(object):
                 i = actions.shape[1] - 1 # Current index
                 action = actions[:, -1] # Current action
 
-                prior = np.zeros((n, lib.L), dtype=np.float32)
-
                 # Depending on the constraints, may need to compute parents and siblings
                 if self.compute_parents_siblings:
                     parent, sibling = parents_siblings(actions, arities=lib.arities, parent_adjust=lib.parent_adjust)
@@ -398,58 +330,7 @@ class Controller(object):
                 # Update dangling with (arity - 1) for each element in action
                 dangling += lib.arities[action] - 1
 
-                # Constrain unary of constant or binary of two constants
-                if self.constrain_const:
-                    # Use action instead of parent here because it's really adj_parent
-                    constraints = np.isin(action, lib.unary_tokens) # Unary action (or unary parent)
-                    constraints += sibling == lib.const_token # Constant sibling
-                    prior += make_prior(constraints, [lib.const_token], lib.L)
-                
-                # Constrain trig function with trig function ancestor
-                if self.constrain_trig:
-                    constraints = trig_ancestors(actions, lib.arities, lib.trig_tokens)
-                    prior += make_prior(constraints, lib.trig_tokens, lib.L)
-                
-                # Constrain inverse unary operators
-                if self.constrain_inv:
-                    for p, c in lib.inverse_tokens.items():
-                        # No need to compute parents because only unary operators are constrained
-                        # by their inverse, and action == parent for all unary operators
-                        constraints = action == p
-                        prior += make_prior(constraints, [c], lib.L)
-                
-                # Constrain total number of constants
-                if self.constrain_num_const:
-                    constraints = np.sum(actions == lib.const_token, axis=1) == self.max_const
-                    prior += make_prior(constraints, [lib.const_token], lib.L)
-
-                # Constrain expressions without input variables
-                if self.constrain_float:
-                    # Constrain when:
-                    # 1) the expression would end if a terminal is chosen and
-                    # 2) there are no input variables
-                    constraints = (dangling == 1) & (np.sum(np.isin(actions, lib.var_tokens), axis=1) == 0)
-                    prior += make_prior(constraints, lib.float_tokens, lib.L)
-
-                # Constrain maximum sequence length
-                # Never need to constrain max length for first half of expression
-                if self.constrain_max_len and (i + 2) >= self.max_length // 2:   
-                    remaining = self.max_length - (i + 1)
-                    assert sum(dangling > remaining) == 0, (dangling, remaining)
-                    constraints = dangling >= remaining - 1 # Constrain binary
-                    prior += make_prior(constraints, lib.binary_tokens, lib.L)
-                    constraints = dangling == remaining # Constrain unary
-                    prior += make_prior(constraints, lib.unary_tokens, lib.L)
-
-                # Constrain minimum sequence length
-                # Constrain terminals when dangling == 1 until selecting the (min_length)th token
-                if self.constrain_min_len and (i + 2) < self.min_length:
-                    constraints = dangling == 1 # Constrain terminals
-                    prior += make_prior(constraints, lib.terminal_tokens, lib.L)
-
-                # Language Model prior
-                if self.use_language_model_prior and self.language_model_prior is not None:
-                    prior += self.language_model_prior.get_lm_prior(action)
+                prior = self.prior(actions, parent, sibling, dangling)
 
                 return action, parent, sibling, prior, dangling
 
@@ -527,12 +408,12 @@ class Controller(object):
                     next_priors_ta = priors_ta.write(time - 1, prior) # Write OLD prior
                     finished = next_finished = tf.logical_or(
                         finished,
-                        time >= self.max_length)
+                        time >= max_length)
                     # When implementing variable length:
                     # finished = next_finished = tf.logical_or(tf.logical_or(
                     #     finished, # Already finished
                     #     next_dangling == 0), # Currently, this will be 0 not just the first time, but also at max_length
-                    #     time >= self.max_length)
+                    #     time >= max_length)
                     next_lengths = tf.where(
                         finished, # Ever finished
                         lengths,
@@ -593,7 +474,7 @@ class Controller(object):
             # NOTE: Using this mask for neglogp and entropy actually does NOT
             # affect training because gradients are zero outside the lengths.
             # However, the mask makes tensorflow summaries accurate.
-            mask = tf.sequence_mask(B.lengths, maxlen=self.max_length, dtype=tf.float32)
+            mask = tf.sequence_mask(B.lengths, maxlen=max_length, dtype=tf.float32)
 
             # Negative log probabilities of sequences
             actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
@@ -628,6 +509,7 @@ class Controller(object):
         self.memory_batch_ph = make_batch_ph("memory_batch")
         memory_neglogp, _ = make_neglogp_and_entropy(self.memory_batch_ph)
         self.memory_probs = tf.exp(-memory_neglogp)
+        self.memory_logps = -memory_neglogp
 
         # PQT batch
         if pqt:
@@ -725,8 +607,8 @@ class Controller(object):
         """Sample batch of n expressions"""
         
         # initialize language_model_prior
-        if self.use_language_model_prior and self.language_model_prior is not None:
-            self.language_model_prior.next_state = None
+        # if self.use_language_model_prior and self.language_model_prior is not None:
+        #     self.language_model_prior.next_state = None
 
         feed_dict = {self.batch_size : n}
 
@@ -735,14 +617,18 @@ class Controller(object):
         return actions, obs, priors
 
 
-    def compute_probs(self, memory_batch):
+    def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
 
         feed_dict = {
             self.memory_batch_ph : memory_batch
         }
 
-        probs = self.sess.run([self.memory_probs], feed_dict=feed_dict)[0]
+        if log:
+            fetch = self.memory_logps
+        else:
+            fetch = self.memory_probs
+        probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
         return probs
 
 
@@ -790,154 +676,5 @@ class Controller(object):
             summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
         else:
             summaries = None
-        
+
         return summaries
-
-
-def make_prior(constraints, constraint_tokens, library_length):
-    """
-    Given a batch of constraints and the corresponding tokens to be constrained,
-    returns a prior that is added to the logits when sampling the next action.
-
-    For example, given library_length=5 and constraint_tokens=[1,2], a
-    constrained row of the prior will be: [0.0, -np.inf, -np.inf, 0.0, 0.0].
-
-    Parameters
-    __________
-
-    constraints : np.ndarray, shape=(batch_size,), dtype=np.bool_
-        Batch of constraints.
-
-    constraint_tokens : np.ndarray, dtype=np.int32
-        Array of which tokens to constrain.
-
-    library_length : int
-        Length of library.
-
-    Returns
-    _______
-
-    prior : np.ndarray, shape=(batch_size, library_length), dtype=np.float32
-        Prior adjustment to logits given constraints. Since these are hard
-        constraints, ach element is either 0.0 or -np.inf.
-    """
-
-    prior = np.zeros((constraints.shape[0], library_length), dtype=np.float32)
-    for t in constraint_tokens:
-        prior[constraints == True, t] = -np.inf
-    return prior
-
-
-@jit(nopython=True, parallel=True)
-def trig_ancestors(tokens, arities, trig_tokens):
-    """
-    Given a batch of action sequences, determines whether the next element of
-    the sequence has an ancestor that is a trigonometric function.
-    
-    The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence. In some cases, expressions may
-    already be complete; in these cases, this function sees the start of a new
-    expression, even though the return value for these elements won't matter
-    because their gradients will be zero because of sequence_length.
-
-    Parameters
-    __________
-
-    tokens : np.ndarray, shape=(N, L), dtype=np.int32
-        Batch of action sequences. Values correspond to library indices.
-
-    arities : np.ndarray, dtype=np.int32
-        Array of arities corresponding to library indices.
-
-    trig_tokens : np.ndarray, dtype=np.int32
-        Array of tokens corresponding to trig functions.
-
-    Returns
-    _______
-
-    ancestors : np.ndarray, shape=(N,), dtype=np.bool_
-        Whether the next element of each sequence has a trig function ancestor.
-    """
-
-    N, L = tokens.shape
-    ancestors = np.zeros(shape=(N,), dtype=np.bool_)
-    # Parallelized loop over action sequences
-    for r in prange(N):
-        dangling = 0
-        threshold = None # If None, current branch does not have trig ancestor
-        for c in range(L):
-            arity = arities[tokens[r, c]]
-            dangling += arity - 1
-            # Turn "on" if a trig function is found
-            # Remain "on" until branch completes
-            if threshold is None:
-                for trig_token in trig_tokens:
-                    if tokens[r, c] == trig_token:
-                        threshold = dangling - 1
-                        break
-            # Turn "off" once the branch completes
-            else:                
-                if dangling == threshold:
-                    threshold = None
-        # If the sequences ended "on", then there is a trig ancestor
-        if threshold is not None:
-            ancestors[r] = True
-    return ancestors
-
-
-@jit(nopython=True, parallel=True)
-def parents_siblings(tokens, arities, parent_adjust):
-    """
-    Given a batch of action sequences, computes and returns the parents and
-    siblings of the next element of the sequence.
-
-    The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence. In some cases, expressions may
-    already be complete; in these cases, this function sees the start of a new
-    expression, even though the return value for these elements won't matter
-    because their gradients will be zero because of sequence_length.
-
-    Parameters
-    __________
-
-    tokens : np.ndarray, shape=(N, L), dtype=np.int32
-        Batch of action sequences. Values correspond to library indices.
-
-    arities : np.ndarray, dtype=np.int32
-        Array of arities corresponding to library indices.
-
-    parent_adjust : np.ndarray, dtype=np.int32
-        Array of parent sub-library index corresponding to library indices.
-
-    Returns
-    _______
-
-    adj_parents : np.ndarray, shape=(N,), dtype=np.int32
-        Adjusted parents of the next element of each action sequence.
-
-    siblings : np.ndarray, shape=(N,), dtype=np.int32
-        Siblings of the next element of each action sequence.
-
-    """
-    N, L = tokens.shape
-    
-    empty_parent = np.max(parent_adjust) + 1 # Empty token is after all non-empty tokens
-    empty_sibling = len(arities) # Empty token is after all non-empty tokens
-    adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
-    siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)
-    # Parallelized loop over action sequences
-    for r in prange(N):
-        arity = arities[tokens[r, -1]]
-        if arity > 0: # Parent is the previous element; no sibling
-            adj_parents[r] = parent_adjust[tokens[r, -1]]
-            continue
-        dangling = 0
-        # Loop over elements in an action sequence
-        for c in range(L):
-            arity = arities[tokens[r, L - c - 1]]
-            dangling += arity - 1
-            if dangling == 0: # Parent is L-c-1, sibling is the next
-                adj_parents[r] = parent_adjust[tokens[r, L - c - 1]]
-                siblings[r] = tokens[r, L - c]
-                break
-    return adj_parents, siblings
