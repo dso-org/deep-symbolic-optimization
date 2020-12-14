@@ -127,9 +127,9 @@ def learn(sess, controller, pool, gp_controller,
         (1) "ewma_R" : b = EWMA(<R>)
         (2) "R_e" : b = R_e
         (3) "ewma_R_e" : b = EWMA(R_e)
-        (4) "combined" = R_e + EWMA(<R> - R_e)
+        (4) "combined" : b = R_e + EWMA(<R> - R_e)
         In the above, <R> is the sample average _after_ epsilon sub-sampling and
-        R_e is the sample (1-epsilon)-quantile of the batch.
+        R_e is the (1-epsilon)-quantile estimate.
 
     b_jumpstart : bool, optional
         Whether EWMA part of the baseline starts at the average of the first
@@ -508,13 +508,13 @@ def learn(sess, controller, pool, gp_controller,
             b_train = ewma
         elif baseline == "R_e": # Default
             ewma = -1
-            b_train = np.min(r_train) # The worst of the lot
+            b_train = quantile
         elif baseline == "ewma_R_e":
-            ewma = np.min(r_train) if ewma is None else alpha*np.min(r_train) + (1 - alpha)*ewma
+            ewma = np.min(r_train) if ewma is None else alpha*quantile + (1 - alpha)*ewma
             b_train = ewma
         elif baseline == "combined":
-            ewma = np.mean(r_train) - np.min(r_train) if ewma is None else alpha*(np.mean(r_train) - np.min(r_train)) + (1 - alpha)*ewma
-            b_train = np.min(r_train) + ewma
+            ewma = np.mean(r_train) - quantile if ewma is None else alpha*(np.mean(r_train) - quantile) + (1 - alpha)*ewma
+            b_train = quantile + ewma
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
