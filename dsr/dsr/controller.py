@@ -556,6 +556,38 @@ class Controller(object):
 
             self.loss = loss
 
+        def make_optimizer(name, learning_rate):
+            if name == "adam":
+                return tf.train.AdamOptimizer(learning_rate=learning_rate)
+            if name == "rmsprop":
+                return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
+            if name == "sgd":
+                return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+            raise ValueError("Did not recognize optimizer '{}'".format(name))
+
+        # Create training op
+        optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
+        with tf.name_scope("train"):
+            self.grads_and_vars = optimizer.compute_gradients(self.loss)
+            self.train_op = optimizer.apply_gradients(self.grads_and_vars)
+            # The two lines above are equivalent to:
+            # self.train_op = optimizer.minimize(self.loss)
+        with tf.name_scope("grad_norm"):
+            self.grads, _ = list(zip(*self.grads_and_vars))
+            self.norms = tf.global_norm(self.grads)
+
+        if debug >= 1:
+            total_parameters = 0
+            print("")
+            for variable in tf.trainable_variables():
+                shape = variable.get_shape()
+                n_parameters = np.product(shape)
+                total_parameters += n_parameters
+                print("Variable:    ", variable.name)
+                print("  Shape:     ", shape)
+                print("  Parameters:", n_parameters)
+            print("Total parameters:", total_parameters)
+
         # Create summaries
         with tf.name_scope("summary"):
             if self.summary:
@@ -572,36 +604,13 @@ class Controller(object):
                 tf.summary.scalar("baseline", self.baseline)
                 tf.summary.histogram("reward", r)
                 tf.summary.histogram("length", self.sampled_batch_ph.lengths)
+                for g, v in self.grads_and_vars:
+                    tf.summary.histogram(v.name, v)
+                    tf.summary.scalar(v.name + '_norm', tf.norm(v))
+                    tf.summary.histogram(v.name + '_grad', g)
+                    tf.summary.scalar(v.name + '_grad_norm', tf.norm(g))
+                tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
-
-
-        def make_optimizer(name, learning_rate):
-            if name == "adam":
-                return tf.train.AdamOptimizer(learning_rate=learning_rate)
-            if name == "rmsprop":
-                return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
-            if name == "sgd":
-                return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-            raise ValueError("Did not recognize optimizer '{}'".format(name))
-
-
-        # Create training op
-        optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
-        with tf.name_scope("train"):
-            self.train_op = optimizer.minimize(self.loss)
-
-        if debug >= 1:
-            total_parameters = 0
-            print("")
-            for variable in tf.trainable_variables():
-                shape = variable.get_shape()
-                n_parameters = np.product(shape)
-                total_parameters += n_parameters
-                print("Variable:    ", variable.name)
-                print("  Shape:     ", shape)
-                print("  Parameters:", n_parameters)
-            print("Total parameters:", total_parameters)
-
 
     def sample(self, n):
         """Sample batch of n expressions"""
