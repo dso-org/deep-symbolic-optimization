@@ -48,14 +48,15 @@ class Token():
         return self.function(*args)
 
 
-class Constant(Token):
+class PlaceholderConstant(Token):
     """
-    A Token with a "value" attribute, whose function returns the value.
+    A Token for placeholder constants that will be optimized with respect to
+    the reward function. The function simply returns the "value" attribute.
 
     Parameters
     ----------
-    value : float
-        Value of the constant.
+    value : float or None
+        Current value of the constant, or None if not yet set.
     """
 
     def __init__(self, value=None):
@@ -95,8 +96,9 @@ class Library():
         self.names = [t.name for t in tokens]
         self.arities = np.array([t.arity for t in tokens], dtype=np.int32)
 
-        self.input_tokens = np.array([i for i, t in enumerate(tokens)
-                                      if t.input_var is not None], dtype=np.int32)
+        self.input_tokens = np.array(
+            [i for i, t in enumerate(self.tokens) if t.input_var is not None],
+            dtype=np.int32)
 
         def get_tokens_of_arity(arity):
             _tokens = [i for i in range(self.L) if self.arities[i] == arity]
@@ -108,7 +110,6 @@ class Library():
         self.unary_tokens = self.tokens_of_arity[1]
         self.binary_tokens = self.tokens_of_arity[2]
 
-        # Everything below will eventually be moved to a Prior abstraction
         try:
             self.const_token = self.names.index("const")
         except ValueError:
@@ -122,9 +123,13 @@ class Library():
 
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
-        self.var_tokens = np.array([t for t in range(self.L) if self[t].input_var], dtype=np.int32)
-        self.float_tokens = np.array([t for t in range(self.L) if isinstance(self[t], Constant)], dtype=np.int32)
-        self.trig_tokens = np.array([t for t in range(self.L) if self[t].name in trig_names], dtype=np.int32)
+
+        self.float_tokens = np.array(
+            [i for i, t in enumerate(self.tokens) if t.arity == 0 and t.input_var is None],
+            dtype=np.int32)
+        self.trig_tokens = np.array(
+            [i for i, t in enumerate(self.tokens) if t.name in trig_names],
+            dtype=np.int32)
 
         inverse_tokens = {
             "inv" : "inv",
