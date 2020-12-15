@@ -231,7 +231,7 @@ class Controller(object):
                     return tf.zeros_initializer()
                 if name == "var_scale":
                     return tf.contrib.layers.variance_scaling_initializer(
-                            factor=0.5, mode='FAN_AVG', uniform=True)
+                            factor=0.5, mode='FAN_AVG', uniform=True, seed=0)
                 raise ValueError("Did not recognize initializer '{}'".format(name))
 
             def make_cell(name, num_units, initializer):
@@ -257,7 +257,7 @@ class Controller(object):
             # Create embeddings
             if embedding:
                 with tf.variable_scope("embeddings",
-                                       initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0)):
+                                       initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0, seed=0)):
                     if observe_action:
                         action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size], trainable=True)
                     if observe_parent:
@@ -392,7 +392,7 @@ class Controller(object):
                     logits = cell_output + prior
                     next_cell_state = cell_state
                     emit_output = logits
-                    action = tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32)[:, 0]
+                    action = tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
                     # When implementing variable length:
                     # action = tf.where(
                     #     tf.logical_not(finished),
