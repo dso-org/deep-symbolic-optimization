@@ -189,8 +189,6 @@ def learn(sess, controller, pool, gp_controller,
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
-    if epsilon is not None and batch_size * epsilon < 1:
-        print("WARNING: batch_size * epsilon < 1. Risk-seeking will not be used.")
 
     # Create the summary writer
     if summary:
