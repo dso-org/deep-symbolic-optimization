@@ -10,7 +10,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import gym
 
-from dsr.functions import Token, Constant, function_map
+from dsr.functions import Token, PlaceholderConstant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -504,10 +504,10 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            # Create a new instance of Constant instead of changing the "values"
-            # attribute, otherwise all Programs will have the same instnace and
-            # just overwrite each other's value.
-            self.traversal[self.const_pos[i]] = Constant(const)
+            # Create a new instance of PlaceholderConstant instead of changing
+            # the "values" attribute, otherwise all Programs will have the same
+            # instance and just overwrite each other's value.
+            self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
 
     @classmethod
@@ -660,7 +660,7 @@ class Program(object):
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
 
-        complexity = sum([t.complexity if isinstance(t, Token) else 1 for t in self.traversal])
+        complexity = sum([t.complexity for t in self.traversal])
         return complexity
 
 
