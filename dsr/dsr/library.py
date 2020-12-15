@@ -47,6 +47,9 @@ class Token():
 
         return self.function(*args)
 
+    def __repr__(self):
+        return self.name
+
 
 class PlaceholderConstant(Token):
     """
@@ -70,6 +73,11 @@ class PlaceholderConstant(Token):
             return self.value
 
         super().__init__(function=function, name="const", arity=0, complexity=1)
+
+    def __repr__(self):
+        if self.value is None:
+            return self.name
+        return str(self.value[0])
 
 
 class Library():
