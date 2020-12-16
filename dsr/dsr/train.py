@@ -263,7 +263,8 @@ def learn(sess, controller, pool, gp_controller,
     if Program.task.stochastic:
         base_r_history = {} # Dict from Program str to list of base_r values
         # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
-        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Tasks."
+        assert Program.library.const_token is None, \
+            "Constant tokens not yet supported with stochastic Tasks."
         assert not pareto_front, "Pareto front not supported with stochastic Tasks."
     else:
         base_r_history = None
