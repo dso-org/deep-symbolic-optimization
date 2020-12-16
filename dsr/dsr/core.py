@@ -39,7 +39,6 @@ class DeepSymbolicOptimizer():
     def __init__(self, config=None):
         self.update_config(config)
         self.sess = None
-        self.pool = self.make_pool()
 
     def setup(self, seed=0):
 
@@ -48,6 +47,7 @@ class DeepSymbolicOptimizer():
         tf.reset_default_graph()
         self.seed(seed) # Must be called _after_ resetting graph
 
+        self.pool = self.make_pool()
         self.sess = tf.Session()
         self.prior = self.make_prior()
         self.controller = self.make_controller()
