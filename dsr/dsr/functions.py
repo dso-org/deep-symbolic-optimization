@@ -3,7 +3,7 @@
 import numpy as np
 from fractions import Fraction
 
-from dsr.library import Token, Constant
+from dsr.library import Token, PlaceholderConstant
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
 
@@ -185,7 +185,7 @@ def create_tokens(n_input_var, function_set, protected):
 
         # Constant placeholder (to-be-optimized)
         elif op == "const":
-            token = Constant()
+            token = PlaceholderConstant()
 
         else:
             raise ValueError("Operation {} not recognized.".format(op))

@@ -332,8 +332,8 @@ class NoInputsConstraint(Constraint):
 
     def validate(self):
         if len(self.library.float_tokens) == 0:
-            message = "There are no Constant tokens, so all sequences will" \
-                      "have an input variable."
+            message = "All terminal tokens are input variables, so all" \
+                "sequences will have an input variable."
             return message
         return None
 
@@ -342,7 +342,7 @@ class NoInputsConstraint(Constraint):
         # 1) the expression would end if a terminal is chosen and
         # 2) there are no input variables
         mask = (dangling == 1) & \
-               (np.sum(np.isin(actions, self.library.var_tokens), axis=1) == 0)
+               (np.sum(np.isin(actions, self.library.input_tokens), axis=1) == 0)
         prior = self.make_constraint(mask, self.library.float_tokens)
         return prior
 
