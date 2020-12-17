@@ -10,7 +10,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import gym
 
-from dsr.functions import Token, Constant, function_map
+from dsr.functions import Token, PlaceholderConstant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -504,10 +504,10 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            # Create a new instance of Constant instead of changing the "values"
-            # attribute, otherwise all Programs will have the same instnace and
-            # just overwrite each other's value.
-            self.traversal[self.const_pos[i]] = Constant(const)
+            # Create a new instance of PlaceholderConstant instead of changing
+            # the "values" attribute, otherwise all Programs will have the same
+            # instance and just overwrite each other's value.
+            self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
 
     @classmethod
@@ -660,7 +660,7 @@ class Program(object):
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
 
-        complexity = sum([t.complexity if isinstance(t, Token) else 1 for t in self.traversal])
+        complexity = sum([t.complexity for t in self.traversal])
         return complexity
 
 
@@ -703,7 +703,7 @@ class Program(object):
     def __repr__(self):
         """Prints the program's traversal"""
 
-        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) or isinstance(f, np.float32) else f.name for f in self.traversal])
+        return ','.join([repr(t) for t in self.traversal])
 
 
 ###############################################################################
@@ -729,38 +729,21 @@ class Node(object):
         return "{}({})".format(self.val, children_repr)
 
 
-def build_tree(traversal, order="preorder"):
+def build_tree(traversal):
     """Recursively builds tree from pre-order traversal"""
 
-    if order == "preorder":
-        op = traversal.pop(0)
+    op = traversal.pop(0)
+    n_children = op.arity
+    val = repr(op)
+    if val in capital:
+        val = val.capitalize()
 
-        if isinstance(op, Token):
-            val = op.name
-            if val in capital:
-                val = val.capitalize()
-            n_children = op.arity
-        elif isinstance(op, int):
-            val = "x{}".format(op + 1)
-            n_children = 0
-        elif isinstance(op, float) or isinstance(op, np.float32):
-            val = str(op)
-            n_children = 0
-        else:
-            raise ValueError("Unrecognized type: {}".format(type(op)))
+    node = Node(val)
 
-        node = Node(val)
+    for _ in range(n_children):
+        node.children.append(build_tree(traversal))
 
-        for _ in range(n_children):
-            node.children.append(build_tree(traversal))
-
-        return node
-
-    elif order == "postorder":
-        raise NotImplementedError
-
-    elif order == "inorder":
-        raise NotImplementedError
+    return node
 
 
 def convert_to_sympy(node):
