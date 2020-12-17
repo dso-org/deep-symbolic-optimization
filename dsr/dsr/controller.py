@@ -100,6 +100,12 @@ class Controller(object):
 
     entropy_weight : float
         Coefficient for entropy bonus.
+        
+    use_hierarchical_entropy : bool
+        Use hierarchical entropy.
+
+    entropy_gamma : float
+        Gamma in entropy decay.     
 
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
@@ -153,6 +159,8 @@ class Controller(object):
                  # Loss hyperparameters
                  use_old_entropy=False,
                  entropy_weight=0.0,
+                 use_hierarchical_entropy=False,
+                 entropy_gamma=0.99,
                  # PPO hyperparameters
                  ppo=False,
                  ppo_clip_ratio=0.2,
@@ -199,6 +207,7 @@ class Controller(object):
         self.observe_sibling = observe_sibling
         self.use_old_entropy = use_old_entropy
         self.entropy_weight = entropy_weight
+        self.use_hierarchical_entropy = use_hierarchical_entropy 
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -211,6 +220,9 @@ class Controller(object):
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
+        
+        # Entropy decay vector
+        entropy_gamma_decay = tf.constant([entropy_gamma**t for t in range(max_length)], dtype=tf.float32)
 
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
@@ -491,14 +503,22 @@ class Controller(object):
             # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
             # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
             # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
-
-            if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
-                entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-            else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
-                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-
+            
+            # Hierarchical entropy
+            if self.use_hierarchical_entropy:
+                entropy_gamma_decay_mask = self.entropy_weight * entropy_gamma_decay * mask # ->(batch_size, max_length)
+                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
+                entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )
+            else:    
+                if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
+                    entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
+                    entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
+                    entropy = self.entropy_weight * entropy
+                else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
+                    entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
+                    entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
+                    entropy = self.entropy_weight * entropy
+                    
             return neglogp, entropy
 
 
@@ -522,7 +542,8 @@ class Controller(object):
             r = self.sampled_batch_ph.rewards
 
             # Entropy loss
-            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
+            # The tensor entropy is already multiplied by entropy_weight
+            entropy_loss = -tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
 
             # PPO loss
