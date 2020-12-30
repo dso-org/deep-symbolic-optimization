@@ -219,7 +219,7 @@ def learn(sess, controller, pool, gp_controller,
         def print_var_means():
             tvars_vals = sess.run(tvars)
             for var, val in zip(tvars, tvars_vals):
-                print(var.name, val.mean())
+                print(var.name, "mean:", val.mean(),"var:", val.var())
 
     # Create the pool of workers, if pool is not already given
     if pool is None:
