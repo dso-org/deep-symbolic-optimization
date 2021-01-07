@@ -98,11 +98,9 @@ class Controller(object):
     entropy_weight : float
         Coefficient for entropy bonus.
         
-    use_hierarchical_entropy : bool
-        Use hierarchical entropy.
-
-    entropy_gamma : float
-        Gamma in entropy decay.     
+    entropy_gamma : float or None
+        Gamma in entropy decay. None (or
+        equivalently, 1.0) turns off entropy decay.
 
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
@@ -155,7 +153,6 @@ class Controller(object):
                  observe_sibling=True,
                  # Loss hyperparameters
                  entropy_weight=0.0,
-                 use_hierarchical_entropy=False,
                  entropy_gamma=0.99,
                  # PPO hyperparameters
                  ppo=False,
@@ -202,7 +199,6 @@ class Controller(object):
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.entropy_weight = entropy_weight
-        self.use_hierarchical_entropy = use_hierarchical_entropy 
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -217,6 +213,8 @@ class Controller(object):
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
         
         # Entropy decay vector
+        if entropy_gamma is None:
+            entropy_gamma = 1.0
         entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
         
         # Parameter assertions/warnings
@@ -499,15 +497,10 @@ class Controller(object):
             # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
             # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
             
-            # Hierarchical entropy
-            if self.use_hierarchical_entropy:
-                entropy_gamma_decay_mask = self.entropy_weight * entropy_gamma_decay * mask # ->(batch_size, max_length)
-                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
-                entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )   
-            else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
-                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-                entropy = self.entropy_weight * entropy
+            # If entropy_gamma = 1, entropy_gamma_decay_mask == mask
+            entropy_gamma_decay_mask = entropy_gamma_decay * mask # ->(batch_size, max_length)
+            entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
+            entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )   
                     
             return neglogp, entropy
 
@@ -532,8 +525,7 @@ class Controller(object):
             r = self.sampled_batch_ph.rewards
 
             # Entropy loss
-            # The tensor entropy is already multiplied by entropy_weight
-            entropy_loss = -tf.reduce_mean(entropy, name="entropy_loss")
+            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
 
             # PPO loss
