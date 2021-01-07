@@ -95,9 +95,6 @@ class Controller(object):
     observe_sibling : bool
         Observe sibling token?
 
-    use_old_entropy : bool
-        Use old entropy.
-
     entropy_weight : float
         Coefficient for entropy bonus.
         
@@ -157,7 +154,6 @@ class Controller(object):
                  observe_parent=True,
                  observe_sibling=True,
                  # Loss hyperparameters
-                 use_old_entropy=False,
                  entropy_weight=0.0,
                  use_hierarchical_entropy=False,
                  entropy_gamma=0.99,
@@ -205,7 +201,6 @@ class Controller(object):
         # Hyperparameters
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.use_old_entropy = use_old_entropy
         self.entropy_weight = entropy_weight
         self.use_hierarchical_entropy = use_hierarchical_entropy 
         self.ppo = ppo
@@ -508,13 +503,8 @@ class Controller(object):
             if self.use_hierarchical_entropy:
                 entropy_gamma_decay_mask = self.entropy_weight * entropy_gamma_decay * mask # ->(batch_size, max_length)
                 entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
-                entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )
-            else:    
-                if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
-                    entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-                    entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-                    entropy = self.entropy_weight * entropy
-                else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
+                entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )   
+            else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
                     entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
                     entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
                     entropy = self.entropy_weight * entropy
