@@ -217,8 +217,8 @@ class Controller(object):
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
         
         # Entropy decay vector
-        entropy_gamma_decay = tf.constant([entropy_gamma**t for t in range(max_length)], dtype=tf.float32)
-
+        entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
+        
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
 
@@ -505,9 +505,9 @@ class Controller(object):
                 entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
                 entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )   
             else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
-                    entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                    entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-                    entropy = self.entropy_weight * entropy
+                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
+                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
+                entropy = self.entropy_weight * entropy
                     
             return neglogp, entropy
 
