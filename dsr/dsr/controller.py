@@ -153,7 +153,7 @@ class Controller(object):
                  observe_sibling=True,
                  # Loss hyperparameters
                  entropy_weight=0.0,
-                 entropy_gamma=0.99,
+                 entropy_gamma=1.0,
                  # PPO hyperparameters
                  ppo=False,
                  ppo_clip_ratio=0.2,

@@ -67,7 +67,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
-      "entropy_gamma": 0.99,
+      "entropy_gamma": 1.0,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,
