@@ -1,5 +1,7 @@
 """Classes for Token and Library"""
 
+from collections import defaultdict
+
 import numpy as np
 
 
@@ -112,8 +114,9 @@ class Library():
             _tokens = [i for i in range(self.L) if self.arities[i] == arity]
             return np.array(_tokens, dtype=np.int32)
 
-        self.tokens_of_arity = {arity : get_tokens_of_arity(arity)
-                                for arity in self.arities}
+        self.tokens_of_arity = defaultdict(lambda : np.array([], dtype=np.int32))
+        for arity in self.arities:
+            self.tokens_of_arity[arity] = get_tokens_of_arity(arity)
         self.terminal_tokens = self.tokens_of_arity[0]
         self.unary_tokens = self.tokens_of_arity[1]
         self.binary_tokens = self.tokens_of_arity[2]
