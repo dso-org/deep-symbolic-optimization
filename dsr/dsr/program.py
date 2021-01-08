@@ -119,7 +119,7 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
 
     return p
 
-def from_tokens(tokens, optimize, skip_cache=False, on_policy=True):
+def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1):
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -157,16 +157,16 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True):
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
     if skip_cache:
-        p = Program(tokens, optimize=optimize, on_policy=on_policy)
+        p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
     elif Program.task.stochastic:
-        p = Program(tokens, optimize=optimize, on_policy=on_policy)
+        p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
     else:
         key = tokens.tostring()
         if key in Program.cache:
             p = Program.cache[key]
             p.count += 1
         else:
-            p = Program(tokens, optimize=optimize, on_policy=on_policy)
+            p = Program(tokens, optimize=optimize, on_policy=on_policy, n_object=n_objects)
             Program.cache[key] = p
 
     return p
@@ -395,7 +395,7 @@ class Program(object):
             for i, node in enumerate(self.traversal):
                 arities = node.arities
                 arity_list.append(arities)
-                dangling = np.cumsum(arity_list - 1)
+                dangling = np.cumsum(np.array(arity_list) - 1)
                 if dangling in danglings:
                     trav_object = self.traversal[i_prev:i]
                     self.traversals.append(trav_object)
