@@ -20,8 +20,8 @@ try:
     from deap import gp 
 except ImportError:
     gp = None
-    
-def _finish_tokens(tokens):
+
+def _finish_tokens(tokens, n_objects: int = 1):
     """
     Finish the token strings to make sure they are a valid program. 
     
@@ -54,9 +54,9 @@ def _finish_tokens(tokens):
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
     dangling        = 1 + np.cumsum(arities - 1) 
     
-    if 0 in dangling:
+    if -n_objects in (dangling - 1):
         # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
-        expr_length     = 1 + np.argmax(dangling == 0)
+        expr_length     = 1 + np.argmax((dangling - 1) == -n_objects)
         tokens          = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
@@ -362,7 +362,7 @@ class Program(object):
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
 
-    def __init__(self, tokens, optimize, on_policy=True):
+    def __init__(self, tokens, optimize, on_policy=True, n_objects=1):
 
         """
         Builds the Program from a list of Tokens, optimizes the Constants
@@ -378,12 +378,33 @@ class Program(object):
         
         self.invalid    = False
         self.str        = tokens.tostring()        
+        self.n_objects = n_objects
         
         if optimize:
             _ = self.optimize()
             
         self.count      = 1
         self.on_policy  = on_policy # Note if a program was created on policy
+
+        if self.n_objects > 1:
+            # Fill list of multi-traversals
+            danglings = -1 * np.arange(0, self.n_objects) # dangling values to look for. When dangling (calculated below) is in this list, then an expression has ended.
+            self.traversals = [] # list to keep track of each multi-traversal
+            i_prev = 0
+            arity_list = [] # list of arities for each node in the overall traversal
+            for i, node in enumerate(self.traversal):
+                arities = node.arities
+                arity_list.append(arities)
+                dangling = np.cumsum(arity_list - 1)
+                if dangling in danglings:
+                    trav_object = self.traversal[i_prev:i]
+                    self.traversals.append(trav_object)
+                    i_prev = i
+                    """
+                    Keep only what dangling values have not yet been calculated. Don't want dangling to go down and up (e.g hits -1, goes back up to 0 before hitting -2)
+                    and trigger the end of a traversal at the wrong time 
+                    """
+                    danglings = danglings[danglings != dangling]
         
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
@@ -454,6 +475,17 @@ class Program(object):
         assert False, "Function should never get here!"
         return None    
     
+    def execute(self, X):
+        # loops over n_objects and calls execute_function on each sub-traversal
+        if self.n_objects > 1:
+            result = []
+            for i in range(self.n_objects):
+                self.traversal = self.traversals[i]
+                out = Program.execute_function(self, X)
+                result.append(out)
+            return result
+        else:
+            return Program.execute_function(self, X)
     
     def optimize(self):
         """
