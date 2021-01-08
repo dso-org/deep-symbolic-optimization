@@ -65,7 +65,7 @@ def _finish_tokens(tokens, n_objects: int = 1):
     return tokens
 
 
-def from_str_tokens(str_tokens, optimize, skip_cache=False):
+def from_str_tokens(str_tokens, optimize, skip_cache=False, n_objects=1):
     """
     Memoized function to generate a Program from a list of str and/or float.
     See from_tokens() for details.
@@ -112,7 +112,7 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
         raise ValueError("Input must be list or string.")
 
     # Generate base Program (with "const" for constants)
-    p = from_tokens(traversal, optimize=optimize, skip_cache=skip_cache)
+    p = from_tokens(traversal, optimize=optimize, skip_cache=skip_cache, n_objects=n_objects)
 
     # Replace any constants
     p.set_constants(constants)
@@ -151,7 +151,7 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
     '''
         Truncate expressions that complete early; extend ones that don't complete
     '''
-    tokens = _finish_tokens(tokens)
+    tokens = _finish_tokens(tokens, n_objects=n_objects)
 
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
@@ -166,7 +166,7 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
             p = Program.cache[key]
             p.count += 1
         else:
-            p = Program(tokens, optimize=optimize, on_policy=on_policy, n_object=n_objects)
+            p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
             Program.cache[key] = p
 
     return p
@@ -388,23 +388,26 @@ class Program(object):
 
         if self.n_objects > 1:
             # Fill list of multi-traversals
-            danglings = -1 * np.arange(0, self.n_objects) # dangling values to look for. When dangling (calculated below) is in this list, then an expression has ended.
+            #danglings = -1 * np.arange(0, self.n_objects) # dangling values to look for. When dangling (calculated below) is in this list, then an expression has ended.
+            danglings = -1 * np.arange(1, self.n_objects + 1)
             self.traversals = [] # list to keep track of each multi-traversal
             i_prev = 0
             arity_list = [] # list of arities for each node in the overall traversal
             for i, token in enumerate(self.traversal):
+                #import ipdb; ipdb.set_trace()
                 arities = token.arity
                 arity_list.append(arities)
-                dangling = np.cumsum(np.array(arity_list) - 1)
-                if dangling in danglings:
-                    trav_object = self.traversal[i_prev:i]
+                dangling = 1 + np.cumsum(np.array(arity_list) - 1)[-1]
+                if (dangling - 1) in danglings:
+                    #import ipdb; ipdb.set_trace()
+                    trav_object = self.traversal[i_prev:i+1]
                     self.traversals.append(trav_object)
-                    i_prev = i
+                    i_prev = i+1
                     """
                     Keep only what dangling values have not yet been calculated. Don't want dangling to go down and up (e.g hits -1, goes back up to 0 before hitting -2)
                     and trigger the end of a traversal at the wrong time 
                     """
-                    danglings = danglings[danglings != dangling]
+                    danglings = danglings[danglings != dangling - 1]
         
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
@@ -605,7 +608,7 @@ class Program(object):
             Program.have_cython     = False
 
         if protected:
-            Program.execute = execute_function
+            Program.execute_function = execute_function
         else:
 
             class InvalidLog():
@@ -651,7 +654,7 @@ class Program(object):
                     invalid_log.update(p)
                     return y
 
-            Program.execute = unsafe_execute
+            Program.execute_function = unsafe_execute
 
 
     @cached_property
