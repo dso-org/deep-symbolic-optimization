@@ -392,8 +392,8 @@ class Program(object):
             self.traversals = [] # list to keep track of each multi-traversal
             i_prev = 0
             arity_list = [] # list of arities for each node in the overall traversal
-            for i, node in enumerate(self.traversal):
-                arities = node.arities
+            for i, token in enumerate(self.traversal):
+                arities = token.arity
                 arity_list.append(arities)
                 dangling = np.cumsum(np.array(arity_list) - 1)
                 if dangling in danglings:
