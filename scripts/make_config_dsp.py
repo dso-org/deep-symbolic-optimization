@@ -46,9 +46,9 @@ def myargparse():
                         dest='fs',            
                         help="name of output config file (name.json)",
                         default=True)
-    parser.add_argument('-ep','--n_episodes_train', 
+    parser.add_argument('-et','--n_episodes_train', 
                         type=int,
-                        dest='ep',            
+                        dest='et',            
                         help="n_episodes_train",
                         default=5) 
     parser.add_argument('-bs','--batch_size', 
@@ -60,14 +60,20 @@ def myargparse():
                         type=float,
                         dest='lr',            
                         help="learning_rate",
-                        default=0.1)          
+                        default=0.001)
+    parser.add_argument('-ew','--entropy_weight', 
+                        type=float,
+                        dest='ew',            
+                        help="entropy_weight",
+                        default=0.01)           
     return parser.parse_args()
 
 params = {
     "fs"  : ("task", "fix_seeds", bool),
-    "ep"  : ("task", "n_episodes_train", int),
+    "et"  : ("task", "n_episodes_train", int),
     "bs"  : ("training", "batch_size", int),
-    "lr"  : ("controller", "learning_rate", float)
+    "lr"  : ("controller", "learning_rate", float),
+    "ew"  : ("controller", "entropy_weight", float)
 }
 
 def make_config(**kwargs):
