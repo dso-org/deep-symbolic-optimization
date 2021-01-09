@@ -663,7 +663,7 @@ def learn(sess, controller, pool, gp_controller,
             keys = base_r_history.keys() # str_tokens for each unique Program
             vals = base_r_history.values() # base_r histories for each unique Program
             programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
-            for p, base_r in zip(s, vals):
+            for p, base_r in zip(programs, vals):
                 p.base_r = np.mean(base_r)
                 p.count = len(base_r) # HACK
                 _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
