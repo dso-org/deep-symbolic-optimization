@@ -9,7 +9,7 @@ import numpy as np
 
 @pytest.fixture
 def model():
-    return DeepSymbolicOptimizer("../config_test_multiobject.json")
+    return DeepSymbolicOptimizer("config.json")
 
 def test_model(model):
     # update and setup model
