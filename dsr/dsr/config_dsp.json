@@ -46,7 +46,6 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "use_old_entropy": false,
       "entropy_weight": 0.01,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
