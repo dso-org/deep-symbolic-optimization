@@ -1,10 +1,9 @@
 import random
 import operator
-import importlib
 import copy
 import warnings
 from functools import partial, wraps
-from itertools import chain, compress
+from itertools import chain
 from collections import defaultdict
 from operator import attrgetter
 
@@ -12,17 +11,19 @@ from numba import jit, prange, int32, void # not yet used
 
 import numpy as np
 
-import sympy
-
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.const import make_const_optimizer
-from dsr.task.regression.dataset import Dataset
-from dsr.program import Program, from_tokens, tokens_to_DEAP, DEAP_to_tokens
-from dsr.controller import parents_siblings
-from scipy.signal._max_len_seq import max_len_seq
+from dsr.program import Program, from_tokens
+from dsr.subroutines import parents_siblings
+
+# for now import, but later all these should come in via variables. 
+#import dsr.task.regression.gp_regression
+
+# This maybe should not be imported directly, but above should just exist as passed varaibles here. 
+#from dsr.task.regression.dataset import BenchmarkDataset
 
 try:
-    from deap import gp 
+    from deap import gp
     from deap import base
     from deap import tools
     from deap import creator
@@ -33,8 +34,8 @@ except ImportError:
     tools       = None
     creator     = None
     algorithms  = None
-    
-    
+
+
 class GenWithRLIndividuals:
     """ Forces the generator to select a user provided member first, such as one
         created by RL. Then, when we run out, create them in the usual manner with DEAP.
@@ -71,14 +72,11 @@ class GenWithRLIndividuals:
         self.individuals = []
         
         
-       
 def multi_mutate(individual, expr, pset):   
     """ Randomly select one of four types of mutation with even odds for each.
     """
     v = np.random.randint(0,4)
-    
-    #v = 0
-    
+
     if v == 0:
         individual = gp.mutUniform(individual, expr, pset)
     elif v == 1:     
@@ -89,108 +87,7 @@ def multi_mutate(individual, expr, pset):
         individual = gp.mutShrink(individual)
         
     return individual
-        
 
-
-TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
-
-# Define inverse tokens
-INVERSE_TOKENS = {
-    "exp" : "log",
-    "neg" : "neg",
-    "inv" : "inv",
-    "sqrt" : "n2"
-}
-
-# Add inverse trig functions
-INVERSE_TOKENS.update({
-    t : "arc" + t for t in TRIG_TOKENS
-    })
-
-# Add reverse
-INVERSE_TOKENS.update({
-    v : k for k, v in INVERSE_TOKENS.items()
-    })
-
-def check_const(ind):
-    """Returns True if children of a parent are all const tokens."""
-
-    names = [node.name for node in ind]
-    for i, name in enumerate(names):
-        if name in UNARY_TOKENS and "const" in names[i+1]:
-            return True
-        if name in BINARY_TOKENS and "const" in names[i+1] and "const" in names[i+2]:
-            return True
-    return False
-
-
-def check_inv(names):
-    """Returns True if two sequential tokens are inverse unary operators."""
-
-    for i, name in enumerate(names[:-1]):
-        if name in INVERSE_TOKENS and names[i+1] == INVERSE_TOKENS[name]:
-            return True
-    return False
-
-def check_trig(names):
-    """Returns True if a descendant of a trig operator is another trig
-    operator."""
-        
-    trig_descendant = False # True when current node is a descendant of a trig operator
-
-    for name in names:
-        if name in TRIG_TOKENS:
-            if trig_descendant:
-                return True
-            trig_descendant = True
-            trig_dangling   = 1
-        elif trig_descendant:
-            if name in BINARY_TOKENS:
-                trig_dangling += 1
-            elif name not in UNARY_TOKENS:
-                trig_dangling -= 1
-            if trig_dangling == 0:
-                trig_descendant = False
-                
-    return False
-
-
-def checkConstraint(max_length, min_length, max_depth):
-    """Check a varety of constraints on a memeber. These include:
-        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
-        
-        This is a decorator function that attaches to mutate or mate functions in
-        DEAP.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
-            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
-                        
-            for i, ind in enumerate(new_inds):
-                
-                l = len(ind)
-                
-                if l > max_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif l < min_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif operator.attrgetter("height")(ind) > max_depth:
-                    new_inds[i] = random.choice(keep_inds)
-                else:  
-                    names = [node.name for node in new_inds[i]]
-                    
-                    if check_inv(names):
-                        new_inds[i] = random.choice(keep_inds)
-                    elif check_trig(names):
-                        new_inds[i] = random.choice(keep_inds)
-                    
-            return new_inds
-
-        return wrapper
-
-    return decorator
 
 def popConstraint():
     """Check a varety of constraints on a memeber. These include:
@@ -202,114 +99,47 @@ def popConstraint():
         @wraps(func)
         def wrapper(*args, **kwargs):
 
-            while(True):
-                inds    = func(*args, **kwargs)               # Calls the wrapped function and returns results
-                names   = [node.name for node in inds]
-                    
-                if check_inv(names):
-                    continue
-                elif check_trig(names):
-                    continue
-                else:
-                    break
-                    
-            return inds
+            raise NotImplementedError
 
         return wrapper
 
     return decorator
 
-# library_length = program.L
-def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min_len):
-        
-    priors              = np.zeros((max_exp_length, Program.L), dtype=np.float32)
+class GenericEvaluate():
     
-    trig_descendant     = False
-    const_tokens        = 0
-    dangling            = 1
-    #trig_dangling       = 0
-    
-    offset              = 1 # Put in constraint at t+1
-    
-    #print("Tokens {}".format(tokens))
-    # Never start with a terminal token
-    priors[0, Program.terminal_tokens] = -np.inf
+    def __init__(self, hof, dataset, fitness_metric, early_stopping, threshold):
+            
+        self.toolbox            = None
         
-    for i,t in enumerate(tokens): 
+        self.hof                = hof
+        self.X_train            = dataset.X_train.T
+        self.X_test             = dataset.X_test.T
+        self.y_train            = dataset.y_train
+        self.early_stopping     = early_stopping
+        self.threshold          = threshold        
         
-        dangling    += Program.arities[t] - 1
+        fitness                 = make_fitness(fitness_metric)
+        self.train_fitness      = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
+        self.test_fitness       = partial(fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
         
-        '''
-            Note, actions == tokens
-        '''
-        '''
-        if (dangling == 1) & (np.sum(np.isin(tokens, Program.var_tokens), axis=1) == 0):
-            priors[i+offset, Program.float_tokens] = -np.inf
-        '''
+    def _finish_eval(self, individual, X, fitness):
         
-        # check trig descendants
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            f       = self.toolbox.compile(expr=individual)
+            y_hat   = f(*X)
+            fit     = (fitness(y_hat=y_hat),)
         
-        if i < len(tokens) - 1:
-            
-            if t in Program.trig_tokens:
-                trig_descendant = True
-                trig_dangling   = 1
-            elif trig_descendant:
-                if t in Program.binary_tokens:
-                    trig_dangling += 1
-                elif t not in Program.unary_tokens:
-                    trig_dangling -= 1
-                    
-                if trig_dangling == 0:
-                    trig_descendant = False
-            
-            
-            if trig_descendant:
-                #print("P1 {}".format(priors))
-                priors[i+offset, Program.trig_tokens] = -np.inf
-                #print("P2 {}".format(priors))
-            
-            '''
-            if i < len(tokens) - 2:
-                if t in Program.binary_tokens:
-                    if tokens[i+1] == Program.const_token:
-                        priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
-            '''
-            #if i < len(tokens) - 1:
-            
-            ###
-            
-            if t in Program.inverse_tokens:
-                #print("INV OK")
-                priors[i+offset, Program.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
-                
-            '''
-            if t in Program.unary_tokens:
-                priors[i+offset, Program.const_token] = -np.inf         # Cannot have const inside unary token
-            '''
-            '''
-            if t == Program.const_token:
-                const_tokens += 1
-                if const_tokens >= max_const:
-                    priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
-            '''
-            # Constrain terminals
-            
-            if (i + 2) < min_len and dangling == 1:
-                priors[i+offset, Program.terminal_tokens] = -np.inf
-                
-            ###
-            if (i + 2) >= max_len // 2:
-                remaining   = max_len - (i + 1)
-                
-                if dangling >= remaining - 1:
-                    priors[i+offset, Program.binary_tokens] = -np.inf
-                elif dangling == remaining:
-                    priors[i+offset, Program.unary_tokens]  = -np.inf
-            
-                    
-    return priors
+        return fit
         
+    def __call__(self, individual):
+
+        raise NotImplementedError
+
+    def set_toolbox(self,toolbox):
+        
+        self.toolbox = toolbox   
+
 class GenericAlgorithm:
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
         more control over how it runs.
@@ -548,98 +378,22 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         if self.verbose:
             print('Population Size {}'.format(len(self.population)))
-    
-    
-class GenericEvaluate:
-    
-    def __init__(self, const_opt, hof, dataset, fitness_metric="nmse",
-                 optimize=True, early_stopping=False, threshold=1e-12):
-    
-        self.toolbox            = None
+
+
+def DEAP_to_tokens(individual, tokens_size):
         
-        self.const_opt          = const_opt
-        self.hof                = hof
-        self.X_train            = dataset.X_train.T
-        self.X_test             = dataset.X_test.T
-        self.y_train            = dataset.y_train
-        self.optimize           = optimize
-        self.early_stopping     = early_stopping
-        self.threshold          = threshold        
-        
-        fitness                 = make_fitness(fitness_metric)
-        self.train_fitness      = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
-        self.test_fitness       = partial(fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
-        
-    def _finish_eval(self, individual, X, fitness):
-        
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            f       = self.toolbox.compile(expr=individual)
-            y_hat   = f(*X)
-            fit     = (fitness(y_hat=y_hat),)
-        
-        return fit
-        
-    def __call__(self, individual):
+    raise NotImplementedError
 
-        assert self.toolbox is not None, "Must set toolbox first."
 
-        if self.optimize:
-            # Retrieve symbolic constants
-            const_idxs = [i for i, node in enumerate(individual) if node.name == "mutable_const"]
+def tokens_to_DEAP(tokens, primitive_set):
 
-            # HACK: If early stopping threshold has been reached, don't do training optimization
-            # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self._finish_eval(self.hof[0], self.X_test, self.test_fitness)[0] < self.threshold:
-                return (1.0,)
-
-        if self.optimize and len(const_idxs) > 0:
-
-            # Objective function for evaluating constants
-            def obj(consts):                
-                for i, const in zip(const_idxs, consts):
-                    individual[i] = gp.Terminal(const, False, object)
-                    individual[i].name = "mutable_const" # For good measure
-                #print(individual)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    f       = self.toolbox.compile(expr=individual)
-                    
-                    # Sometimes this evaluation can fail. If so, return largest error possible.
-                    try:
-                        y_hat   = f(*self.X_train)
-                    except:
-                        return np.finfo(np.float).max
-                    
-                    y       = self.y_train
-                    res     = np.mean((y - y_hat)**2)
-
-                # Sometimes this evaluation can fail. If so, return largest error possible.
-                if np.isfinite(res):
-                    return res
-                else:
-                    return np.finfo(np.float).max
-
-            # Do the optimization and set the optimized constants
-            x0                  = np.ones(len(const_idxs))
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                optimized_consts    = self.const_opt(obj, x0)
-            
-            for i, const in zip(const_idxs, optimized_consts):
-                individual[i] = gp.Terminal(const, False, object)
-                individual[i].name = "mutable_const" # This is necessary to ensure the constant is re-optimized in the next generation
-
-        return self._finish_eval(individual, self.X_train, self.train_fitness)
-
-    def set_toolbox(self,toolbox):
-        
-        self.toolbox = toolbox    
+    raise NotImplementedError
         
 
 class GPController:
     
-    def __init__(self, config_gp_meld, config_task, config_training):
+    def __init__(self, config_gp_meld, config_task, config_training, 
+                 dataset, pset, eval_func, hof, gen_func=GenWithRLIndividuals()):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -664,30 +418,35 @@ class GPController:
         max_const               = 3
         constrain_const         = True
         '''
-            
-        config_dataset              = config_task["dataset"]
-        dataset                     = Dataset(**config_dataset)
-                    
-        const_params                = config_training['const_params']
-        have_const                  = "const" in dataset.function_set       
-                    
+        
+        
+          
+        ##config_dataset              = config_task["dataset"]
+        ##dataset                     = BenchmarkDataset(**config_dataset)
+                                        
         # Put the DSR tokens into DEAP format
-        self.pset, self.const_opt   = create_primitive_set(dataset, const_params=const_params, have_const=have_const)
+        self.pset                   = pset
+        #self.pset, self.const_opt   = create_primitive_set(dataset) ##, const_params=const_params, have_const=have_const)
         # Create a Hall of Fame object
-        self.hof                    = tools.HallOfFame(maxsize=1) 
+        self.hof                    = hof
         # Create the object/function that evaluates the population                                                      
-        self.eval_func              = GenericEvaluate(self.const_opt, self.hof, dataset, fitness_metric=config_gp_meld["fitness_metric"]) 
+        self.eval_func              = eval_func
         # Use a generator we can access to plug in RL population
-        self.gen_func               = GenWithRLIndividuals()
-        # Create a DEAP toolbox, use generator that takes in RL individuals      
-        self.toolbox, self.creator  = create_toolbox(self.pset, self.eval_func, 
-                                                 gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
-                                                 min_len             = config_gp_meld["min_len"], 
-                                                 tournament_size     = config_gp_meld["tournament_size"], 
-                                                 max_depth           = config_gp_meld["max_depth"], 
-                                                 max_const           = config_gp_meld["max_const"], 
-                                                 constrain_const     = config_gp_meld["constrain_const"],
-                                                 mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
+        self.gen_func               = gen_func
+        
+        
+        # Create a DEAP toolbox, use generator that takes in RL individuals  
+        '''    
+        ### THIS NEEDS TO BE CHANGED
+        '''
+        self.toolbox, self.creator  = self.create_toolbox(self.pset, self.eval_func, 
+                                                          gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
+                                                          min_len             = config_gp_meld["min_len"], 
+                                                          tournament_size     = config_gp_meld["tournament_size"], 
+                                                          max_depth           = config_gp_meld["max_depth"], 
+                                                          max_const           = config_gp_meld["max_const"], 
+                                                          constrain_const     = config_gp_meld["constrain_const"],
+                                                          mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
         
         # Put the toolbox into the evaluation function  
         self.eval_func.set_toolbox(self.toolbox)    
@@ -714,10 +473,12 @@ class GPController:
         self.logbook                = []
         self.nevals                 = 0
         self.return_gp_obs          = None
-    
-    def __call__(self, actions):
         
-        individuals     = [self.creator.Individual(tokens_to_DEAP(a, self.pset)) for a in actions] # Sometimes crashes here, no self.creator.Individual
+    def _create_primitive_set(self, dataset):
+        
+        raise NotImplementedError
+    
+    def _base_call(self, action, individuals):
         
         if self.config_gp_meld["rand_pop_n"] > 0:
             individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
@@ -747,121 +508,74 @@ class GPController:
             self.nevals += n
          
         if self.config_gp_meld["train_n"] > 1:
-            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_n_programs(self.population, self.config_gp_meld["train_n"], actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"], self.config_gp_meld["min_len"])
+            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.config_gp_meld)
             self.return_gp_obs                                      = True
         else:
-            deap_programs, deap_obs, deap_actions, deap_priors      = get_top_program(self.halloffame, actions, self.config_gp_meld["max_const"], self.config_gp_meld["max_len"], self.config_gp_meld["min_len"])
+            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_program(self.halloffame, actions, self.config_gp_meld)
             self.return_gp_obs                                      = self.config_gp_meld["train_n"]
             
         return deap_programs, deap_obs, deap_actions, deap_priors
+    
+    def _create_toolbox(self, pset, eval_func, 
+                        tournament_size=3, max_depth=17, max_len=30, min_len=4,
+                        gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
+                        popConstraint=None):
+    
+        assert gp is not None,                      "Did not import gp. Is it installed?"
+        assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
+        assert callable(eval_func),                 "evaluation function should be callable"
+        assert callable(gen_func),                  "gen_func should be callable"
+            
+        # Create custom fitness and individual classes
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
+    
+        # Define the evolutionary operators
+        toolbox = base.Toolbox()
+        toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
+        toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+        
+        if callable(popConstraint):
+            toolbox.decorate("individual", popConstraint())
+        
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+        toolbox.register("compile", gp.compile, pset=pset)
+        toolbox.register("evaluate", eval_func)
+        toolbox.register("select", tools.selTournament, tournsize=tournament_size)
+        toolbox.register("mate", gp.cxOnePoint)
+        toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
+        toolbox.register('mutate', multi_mutate, expr=toolbox.expr_mut, pset=pset)
+    
+        toolbox.decorate("mate",        checkConstraint(max_len, min_len, max_depth))
+        toolbox.decorate("mutate",      checkConstraint(max_len, min_len, max_depth))
+            
+        # Create the training function
+        return toolbox, creator
+    
+    def __call__(self, actions):
+        
+        raise NotImplementedError
     
     def __del__(self):
         
         del self.creator.FitnessMin
         ###del self.creator.Individual
-
         
-def make_fitness(metric):
-        """Generates a fitness function by name"""
-
-        if metric == "mse":
-            fitness = lambda y, y_hat, var_y : np.mean((y - y_hat)**2)
-
-        elif metric == "rmse":
-            fitness = lambda y, y_hat, var_y : np.sqrt(np.mean((y - y_hat)**2))
-
-        elif metric == "nmse":
-            fitness = lambda y, y_hat, var_y : np.mean((y - y_hat)**2 / var_y)
-
-        elif metric == "nrmse":
-            fitness = lambda y, y_hat, var_y : np.sqrt(np.mean((y - y_hat)**2 / var_y))
-
-        else:
-            raise ValueError("Metric not recognized.")
-
-        return fitness
-        
-        
-        
-def create_primitive_set(dataset,  
-                         const_optimizer="scipy", const_params=None, have_const=False):
-    """Create a DEAP primitive set from DSR functions and consts
-    """
+def create_primitive_set(*args, **kwargs):
     
-    assert gp is not None,              "Did not import gp. Is it installed?"
-    assert isinstance(dataset, object), "dataset should be a DSR Dataset object" 
+    raise NotImplementedError
+
+
+
+
+def convert_inverse_prim(*args, **kwargs):
+
+    raise NotImplementedError
+
+
+def stringify_for_sympy(*args, **kwargs):
     
-    pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
-
-    # Add input variables
-    rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
-    pset.renameArguments(**rename_kwargs)
-
-    # Add primitives
-    for k, v in function_map.items():
-        if k in dataset.function_set:
-            pset.addPrimitive(v.function, v.arity, name=v.name)    
-            
-    # Are we optimizing a const?               
-    if have_const:
-        # Need to differentiate between mutable and non mutable const
-        const_params    = const_params if const_params is not None else {}
-        const_opt       = make_const_optimizer(const_optimizer, **const_params)
-        pset.addTerminal(1.0, name="mutable_const")  
-        pset.addTerminal(1.0, name="user_const")   
-    else:
-        const_opt       = None   
-        
-    return pset, const_opt
-
-
-
-def create_toolbox(pset, eval_func, 
-                   tournament_size=3, max_depth=17, max_len=30, min_len=4, max_const=None, constrain_const=False,
-                   gen_func=gp.genHalfAndHalf, mutate_tree_max=5):
-    
-    assert gp is not None,                      "Did not import gp. Is it installed?"
-    assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
-    assert callable(eval_func),                 "evaluation function should be callable"
-    assert callable(gen_func),                  "gen_func should be callable"
-    
-    const   = "const" in pset.context
-    
-    # Create custom fitness and individual classes
-    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
-
-    # Define the evolutionary operators
-    toolbox = base.Toolbox()
-    toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
-    toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
-    toolbox.decorate("individual", popConstraint())
-    
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    toolbox.register("compile", gp.compile, pset=pset)
-    toolbox.register("evaluate", eval_func)
-    toolbox.register("select", tools.selTournament, tournsize=tournament_size)
-    toolbox.register("mate", gp.cxOnePoint)
-    toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
-    toolbox.register('mutate', multi_mutate, expr=toolbox.expr_mut, pset=pset)
-
-    toolbox.decorate("mate",        checkConstraint(max_len, min_len, max_depth))
-    toolbox.decorate("mutate",      checkConstraint(max_len, min_len, max_depth))
-
-    if const and max_const is not None:
-        assert isinstance(max_const,int)
-        assert max_const >= 0
-        num_const = lambda ind : len([node for node in ind if node.name == "mutable_const"])
-        toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
-        toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
-
-    if const and constrain_const is True:
-        toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
-        toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
-        
-    # Create the training function
-    return toolbox, creator 
-
+    raise NotImplementedError
 
 
 def create_stats_widget():
@@ -877,54 +591,10 @@ def create_stats_widget():
     
     return mstats
 
-
-
-def convert_inverse_prim(prim, args):
-    """
-    Convert inverse prims according to:
-    [Dd]iv(a,b) -> Mul[a, 1/b]
-    [Ss]ub(a,b) -> Add[a, -b]
-    We achieve this by overwriting the corresponding format method of the sub and div prim.
-    """
-    prim = copy.copy(prim)
-    #prim.name = re.sub(r'([A-Z])', lambda pat: pat.group(1).lower(), prim.name)    # lower all capital letters
-
-    converter = {
-        'sub': lambda *args_: "Add({}, Mul(-1,{}))".format(*args_),
-        'protectedDiv': lambda *args_: "Mul({}, Pow({}, -1))".format(*args_),
-        'div': lambda *args_: "Mul({}, Pow({}, -1))".format(*args_),
-        'mul': lambda *args_: "Mul({},{})".format(*args_),
-        'add': lambda *args_: "Add({},{})".format(*args_),
-        'inv': lambda *args_: "Pow(-1)".format(*args_),
-        'neg': lambda *args_: "Mul(-1)".format(*args_)
-    }
-    prim_formatter = converter.get(prim.name, prim.format)
-
-    return prim_formatter(*args)
-
-
-
-def stringify_for_sympy(f):
-    """Return the expression in a human readable string.
-    """
-    string = ""
-    stack = []
-    for node in f:
-        stack.append((node, []))
-        while len(stack[-1][1]) == stack[-1][0].arity:
-            prim, args = stack.pop()
-            string = convert_inverse_prim(prim, args)
-            if len(stack) == 0:
-                break  # If stack is empty, all nodes should have been seen
-            stack[-1][1].append(string)
-    return string
-
-
-
-def get_top_program(halloffame, actions, max_const, max_len, min_len):
+def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
-    max_tok                         = len(Program.library)
+    max_tok                         = Program.library.L
     deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
        
     deap_parent         = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
@@ -935,27 +605,24 @@ def get_top_program(halloffame, actions, max_const, max_len, min_len):
     deap_obs_action[1:] = deap_tokens[:-1]
     deap_action         = deap_tokens
     deap_action[0]      = max_tok
-       
-    deap_prior          = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
-    
+           
     for i in range(deap_expr_length-1):       
-        p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+        p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
         deap_parent[i+1]    = p
         deap_sibling[i+1]   = s
     
-    deap_parent[0]      = max_tok - len(Program.terminal_tokens)
+    deap_parent[0]      = max_tok - len(Program.library.terminal_tokens)
     deap_sibling[0]     = max_tok
     deap_obs_action[0]  = max_tok
-    
+
     deap_obs            = [deap_obs_action, deap_parent, deap_sibling]
     deap_action         = np.expand_dims(deap_action,axis=0)    
     deap_program        = [from_tokens(deap_tokens, optimize=True, on_policy=False)]
 
-    return deap_program, deap_obs, deap_action, deap_prior
+    return deap_program, deap_obs, deap_action,  deap_tokens, deap_expr_length
+
     
-    
-    
-def get_top_n_programs(population, n, actions, max_const, max_len, min_len):
+def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
         
@@ -972,11 +639,8 @@ def get_top_n_programs(population, n, actions, max_const, max_len, min_len):
     
     # Get rid of duplicate members. Make sure these are all unique. 
     for i,p in enumerate(population):
-        #print(p)
         # we have to check because population members are not nessesarily unique
         if str(p) not in p_items_val:
-            #print(p.fitness.values)
-            #print(str(p))
             p_items.append(p)
             p_items_val.append(str(p))
             tot += 1
@@ -986,48 +650,40 @@ def get_top_n_programs(population, n, actions, max_const, max_len, min_len):
         
     population          = p_items    
 
-    max_tok             = len(Program.library)
+    max_tok             = Program.library.L
     
     deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
     deap_obs_action     = np.empty((len(population),actions.shape[1]), dtype=np.int32)
-    deap_priors         = np.empty((len(population),actions.shape[1], Program.L), dtype=np.float32)
+    
     deap_action[:,0]    = max_tok
     deap_program        = []
+    deap_tokens         = []
+    deap_expr_length    = []
     
     for i,p in enumerate(population):
-        deap_tokens, deap_expr_length   = DEAP_to_tokens(p, actions.shape[1])
+        dt, dexpl                       = DEAP_to_tokens(p, actions.shape[1])
+        deap_tokens.append(dt)
+        deap_expr_length.append(dexpl)
         deap_obs_action[i,1:]           = deap_tokens[:-1]
         deap_action[i,:]                = deap_tokens
         deap_program.append(from_tokens(deap_tokens, optimize=True, on_policy=False))
-        
-        deap_priors[i,]                 = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
-        
-        #print("{}".format(deap_tokens))
-        #print("{}".format(deap_priors[i,]))
-        
+                
         for j in range(actions.shape[1]-1):       
             # Parent and sibling given the current action
             # Action should be alligned with parent and sibling.
             # The current action should be passed into function inclusivly of itself [:j+1]. 
-            p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
-            ###p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j],axis=0), arities=Program.arities, parent_adjust=Program.parent_adjust)
+            p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
             deap_parent[i,j+1]      = p
             deap_sibling[i,j+1]     = s
-            #deap_parent[i,j]      = p
-            #deap_sibling[i,j]     = s
     
-    
-   
-    
-    deap_parent[:,0]        = max_tok - len(Program.terminal_tokens)
+    deap_parent[:,0]        = max_tok - len(Program.library.terminal_tokens)
     deap_sibling[:,0]       = max_tok
     deap_obs_action[:,0]    = max_tok
-
     deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
         
-    return deap_program, deap_obs, deap_action, deap_priors
+    return deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length 
 
 
 def generic_train(toolbox, hof, algorithm,
@@ -1072,7 +728,7 @@ if __name__ == "__main__":
     
     config_dataset          = config_task["dataset"]
     config_dataset["name"]  = 'R1'
-    dataset                 = Dataset(**config_dataset)
+    dataset                 = BenchmarkDataset(**config_dataset)
 
     pset, const_opt         = create_primitive_set(dataset)
     hof                     = tools.HallOfFame(maxsize=1)                   # Create a Hall of Fame object
@@ -1085,5 +741,3 @@ if __name__ == "__main__":
     hof, logbook            = generic_train(toolbox, hof, algorithms)
     
     print(hof)
-
-    

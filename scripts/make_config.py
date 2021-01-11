@@ -80,6 +80,11 @@ def myargparse():
                         dest='ep',            
                         help="risk-seeking fraction epsilon",
                         default='None')
+    parser.add_argument('-vb','--verbose', 
+                        type=str2bool,
+                        dest='vb',            
+                        help="verbose",
+                        default=False)
     parser.add_argument('-bl','--baseline', 
                         type=str,
                         dest='bl',            
@@ -196,7 +201,7 @@ def myargparse():
 def create_base(bp,nm,
                 nse,mtp,
                 edd,mp,prtd,rn,
-                ns,bs,ap,ep,bl,sar,es,eva,pf,lr,oa,
+                ns,bs,ap,ep,vb,bl,sar,es,eva,pf,lr,oa,
                 ci,ct,
                 lc,
                 oe,ew,
@@ -210,7 +215,7 @@ def create_base(bp,nm,
     # Test names are defined by the command line    
     default["task"]["task_type"] = "regression"
     default["task"]["name"] = None
-    default["task"]["dataset"]["file"] = "benchmarks.csv"
+    #default["task"]["dataset"]["file"] = "benchmarks.csv"
     default["task"]["dataset"]["name"] = None
     
     if nse == 'None':
@@ -223,10 +228,10 @@ def create_base(bp,nm,
     else:
         default["task"]["dataset"]["dataset_size_multiplier"] = float(mtp)     
     
-    if edd == 'None':
-        default["task"]["dataset"]["extra_data_dir"] = None
-    else:
-        default["task"]["dataset"]["extra_data_dir"] = edd
+    # if edd == 'None':
+    #     default["task"]["dataset"]["extra_data_dir"] = None
+    # else:
+    #     default["task"]["dataset"]["extra_data_dir"] = edd
     # default["task"]["dataset"]["function_set"] = None
     # default["task"]["dataset"]["shuffle_data"] = None
     # default["task"]["dataset"]["train_fraction"] = None
@@ -257,7 +262,7 @@ def create_base(bp,nm,
     else:
         default["training"]["epsilon"] = float(ep)
     
-    default["training"]["verbose"] = False
+    default["training"]["verbose"] = vb
     
     default["training"]["baseline"] = bl
     default["training"]["b_jumpstart"] = False
@@ -290,26 +295,26 @@ def create_base(bp,nm,
         default["controller"]["observe_parent"] = False
         default["controller"]["observe_sibling"] = False        
     
-    default["controller"]["constrain_const"] = True
+    # default["controller"]["constrain_const"] = True
     
-    default["controller"]["constrain_trig"] = ct  
-    default["controller"]["constrain_inv"] = ci
+    # default["controller"]["constrain_trig"] = ct  
+    # default["controller"]["constrain_inv"] = ci
      
-    if lc:  
-        default["controller"]["constrain_min_len"] = True  
-        default["controller"]["constrain_max_len"] = True
-        default["controller"]["min_length"] = 4
-    else:
-        default["controller"]["constrain_min_len"] = False  
-        default["controller"]["constrain_max_len"] = False
-        default["controller"]["min_length"] = None        
+    # if lc:  
+    #     default["controller"]["constrain_min_len"] = True  
+    #     default["controller"]["constrain_max_len"] = True
+    #     default["controller"]["min_length"] = 4
+    # else:
+    #     default["controller"]["constrain_min_len"] = False  
+    #     default["controller"]["constrain_max_len"] = False
+    #     default["controller"]["min_length"] = None        
           
-    default["controller"]["constrain_num_const"] = False 
+    #default["controller"]["constrain_num_const"] = False 
     
-    default["controller"]["use_language_model_prior"] = False
+    #default["controller"]["use_language_model_prior"] = False
     
-    default["controller"]["max_length"] = 30  
-    default["controller"]["max_const"] = 3  
+    # default["controller"]["max_length"] = 30  
+    # default["controller"]["max_const"] = 3  
 
     default["controller"]["use_old_entropy"] = oe
     default["controller"]["entropy_weight"] = float(ew)
@@ -369,7 +374,7 @@ if __name__ == "__main__":
     create_base(args.bp, args.nm,
                 args.nse, args.mtp,
                 args.edd, args.mp, args.prtd, args.rn,
-                args.ns, args.bs, args.ap, args.ep, args.bl, args.sar, args.es, args.eva, args.pf, args.lr, args.oa,
+                args.ns, args.bs, args.ap, args.ep, args.vb, args.bl, args.sar, args.es, args.eva, args.pf, args.lr, args.oa,
                 args.ci, args.ct,
                 args.lc,
                 args.oe, args.ew, 

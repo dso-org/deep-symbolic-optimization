@@ -9,6 +9,8 @@ import numpy as np
 
 import dsr
 from dsr.program import Program, from_str_tokens
+from dsr.library import Library
+from dsr.functions import create_tokens
 from . import utils as U
 
 
@@ -17,7 +19,7 @@ REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=True, env_kwargs=None, fix_seeds=False):
+    stochastic=True, protected=False, env_kwargs=None, fix_seeds=False):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -89,7 +91,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         print("WARNING: fix_seeds=True renders task deterministic. Overriding to stochastic=False.")
         stochastic = False
     n_input_var = env.observation_space.shape[0]
-    Program.set_library(function_set, n_input_var, protected)
+    tokens = create_tokens(n_input_var, function_set, protected)
+    library = Library(tokens)
+    Program.library = library
 
     # Configuration assertions
     assert len(env.observation_space.shape) == 1, "Only support vector observation spaces."
@@ -216,8 +220,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     task = dsr.task.Task(reward_function=reward,
                 evaluate=evaluate,
-                function_set=function_set,
-                n_input_var=n_input_var,
+                library=library,
                 stochastic=stochastic,
                 extra_info=extra_info)
 

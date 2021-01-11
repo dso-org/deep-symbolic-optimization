@@ -10,7 +10,7 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import gym
 
-from dsr.functions import function_map, Function
+from dsr.functions import Token, PlaceholderConstant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -49,7 +49,7 @@ def _finish_tokens(tokens):
         
     """
     
-    arities         = np.array([Program.arities[t] for t in tokens])
+    arities         = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
     dangling        = 1 + np.cumsum(arities - 1) 
@@ -59,11 +59,9 @@ def _finish_tokens(tokens):
         expr_length     = 1 + np.argmax(dangling == 0)
         tokens          = tokens[:expr_length]
     else:
-        # We never reach a zero point. keep adding terminal tokens until we do. 
-        # If we only have one var then we just pad with zeros. 
-        tokens          = np.append(tokens, np.random.randint(0, high=Program.n_input_var, size=dangling[-1])) #Extend with valid variables until string is valid. 
-    
-    
+        # Extend with valid variables until string is valid
+        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+
     return tokens
 
 
@@ -93,18 +91,18 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
     # Convert str to list of str
     if isinstance(str_tokens, str):
         str_tokens = str_tokens.split(",")
-    
+
     # Convert list of str|float to list of tokens
     if isinstance(str_tokens, list):
         traversal = []
         constants = []
         for s in str_tokens:
-            if s in Program.str_library:
-                t = Program.str_library.index(s.lower())
+            if s in Program.library.names:
+                t = Program.library.names.index(s.lower())
             elif U.is_float(s):
                 assert "const" not in str_tokens, "Currently does not support both placeholder and hard-coded constants."
                 assert not optimize, "Currently does not support optimization with hard-coded constants."
-                t = Program.const_token
+                t = Program.library.const_token
                 constants.append(float(s))
             else:
                 raise ValueError("Did not recognize token {}.".format(s))
@@ -120,6 +118,7 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
     p.set_constants(constants)
 
     return p
+
 
 def from_tokens(tokens, optimize, skip_cache=False, on_policy=True):
     """
@@ -173,146 +172,6 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True):
 
     return p
 
-def DEAP_to_tokens(individual, tokens_size):
-        
-    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
-    assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
-
-    l = min(len(individual),tokens_size)
-  
-    tokens = np.zeros(tokens_size,dtype=np.int32)
-    
-    for i in range(l):
-        
-        t = individual[i]
-        
-        if isinstance(t, gp.Terminal):
-            if t.name is "user_const":
-                # Get the constant token, this will not store the actual const (TO DO, fix somehow)
-                tokens[i] = t.value
-            elif t.name is "mutable_const":
-                tokens[i] = Program.const_token
-            else:
-                # Get the int which is contained in "ARG{}",
-                tokens[i] = int(t.name[3:])
-        else:
-            # Get the index number for this op from the op list in Program.library
-            tokens[i] = Program.str_library.index(t.name)
-            
-    arities         = np.array([Program.arities[t] for t in tokens])
-    dangling        = 1 + np.cumsum(arities - 1) 
-    expr_length     = 1 + np.argmax(dangling == 0)
-  
-    return tokens, expr_length
-    
-def tokens_to_DEAP(tokens, primitive_set):
-    """
-    Transforms DSR standard tokens into DEAP format tokens.
-
-    DSR and DEAP format are very similar, but we need to translate it over. 
-
-    Parameters
-    ----------
-    tokens : list of integers
-        A list of integers corresponding to tokens in the library. The list
-        defines an expression's pre-order traversal. "Dangling" programs are
-        completed with repeated "x1" until the expression completes.
-
-    primitive_set : gp.PrimitiveSet
-        This should contain the list of primitives we will use. One way to create this is:
-        
-            # Create the primitive set
-            pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
-
-            # Add input variables
-            rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
-            pset.renameArguments(**rename_kwargs)
-
-            # Add primitives
-            for k, v in function_map.items():
-                if k in dataset.function_set:
-                    pset.addPrimitive(v.function, v.arity, name=v.name) 
-
-    Returns
-    _______
-    individual : gp.PrimitiveTree
-        This is a specialized list that contains points to element from primitive_set that were mapped based 
-        on the translation of the tokens. 
-    """
-        
-    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
-    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
-    assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
-    assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
-    
-    '''
-        Truncate expressions that complete early; extend ones that don't complete
-    '''
-    tokens  = _finish_tokens(tokens)
-             
-    plist   = []        
-    
-    for t in tokens:
-        
-        node = Program.library[t]
-
-        if isinstance(node, float) or isinstance(node, np.float):
-            '''
-                NUMBER - Library supplied floating point constant. 
-                    
-                    This is a constant the user sets and should not change. 
-            '''
-            try:
-                p = primitive_set.mapping["user_const"]
-                p.value = node
-                plist.append(p)
-            except ValueError:
-                print("ERROR: Cannot add \"const\" from DEAP primitve set")
-                
-        elif isinstance(node, str):
-            '''
-                NUMBER - Blank floating point constant. 
-                    
-                    Typically this is a constant parameter we want to optimize.
-            '''
-            try:
-                p = primitive_set.mapping["mutable_const"]
-                p.value = 1.0 #node
-                plist.append(p)
-            except ValueError:
-                print("ERROR: Cannot add \"const\" from DEAP primitve set")
-                
-        elif isinstance(node, int):
-            '''
-                NUMBER - Values from input X at location given by value in node
-                
-                    This is usually the raw data point numerical values. Its value should not change. 
-            '''
-            try:
-                plist.append(primitive_set.mapping["x{}".format(node+1)])
-            except ValueError:
-                print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
-                
-        else:
-            '''
-                FUNCTION - Name should map from Program. Be sure to add all function map items into PrimativeSet before call. 
-                
-                    This is any common function with a name like "sin" or "log". 
-                    We assume right now all functions work on floating points. 
-            '''
-            try:
-                plist.append(primitive_set.mapping[node.name])
-            except ValueError:
-                print("ERROR: Cannot add function \"{}\" from DEAP primitve set".format(node.name))
-            
-    individual = gp.PrimitiveTree(plist)
-    
-    '''
-        Look. You've got it all wrong. You don't need to follow me. 
-        You don't need to follow anybody! You've got to think for yourselves. 
-        You're all individuals! 
-    '''
-    return individual
 
 class Program(object):
     """
@@ -370,49 +229,29 @@ class Program(object):
 
     # Static variables
     task = None             # Task
-    library = None          # List of operators/terminals for each token
-    arities = None          # Array of arities for each token
-    reward_function = None  # Reward function
+    library = None          # Library
     const_optimizer = None  # Function to optimize constants
     cache = {}
-    primitive_set = None
-    
-    # Additional derived static variables
-    L = None                # Length of library
-    terminal_tokens = None  # Tokens corresponding to terminals
-    float_tokens = None     # Tokens corresponding to hard-coded floats
-    var_tokens = None       # Tokens corresponding to input variables
-    unary_tokens = None     # Tokens corresponding to unary operators
-    binary_tokens = None    # Tokens corresponding to binary operators
-    trig_tokens = None      # Tokens corresponding to trig functions
-    const_token = None      # Token corresponding to constant
-    inverse_tokens = None   # Dict of token to inverse tokens
-    parent_adjust = None    # Array to transform library index to non-terminal sub-library index. Values of -1 correspond to invalid entry (i.e. terminal parent)
-    n_input_var = None      # Number of x{} variables
 
     # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
     cyfunc = None           # Link to cyfunc lib since we do an include inline
-        
+
     def __init__(self, tokens, optimize, on_policy=True):
-        
+
         """
-        Builds the program from a list of tokens, optimizes the constants
-        against training data, and evalutes the reward.
+        Builds the Program from a list of Tokens, optimizes the Constants
+        against reward function, and evalutes the reward.
         """
         
         self.traversal      = [Program.library[t] for t in tokens]
-        self.const_pos      = [i for i,t in enumerate(tokens) if t == Program.const_token] # Just constant placeholder positions
+        self.const_pos      = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
         self.len_traversal  = len(self.traversal)
-            
+
         if self.have_cython and self.len_traversal > 1:
-            self.float_pos      = self.const_pos + [i for i,t in enumerate(tokens) if isinstance(Program.library[t], np.float32)] # Constant placeholder + floating-point positions
-            self.new_traversal  = [Program.library[t] for t in tokens]
-            self.is_function    = array.array('i',[isinstance(t, Function) for t in self.new_traversal])
-            self.var_pos        = [i for i,t in enumerate(self.traversal) if isinstance(t, int)]   
+            self.is_input_var    = array.array('i', [t.input_var is not None for t in self.traversal])
         
-        self.tokens     = tokens
         self.invalid    = False
         self.str        = tokens.tostring()        
         
@@ -438,7 +277,7 @@ class Program(object):
         """
 
         if self.len_traversal > 1:
-            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.new_traversal, self.float_pos, self.var_pos, self.is_function)
+            return self.cyfunc.execute(X, self.len_traversal, self.traversal, self.is_input_var)
         else:
             return self.python_execute(X)
     
@@ -457,30 +296,30 @@ class Program(object):
             The result of executing the program on X.
         """
 
-        # Check for single-node programs
-        node = self.traversal[0]
-        if isinstance(node, float):
-            return np.repeat(node, X.shape[0])
-        if isinstance(node, int):
-            return X[:, node]
+        # # Check for single-node programs
+        # node = self.traversal[0]
+        # if isinstance(node, float):
+        #     return np.repeat(node, X.shape[0])
+        # if isinstance(node, int):
+        #     return X[:, node]
 
         apply_stack = []
 
         for node in self.traversal:
 
-            if isinstance(node, Function):
-                apply_stack.append([node])
-            else:
-                # Lazily evaluate later
-                apply_stack[-1].append(node)
+            apply_stack.append([node])
 
             while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
                 # Apply functions that have sufficient arguments
-                function = apply_stack[-1][0]
-                terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
-                             else X[:, t] if isinstance(t, int)
-                             else t for t in apply_stack[-1][1:]]
-                intermediate_result = function(*terminals)
+                token = apply_stack[-1][0]
+                terminals = apply_stack[-1][1:]
+                # terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
+                #              else X[:, t] if isinstance(t, int)
+                #              else t for t in apply_stack[-1][1:]]
+                if token.input_var is not None:
+                    intermediate_result = X[:, token.input_var]
+                else:
+                    intermediate_result = token(*terminals)
                 if len(apply_stack) != 1:
                     apply_stack.pop()
                     apply_stack[-1].append(intermediate_result)
@@ -514,7 +353,7 @@ class Program(object):
         # Create the objective function, which is a function of the constants being optimized
         def f(consts):
             self.set_constants(consts)
-            r = self.reward_function()
+            r = self.task.reward_function(self)
             obj = -r # Constant optimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
@@ -522,7 +361,6 @@ class Program(object):
             self.invalid = False
 
             return obj
-
         
         assert self.execute is not None, "set_execute needs to be called first"
         
@@ -542,7 +380,10 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            self.traversal[self.const_pos[i]] = const
+            # Create a new instance of PlaceholderConstant instead of changing
+            # the "values" attribute, otherwise all Programs will have the same
+            # instance and just overwrite each other's value.
+            self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
 
     @classmethod
@@ -557,6 +398,7 @@ class Program(object):
         """Sets the class' Task"""
 
         Program.task = task
+        Program.library = task.library
 
 
     @classmethod
@@ -656,82 +498,6 @@ class Program(object):
             Program.execute = unsafe_execute
 
 
-    @classmethod
-    def set_library(cls, operators, n_input_var, protected):
-        """Sets the class library and arities."""
-
-        # Add input variables
-        Program.n_input_var = n_input_var
-        Program.library     = list(range(n_input_var))
-        Program.str_library = ["x{}".format(i+1) for i in range(n_input_var)]
-        Program.arities     = [0] * n_input_var
-
-        for i, op in enumerate(operators):
-
-            # Function
-            if op in function_map:
-
-                # Prepend available protected operators with "protected_"
-                if protected and not op.startswith("protected_"):
-                    protected_op = "protected_{}".format(op)                    
-                    if protected_op in function_map:
-                        op = protected_op
-
-                op = function_map[op]
-                Program.library.append(op)
-                Program.str_library.append(op.name)
-                Program.arities.append(op.arity)
-
-            # Hard-coded floating-point constant
-            elif isinstance(op, float) or isinstance(op, int):
-                op = np.float32(op)
-                Program.library.append(op)
-                Program.str_library.append(str(op))
-                Program.arities.append(0)
-
-            # Constant placeholder (to-be-optimized)
-            elif op == "const":
-                Program.library.append(op)
-                Program.str_library.append(op)
-                Program.arities.append(0)
-                Program.const_token = i + n_input_var
-
-            else:
-                raise ValueError("Operation {} not recognized.".format(op))
-
-        Program.arities = np.array(Program.arities, dtype=np.int32)
-
-        count = 0
-        Program.parent_adjust = np.full_like(Program.arities, -1)
-        for i in range(len(Program.arities)):
-            if Program.arities[i] > 0:
-                Program.parent_adjust[i] = count
-                count += 1
-
-        Program.L = len(Program.library)
-        trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
-        trig_names += ["arc" + name for name in trig_names]
-        Program.var_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], int)], dtype=np.int32)
-        Program.float_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], np.float32)], dtype=np.int32)
-        Program.terminal_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 0], dtype=np.int32)
-        Program.unary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 1], dtype=np.int32)
-        Program.binary_tokens = np.array([t for t in range(Program.L) if Program.arities[t] == 2], dtype=np.int32)
-        Program.trig_tokens = np.array([t for t in range(Program.L) if isinstance(Program.library[t], Function) and Program.library[t].name in trig_names], dtype=np.int32)
-
-        inverse_tokens = {
-            "inv" : "inv",
-            "neg" : "neg",
-            "exp" : "log",
-            "log" : "exp",
-            "sqrt" : "n2",
-            "n2" : "sqrt"
-        }
-        token_from_name = {t.name : i for i,t in enumerate(Program.library) if isinstance(t, Function)}
-        Program.inverse_tokens = {token_from_name[k] : token_from_name[v] for k,v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
-
-        print("Library:\n\t{}".format(Program.str_library))
-
-
     @cached_property
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
@@ -770,7 +536,7 @@ class Program(object):
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
 
-        complexity = sum([t.complexity if isinstance(t, Function) else 1 for t in self.traversal])
+        complexity = sum([t.complexity for t in self.traversal])
         return complexity
 
 
@@ -813,7 +579,7 @@ class Program(object):
     def __repr__(self):
         """Prints the program's traversal"""
 
-        return ','.join(["x{}".format(f + 1) if isinstance(f, int) else str(f) if isinstance(f, float) or isinstance(f, np.float32) else f.name for f in self.traversal])
+        return ','.join([repr(t) for t in self.traversal])
 
 
 ###############################################################################
@@ -839,38 +605,21 @@ class Node(object):
         return "{}({})".format(self.val, children_repr)
 
 
-def build_tree(traversal, order="preorder"):
+def build_tree(traversal):
     """Recursively builds tree from pre-order traversal"""
 
-    if order == "preorder":
-        op = traversal.pop(0)
+    op = traversal.pop(0)
+    n_children = op.arity
+    val = repr(op)
+    if val in capital:
+        val = val.capitalize()
 
-        if isinstance(op, Function):
-            val = op.name
-            if val in capital:
-                val = val.capitalize()
-            n_children = op.arity
-        elif isinstance(op, int):
-            val = "x{}".format(op + 1)
-            n_children = 0
-        elif isinstance(op, float) or isinstance(op, np.float32):
-            val = str(op)
-            n_children = 0
-        else:
-            raise ValueError("Unrecognized type: {}".format(type(op)))
+    node = Node(val)
 
-        node = Node(val)
+    for _ in range(n_children):
+        node.children.append(build_tree(traversal))
 
-        for _ in range(n_children):
-            node.children.append(build_tree(traversal))
-
-        return node
-
-    elif order == "postorder":
-        raise NotImplementedError
-
-    elif order == "inorder":
-        raise NotImplementedError
+    return node
 
 
 def convert_to_sympy(node):

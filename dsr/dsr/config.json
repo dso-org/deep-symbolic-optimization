@@ -2,26 +2,30 @@
    "task": {
       "task_type" : "regression",
       "name" : "Nguyen-1",
+      "function_set": null,
       "dataset" : {
-         "file": "benchmarks.csv",
+         "benchmark_source": "benchmarks.csv",
          "name" : null,
          "noise": null,
-         "extra_data_dir": null,
-         "function_set": null,
-         "shuffle_data": false,
-         "train_fraction": 0.8,
-         "backup": false,
-         "experiment_root": null
+         "root": null,
+         "backup": false
       },
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],
       "extra_metric_test" : null,
       "extra_metric_test_params" : [1.0],
       "threshold" : 1e-12,
-      "protected" : true,
+      "protected" : false,
       "reward_noise" : 0.0,
       "reward_noise_type" : "r",
       "normalize_variance" : false
+   },
+   "prior": {
+      "length" : {"min_" : 4, "max_" : 30},
+      "repeat" : {"tokens" : "const", "max_" : 3},
+      "inverse" : {},
+      "trig" : {},
+      "const" : {}
    },
    "training": {
       "logdir": "./log",
@@ -43,7 +47,11 @@
         "output_file": null,
         "save_all_r": false,
         "early_stopping": true,
-        "hof": null
+        "hof": null,
+        "use_memory": true,
+        "memory_capacity": 1e3,
+        "warm_start": null,
+        "memory_threshold": null
    },
    "controller": {
       "cell": "lstm",
@@ -57,17 +65,6 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "constrain_const": true,
-      "constrain_trig": true,
-      "constrain_inv": true,
-      "constrain_min_len": true,
-      "constrain_max_len": true,
-      "constrain_num_const": false,
-      "constrain_float": false,
-      "use_language_model_prior": false,
-      "min_length": 4,
-      "max_length": 30,
-      "max_const": 3,
       "use_old_entropy": false,
       "entropy_weight": 0.005,
       "ppo": false,
@@ -78,7 +75,8 @@
       "pqt_k": 10,
       "pqt_batch_size": 1,
       "pqt_weight": 200.0,
-      "pqt_use_pg": false
+      "pqt_use_pg": false,
+      "max_length": 30
    },
    "gp": {
       "population_size": 1000,
@@ -109,7 +107,7 @@
       "max_const" : 3
    },
    "gp_meld": {
-   		"run_gp_meld"             	: true,
+   		"run_gp_meld"             	: false,
         "init_population_size"    	: 1,
         "p_crossover"             	: 0.5,    
         "p_mutate"                	: 0.5,    
