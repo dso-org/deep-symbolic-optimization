@@ -10,6 +10,7 @@
       "stochastic" : true,
       "protected" : false,
       "fix_seeds" : false,
+      "episode_seed_shift" : 0,
       "env_kwargs" : {"dt" : 0.02}
    },
    "training": {
