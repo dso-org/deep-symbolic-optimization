@@ -16,7 +16,9 @@ def make_prior(library, config_prior):
         "inverse" : InverseUnaryConstraint,
         "trig" : TrigConstraint,
         "const" : ConstConstraint,
-        "no_inputs" : NoInputsConstraint
+        "no_inputs" : NoInputsConstraint,
+        "soft_length" : SoftLengthPrior,
+        "uniform_arity" : UniformArityPrior
     }
 
     priors = []
@@ -495,3 +497,66 @@ class LengthConstraint(Constraint):
             message.append("Sequences have maximum length {}.".format(self.max))
         message = "\n".join(message)
         return message
+
+
+class UniformArityPrior(Prior):
+    """Class that puts a fixed prior on arities by transforming the initial
+    distribution from uniform over tokens to uniform over arities."""
+
+    def __init__(self, library):
+
+        Prior.__init__(self, library)
+
+        # For each token, subtract log(n), where n is the total number of tokens
+        # in the library with the same arity as that token. This is equivalent
+        # to... For each arity, subtract log(n) from tokens of that arity, where
+        # n is the total number of tokens of that arity
+        self.logit_adjust = np.zeros((self.L,), dtype=np.float32)
+        for arity, tokens in self.library.tokens_of_arity.items():
+            self.logit_adjust[tokens] += -np.log(len(tokens))
+
+    def initial_prior(self):
+        return self.logit_adjust
+
+    def __call__(self, actions, parent, sibling, dangling):
+
+        # This will be broadcast when added to the joint prior
+        prior = self.logit_adjust
+        return prior
+
+
+class SoftLengthPrior(Prior):
+    """Class the puts a soft prior on length. Before loc, terminal probabilities
+    are scaled by exp(-(t - loc) ** 2 / (2 * scale)) where dangling == 1. After
+    loc, non-terminal probabilities are scaled by that number."""
+
+    def __init__(self, library, loc, scale):
+
+        Prior.__init__(self, library)
+
+        self.loc = loc
+        self.scale = scale
+
+        self.terminal_mask = np.zeros((self.L,), dtype=np.bool)
+        self.terminal_mask[self.library.terminal_tokens] = True
+
+        self.nonterminal_mask = ~self.terminal_mask
+
+    def __call__(self, actions, parent, sibling, dangling):
+
+        # Initialize the prior
+        prior = self.init_zeros(actions)
+        t = actions.shape[1] # Current time
+
+        # Adjustment to terminal or non-terminal logits
+        logit_adjust = -(t - self.loc) ** 2 / (2 * self.scale)
+
+        # Before loc, decrease p(terminal) where dangling == 1
+        if t < self.loc:
+            prior[dangling == 1] += self.terminal_mask * logit_adjust
+
+        # After loc, decrease p(non-terminal)
+        else:
+            prior += self.nonterminal_mask * logit_adjust
+
+        return prior
