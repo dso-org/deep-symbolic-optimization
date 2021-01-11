@@ -104,6 +104,10 @@ filled symbolic multi-action policy config file."
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w') as f:
         json.dump(config, f, indent=3)
+    score_file = "score_{}.txt".format(os.path.basename(logdir))
+    path = os.path.join(kwargs['op'], score_file)
+    with open(path, 'w') as f:
+        f.write("best_score: {}".format(best_score))
 
 if __name__ == "__main__":
     args = myargparse()
