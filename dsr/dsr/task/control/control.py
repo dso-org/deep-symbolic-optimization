@@ -19,7 +19,8 @@ REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=False, env_kwargs=None, fix_seeds=False):
+    stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
+    episode_seed_shift=0):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -66,6 +67,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         If True, environment uses the first n_episodes_train seeds for reward
         and the next n_episodes_test seeds for evaluation. This makes the task
         deterministic.
+
+    episode_seed_shift : int
+        Training episode seeds start at episode_seed_shift * 100 +
+        REWARD_SEED_SHIFT. This has no effect if fix_seeds == False.
 
     Returns
     -------
@@ -157,7 +162,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
             if evaluate:
                 env.seed(i)
             elif fix_seeds:
-                env.seed(i + REWARD_SEED_SHIFT)
+                env.seed(i + (episode_seed_shift * 100) + REWARD_SEED_SHIFT)
             obs = env.reset()
             done = False
             while not done:
