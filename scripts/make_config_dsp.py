@@ -50,12 +50,22 @@ def myargparse():
                         type=int,
                         dest='et',            
                         help="n_episodes_train",
-                        default=5) 
+                        default=10)
+    parser.add_argument('-es','--episode_seed_shift', 
+                        type=int,
+                        dest='es',            
+                        help="episode_seed_shift",
+                        default=0)  
     parser.add_argument('-bs','--batch_size', 
                         type=int,
                         dest='bs',            
                         help="batch_size",
-                        default=10)
+                        default=100)
+    parser.add_argument('-ep','--epsilon', 
+                        type=float,
+                        dest='ep',            
+                        help="epsilon",
+                        default=0.1)
     parser.add_argument('-lr','--learning_rate', 
                         type=float,
                         dest='lr',            
@@ -65,13 +75,15 @@ def myargparse():
                         type=float,
                         dest='ew',            
                         help="entropy_weight",
-                        default=0.01)           
+                        default=0.001) 
     return parser.parse_args()
 
 params = {
     "fs"  : ("task", "fix_seeds", bool),
     "et"  : ("task", "n_episodes_train", int),
+    "es"  : ("task", "episode_seed_shift", int),
     "bs"  : ("training", "batch_size", int),
+    "ep"  : ("training", "epsilon", float),
     "lr"  : ("controller", "learning_rate", float),
     "ew"  : ("controller", "entropy_weight", float)
 }
