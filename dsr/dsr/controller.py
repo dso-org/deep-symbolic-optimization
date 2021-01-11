@@ -95,11 +95,12 @@ class Controller(object):
     observe_sibling : bool
         Observe sibling token?
 
-    use_old_entropy : bool
-        Use old entropy.
-
     entropy_weight : float
         Coefficient for entropy bonus.
+        
+    entropy_gamma : float or None
+        Gamma in entropy decay. None (or
+        equivalently, 1.0) turns off entropy decay.
 
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
@@ -151,8 +152,8 @@ class Controller(object):
                  observe_parent=True,
                  observe_sibling=True,
                  # Loss hyperparameters
-                 use_old_entropy=False,
                  entropy_weight=0.0,
+                 entropy_gamma=1.0,
                  # PPO hyperparameters
                  ppo=False,
                  ppo_clip_ratio=0.2,
@@ -197,7 +198,6 @@ class Controller(object):
         # Hyperparameters
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
-        self.use_old_entropy = use_old_entropy
         self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -211,7 +211,12 @@ class Controller(object):
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
-
+        
+        # Entropy decay vector
+        if entropy_gamma is None:
+            entropy_gamma = 1.0
+        entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
+        
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
 
@@ -491,14 +496,12 @@ class Controller(object):
             # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
             # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
             # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
-
-            if self.use_old_entropy: # Old approach, sum_T(-Log(p_ai) p_ai) with p_ai probability of selected action
-                entropy_per_step = neglogp_per_step * tf.exp(-neglogp_per_step)
-                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-            else: # Entropy of the distribution over actions: sum_T(sum_a(-Log(p_a) p_a))
-                entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim
-                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1) # Sum over time dim
-
+            
+            # If entropy_gamma = 1, entropy_gamma_decay_mask == mask
+            entropy_gamma_decay_mask = entropy_gamma_decay * mask # ->(batch_size, max_length)
+            entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
+            entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )   
+                    
             return neglogp, entropy
 
 
