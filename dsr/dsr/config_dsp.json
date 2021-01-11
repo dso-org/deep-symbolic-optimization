@@ -8,7 +8,7 @@
       "success_score": 200.0,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
       "stochastic" : true,
-      "protected" : true,
+      "protected" : false,
       "fix_seeds" : false,
       "env_kwargs" : {"dt" : 0.02}
    },
@@ -46,17 +46,6 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "constrain_const": true,
-      "constrain_trig": true,
-      "constrain_inv": true,
-      "constrain_min_len": true,
-      "constrain_max_len": true,
-      "constrain_num_const": false,
-      "constrain_float": false,
-      "use_language_model_prior": false,
-      "min_length": 4,
-      "max_length": 30,
-      "max_const": 3,
       "use_old_entropy": false,
       "entropy_weight": 0.01,
       "ppo": false,
@@ -67,7 +56,15 @@
       "pqt_k": 10,
       "pqt_batch_size": 1,
       "pqt_weight": 200.0,
-      "pqt_use_pg": false
+      "pqt_use_pg": false,
+      "max_length": 30
+   },
+   "prior": {
+      "length": {"min_": 4, "max_": 30},
+      "inverse": {},
+      "trig": {},
+      "const" : {},
+      "no_inputs" : {}
    },
    "gp": {
       "population_size": 1000,

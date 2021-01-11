@@ -1,26 +1,23 @@
 """Defines main training loop for deep symbolic regression."""
 
 import os
-import sys
-import json
 import multiprocessing
 from itertools import compress
 from datetime import datetime
-from textwrap import indent
 from collections import defaultdict
 
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 
-from dsr.controller import Controller
 from dsr.program import Program, from_tokens
-from dsr.utils import MaxUniquePriorityQueue, empirical_entropy, is_pareto_efficient, Batch, setup_output_files
-from dsr.language_model import LanguageModelPrior
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
+from dsr.memory import Batch, make_queue
+from dsr.variance import quantile_variance
 
 try:
     from deap import tools
-    from deap import gp
+    from deap import gp_regression as gp
 except ImportError:
     tools   = None
     gp      = None
@@ -56,7 +53,8 @@ def learn(sess, controller, pool, gp_controller,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          pareto_front=False, debug=0):
+          pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
+          warm_start=None, memory_threshold=None):
 
 
     """
@@ -129,9 +127,9 @@ def learn(sess, controller, pool, gp_controller,
         (1) "ewma_R" : b = EWMA(<R>)
         (2) "R_e" : b = R_e
         (3) "ewma_R_e" : b = EWMA(R_e)
-        (4) "combined" = R_e + EWMA(<R> - R_e)
+        (4) "combined" : b = R_e + EWMA(<R> - R_e)
         In the above, <R> is the sample average _after_ epsilon sub-sampling and
-        R_e is the sample (1-epsilon)-quantile of the batch.
+        R_e is the (1-epsilon)-quantile estimate.
 
     b_jumpstart : bool, optional
         Whether EWMA part of the baseline starts at the average of the first
@@ -155,6 +153,20 @@ def learn(sess, controller, pool, gp_controller,
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
 
+    use_memory : bool, optional
+        If True, use memory queue for reward quantile estimation.
+
+    memory_capacity : int
+        Capacity of memory queue.
+
+    warm_start : int or None
+        Number of samples to warm start the memory queue. If None, uses
+        batch_size.
+
+    memory_threshold : float or None
+        If not None, run quantile variance/bias estimate experiments after
+        memory weight exceeds memory_threshold.
+
     Returns
     -------
     result : dict
@@ -177,8 +189,6 @@ def learn(sess, controller, pool, gp_controller,
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
-    if epsilon is not None and batch_size * epsilon < 1:
-        print("WARNING: batch_size * epsilon < 1. Risk-seeking will not be used.")
 
     # Create the summary writer
     if summary:
@@ -189,6 +199,8 @@ def learn(sess, controller, pool, gp_controller,
     # Create log file
     if output_file is not None:
         all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file)
+    else:
+        all_r_output_file = hof_output_file = pf_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -207,7 +219,7 @@ def learn(sess, controller, pool, gp_controller,
         def print_var_means():
             tvars_vals = sess.run(tvars)
             for var, val in zip(tvars, tvars_vals):
-                print(var.name, val.mean())
+                print(var.name, "mean:", val.mean(),"var:", val.var())
 
     # Create the pool of workers, if pool is not already given
     if pool is None:
@@ -219,10 +231,29 @@ def learn(sess, controller, pool, gp_controller,
     # Create the priority queue
     k = controller.pqt_k
     if controller.pqt and k is not None and k > 0:
-        from collections import deque
-        priority_queue = MaxUniquePriorityQueue(capacity=k)
+        priority_queue = make_queue(priority=True, capacity=k)
     else:
         priority_queue = None
+
+    # Create the memory queue
+    if use_memory:
+        assert epsilon is not None and epsilon < 1.0, \
+            "Memory queue is only used with risk-seeking."
+        memory_queue = make_queue(controller=controller, priority=False,
+                                  capacity=int(memory_capacity))
+
+        # Warm start the queue
+        # TBD: Parallelize. Abstract sampling a Batch
+        warm_start = warm_start if warm_start is not None else batch_size
+        actions, obs, priors = controller.sample(warm_start)
+        programs = [from_tokens(a, optimize=True) for a in actions]
+        r = np.array([p.r for p in programs])
+        l = np.array([len(p.traversal) for p in programs])
+        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                              lengths=l, rewards=r)
+        memory_queue.push_batch(sampled_batch, programs)
+    else:
+        memory_queue = None
 
     if debug >= 1:
         print("\nInitial parameter means:")
@@ -232,7 +263,8 @@ def learn(sess, controller, pool, gp_controller,
     if Program.task.stochastic:
         base_r_history = {} # Dict from Program str to list of base_r values
         # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
-        assert "const" not in Program.library, "Constant tokens not yet supported with stochastic Tasks."
+        assert Program.library.const_token is None, \
+            "Constant tokens not yet supported with stochastic Tasks."
         assert not pareto_front, "Pareto front not supported with stochastic Tasks."
     else:
         base_r_history = None
@@ -327,6 +359,7 @@ def learn(sess, controller, pool, gp_controller,
         '''
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
+        r_train     = r
         
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
@@ -351,7 +384,6 @@ def learn(sess, controller, pool, gp_controller,
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
-        max_item = np.argmax(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
@@ -373,18 +405,40 @@ def learn(sess, controller, pool, gp_controller,
             This will be changed in the future when we integrate off policy support.
         '''
         if epsilon is not None and epsilon < 1.0:
-            n_keep      = int(epsilon * batch_size) # Number of top indices to keep
-            
-            '''
-                We may want to keep the top GP sample, but not return it to the contoller. Since we will chop it off later
-                we extend the number of keeps by 1 so we can chop it off from some arrays later. 
-            '''  
-            if run_gp_meld and not gp_controller.return_gp_obs:
-                n_keep += 1 
-            
-            keep        = np.zeros(shape=(base_r.shape[0],), dtype=bool)
-            keep[np.argsort(r)[-n_keep:]] = True
-            
+            # Compute reward quantile estimate
+            if use_memory: # Memory-augmented quantile
+
+                # Get subset of Programs not in buffer
+                unique_programs = [p for p in programs \
+                                   if p.str not in memory_queue.unique_items]
+                N = len(unique_programs)
+
+                # Get rewards
+                memory_r = memory_queue.get_rewards()
+                sample_r = [p.r for p in unique_programs]
+                combined_r = np.concatenate([memory_r, sample_r])
+
+                # Compute quantile weights
+                memory_w = memory_queue.compute_probs()
+                if N == 0:
+                    print("WARNING: Found no unique samples in batch!")
+                    combined_w = memory_w / memory_w.sum() # Renormalize
+                else:
+                    sample_w = np.repeat((1 - memory_w.sum()) / N, N)
+                    combined_w = np.concatenate([memory_w, sample_w])
+
+                # Quantile variance/bias estimates
+                if memory_threshold is not None:
+                    print("Memory weight:", memory_w.sum())
+                    if memory_w.sum() > memory_threshold:
+                        quantile_variance(memory_queue, controller, batch_size, epsilon, step)
+
+                # Compute the weighted quantile
+                quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
+
+            else: # Empirical quantile
+                quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
+
             # These guys can contain the GP solutions if we run GP
             '''
                 Here we get the returned as well as stored programs and properties. 
@@ -395,6 +449,7 @@ def learn(sess, controller, pool, gp_controller,
                 contain the GP program items. 
             '''
 
+            keep        = base_r >= quantile
             base_r      = base_r[keep]
             l           = l[keep]
             s           = list(compress(s, keep))
@@ -451,13 +506,13 @@ def learn(sess, controller, pool, gp_controller,
             b_train = ewma
         elif baseline == "R_e": # Default
             ewma = -1
-            b_train = np.min(r_train) # The worst of the lot
+            b_train = quantile
         elif baseline == "ewma_R_e":
-            ewma = np.min(r_train) if ewma is None else alpha*np.min(r_train) + (1 - alpha)*ewma
+            ewma = np.min(r_train) if ewma is None else alpha*quantile + (1 - alpha)*ewma
             b_train = ewma
         elif baseline == "combined":
-            ewma = np.mean(r_train) - np.min(r_train) if ewma is None else alpha*(np.mean(r_train) - np.min(r_train)) + (1 - alpha)*ewma
-            b_train = np.min(r_train) + ewma
+            ewma = np.mean(r_train) - quantile if ewma is None else alpha*(np.mean(r_train) - quantile) + (1 - alpha)*ewma
+            b_train = quantile + ewma
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
@@ -489,7 +544,7 @@ def learn(sess, controller, pool, gp_controller,
                          invalid_avg_full,
                          invalid_avg_sub
                          ]], dtype=np.float32)
-            with open(output_file, 'ab') as f:
+            with open(os.path.join(logdir, output_file), 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
         # Compute sequence lengths
@@ -515,7 +570,7 @@ def learn(sess, controller, pool, gp_controller,
 
         # Update and sample from the priority queue
         if priority_queue is not None:
-            priority_queue.update(programs, sampled_batch)
+            priority_queue.push_best(sampled_batch, programs)
             pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
         else:
             pqt_batch = None
@@ -525,6 +580,10 @@ def learn(sess, controller, pool, gp_controller,
         if summary:
             writer.add_summary(summaries, step)
             writer.flush()
+
+        # Update the memory queue
+        if memory_queue is not None:
+            memory_queue.push_batch(sampled_batch, programs)
 
         # Update new best expression
         new_r_best = False
@@ -657,9 +716,10 @@ def learn(sess, controller, pool, gp_controller,
         columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
         hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(hof_results, columns=columns)
-        print("Saving Hall of Fame to {}".format(hof_output_file))
-        df.to_csv(hof_output_file, header=True, index=False)
-    
+        if hof_output_file is not None:
+            print("Saving Hall of Fame to {}".format(hof_output_file))
+            df.to_csv(hof_output_file, header=True, index=False)
+        
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -684,7 +744,8 @@ def learn(sess, controller, pool, gp_controller,
     if verbose and priority_queue is not None:
         for i, item in enumerate(priority_queue.iter_in_order()):
             print("\nPriority queue entry {}:".format(i))
-            item[1]["program"].print_stats()
+            p = Program.cache[item[0]]
+            p.print_stats()
 
     # Compute the pareto front
     if pareto_front:
@@ -705,9 +766,10 @@ def learn(sess, controller, pool, gp_controller,
         columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
         pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
         df = pd.DataFrame(pf_results, columns=columns)
-        print("Saving Pareto Front to {}".format(pf_output_file))
-        df.to_csv(pf_output_file, header=True, index=False)
-        
+        if pf_output_file is not None:
+            print("Saving Pareto Front to {}".format(pf_output_file))
+            df.to_csv(pf_output_file, header=True, index=False)
+
         # Look for a success=True case within the Pareto front
         for p in pf:
             if p.evaluate.get("success"):
@@ -728,46 +790,8 @@ def learn(sess, controller, pool, gp_controller,
     result.update(p.evaluate)
     result.update({
         "expression" : repr(p.sympy_expr),
-        "traversal" : repr(p)
+        "traversal" : repr(p),
+        "program" : p
         })
         
     return result
-
-# TBD: Should add a test instead of a main function
-def main():
-    """
-    Loads the config file, creates the task and controller, and starts the
-    training loop.
-    """
-
-    # Load the config file
-    config_filename = 'config.json'
-    with open(config_filename, encoding='utf-8') as f:
-        config = json.load(f)
-
-    config_task = config["task"]                # Task specification hyperparameters
-    config_training = config["training"]        # Training hyperparameters
-    config_controller = config["controller"]    # Controller hyperparameters
-    config_language_model_prior = config["language_model_prior"]            # Language model hyperparameters
-
-    # Define the task
-    from dsr.task import set_task
-    task = make_task(**config_task)
-    Program.set_task(task)
-    Program.set_library(task.function_set, task.n_input_var)
-    Program.set_execute()
-
-    with tf.Session() as sess:
-        # Instantiate the controller
-        language_model_prior = LanguageModelPrior(function_set, n_input_var, **config_language_model_prior)
-        controller = Controller(sess, debug=config_training["debug"], summary=config_training["summary"], language_model_prior=language_model_prior, **config_controller)
-        learn(sess, controller, **config_training)
-
-
-if __name__ == "__main__":
-
-    if len(sys.argv) > 1 and int(sys.argv[1]) == 1:
-        import cProfile
-        cProfile.run('main()', sort='cumtime')
-    else:
-        main()
