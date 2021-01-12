@@ -15,13 +15,6 @@ from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
 
-try:
-    from deap import tools
-    from deap import gp_regression as gp
-except ImportError:
-    tools   = None
-    gp      = None
-
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -348,7 +341,7 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-            priors      = np.append(priors, deap_priors, axis=0) # Does not work right
+            priors      = np.append(priors, deap_priors, axis=0) 
             #priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
 
             

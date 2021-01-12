@@ -14,12 +14,6 @@ from dsr.functions import Token, PlaceholderConstant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
-
-
-try:
-    from deap import gp 
-except ImportError:
-    gp = None
     
 def _finish_tokens(tokens):
     """
