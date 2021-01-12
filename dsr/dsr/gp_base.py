@@ -107,7 +107,7 @@ def popConstraint():
 
 class GenericEvaluate():
     
-    def __init__(self, hof, dataset, fitness_metric, early_stopping, threshold):
+    def __init__(self, hof, dataset, fitness, early_stopping, threshold):
             
         self.toolbox            = None
         
@@ -118,7 +118,6 @@ class GenericEvaluate():
         self.early_stopping     = early_stopping
         self.threshold          = threshold        
         
-        fitness                 = make_fitness(fitness_metric)
         self.train_fitness      = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
         self.test_fitness       = partial(fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
         
@@ -393,7 +392,7 @@ def tokens_to_DEAP(tokens, primitive_set):
 class GPController:
     
     def __init__(self, config_gp_meld, config_task, config_training, 
-                 dataset, pset, eval_func, hof, gen_func=GenWithRLIndividuals()):
+                 dataset, pset, eval_func, check_constraint, hof, gen_func=GenWithRLIndividuals()):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -434,19 +433,20 @@ class GPController:
         # Use a generator we can access to plug in RL population
         self.gen_func               = gen_func
         
+        self.check_constraint       = check_constraint
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         '''    
         ### THIS NEEDS TO BE CHANGED
         '''
-        self.toolbox, self.creator  = self.create_toolbox(self.pset, self.eval_func, 
-                                                          gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
-                                                          min_len             = config_gp_meld["min_len"], 
-                                                          tournament_size     = config_gp_meld["tournament_size"], 
-                                                          max_depth           = config_gp_meld["max_depth"], 
-                                                          max_const           = config_gp_meld["max_const"], 
-                                                          constrain_const     = config_gp_meld["constrain_const"],
-                                                          mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
+        self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
+                                                           gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
+                                                           min_len             = config_gp_meld["min_len"], 
+                                                           tournament_size     = config_gp_meld["tournament_size"], 
+                                                           max_depth           = config_gp_meld["max_depth"], 
+                                                           max_const           = config_gp_meld["max_const"], 
+                                                           constrain_const     = config_gp_meld["constrain_const"],
+                                                           mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
         
         # Put the toolbox into the evaluation function  
         self.eval_func.set_toolbox(self.toolbox)    
@@ -477,8 +477,8 @@ class GPController:
     def _create_primitive_set(self, dataset):
         
         raise NotImplementedError
-    
-    def _base_call(self, action, individuals):
+            
+    def __call__(self, actions, individuals):
         
         if self.config_gp_meld["rand_pop_n"] > 0:
             individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
@@ -516,10 +516,11 @@ class GPController:
             
         return deap_programs, deap_obs, deap_actions, deap_priors
     
-    def _create_toolbox(self, pset, eval_func, 
-                        tournament_size=3, max_depth=17, max_len=30, min_len=4,
-                        gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
-                        popConstraint=None):
+    
+    def _base_create_toolbox(self, pset, eval_func, 
+                             tournament_size=3, max_depth=17, max_len=30, min_len=4,
+                             gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
+                             popConstraint=None):
     
         assert gp is not None,                      "Did not import gp. Is it installed?"
         assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
@@ -538,24 +539,20 @@ class GPController:
         if callable(popConstraint):
             toolbox.decorate("individual", popConstraint())
         
-        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-        toolbox.register("compile", gp.compile, pset=pset)
-        toolbox.register("evaluate", eval_func)
-        toolbox.register("select", tools.selTournament, tournsize=tournament_size)
-        toolbox.register("mate", gp.cxOnePoint)
-        toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
-        toolbox.register('mutate', multi_mutate, expr=toolbox.expr_mut, pset=pset)
+        toolbox.register("population",  tools.initRepeat, list, toolbox.individual)
+        toolbox.register("compile",     gp.compile, pset=pset)
+        toolbox.register("evaluate",    eval_func)
+        toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
+        toolbox.register("mate",        gp.cxOnePoint)
+        toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
+        toolbox.register('mutate',      multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
-        toolbox.decorate("mate",        checkConstraint(max_len, min_len, max_depth))
-        toolbox.decorate("mutate",      checkConstraint(max_len, min_len, max_depth))
+        toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth))
+        toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth))
             
         # Create the training function
         return toolbox, creator
-    
-    def __call__(self, actions):
         
-        raise NotImplementedError
-    
     def __del__(self):
         
         del self.creator.FitnessMin
@@ -564,8 +561,6 @@ class GPController:
 def create_primitive_set(*args, **kwargs):
     
     raise NotImplementedError
-
-
 
 
 def convert_inverse_prim(*args, **kwargs):
@@ -666,15 +661,15 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
         dt, dexpl                       = DEAP_to_tokens(p, actions.shape[1])
         deap_tokens.append(dt)
         deap_expr_length.append(dexpl)
-        deap_obs_action[i,1:]           = deap_tokens[:-1]
-        deap_action[i,:]                = deap_tokens
-        deap_program.append(from_tokens(deap_tokens, optimize=True, on_policy=False))
+        deap_obs_action[i,1:]           = dt[:-1]
+        deap_action[i,:]                = dt
+        deap_program.append(from_tokens(dt, optimize=True, on_policy=False))
                 
         for j in range(actions.shape[1]-1):       
             # Parent and sibling given the current action
             # Action should be alligned with parent and sibling.
             # The current action should be passed into function inclusivly of itself [:j+1]. 
-            p, s                    = parents_siblings(np.expand_dims(deap_tokens[0:j+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
+            p, s                    = parents_siblings(np.expand_dims(dt[0:j+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
             deap_parent[i,j+1]      = p
             deap_sibling[i,j+1]     = s
     
