@@ -1,26 +1,14 @@
 import random
 import operator
-import copy
 import warnings
 from functools import partial, wraps
 from itertools import chain
 from collections import defaultdict
 from operator import attrgetter
-
-from numba import jit, prange, int32, void # not yet used
-
 import numpy as np
 
-from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
-from dsr.const import make_const_optimizer
 from dsr.program import Program, from_tokens
 from dsr.subroutines import parents_siblings
-
-# for now import, but later all these should come in via variables. 
-#import dsr.task.regression.gp_regression
-
-# This maybe should not be imported directly, but above should just exist as passed varaibles here. 
-#from dsr.task.regression.dataset import BenchmarkDataset
 
 try:
     from deap import gp
@@ -73,7 +61,8 @@ class GenWithRLIndividuals:
         
         
 def multi_mutate(individual, expr, pset):   
-    """ Randomly select one of four types of mutation with even odds for each.
+    """ 
+        Randomly select one of four types of mutation with even odds for each.
     """
     v = np.random.randint(0,4)
 
@@ -90,10 +79,8 @@ def multi_mutate(individual, expr, pset):
 
 
 def popConstraint():
-    """Check a varety of constraints on a memeber. These include:
-        
-        This is a decorator function that attaches to the individual function in
-        DEAP.
+    """
+        This needs to be called in a derived task such as gp_regression
     """
     def decorator(func):
         @wraps(func)
@@ -108,7 +95,9 @@ def popConstraint():
 class GenericEvaluate():
     
     def __init__(self, hof, dataset, fitness, early_stopping, threshold):
-            
+        
+        assert gp is not None, "Did not import gp. Is DEAP installed?"
+        
         self.toolbox            = None
         
         self.hof                = hof
@@ -132,7 +121,10 @@ class GenericEvaluate():
         return fit
         
     def __call__(self, individual):
-
+        """
+            This needs to be called in a derived task such as gp_regression
+        """
+        
         raise NotImplementedError
 
     def set_toolbox(self,toolbox):
@@ -145,7 +137,7 @@ class GenericAlgorithm:
     """
     def __init__(self):
         
-        pass
+        assert gp is not None, "Did not import gp. Is DEAP installed?"
     
     def _eval(self, population, halloffame, toolbox):
         
@@ -316,6 +308,8 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         super(RunOneStepAlgorithm, self).__init__()
         
+        assert gp is not None, "Did not import gp. Is DEAP installed?"
+        
         self.logbook, self.halloffame, self.population = self._header(population, toolbox, stats, halloffame, verbose)
         
         self.toolbox    = toolbox
@@ -380,12 +374,18 @@ class RunOneStepAlgorithm(GenericAlgorithm):
 
 
 def DEAP_to_tokens(individual, tokens_size):
-        
+    """
+        This needs to be called in a derived task such as gp_regression
+    """
+    
     raise NotImplementedError
 
 
 def tokens_to_DEAP(tokens, primitive_set):
-
+    """
+        This needs to be called in a derived task such as gp_regression
+    """
+    
     raise NotImplementedError
         
 
@@ -418,10 +418,16 @@ class GPController:
         constrain_const         = True
         '''
         
+        assert gp is not None, "Did not import gp. Is DEAP installed?"
         
-          
-        ##config_dataset              = config_task["dataset"]
-        ##dataset                     = BenchmarkDataset(**config_dataset)
+        assert isinstance(config_gp_meld,dict) 
+        assert isinstance(config_task,dict) 
+        assert isinstance(config_training,dict) 
+        assert isinstance(pset, gp.PrimitiveSetTyped)
+        assert callable(eval_func)
+        assert callable(check_constraint)
+        assert isinstance(hof, tools.HallOfFame)
+        assert callable(gen_func)
                                         
         # Put the DSR tokens into DEAP format
         self.pset                   = pset
@@ -436,9 +442,6 @@ class GPController:
         self.check_constraint       = check_constraint
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
-        '''    
-        ### THIS NEEDS TO BE CHANGED
-        '''
         self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
                                                            gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
                                                            min_len             = config_gp_meld["min_len"], 
@@ -475,7 +478,10 @@ class GPController:
         self.return_gp_obs          = None
         
     def _create_primitive_set(self, dataset):
-        
+        """
+            This needs to be called in a derived task such as gp_regression
+        """
+    
         raise NotImplementedError
             
     def __call__(self, actions, individuals):
@@ -522,7 +528,6 @@ class GPController:
                              gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
                              popConstraint=None):
     
-        assert gp is not None,                      "Did not import gp. Is it installed?"
         assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
         assert callable(eval_func),                 "evaluation function should be callable"
         assert callable(gen_func),                  "gen_func should be callable"
@@ -559,16 +564,25 @@ class GPController:
         ###del self.creator.Individual
         
 def create_primitive_set(*args, **kwargs):
+    """
+        This needs to be called in a derived task such as gp_regression
+    """
     
     raise NotImplementedError
 
 
 def convert_inverse_prim(*args, **kwargs):
-
+    """
+        This needs to be called in a derived task such as gp_regression
+    """
+    
     raise NotImplementedError
 
 
 def stringify_for_sympy(*args, **kwargs):
+    """
+        This needs to be called in a derived task such as gp_regression
+    """
     
     raise NotImplementedError
 
