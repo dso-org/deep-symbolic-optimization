@@ -513,7 +513,7 @@ class UniformArityPrior(Prior):
         # n is the total number of tokens of that arity
         self.logit_adjust = np.zeros((self.L,), dtype=np.float32)
         for arity, tokens in self.library.tokens_of_arity.items():
-            self.logit_adjust[tokens] += -np.log(len(tokens))
+            self.logit_adjust[tokens] -= np.log(len(tokens))
 
     def initial_prior(self):
         return self.logit_adjust
