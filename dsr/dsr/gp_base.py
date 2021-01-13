@@ -92,23 +92,18 @@ def popConstraint():
 
     return decorator
 
+
 class GenericEvaluate():
     
-    def __init__(self, hof, dataset, fitness, early_stopping, threshold):
+    def __init__(self, hof, early_stopping, threshold):
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
         self.toolbox            = None
         
         self.hof                = hof
-        self.X_train            = dataset.X_train.T
-        self.X_test             = dataset.X_test.T
-        self.y_train            = dataset.y_train
         self.early_stopping     = early_stopping
-        self.threshold          = threshold        
-        
-        self.train_fitness      = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
-        self.test_fitness       = partial(fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
+        self.threshold          = threshold
         
     def _finish_eval(self, individual, X, fitness):
         
@@ -130,6 +125,7 @@ class GenericEvaluate():
     def set_toolbox(self,toolbox):
         
         self.toolbox = toolbox   
+
 
 class GenericAlgorithm:
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
@@ -563,6 +559,7 @@ class GPController:
         del self.creator.FitnessMin
         ###del self.creator.Individual
         
+        
 def create_primitive_set(*args, **kwargs):
     """
         This needs to be called in a derived task such as gp_regression
@@ -599,6 +596,7 @@ def create_stats_widget():
     mstats                  = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
     
     return mstats
+
 
 def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
