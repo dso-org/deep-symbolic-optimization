@@ -95,13 +95,17 @@ def popConstraint():
 
 class GenericEvaluate():
     
-    def __init__(self, hof, early_stopping, threshold):
+    def __init__(self, early_stopping, threshold, hof=None):
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
         self.toolbox            = None
         
-        self.hof                = hof
+        if hof is None:
+            self.hof                = tools.HallOfFame(maxsize=1)  
+        else:
+            self.hof                = hof
+            
         self.early_stopping     = early_stopping
         self.threshold          = threshold
         
@@ -473,14 +477,61 @@ class GPController:
         self.nevals                 = 0
         self.return_gp_obs          = None
         
+        self.get_top_n_programs     = None
+        self.get_top_program        = None
+        self.tokens_to_DEAP         = None
+        
     def _create_primitive_set(self, dataset):
         """
             This needs to be called in a derived task such as gp_regression
         """
     
         raise NotImplementedError
+    
+    def _base_create_toolbox(self, pset, eval_func, 
+                             tournament_size=3, max_depth=17, max_len=30, min_len=4,
+                             gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
+                             popConstraint=None):
+    
+        assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
+        assert callable(eval_func),                 "evaluation function should be callable"
+        assert callable(gen_func),                  "gen_func should be callable"
             
-    def __call__(self, actions, individuals):
+        # Create custom fitness and individual classes
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
+    
+        # Define the evolutionary operators
+        toolbox = base.Toolbox()
+        toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
+        toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+        
+        if callable(popConstraint):
+            toolbox.decorate("individual", popConstraint())
+        
+        toolbox.register("population",  tools.initRepeat, list, toolbox.individual)
+        toolbox.register("compile",     gp.compile, pset=pset)
+        toolbox.register("evaluate",    eval_func)
+        toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
+        toolbox.register("mate",        gp.cxOnePoint)
+        toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
+        toolbox.register('mutate',      multi_mutate, expr=toolbox.expr_mut, pset=pset)
+    
+        toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth))
+        toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth))
+            
+        # Create the training function
+        return toolbox, creator
+            
+    def __call__(self, actions):
+        
+        assert callable(self.get_top_n_programs)
+        assert callable(self.get_top_program)
+        assert callable(self.tokens_to_DEAP)
+        
+        assert isinstance(actions, np.ndarray)
+            
+        individuals = [self.creator.Individual(self.tokens_to_DEAP(a, self.pset)) for a in actions]
         
         if self.config_gp_meld["rand_pop_n"] > 0:
             individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
@@ -518,42 +569,6 @@ class GPController:
             
         return deap_programs, deap_obs, deap_actions, deap_priors
     
-    
-    def _base_create_toolbox(self, pset, eval_func, 
-                             tournament_size=3, max_depth=17, max_len=30, min_len=4,
-                             gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
-                             popConstraint=None):
-    
-        assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
-        assert callable(eval_func),                 "evaluation function should be callable"
-        assert callable(gen_func),                  "gen_func should be callable"
-            
-        # Create custom fitness and individual classes
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
-    
-        # Define the evolutionary operators
-        toolbox = base.Toolbox()
-        toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
-        toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
-        
-        if callable(popConstraint):
-            toolbox.decorate("individual", popConstraint())
-        
-        toolbox.register("population",  tools.initRepeat, list, toolbox.individual)
-        toolbox.register("compile",     gp.compile, pset=pset)
-        toolbox.register("evaluate",    eval_func)
-        toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
-        toolbox.register("mate",        gp.cxOnePoint)
-        toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
-        toolbox.register('mutate',      multi_mutate, expr=toolbox.expr_mut, pset=pset)
-    
-        toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth))
-        toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth))
-            
-        # Create the training function
-        return toolbox, creator
-        
     def __del__(self):
         
         del self.creator.FitnessMin
