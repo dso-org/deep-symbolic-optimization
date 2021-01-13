@@ -46,28 +46,46 @@ def myargparse():
                         dest='fs',            
                         help="name of output config file (name.json)",
                         default=True)
-    parser.add_argument('-ep','--n_episodes_train', 
+    parser.add_argument('-et','--n_episodes_train', 
                         type=int,
-                        dest='ep',            
+                        dest='et',            
                         help="n_episodes_train",
-                        default=5) 
+                        default=10)
+    parser.add_argument('-es','--episode_seed_shift', 
+                        type=int,
+                        dest='es',            
+                        help="episode_seed_shift",
+                        default=0)  
     parser.add_argument('-bs','--batch_size', 
                         type=int,
                         dest='bs',            
                         help="batch_size",
-                        default=10)
+                        default=100)
+    parser.add_argument('-ep','--epsilon', 
+                        type=float,
+                        dest='ep',            
+                        help="epsilon",
+                        default=0.1)
     parser.add_argument('-lr','--learning_rate', 
                         type=float,
                         dest='lr',            
                         help="learning_rate",
-                        default=0.1)          
+                        default=0.001)
+    parser.add_argument('-ew','--entropy_weight', 
+                        type=float,
+                        dest='ew',            
+                        help="entropy_weight",
+                        default=0.001) 
     return parser.parse_args()
 
 params = {
     "fs"  : ("task", "fix_seeds", bool),
-    "ep"  : ("task", "n_episodes_train", int),
+    "et"  : ("task", "n_episodes_train", int),
+    "es"  : ("task", "episode_seed_shift", int),
     "bs"  : ("training", "batch_size", int),
-    "lr"  : ("controller", "learning_rate", float)
+    "ep"  : ("training", "epsilon", float),
+    "lr"  : ("controller", "learning_rate", float),
+    "ew"  : ("controller", "entropy_weight", float)
 }
 
 def make_config(**kwargs):
