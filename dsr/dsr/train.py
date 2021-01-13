@@ -54,7 +54,7 @@ def learn(sess, controller, pool, gp_controller,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
-          warm_start=None, memory_threshold=None, save_positional_entropy=False):
+          warm_start=None, memory_threshold=None, save_positional_entropy=False, n_objects=1):
 
 
     """
