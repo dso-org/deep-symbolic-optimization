@@ -88,7 +88,7 @@
         "desc_seed"					: "Random seed into GP.",  
         "seed"                    	: 0,        
         "desc_verbose"			  	: "Verbosity for GP components.",
-        "verbose"                 	: true,      
+        "verbose"                 	: false,      
         "desc_max_len"			  	: "This is the max lenght of a string in GP. Most of the time, this should be the same as for RL. Default: 30",
         "max_len"                 	: 30,     
         "desc_min_len"			  	: "This is the min lenght of a string in GP. Most of the time, this should be the same as for RL. Default: 4",
