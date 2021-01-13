@@ -47,7 +47,7 @@ def learn(sess, controller, pool, gp_controller,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
-          warm_start=None, memory_threshold=None):
+          warm_start=None, memory_threshold=None, save_positional_entropy=False):
 
 
     """
@@ -159,6 +159,9 @@ def learn(sess, controller, pool, gp_controller,
     memory_threshold : float or None
         If not None, run quantile variance/bias estimate experiments after
         memory weight exceeds memory_threshold.
+        
+    save_positional_entropy : bool, optional
+        Whether to save evolution of positional entropy for each iteration.
 
     Returns
     -------
@@ -191,7 +194,7 @@ def learn(sess, controller, pool, gp_controller,
 
     # Create log file
     if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file)
+        all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file = setup_output_files(logdir, output_file)
     else:
         all_r_output_file = hof_output_file = pf_output_file = None
 
@@ -271,6 +274,8 @@ def learn(sess, controller, pool, gp_controller,
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, all_r_size), dtype=np.float32)
+    
+    positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
     
     nevals              = 0
     program_val_log     = []
@@ -359,6 +364,9 @@ def learn(sess, controller, pool, gp_controller,
         on_policy   = np.array([p.on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
         all_r[step] = base_r
+        
+        if save_positional_entropy: 
+            positional_entropy[step] = np.apply_along_axis(empirical_entropy, 0, actions)
 
         if eval_all:            
             success = [p.evaluate.get("success") for p in programs]
@@ -651,6 +659,10 @@ def learn(sess, controller, pool, gp_controller,
     if save_all_r:
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
+
+    if save_positional_entropy:
+        with open(positional_entropy_output_file, 'ab') as f:
+            np.save(f, positional_entropy)
 
     
     # Save the hall of fame

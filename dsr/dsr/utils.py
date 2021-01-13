@@ -86,6 +86,7 @@ def setup_output_files(logdir, output_file):
     all_r_output_file = "{}_all_r.npy".format(prefix)
     hof_output_file = "{}_hof.csv".format(prefix)
     pf_output_file = "{}_pf.csv".format(prefix)
+    positional_entropy_output_file = "{}_positional_entropy.npy".format(prefix)
     with open(output_file, 'w') as f:
         # r_best : Maximum across all iterations so far
         # r_max : Maximum across this iteration's batch
@@ -116,7 +117,7 @@ def setup_output_files(logdir, output_file):
                     "invalid_avg_sub"]
         f.write("{}\n".format(",".join(headers)))
 
-    return all_r_output_file, hof_output_file, pf_output_file
+    return all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file
 
 class cached_property(object):
     """
