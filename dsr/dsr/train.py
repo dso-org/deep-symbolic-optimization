@@ -203,7 +203,7 @@ def learn(sess, controller, pool, gp_controller,
     if output_file is not None:
         all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file = setup_output_files(logdir, output_file)
     else:
-        all_r_output_file = hof_output_file = pf_output_file = None
+        all_r_output_file = hof_output_file = pf_output_file = positional_entropy_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -655,7 +655,7 @@ def learn(sess, controller, pool, gp_controller,
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
 
-    if save_positional_entropy:
+    if save_positional_entropy and positional_entropy_output_file is not None:
         with open(positional_entropy_output_file, 'ab') as f:
             np.save(f, positional_entropy)
 
