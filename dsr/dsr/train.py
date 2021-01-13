@@ -556,15 +556,7 @@ def learn(sess, controller, pool, gp_controller,
         
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in p_train], dtype=np.int32)
-        '''
-        print(actions.shape)     
-        print(len(obs)) 
-        print(priors.shape)
-        print(lengths.shape)
-        print(r_train.shape)
-        print(on_policy.shape)
-        '''                      
-
+               
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=lengths, rewards=r_train, on_policy=on_policy)
