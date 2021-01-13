@@ -203,7 +203,7 @@ def learn(sess, controller, pool, gp_controller,
     if output_file is not None:
         all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file = setup_output_files(logdir, output_file)
     else:
-        all_r_output_file = hof_output_file = pf_output_file = None
+        all_r_output_file = hof_output_file = pf_output_file = positional_entropy_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
