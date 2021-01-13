@@ -135,11 +135,6 @@ def myargparse():
                         dest='lc',            
                         help="length_constraint",
                         default=True)                        
-    parser.add_argument('-oe','--use_old_entropy', 
-                        type=str2bool,
-                        dest='oe',            
-                        help="use old entropy",
-                        default=False)
     parser.add_argument('-ew','--entropy_weight', 
                         type=str,
                         dest='ew',            
@@ -204,7 +199,7 @@ def create_base(bp,nm,
                 ns,bs,ap,ep,vb,bl,sar,es,eva,pf,lr,oa,
                 ci,ct,
                 lc,
-                oe,ew,
+                ew,
                 pqt,pqt_k,pqt_w,
                 gp_ps,gp_ns,gp_ts,gp_cs,gp_m,gp_prtd,gp_cntrt):
          
@@ -316,7 +311,6 @@ def create_base(bp,nm,
     # default["controller"]["max_length"] = 30  
     # default["controller"]["max_const"] = 3  
 
-    default["controller"]["use_old_entropy"] = oe
     default["controller"]["entropy_weight"] = float(ew)
     
     default["controller"]["ppo"] = False
@@ -377,6 +371,6 @@ if __name__ == "__main__":
                 args.ns, args.bs, args.ap, args.ep, args.vb, args.bl, args.sar, args.es, args.eva, args.pf, args.lr, args.oa,
                 args.ci, args.ct,
                 args.lc,
-                args.oe, args.ew, 
+                args.ew, 
                 args.pqt, args.pqt_k, args.pqt_w,
                 args.gp_ps, args.gp_ns, args.gp_ts, args.gp_cs, args.gp_m, args.gp_prtd, args.gp_cntrt)               

@@ -10,6 +10,7 @@
       "stochastic" : true,
       "protected" : false,
       "fix_seeds" : false,
+      "episode_seed_shift" : 0,
       "env_kwargs" : {"dt" : 0.02}
    },
    "training": {
@@ -46,7 +47,6 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "use_old_entropy": false,
       "entropy_weight": 0.01,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
