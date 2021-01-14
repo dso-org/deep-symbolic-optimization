@@ -1,0 +1,13 @@
+*.DS_Store
+*.pyc
+*.egg*
+venv*
+dsr/dsr/summary*
+*log_*
+.gitignore
+.ipynb_checkpoints
+~$*
+*.vscode/
+dsr/build
+dsr/dsr/cyfunc*
+**/log/
