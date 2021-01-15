@@ -8,7 +8,7 @@ from dsr.test.test_core import model
 import tensorflow as tf
 import numpy as np
 
-def test_model(model):
+def test_multiobject_output(model):
     # update and setup model
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.setup()
