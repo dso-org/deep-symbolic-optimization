@@ -4,12 +4,9 @@ from pkg_resources import resource_filename
 from dsr.core import DeepSymbolicOptimizer
 from dsr.program import from_tokens, from_str_tokens, Program
 from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
+from dsr.test.test_core import model
 import tensorflow as tf
 import numpy as np
-
-@pytest.fixture
-def model():
-    return DeepSymbolicOptimizer("config.json")
 
 def test_model(model):
     # update and setup model
