@@ -18,5 +18,5 @@ def test_multiobject_output(model):
         p = from_str_tokens(str_tokens, optimize=False, n_objects=n_objs[i]) # build program
         funcs = np_fcns[i] # grab matching set of numpy functions
         np_out = np.array([funcs[j](X) for j in range(len(funcs))]).squeeze() # keep output from numpy functions
-        prog_out = np.array(p.execute(np.array([[X]]))).squeeze() # keep output from program execute
+        prog_out = np.array(p.execute(X)).squeeze() # keep output from program execute
         np.testing.assert_array_almost_equal(np_out, prog_out) # assert outputs almost equal
