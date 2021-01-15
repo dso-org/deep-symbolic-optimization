@@ -1,11 +1,6 @@
-import pytest
-from pkg_resources import resource_filename
-
-from dsr.core import DeepSymbolicOptimizer
-from dsr.program import from_tokens, from_str_tokens, Program
+from dsr.program import from_str_tokens
 from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dsr.test.test_core import model
-import tensorflow as tf
 import numpy as np
 
 def test_multiobject_output(model):
