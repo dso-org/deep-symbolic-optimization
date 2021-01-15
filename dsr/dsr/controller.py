@@ -614,6 +614,8 @@ class Controller(object):
                     tf.summary.scalar(v.name + '_grad_norm', tf.norm(g))
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
+            else:
+                self.summaries = tf.no_op()
 
     def sample(self, n):
         """Sample batch of n expressions"""
@@ -674,19 +676,13 @@ class Controller(object):
                         self.batch_size : len(mb)
                         })
 
-                    _ = self.sess.run([self.train_op], feed_dict=mb_feed_dict)
+                    summaries, _ = self.sess.run([self.summaries, self.train_op], feed_dict=mb_feed_dict)
 
                     # Diagnostics
                     # kl, cf, _ = self.sess.run([self.sample_kl, self.clip_fraction, self.train_op], feed_dict=mb_feed_dict)
                     # print("epoch", epoch, "i", i, "KL", kl, "CF", cf)
 
         else:
-            _ = self.sess.run([self.train_op], feed_dict=feed_dict)
-
-        # Return summaries
-        if self.summary:
-            summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
-        else:
-            summaries = None
+            summaries, _ = self.sess.run([self.summaries, self.train_op], feed_dict=feed_dict)
 
         return summaries
