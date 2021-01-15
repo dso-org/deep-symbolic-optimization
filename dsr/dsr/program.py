@@ -479,6 +479,7 @@ class Program(object):
         return None    
     
     def execute(self, X):
+        # TODO: Consider updating execute_function to take a traversal as an argument instead of a Program. Then can clean up this function.
         # loops over n_objects and calls execute_function on each sub-traversal
         if self.n_objects > 1:
             result = []
