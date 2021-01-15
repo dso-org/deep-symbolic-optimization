@@ -55,6 +55,7 @@ def learn(sess, controller, pool, gp_controller,
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False, n_objects=1):
+          # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
     """
