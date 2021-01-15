@@ -18,7 +18,7 @@ def test_model(model):
 
     exec_nums = np.arange(0, 5, step=0.5) # values to test through execute and numpy functions
     exec_tokens = ["cos,x1,sin,x1", "exp,x1,cos,x1,sin,x1"] # two different multi-object traversals to test
-    np_fcns = [[lambda x: np.cos(x), lambda x: np.sin(x)], [lambda x: np.exp(x), lambda x: np.cos(x), lambda x: np.sin(x)]] # numpy versions of the multi-object traversals
+    np_fcns = [[np.cos, np.sin], [np.exp, np.cos, np.sin]]
     n_objs = [2, 3] # number of objects in each multi-object traversal
     for i, str_tokens in enumerate(exec_tokens):
         p = from_str_tokens(str_tokens, optimize=False, n_objects=n_objs[i]) # build program
