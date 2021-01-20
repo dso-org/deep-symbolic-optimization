@@ -392,7 +392,7 @@ def tokens_to_DEAP(tokens, primitive_set):
 class GPController:
     
     def __init__(self, config_gp_meld, config_task, config_training, 
-                 dataset, pset, eval_func, check_constraint, hof, gen_func=GenWithRLIndividuals()):
+                 pset, eval_func, check_constraint, hof, gen_func=GenWithRLIndividuals()):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -522,6 +522,14 @@ class GPController:
             
         # Create the training function
         return toolbox, creator
+    
+    def _add_primitives(self, pset, function_map, function_set):        
+    
+        for k, v in function_map.items():
+            if k in function_set:
+                pset.addPrimitive(v.function, v.arity, name=v.name)   
+        
+        return pset
             
     def __call__(self, actions):
         
