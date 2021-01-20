@@ -47,7 +47,8 @@ def learn(sess, controller, pool, gp_controller,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
-          warm_start=None, memory_threshold=None, save_positional_entropy=False):
+          warm_start=None, memory_threshold=None, save_positional_entropy=False, n_objects=1):
+          # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
     """
@@ -196,7 +197,7 @@ def learn(sess, controller, pool, gp_controller,
     if output_file is not None:
         all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file = setup_output_files(logdir, output_file)
     else:
-        all_r_output_file = hof_output_file = pf_output_file = None
+        all_r_output_file = hof_output_file = pf_output_file = positional_entropy_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -242,7 +243,7 @@ def learn(sess, controller, pool, gp_controller,
         # TBD: Parallelize. Abstract sampling a Batch
         warm_start = warm_start if warm_start is not None else batch_size
         actions, obs, priors = controller.sample(warm_start)
-        programs = [from_tokens(a, optimize=True) for a in actions]
+        programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
@@ -319,14 +320,14 @@ def learn(sess, controller, pool, gp_controller,
                                                
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
-            programs = [from_tokens(a, optimize=True) for a in actions]
+            programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
         else:
             # To prevent interfering with the cache, un-optimized programs are
             # first generated serially. Programs that need optimizing are
             # optimized optimized in parallel. Since multiprocessing operates on
             # copies of programs, we manually set the optimized constants and
             # base reward after the pool joins.
-            programs = [from_tokens(a, optimize=False) for a in actions]
+            programs = [from_tokens(a, optimize=False, n_objects=n_objects) for a in actions]
 
             # Filter programs that have not yet computed base_r
             # TBD: Refactor with needs_optimizing flag or similar?
@@ -347,7 +348,6 @@ def learn(sess, controller, pool, gp_controller,
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
             priors      = np.append(priors, deap_priors, axis=0) 
-            #priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
 
             
         # Retrieve metrics
@@ -548,12 +548,7 @@ def learn(sess, controller, pool, gp_controller,
             with open(os.path.join(logdir, output_file), 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
-        # Compute sequence lengths
-        '''
-        lengths = np.array([min(len(p.traversal), controller.max_length)
-                            for p in programs], dtype=np.int32)
-        '''
-        
+        # Compute sequence lengths        
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in p_train], dtype=np.int32)
                
@@ -652,7 +647,7 @@ def learn(sess, controller, pool, gp_controller,
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
 
-    if save_positional_entropy:
+    if save_positional_entropy and positional_entropy_output_file is not None:
         with open(positional_entropy_output_file, 'ab') as f:
             np.save(f, positional_entropy)
 
