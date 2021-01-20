@@ -403,8 +403,15 @@ def make_fitness(metric):
             raise ValueError("Metric not recognized.")
 
         return fitness
-    
 
+def _set_const_individuals(const_idxs, consts, individual):
+    
+    for i, const in zip(const_idxs, consts):
+        individual[i] = gp.Terminal(const, False, object)
+        individual[i].name = "mutable_const" # For good measure
+        
+    return individual
+    
 class GenericEvaluate(gp_base.GenericEvaluate):
     
     def __init__(self, const_opt, dataset, fitness_metric="nmse",
@@ -423,14 +430,6 @@ class GenericEvaluate(gp_base.GenericEvaluate):
         self.const_opt          = const_opt
         self.optimize           = optimize
     
-    def _set_const_individuals(self, const_idxs, consts, individual):
-        
-        for i, const in zip(const_idxs, consts):
-            individual[i] = gp.Terminal(const, False, object)
-            individual[i].name = "mutable_const" # For good measure
-            
-        return individual
-    
     def __call__(self, individual):
 
         assert self.toolbox is not None, "Must set toolbox first."
@@ -448,7 +447,7 @@ class GenericEvaluate(gp_base.GenericEvaluate):
 
             # Objective function for evaluating constants
             def obj(consts):        
-                individual = self._set_const_individuals(self, const_idxs, consts, individual)        
+                individual = _set_const_individuals(self, const_idxs, consts, individual)        
 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -478,7 +477,36 @@ class GenericEvaluate(gp_base.GenericEvaluate):
             individual = self._set_const_individuals(self, const_idxs, optimized_consts, individual) 
 
         return self._finish_eval(individual, self.X_train, self.train_fitness)
-        
+
+
+def _const_opt(pset, have_const, const_params):
+    
+    # Are we optimizing a const?               
+    if have_const:
+        # Need to differentiate between mutable and non mutable const
+        const_params    = const_params if const_params is not None else {}
+        const_opt       = make_const_optimizer(const_optimizer, **const_params)
+        pset.addTerminal(1.0, name="mutable_const")  
+        pset.addTerminal(1.0, name="user_const")   
+    else:
+        const_opt       = None   
+    
+    return pset, const_opt
+
+def _create_toolbox_const(toolbox, const, max_const):
+                    
+    if const and max_const is not None:
+        assert isinstance(max_const,int)
+        assert max_const >= 0
+        num_const = lambda ind : len([node for node in ind if node.name == "mutable_const"])
+        toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
+        toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
+
+    if const and constrain_const is True:
+        toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
+        toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
+    
+    return toolbox
         
 class GPController(gp_base.GPController):
     
@@ -492,7 +520,7 @@ class GPController(gp_base.GPController):
         eval_func                   = GenericEvaluate(const_opt, dataset, fitness_metric=config_gp_meld["fitness_metric"]) 
         check_constraint            = checkConstraint
         
-        super(GPController, self).__init__(config_gp_meld, config_task, config_training, dataset, pset, eval_func, check_constraint, eval_func.hof)
+        super(GPController, self).__init__(config_gp_meld, config_task, config_training, pset, eval_func, check_constraint, eval_func.hof)
         
         self.get_top_n_programs     = get_top_n_programs
         self.get_top_program        = get_top_program        
@@ -516,37 +544,15 @@ class GPController(gp_base.GPController):
         pset.renameArguments(**rename_kwargs)
     
         # Add primitives
-        for k, v in function_map.items():
-            if k in dataset.function_set:
-                pset.addPrimitive(v.function, v.arity, name=v.name)    
+        pset = self._add_primitives(pset, function_map, dataset.function_set) 
             
-        # Are we optimizing a const?               
-        if have_const:
-            # Need to differentiate between mutable and non mutable const
-            const_params    = const_params if const_params is not None else {}
-            const_opt       = make_const_optimizer(const_optimizer, **const_params)
-            pset.addTerminal(1.0, name="mutable_const")  
-            pset.addTerminal(1.0, name="user_const")   
-        else:
-            const_opt       = None   
-            
-        return pset, const_opt
+        return _const_opt(pset, have_const, const_params)
 
     def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
                 
         toolbox, creator    = self._base_create_toolbox(pset, eval_func, **kwargs) 
         const               = "const" in pset.context
-        
-        if const and max_const is not None:
-            assert isinstance(max_const,int)
-            assert max_const >= 0
-            num_const = lambda ind : len([node for node in ind if node.name == "mutable_const"])
-            toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
-            toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
-    
-        if const and constrain_const is True:
-            toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
-            toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
+        toolbox             = _create_toolbox_const(toolbox, const, max_const)
         
         return toolbox, creator
     
