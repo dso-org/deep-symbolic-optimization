@@ -60,7 +60,8 @@ def _finish_tokens(tokens, n_objects: int = 1):
         tokens          = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
-        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        #tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        pass
 
     return tokens
 
@@ -708,16 +709,16 @@ class Program(object):
         This is actually a bit complicated because we have to go: traversal -->
         tree --> serialized tree --> SymPy expression
         """
-
-        tree = self.traversal.copy()
-        tree = build_tree(tree)
-        tree = convert_to_sympy(tree)
-        try:
-            expr = parse_expr(tree.__repr__()) # SymPy expression
-        except:
-            expr = "N/A"
+        return None
+        # tree = self.traversal.copy()
+        # tree = build_tree(tree)
+        # tree = convert_to_sympy(tree)
+        # try:
+        #     expr = parse_expr(tree.__repr__()) # SymPy expression
+        # except:
+        #     expr = "N/A"
             
-        return expr
+        # return expr
 
 
     def pretty(self):

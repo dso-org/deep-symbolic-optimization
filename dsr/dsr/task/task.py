@@ -5,6 +5,7 @@ from typing import Callable, List, Dict, Any
 
 from dsr.task.regression.regression import make_regression_task
 from dsr.task.control.control import make_control_task
+from dsr.task.binding.binding import make_binding_task
 from dsr.program import Program
 from dsr.library import Library
 
@@ -54,6 +55,7 @@ def make_task(task_type, **config_task):
         Type of task:
         "regression" : Symbolic regression task.
         "control" : Episodic reinforcement learning task.
+        "binding": AbAg binding affinity optimization task.
 
     config_task : kwargs
         Task-specific arguments. See specifications of task_dict. Special key
@@ -70,7 +72,8 @@ def make_task(task_type, **config_task):
     # Dictionary from task name to task factory function
     task_dict = {
         "regression" : make_regression_task,
-        "control" : make_control_task
+        "control" : make_control_task,
+        "binding": make_binding_task
     }
 
     task = task_dict[task_type](**config_task)
