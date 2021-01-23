@@ -115,8 +115,21 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False, n_objects=1):
 
     return p
 
+def _set_optimized_consts(p, optimized_consts):
+    """
+        Sometimes things need to be imported over from places like GP/DEAP in a way that the
+        standard integer tokens do not support. An example is optimized constants from a prior 
+        DEAP run.
+        
+        Otherwise, leave it alone. 
+    """
+    if optimized_consts is not None:
+        p.set_constants(optimized_consts)
+        
+    return p
 
-def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1):
+
+def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1, optimized_consts=None):
 
     """
     Memoized function to generate a Program from a list of tokens.
@@ -155,16 +168,16 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
     if skip_cache:
-        p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
+        p = _set_optimized_consts(Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects), optimized_consts)
     elif Program.task.stochastic:
-        p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
+        p = _set_optimized_consts(Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects), optimized_consts)
     else:
-        key = tokens.tostring()
+        key = tokens.tostring() 
         if key in Program.cache:
             p = Program.cache[key]
             p.count += 1
         else:
-            p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
+            p = _set_optimized_consts(Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects), optimized_consts)
             Program.cache[key] = p
 
     return p
@@ -251,7 +264,7 @@ class Program(object):
         
         self.invalid    = False
         self.str        = tokens.tostring()        
-        self.n_objects = n_objects
+        self.n_objects  = n_objects
         
         if optimize:
             _ = self.optimize()
@@ -413,6 +426,7 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
+            assert isinstance(const, float) or isinstance(const, np.float), "Input to program constants must be of a floating point type"
             # Create a new instance of PlaceholderConstant instead of changing
             # the "values" attribute, otherwise all Programs will have the same
             # instance and just overwrite each other's value.
