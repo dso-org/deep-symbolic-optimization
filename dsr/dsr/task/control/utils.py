@@ -114,3 +114,5 @@ class TimeFeatureWrapper(gym.Wrapper):
             time_feature = 1.0
         # Optionnaly: concatenate [time_feature, time_feature ** 2]
         return np.concatenate((obs, [time_feature]))
+    
+    

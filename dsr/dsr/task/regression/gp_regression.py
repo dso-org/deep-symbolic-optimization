@@ -7,6 +7,7 @@ from operator import attrgetter
 import numpy as np
 
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
+from dsr.library import Token, PlaceholderConstant
 from dsr.const import make_const_optimizer
 from dsr.program import Program,  _finish_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
@@ -170,22 +171,41 @@ def DEAP_to_tokens(individual, tokens_size):
 
     l = min(len(individual),tokens_size)
   
-    tokens = np.zeros(tokens_size,dtype=np.int32)
+    tokens              = np.zeros(tokens_size,dtype=np.int32)
+    optimized_consts    = []
     
     for i in range(l):
         
         t = individual[i]
         
         if isinstance(t, gp.Terminal):
-            if t.name is "user_const":
-                # Get the constant token, this will not store the actual const (TO DO, fix somehow)
-                tokens[i] = t.value
-            elif t.name is "mutable_const":
-                tokens[i] = Program.library.const_token
+            if t.name.startswith("user_const_"):
+                '''
+                    User provided constants which do not change.
+                '''
+                # The ID back to DSR terminal token is stored in the name
+                tokens[i]   = Program.library.names.index(t.name.split('_')[2])
+            elif t.name.startswith("mutable_const_"):
+                '''
+                    Optimizable contstants which we can call the optimizer on.
+                '''
+                # Get the constant token, this will not store the actual const. It however is in the lib tokens. 
+                tokens[i]                   = Program.library.names.index("const")
+                optimized_consts.append(t.value)
             else:
+                '''
+                    Arg tokens also known as X.
+                '''
                 # Get the int which is contained in "ARG{}",
-                tokens[i] = int(t.name[3:])
+                # Here is it is not x{} since the rename function does not change the internal node name. 
+                # This is due to the name being recast through str() when the terminal sets its own name. 
+                # Most likely this is a bug in DEAP
+                input_var   = int(t.name[3:])
+                tokens[i]   = input_var         
         else:
+            '''
+                Function tokens such as sin, log and multiply 
+            '''
             # Get the index number for this op from the op list in Program.library
             tokens[i] = Program.library.names.index(t.name)
             
@@ -193,7 +213,11 @@ def DEAP_to_tokens(individual, tokens_size):
     dangling        = 1 + np.cumsum(arities - 1) 
     expr_length     = 1 + np.argmax(dangling == 0)
   
-    return tokens, expr_length
+    '''
+        Here we return the tokens as a list of indexable integers as well as a list of library token objects. 
+        We primarily need to library token objects if we want to keep track of optimized mutable constants 
+    '''
+    return tokens, optimized_consts, expr_length
 
 
 def tokens_to_DEAP(tokens, primitive_set):
@@ -239,48 +263,62 @@ def tokens_to_DEAP(tokens, primitive_set):
     '''
         Truncate expressions that complete early; extend ones that don't complete
     '''
-    tokens  = _finish_tokens(tokens)
-             
-    plist   = []        
+    tokens      = _finish_tokens(tokens)
+    plist       = []      
+    mc_count    = 0 
     
     for t in tokens:
         
         node = Program.library[t]
 
-        if isinstance(node, float) or isinstance(node, np.float):
+        if node.name == "const": #isinstance(node, str) and 
+            '''
+                NUMBER - Blank floating point constant. 
+                    
+                    Typically this is a constant parameter we want to optimize.
+                    
+                    FIX ME!!!!!
+            '''
+            try:
+                # Tuck the const index in the DSR library in the name so we can map back later
+                # DSR does not explicitly track them outside a program if we have more than one. 
+                cname   = "mutable_const_{}".format(mc_count)
+                p       = primitive_set.mapping[cname]
+                if node.value is not None:
+                    p.value = np.float(node.value)
+                else:
+                    p.value = np.float(1.0)
+                plist.append(p)
+                mc_count += 1
+            except ValueError:
+                print("ERROR: Cannot add mutable \"const\" from DEAP primitve set")
+                
+        elif node.arity == 0 and node.input_var is None: #isinstance(node, float) or isinstance(node, np.float):
             '''
                 NUMBER - Library supplied floating point constant. 
                     
                     This is a constant the user sets and should not change. 
             '''
             try:
-                p = primitive_set.mapping["user_const"]
-                p.value = node
+                # Tuck the const index in the DSR library in the name so we can map back later
+                # We need to keep track of the position of user defined constants as terminal "float" tokens. 
+                #idx     = Program.library.float_tokens[uc_count]
+                p       = primitive_set.mapping["user_const_{}".format(node.name)]
+                p.value = node.function()
                 plist.append(p)
             except ValueError:
-                print("ERROR: Cannot add \"const\" from DEAP primitve set")
+                print("ERROR: Cannot add user \"const\" from DEAP primitve set")
                 
-        elif isinstance(node, str):
-            '''
-                NUMBER - Blank floating point constant. 
-                    
-                    Typically this is a constant parameter we want to optimize.
-            '''
-            try:
-                p = primitive_set.mapping["mutable_const"]
-                p.value = 1.0 #node
-                plist.append(p)
-            except ValueError:
-                print("ERROR: Cannot add \"const\" from DEAP primitve set")
-                
-        elif isinstance(node, int):
+        elif node.input_var is not None: #isinstance(node, int):
             '''
                 NUMBER - Values from input X at location given by value in node
                 
                     This is usually the raw data point numerical values. Its value should not change. 
             '''
             try:
-                plist.append(primitive_set.mapping["x{}".format(node+1)])
+                # Here we use x{} rather than ARG{} since we renamed it by mapping. 
+                plist.append(primitive_set.mapping[node.name])
+                #plist.append(primitive_set.mapping["x{}".format(node+1)])
             except ValueError:
                 print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
                 
@@ -382,9 +420,29 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min
              
     return priors
 
+    
+class GenericEvaluate(gp_base.GenericEvaluate):
+    
+    def __init__(self, const_opt, dataset, fitness_metric="nmse", early_stopping=False, threshold=1e-12):
+        
+        super(GenericEvaluate, self).__init__(early_stopping=early_stopping, threshold=threshold)
 
-# This should be replaced by the task provided metric
-def make_fitness(metric):
+        self.fitness            = self._make_fitness(fitness_metric)
+        self.X_train            = dataset.X_train.T
+        self.X_test             = dataset.X_test.T
+        self.y_train            = dataset.y_train
+              
+        self.train_fitness      = partial(self.fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
+        self.test_fitness       = partial(self.fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
+
+        self.const_opt          = const_opt
+        if self.const_opt is not None:
+            self.optimize = True
+        else:
+            self.optimize = False
+    
+    # This should be replaced by the task provided metric
+    def _make_fitness(self, metric):
         """Generates a fitness function by name"""
 
         if metric == "mse":
@@ -403,102 +461,129 @@ def make_fitness(metric):
             raise ValueError("Metric not recognized.")
 
         return fitness
-
-def _set_const_individuals(const_idxs, consts, individual):
     
-    for i, const in zip(const_idxs, consts):
-        individual[i] = gp.Terminal(const, False, object)
-        individual[i].name = "mutable_const" # For good measure
+    def _set_const_individuals(self, const_idxs, consts, individual):
         
-    return individual
+        # These are optimizable constants, not user constants. 
+        for i, const in zip(const_idxs, consts):
+            individual[i] = gp.Terminal(const, False, object)
+            individual[i].name = "mutable_const_{}".format(i) # For good measure
+            
+        return individual
     
-class GenericEvaluate(gp_base.GenericEvaluate):
-    
-    def __init__(self, const_opt, dataset, fitness_metric="nmse",
-                 optimize=True, early_stopping=False, threshold=1e-12):
+    def _const_opt_eval(self, individual, f):
         
-        super(GenericEvaluate, self).__init__(early_stopping=early_stopping, threshold=threshold)
-
-        fitness                 = make_fitness(fitness_metric)
-        self.X_train            = dataset.X_train.T
-        self.X_test             = dataset.X_test.T
-        self.y_train            = dataset.y_train
-              
-        self.train_fitness      = partial(fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
-        self.test_fitness       = partial(fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
-
-        self.const_opt          = const_opt
-        self.optimize           = optimize
+        '''
+            Notes:
+            
+            optimizer is in const.py as "scipy" : ScipyMinimize
+        
+            Sometimes this evaluation can fail. If so, return largest error possible.
+        '''
+        
+        try:
+            y_hat   = f(*self.X_train)
+        except:
+            return np.finfo(np.float).max
+        
+        y       = self.y_train
+        res     = np.mean((y - y_hat)**2)
+        
+        return res
     
-    def __call__(self, individual):
-
+    def _evaluate_individual(self, individual):
+        
         assert self.toolbox is not None, "Must set toolbox first."
 
         if self.optimize:
-            # Retrieve symbolic constants
-            const_idxs = [i for i, node in enumerate(individual) if node.name == "mutable_const"]
-
+            
             # HACK: If early stopping threshold has been reached, don't do training optimization
             # Check if best individual has NMSE below threshold on test set
             if self.early_stopping and len(self.hof) > 0 and self._finish_eval(self.hof[0], self.X_test, self.test_fitness)[0] < self.threshold:
                 return (1.0,)
+            
+            const_idxs = [i for i, node in enumerate(individual) if node.name.startswith("mutable_const_")] # optimze by chnaging to == with index values
+            
+            if len(const_idxs) > 0:
+                
+                # Objective function for evaluating constants
+                def obj(individual, consts):        
+                    individual  = self._set_const_individuals(const_idxs, consts, individual)        
+    
+                    f           = self.toolbox.compile(expr=individual)
+    
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
 
-        if self.optimize and len(const_idxs) > 0:
-
-            # Objective function for evaluating constants
-            def obj(consts):        
-                individual = _set_const_individuals(self, const_idxs, consts, individual)        
-
+                    # Run the program and get result
+                    res = self._const_opt_eval(individual, f)
+                        
+                    # Sometimes this evaluation can fail. If so, return largest error possible.
+                    if np.isfinite(res):
+                        return res
+                    else:
+                        return np.finfo(np.float).max
+    
+                obj_call = partial(obj,individual)
+    
+                # Do the optimization and set the optimized constants
+                x0                  = np.ones(len(const_idxs))
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    f       = self.toolbox.compile(expr=individual)
-                    
-                    # Sometimes this evaluation can fail. If so, return largest error possible.
-                    try:
-                        y_hat   = f(*self.X_train)
-                    except:
-                        return np.finfo(np.float).max
-                    
-                    y       = self.y_train
-                    res     = np.mean((y - y_hat)**2)
-                    
-                # Sometimes this evaluation can fail. If so, return largest error possible.
-                if np.isfinite(res):
-                    return res
-                else:
-                    return np.finfo(np.float).max
-
-            # Do the optimization and set the optimized constants
-            x0                  = np.ones(len(const_idxs))
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                optimized_consts    = self.const_opt(obj, x0)
-            
-            individual = self._set_const_individuals(self, const_idxs, optimized_consts, individual) 
+                    optimized_consts    = self.const_opt(obj_call, x0)
+                
+                individual = self._set_const_individuals(const_idxs, optimized_consts, individual) 
 
         return self._finish_eval(individual, self.X_train, self.train_fitness)
+    
+    def __call__(self, individual):
+
+        return self._evaluate_individual(individual)
 
 
-def _const_opt(pset, have_const, const_params):
+def _const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training):
     
     # Are we optimizing a const?               
-    if have_const:
+    if mutable_consts:
+        print("-------------------------------------")
+        print("DEAP installing constants to be optimized:")
+        const_optimizer  = config_training["const_optimizer"] # Probably SciPy
+        
         # Need to differentiate between mutable and non mutable const
         const_params    = const_params if const_params is not None else {}
         const_opt       = make_const_optimizer(const_optimizer, **const_params)
-        pset.addTerminal(1.0, name="mutable_const")  
-        pset.addTerminal(1.0, name="user_const")   
+        for i in range(max_const):
+            dname   = "mutable_const_{}".format(i)
+            dvalue  = np.float(1.0)
+            pset.addTerminal(dvalue, name=dname)
+            pset.mapping[dname].value = dvalue
+            print("\t{} is {}".format(dname, pset.mapping[dname].value))
+        print("-------------------------------------")
     else:
         const_opt       = None   
+    
+    # Add user provided constants.
+    if len(user_consts) > 0:
+        print("-------------------------------------")
+        print("DEAP installing user supplied constants:")
+        for i,v in enumerate(user_consts):
+            # Note, t.function() will return value
+            dname   = "user_const_{}".format(v.name)
+            dvalue  = np.float(v.function())            
+            pset.addTerminal(dvalue, name=dname)
+            pset.mapping[dname].value = dvalue 
+            print("\t{}".format(pset.mapping[dname].value))
+        print("-------------------------------------")
     
     return pset, const_opt
 
 def _create_toolbox_const(toolbox, const, max_const):
-                    
+     
+    # If we have constants and a defined maximum number, put the constraint in here               
     if const and max_const is not None:
         assert isinstance(max_const,int)
         assert max_const >= 0
-        num_const = lambda ind : len([node for node in ind if node.name == "mutable_const"])
+        num_const = lambda ind : len([node for node in ind if node.name.startwith("mutable_const_")])
         toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
         toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
 
@@ -516,7 +601,7 @@ class GPController(gp_base.GPController):
         
         config_dataset              = config_task["dataset"]
         dataset                     = BenchmarkDataset(**config_dataset)
-        pset, const_opt             = self._create_primitive_set(dataset, config_training)                                         
+        pset, const_opt             = self._create_primitive_set(dataset, config_training, config_gp_meld)                                         
         eval_func                   = GenericEvaluate(const_opt, dataset, fitness_metric=config_gp_meld["fitness_metric"]) 
         check_constraint            = checkConstraint
         
@@ -525,8 +610,9 @@ class GPController(gp_base.GPController):
         self.get_top_n_programs     = get_top_n_programs
         self.get_top_program        = get_top_program        
         self.tokens_to_DEAP         = tokens_to_DEAP
+        self.init_const_epoch       = config_gp_meld["init_const_epoch"]
 
-    def _create_primitive_set(self, dataset, config_training):
+    def _create_primitive_set(self, dataset, config_training, config_gp_meld):
         """Create a DEAP primitive set from DSR functions and consts
         """
         
@@ -534,19 +620,25 @@ class GPController(gp_base.GPController):
         assert isinstance(dataset, object), "dataset should be a DSR Dataset object" 
         
         const_params                = config_training['const_params']
-        have_const                  = "const" in dataset.function_set  
-        const_optimizer             = "scipy"
+        max_const                   = config_gp_meld["max_const"]
         
+        # Get user constants as well as mutable constants that we optimize (if any)
+        user_consts                 = [t for i, t in enumerate(Program.library.tokens) if t.arity == 0 and t.input_var is None and t.name != "const"] 
+        mutable_consts              = len([t for i, t in enumerate(Program.library.tokens) if t.name == "const"])
+            
         pset                        = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
     
-        # Add input variables
-        rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
+        # Add input variables, use prefix x via renaming
+        # This only renames the exterior name and mapping and does not change the name as the node is known to 
+        # itself. This is a probably a bug in DEAP. This naming works if the first tokens in DSR are always 
+        # the varaible tokens. This assumtion should be checked.
+        rename_kwargs               = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
         pset.renameArguments(**rename_kwargs)
     
         # Add primitives
-        pset = self._add_primitives(pset, function_map, dataset.function_set) 
+        pset                         = self._add_primitives(pset, function_map, dataset.function_set) 
             
-        return _const_opt(pset, have_const, const_params)
+        return _const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
 
     def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
                 
@@ -555,6 +647,19 @@ class GPController(gp_base.GPController):
         toolbox             = _create_toolbox_const(toolbox, const, max_const)
         
         return toolbox, creator
+    
+    def _reset_consts(self):
+        
+        for k, v in self.pset.mapping.items():
+            if v.name.startswith("mutable_const_"):
+                v.value = 1.0
+    
+    def _call_pre_process(self):
+        
+        if self.init_const_epoch:
+            # Reset all mutable constants when we call DEAP GP?
+            self._reset_consts()
+
     
  
 def convert_inverse_prim(prim, args):
@@ -605,8 +710,8 @@ def get_top_program(halloffame, actions, config_gp_meld):
     max_len     = config_gp_meld["max_len"] # <-- fold into base
     min_len     = config_gp_meld["min_len"] # <-- fold into base
     
-    deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length      = gp_base._get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens)
-    deap_prior                                                              = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
+    deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length  = gp_base._get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens)
+    deap_prior                                                          = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
 
     return deap_program, deap_obs, deap_action, deap_prior
     
@@ -625,8 +730,8 @@ def get_top_n_programs(population, actions, config_gp_meld):
     
     max_tok     = Program.library.L
 
-    deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length      = gp_base._get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens)
-    deap_priors                                                             = np.empty((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
+    deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length  = gp_base._get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens)
+    deap_priors                                                         = np.empty((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
         
     for i in range(len(deap_tokens)):        
         deap_priors[i,]                 = generate_priors(deap_tokens[i], actions.shape[1], deap_expr_length[i], max_const, max_len, min_len)

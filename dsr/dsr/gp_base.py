@@ -530,6 +530,12 @@ class GPController:
                 pset.addPrimitive(v.function, v.arity, name=v.name)   
         
         return pset
+    
+    def _call_pre_process(self):
+        pass
+    
+    def _call_post_process(self):
+        pass
             
     def __call__(self, actions):
         
@@ -538,7 +544,9 @@ class GPController:
         assert callable(self.tokens_to_DEAP)
         
         assert isinstance(actions, np.ndarray)
-            
+        
+        self._call_pre_process()
+        
         individuals = [self.creator.Individual(self.tokens_to_DEAP(a, self.pset)) for a in actions]
         
         if self.config_gp_meld["rand_pop_n"] > 0:
@@ -574,6 +582,8 @@ class GPController:
         else:
             deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_program(self.halloffame, actions, self.config_gp_meld)
             self.return_gp_obs                                      = self.config_gp_meld["train_n"]
+            
+        self._call_post_process()
             
         return deap_programs, deap_obs, deap_actions, deap_priors
     
@@ -624,8 +634,8 @@ def create_stats_widget():
 def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
-    max_tok                         = Program.library.L
-    deap_tokens, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
+    max_tok                                     = Program.library.L
+    deap_tokens, optimized_consts, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
        
     deap_parent         = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
     deap_sibling        = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
@@ -647,7 +657,7 @@ def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
 
     deap_obs            = [deap_obs_action, deap_parent, deap_sibling]
     deap_action         = np.expand_dims(deap_action,axis=0)    
-    deap_program        = [from_tokens(deap_tokens, optimize=True, on_policy=False)]
+    deap_program        = [from_tokens(deap_tokens, optimize=True, on_policy=False, optimized_consts=optimized_consts)]
 
     return deap_program, deap_obs, deap_action,  deap_tokens, deap_expr_length
 
@@ -690,15 +700,17 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
     deap_action[:,0]    = max_tok
     deap_program        = []
     deap_tokens         = []
+    optimized_consts    = []
     deap_expr_length    = []
     
     for i,p in enumerate(population):
-        dt, dexpl                       = DEAP_to_tokens(p, actions.shape[1])
+        dt, oc, dexpl                   = DEAP_to_tokens(p, actions.shape[1])
         deap_tokens.append(dt)
         deap_expr_length.append(dexpl)
         deap_obs_action[i,1:]           = dt[:-1]
         deap_action[i,:]                = dt
-        deap_program.append(from_tokens(dt, optimize=True, on_policy=False))
+        
+        deap_program.append(from_tokens(dt, optimize=True, on_policy=False, optimized_consts=oc))
                 
         for j in range(actions.shape[1]-1):       
             # Parent and sibling given the current action
