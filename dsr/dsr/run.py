@@ -24,7 +24,6 @@ from dsr import DeepSymbolicOptimizer
 from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
-import dsr.gp as gp_dsr
 
 
 def train_dsr(name_and_seed, config):
