@@ -166,12 +166,16 @@ class Controller(object):
                  pqt_weight=200.0,
                  pqt_use_pg=False,
                  # Other hyperparameters
-                 max_length=None):
+                 max_length=None,
+                 off_policy_stats=False):
 
         self.sess = sess
         self.prior = prior
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
+
+        # Set to true for on/off policy stat differences
+        self.off_policy_stats = off_policy_stats
 
         lib = Program.library
 
@@ -454,7 +458,8 @@ class Controller(object):
                              tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None,]),
-                    "rewards" : tf.placeholder(tf.float32, [None], name="r")
+                    "rewards" : tf.placeholder(tf.float32, [None], name="r"),
+                    "on_policy" : tf.placeholder(tf.int32, [None,])
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -484,8 +489,24 @@ class Controller(object):
             # Negative log probabilities of sequences
             actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
+                        
             neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
+    
+            # print some basic stats between on policy and off policy results
+            if self.off_policy_stats:
+                neglogp_off_policy      = tf.gather(neglogp, tf.where(tf.equal(B.on_policy,0)))
+                neglogp_on_policy       = tf.gather(neglogp, tf.where(tf.equal(B.on_policy,1)))
+                
+                neglogp_off_policy_std  = tf.math.reduce_std(neglogp_off_policy)
+                neglogp_on_policy_std   = tf.math.reduce_std(neglogp_on_policy)            
+                
+                neglogp_off_policy_mean = tf.reduce_mean(neglogp_off_policy)
+                neglogp_on_policy_mean  = tf.reduce_mean(neglogp_on_policy)
+                
+                neglogp                 = tf.Print(neglogp, [neglogp_on_policy_mean, neglogp_on_policy_std],   "Neglogp On Policy ",  summarize=100)
+                neglogp                 = tf.Print(neglogp, [neglogp_off_policy_mean, neglogp_off_policy_std], "Neglogp Off Policy ", summarize=100)
 
+            
             # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
             # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
@@ -547,7 +568,7 @@ class Controller(object):
             else:
                 if not pqt or (pqt and pqt_use_pg):
                     # Baseline is the worst of the current samples r
-                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")                    
+                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")        
                     # Loss already is set to entropy loss
                     loss += pg_loss
 
