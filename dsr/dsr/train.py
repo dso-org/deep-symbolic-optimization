@@ -246,8 +246,9 @@ def learn(sess, controller, pool, gp_controller,
         programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
+        on_policy = np.array([p.on_policy for p in programs])
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                              lengths=l, rewards=r)
+                              lengths=l, rewards=r, on_policy=on_policy)
         memory_queue.push_batch(sampled_batch, programs)
     else:
         memory_queue = None

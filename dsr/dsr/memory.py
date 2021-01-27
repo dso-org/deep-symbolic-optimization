@@ -69,7 +69,8 @@ def get_samples(batch, key):
         obs=tuple(o[key] for o in batch.obs),
         priors=batch.priors[key],
         lengths=batch.lengths[key],
-        rewards=batch.rewards[key])
+        rewards=batch.rewards[key],
+        on_policy=batch.on_policy[key])
     return batch
 
 
@@ -331,8 +332,9 @@ class ProgramQueueMixin():
         priors = np.stack([s.priors for s in samples], axis=0)
         lengths = np.array([s.lengths for s in samples], dtype=np.int32)
         rewards = np.array([s.rewards for s in samples], dtype=np.float32)
+        on_policy = np.array([s.on_policy for s in samples], dtype=np.bool)
         batch = Batch(actions=actions, obs=obs, priors=priors,
-                      lengths=lengths, rewards=rewards)
+                      lengths=lengths, rewards=rewards, on_policy=on_policy)
         return batch
 
     def to_batch(self):
