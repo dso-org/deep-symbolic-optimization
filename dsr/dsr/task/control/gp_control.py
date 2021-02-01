@@ -133,11 +133,6 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
     
     def __call__(self, individual):
 
-
-        self.train_fitness      = partial(self.fitness, action) # ChANGE
-        self.X_train            = obs   # CHANGE
-        self.y_train            = action    # ChANGE
-
         '''
             NOTE:
             
@@ -151,8 +146,14 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
             
 class GPController(gp_base.GPController):
     
-    def __init__(self, config_gp_meld, config_task, config_training, name,  action_spec, 
-                 algorithm=None, anchor=None, n_episodes=5, env_kwargs=None):
+    def __init__(self, config_gp_meld, config_task, config_training):
+    
+        name            = config_task["name"]
+        action_spec     = config_task["action_spec"]
+        n_episodes      = config_task["n_episodes_train"]
+        env_kwargs      = config_task["env_kwargs"] if "env_kwargs" in config_task  else None
+        algorithm       = config_task["algorithm"]  if "algorithm" in config_task   else None
+        anchor          = config_task["anchor "]    if "anchor " in config_task     else None
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         

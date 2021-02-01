@@ -271,17 +271,15 @@ def tokens_to_DEAP(tokens, primitive_set):
         
         node = Program.library[t]
 
-        if node.name == "const": #isinstance(node, str) and 
+        if node.name == "const":
             '''
                 NUMBER - Blank floating point constant. 
                     
                     Typically this is a constant parameter we want to optimize.
-                    
-                    FIX ME!!!!!
             '''
             try:
-                # Tuck the const index in the DSR library in the name so we can map back later
-                # DSR does not explicitly track them outside a program if we have more than one. 
+                # Optimizable consts are not tracked like other terminals in DSR.
+                # We just need to make sure we keep them in order. Naming is arbitrary. 
                 cname   = "mutable_const_{}".format(mc_count)
                 p       = primitive_set.mapping[cname]
                 if node.value is not None:
@@ -293,23 +291,22 @@ def tokens_to_DEAP(tokens, primitive_set):
             except ValueError:
                 print("ERROR: Cannot add mutable \"const\" from DEAP primitve set")
                 
-        elif node.arity == 0 and node.input_var is None: #isinstance(node, float) or isinstance(node, np.float):
+        elif node.arity == 0 and node.input_var is None:
             '''
                 NUMBER - Library supplied floating point constant. 
                     
                     This is a constant the user sets and should not change. 
             '''
             try:
-                # Tuck the const index in the DSR library in the name so we can map back later
-                # We need to keep track of the position of user defined constants as terminal "float" tokens. 
-                #idx     = Program.library.float_tokens[uc_count]
+                # The DSR node name is stored in the string to make it easier to map back from DEAP
+                # later. 
                 p       = primitive_set.mapping["user_const_{}".format(node.name)]
                 p.value = node.function()
                 plist.append(p)
             except ValueError:
                 print("ERROR: Cannot add user \"const\" from DEAP primitve set")
                 
-        elif node.input_var is not None: #isinstance(node, int):
+        elif node.input_var is not None:
             '''
                 NUMBER - Values from input X at location given by value in node
                 
@@ -318,7 +315,6 @@ def tokens_to_DEAP(tokens, primitive_set):
             try:
                 # Here we use x{} rather than ARG{} since we renamed it by mapping. 
                 plist.append(primitive_set.mapping[node.name])
-                #plist.append(primitive_set.mapping["x{}".format(node+1)])
             except ValueError:
                 print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
                 
@@ -648,17 +644,17 @@ class GPController(gp_base.GPController):
         
         return toolbox, creator
     
-    def _reset_consts(self):
-        
-        for k, v in self.pset.mapping.items():
-            if v.name.startswith("mutable_const_"):
-                v.value = 1.0
-    
     def _call_pre_process(self):
         
         if self.init_const_epoch:
             # Reset all mutable constants when we call DEAP GP?
-            self._reset_consts()
+            self.reset_consts()
+            
+    def reset_consts(self):
+        
+        for k, v in self.pset.mapping.items():
+            if v.name.startswith("mutable_const_"):
+                v.value = 1.0
 
     
  
