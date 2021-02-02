@@ -8,8 +8,8 @@ import gym
 
 import dsr.task.control.utils as U
 
-DSP_DATA_ROOT = "../data"
-DSR_DATA_ROOT = "../../regression/data"
+DSP_DATA_ROOT = "." #../data"
+DSR_DATA_ROOT = "./dsr/task/regression/data" #"../../regression/data"
 REGRESSION_SEED_SHIFT = int(2e6)
 
 

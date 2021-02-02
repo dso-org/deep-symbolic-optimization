@@ -467,7 +467,7 @@ class GenericEvaluate(gp_base.GenericEvaluate):
             
         return individual
     
-    def _const_opt_eval(self, individual, f):
+    def _single_eval(self, individual, f):
         
         '''
             Notes:
@@ -487,7 +487,7 @@ class GenericEvaluate(gp_base.GenericEvaluate):
         
         return res
     
-    def _evaluate_individual(self, individual):
+    def _optimize_individual(self, individual):
         
         assert self.toolbox is not None, "Must set toolbox first."
 
@@ -512,7 +512,7 @@ class GenericEvaluate(gp_base.GenericEvaluate):
                         warnings.simplefilter("ignore")
 
                     # Run the program and get result
-                    res = self._const_opt_eval(individual, f)
+                    res = self._single_eval(individual, f)
                         
                     # Sometimes this evaluation can fail. If so, return largest error possible.
                     if np.isfinite(res):
@@ -530,11 +530,13 @@ class GenericEvaluate(gp_base.GenericEvaluate):
                 
                 individual = self._set_const_individuals(const_idxs, optimized_consts, individual) 
 
-        return self._finish_eval(individual, self.X_train, self.train_fitness)
+        return individual
     
     def __call__(self, individual):
 
-        return self._evaluate_individual(individual)
+        individual = self._optimize_individual(individual) # Skips if we are not doing const optimization
+    
+        return self._finish_eval(individual, self.X_train, self.train_fitness)
 
 
 def _const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training):
