@@ -108,7 +108,7 @@ class DeepSymbolicOptimizer():
             
             if self.config_task["task_type"] == "regression":
                 from dsr.task.regression.gp_regression import GPController
-            elif self.config_task["task_type"] == "regression":
+            elif self.config_task["task_type"] == "control":
                 from dsr.task.control.gp_control import GPController
             else:
                 raise NotImplementedError

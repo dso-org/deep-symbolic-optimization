@@ -118,6 +118,13 @@ class GenericEvaluate():
             fit     = (fitness(y_hat=y_hat),)
         
         return fit
+    
+    def _single_eval(self, individual, f):
+        """
+            This is called by some derived classes, but does not always need to
+            fall in the flow of a derived class. Sometimes it can be ignored. 
+        """
+        raise NotImplementedError
         
     def __call__(self, individual):
         """

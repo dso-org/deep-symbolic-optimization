@@ -40,7 +40,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     algorithm : str or None
         Name of algorithm corresponding to anchor path, or None to use default
-        anchor for given environment.
+        anchor for given environment. For example see "stable-baselines".
 
     anchor : str or None
         Path to anchor model, or None to use default anchor for given
