@@ -386,10 +386,10 @@ def learn(sess, controller, pool, gp_controller,
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
-        base_r_best = max(base_r_max, base_r_best)
+        all_base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
-        r_best = max(r_max, r_best)
+        all_r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
@@ -497,6 +497,26 @@ def learn(sess, controller, pool, gp_controller,
             priors      = priors[keep, :, :]
             on_policy   = on_policy[keep]
 
+        # For things like the control task, we can run the epsilon subset a little more to get a better estimate of r
+        if "do_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_validate"]:
+            if gp_verbose:
+                print("Validating {} Rewards".format(len(programs)))
+            base_r          = [p.base_validate  for p in programs] # base_r Needs to be done before r
+            r               = [p.validate       for p in programs]
+            r_train         = [p.validate       for p in p_train]
+            
+            base_r_max      = np.max(base_r)
+            base_r_best     = max(base_r_max, base_r_best)
+            base_r_avg_full = np.mean(base_r)
+            # The best are only taken from samples that have been validated
+            r_max           = np.max(r)
+            r_best          = max(r_max, r_best)
+        else:
+            # The best are taken from all samples created this step
+            base_r_best     = all_base_r_best
+            r_best          = all_r_best
+            
+
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r       = np.clip(r,        -1e6, 1e6)
         r_train = np.clip(r_train,  -1e6, 1e6)
@@ -575,6 +595,14 @@ def learn(sess, controller, pool, gp_controller,
             memory_queue.push_batch(sampled_batch, programs)
 
         # Update new best expression
+        '''
+            base_r_max : is computed over all samples and is just the basic reward. It also includes samples cut off by epsilon.
+            This is not a problem since the best r should not be cut of by epsilon, but is something to keep in mind if r gets
+            changed later on.  
+            
+            r_max : If we include something like a complexity penalty, then this is the augmented r. If we do not
+            then base_r = r. 
+        '''
         new_r_best = False
         new_base_r_best = False
         
@@ -595,28 +623,29 @@ def learn(sess, controller, pool, gp_controller,
             programs[np.argmax(base_r)].print_stats()
             print("************************")
             print("All time best Program:")
-            p_base_r_best.print_stats()
+            p_base_r_best.print_stats(print_test=True)
             print("************************")
 
         # Print new best expression
+
         if verbose:
             if new_r_best and new_base_r_best:
                 if p_r_best == p_base_r_best:
                     print("\nNew best overall")
-                    p_r_best.print_stats()
+                    p_r_best.print_stats(print_test=True)
                 else:
                     print("\nNew best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
-                    p_base_r_best.print_stats()
+                    p_base_r_best.print_stats(print_test=True)
 
             elif new_r_best:
                 print("\nNew best reward")
-                p_r_best.print_stats()
+                p_r_best.print_stats(print_test=True)
 
             elif new_base_r_best:
                 print("\nNew best base reward")
-                p_base_r_best.print_stats()
+                p_base_r_best.print_stats(print_test=True)
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
@@ -639,7 +668,7 @@ def learn(sess, controller, pool, gp_controller,
             if nevals > n_samples:
                 print("************************")
                 print("All time best Program:")
-                p_base_r_best.print_stats()
+                p_base_r_best.print_stats(print_test=True)
                 print("************************")
                 print("Max Number of Samples Exceeded. Exiting...")
                 break

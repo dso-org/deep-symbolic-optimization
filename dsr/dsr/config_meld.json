@@ -18,7 +18,8 @@
       "protected" : false,
       "reward_noise" : 0.0,
       "reward_noise_type" : "r",
-      "normalize_variance" : false
+      "normalize_variance" : false,
+      "do_validate" : false
    },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},

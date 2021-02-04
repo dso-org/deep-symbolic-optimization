@@ -570,6 +570,23 @@ class Program(object):
             
             return self.base_r - self.complexity
 
+    @cached_property
+    def base_validate(self):
+        """Evaluates and returns the base reward of the program on the training
+        set"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.task.validate_function(self)
+
+    @cached_property
+    def validate(self):
+        """Evaluates and returns the reward of the program on the training
+        set"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.base_validate - self.complexity
 
     @cached_property
     def evaluate(self):
@@ -612,10 +629,16 @@ class Program(object):
         return pretty(self.sympy_expr)
 
 
-    def print_stats(self):
+    def print_stats(self, print_test=False):
         """Prints the statistics of the program"""
-        print("\tReward: {}".format(self.r))
-        print("\tBase reward: {}".format(self.base_r))
+        if "do_validate" in self.task.extra_info and self.task.extra_info["do_validate"]:
+            print("\tReward: {}".format(self.validate))
+            print("\tBase reward: {}".format(self.base_validate))
+        else:
+            print("\tReward: {}".format(self.r))
+            print("\tBase reward: {}".format(self.base_r))
+        if print_test:
+            print("\tTest val: {}".format(self.evaluate['test_val']))
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
