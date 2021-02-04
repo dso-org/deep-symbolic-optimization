@@ -155,6 +155,9 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
         return r
 
+    def validate(p):
+        
+        raise NotImplementedError
 
     def evaluate(p):
 
@@ -178,7 +181,8 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
         info = {
             "nmse_test" : nmse_test,
             "nmse_test_noiseless" : nmse_test_noiseless,
-            "success" : success
+            "success" : success,
+            "test_val" : nmse_test
         }
 
         if extra_metric_test is not None:
@@ -205,13 +209,14 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
     stochastic = reward_noise > 0.0
 
-    extra_info = {}
+    extra_info = {"do_validate" : False}
 
     task = dsr.task.Task(reward_function=reward,
-                evaluate=evaluate,
-                library=library,
-                stochastic=stochastic,
-                extra_info=extra_info)
+                         validate_function=validate,
+                         evaluate=evaluate,
+                         library=library,
+                         stochastic=stochastic,
+                         extra_info=extra_info)
 
     return task
 

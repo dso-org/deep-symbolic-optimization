@@ -641,7 +641,7 @@ def create_stats_widget():
 def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
-    max_tok                                     = Program.library.L
+    max_tok                                           = Program.library.L
     deap_tokens, optimized_consts, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
        
     deap_parent         = np.zeros(deap_tokens.shape[0], dtype=np.int32) 

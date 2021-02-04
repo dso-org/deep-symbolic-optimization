@@ -37,6 +37,7 @@ class Task:
     """
 
     reward_function: Callable[[Program], float]
+    validate_function: Callable[[Program], float]
     evaluate: Callable[[Program], float]
     library: Library
     stochastic: bool

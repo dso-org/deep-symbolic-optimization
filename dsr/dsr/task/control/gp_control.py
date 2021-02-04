@@ -43,7 +43,7 @@ except ImportError:
 class GenericEvaluate(gp_regression.GenericEvaluate):
     
     def __init__(self, const_opt, name, env, model, env_kwargs, symbolic_actions=None, action_dim=None, n_episodes=5, 
-                 early_stopping=False, threshold=1e-12):
+                 early_stopping=False, optimize_stat="min", threshold=1e-12):
         
         assert gym is not None
         
@@ -62,12 +62,27 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
         self.symbolic_actions   = symbolic_actions
         self.action_dim         = action_dim
         self.n_episodes         = n_episodes
+        self.optimize_stat      = optimize_stat
         self.threshold          = threshold
                 
         if self.const_opt is not None:
             self.optimize = True
         else:
             self.optimize = False
+            
+        if optimize_stat == "mean":
+            self.optimize_stat      = np.mean
+        elif optimize_stat == "median":
+            self.optimize_stat      = np.median
+        elif optimize_stat == "max":
+            # Return the best sample of the n 
+            self.optimize_stat      = np.amax
+        elif optimize_stat == "min":
+            # Return the worst sample of the n
+            self.optimize_stat      = np.amin
+        else:
+            print("Got unknown optimize_stat \"{}\"".format(self.optimize_stat))
+            raise NotImplementedError
         
         self.early_stopping     = False # Not supported since it would have to call gym twice to check it. 
             
@@ -91,32 +106,19 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
             done = False
             while not done:
         
-                #print("*****************************************")
                 if self.model is not None:
                     action, _   = self.model.predict(obs)
                 else:
                     action      = np.zeros(self.env.action_space.shape, dtype=np.float32)
                 
-                #print("********")
-                #print(action)    
-                
                 for j, fixed_p in self.symbolic_actions.items():
                     action[j]   = self._get_dsr_action(fixed_p, obs)
-                
-                #print("********")
-                #print(action)
                 
                 if self.action_dim is not None:
                     action[self.action_dim] = f(*obs)
                 
-                #print("********")
-                #print(action)
-                
                 action[np.isnan(action)]    = 0.0 # Replace NaNs with zero
                 action                      = np.clip(action, self.env.action_space.low, self.env.action_space.high)
-                
-                #print("********")
-                #print(action)
                 
                 obs, r, done, _             = self.env.step(action) # Does r get small as we get better?
                 r_episodes[i] += r
@@ -125,8 +127,6 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
     
     def _single_eval(self, individual, f):
         
-        #r_episodes = self._gym_loop(individual, f)
-        
         # Sometimes this evaluation can fail. If so, return largest error possible.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -134,9 +134,9 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
                 r_episodes = self._gym_loop(individual, f)
             except:
                 return [np.finfo(np.float).max]
-              
-        return [np.mean(r_episodes) * -1.0]
-    
+        
+        return [self.optimize_stat(r_episodes) * -1.0]
+
     def _finish_eval(self, individual, f):
         
         raise NotImplementedError 
@@ -154,7 +154,7 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
         individual  = self._optimize_individual(individual) # Skips if we are not doing const optimization
         f           = self.toolbox.compile(expr=individual)
         ret         = self._single_eval(individual, f)
-        #print("Return {} val {}".format(individual,ret))
+        
         return ret
         
     
@@ -165,7 +165,8 @@ class GPController(gp_base.GPController):
     
         name            = config_task["name"]
         action_spec     = config_task["action_spec"]
-        n_episodes      = config_task["n_episodes_train"]
+        n_episodes      = config_task["n_episodes_slice"]
+        optimize_stat   = config_task['slice_optimize_stat']
         env_kwargs      = config_task["env_kwargs"] if "env_kwargs" in config_task  else None
         algorithm       = config_task["algorithm"]  if "algorithm" in config_task   else None
         anchor          = config_task["anchor "]    if "anchor " in config_task     else None
@@ -188,7 +189,7 @@ class GPController(gp_base.GPController):
         
         pset, const_opt, symbolic_actions, action_dim   = self._create_primitive_set(config_task, config_training, config_gp_meld)                                         
         eval_func                                       = GenericEvaluate(const_opt, name, self.env, self.model, env_kwargs, symbolic_actions=symbolic_actions, action_dim=action_dim, 
-                                                              n_episodes=n_episodes) 
+                                                              n_episodes=n_episodes, optimize_stat=optimize_stat) 
         check_constraint                                = gp_regression.checkConstraint
         
         super(GPController, self).__init__(config_gp_meld, config_task, config_training, pset, eval_func, check_constraint, eval_func.hof)

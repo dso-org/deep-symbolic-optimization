@@ -18,9 +18,9 @@ REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
-    anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0):
+    anchor=None, n_episodes_slice=None, n_episodes_train=5, n_episodes_validate=100, n_episodes_test=1000, 
+    success_score=None, stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
+    episode_seed_shift=0, do_validate=False, slice_optimize_stat="min"):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -163,6 +163,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                 env.seed(i)
             elif fix_seeds:
                 env.seed(i + (episode_seed_shift * 100) + REWARD_SEED_SHIFT)
+                
             obs = env.reset()
             done = False
             while not done:
@@ -198,8 +199,18 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Return the mean
         r_avg = np.mean(r_episodes)
+        
         return r_avg
 
+    def validate(p):
+
+        # Run the episodes
+        r_episodes = run_episodes(p, n_episodes_validate, evaluate=False)
+
+        # Compute val statistics
+        r_avg = np.mean(r_episodes)
+
+        return r_avg
 
     def evaluate(p):
 
@@ -214,19 +225,22 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         info = {
             "r_avg_test" : r_avg_test,
             "success_rate" : success_rate,
-            "success" : success
+            "success" : success,
+            "test_val" : r_avg_test
         }
         return info
 
     extra_info = {
-        "symbolic_actions" : symbolic_actions
+        "symbolic_actions" : symbolic_actions,
+        "do_validate" : do_validate
     }
     
 
     task = dsr.task.Task(reward_function=reward,
-                evaluate=evaluate,
-                library=library,
-                stochastic=stochastic,
-                extra_info=extra_info)
+                         validate_function=validate,
+                         evaluate=evaluate,
+                         library=library,
+                         stochastic=stochastic,
+                         extra_info=extra_info)
 
     return task
