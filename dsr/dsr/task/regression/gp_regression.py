@@ -351,7 +351,7 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min
     offset              = 1 # Put in constraint at t+1
     
     # Never start with a terminal token
-    priors[0, Program.library.terminal_tokens] = -np.inf
+    ###priors[0, Program.library.terminal_tokens] = -np.inf
         
     for i,t in enumerate(tokens): 
         
@@ -364,10 +364,11 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min
         if (dangling == 1) & (np.sum(np.isin(tokens, Program.library.float_tokens), axis=1) == 0):
             priors[i+offset, Program.library.float_tokens] = -np.inf
         '''
-        # check trig descendants
-        
+        # Something is still borken in here
         if i < len(tokens) - 1:
             
+            # check trig descendants
+            '''
             if t in Program.library.trig_tokens:
                 trig_descendant = True
                 trig_dangling   = 1
@@ -382,17 +383,19 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min
             
             if trig_descendant:
                 priors[i+offset, Program.library.trig_tokens] = -np.inf
-                
+            '''
+            # Check inverse tokens
+            '''
+            if t in Program.library.inverse_tokens:
+                priors[i+offset, Program.library.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
+            '''
+            # Check const tokens        
             '''
             if i < len(tokens) - 2:
                 if t in Program.binary_tokens:
                     if tokens[i+1] == Program.const_token:
                         priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
             '''
-
-            if t in Program.library.inverse_tokens:
-                priors[i+offset, Program.library.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
-                
             '''
             if t in Program.library.unary_tokens:
                 priors[i+offset, Program.library.const_token] = -np.inf         # Cannot have const inside unary token
@@ -402,7 +405,8 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min
                 if const_tokens >= max_const:
                     priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
             '''
-            # Constrain terminals
+            # Constrain terminals 
+            '''
             if (i + 2) < min_len and dangling == 1:
                 priors[i+offset, Program.library.terminal_tokens] = -np.inf
                 
@@ -413,7 +417,7 @@ def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min
                     priors[i+offset, Program.library.binary_tokens] = -np.inf
                 elif dangling == remaining:
                     priors[i+offset, Program.library.unary_tokens]  = -np.inf
-             
+             '''
     return priors
 
     
@@ -709,7 +713,11 @@ def get_top_program(halloffame, actions, config_gp_meld):
     min_len     = config_gp_meld["min_len"] # <-- fold into base
     
     deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length  = gp_base._get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens)
-    deap_prior                                                          = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
+    
+    if config_gp_meld["compute_priors"]:
+        deap_prior                                                          = generate_priors(deap_tokens, actions.shape[1], deap_expr_length, max_const, max_len, min_len)
+    else:
+        deap_prior                                                          = np.zeros((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
 
     return deap_program, deap_obs, deap_action, deap_prior
     
@@ -729,11 +737,15 @@ def get_top_n_programs(population, actions, config_gp_meld):
     max_tok     = Program.library.L
 
     deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length  = gp_base._get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens)
-    deap_priors                                                         = np.empty((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
+    
+    if config_gp_meld["compute_priors"]:
+        deap_priors                     = np.empty((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
         
-    for i in range(len(deap_tokens)):        
-        deap_priors[i,]                 = generate_priors(deap_tokens[i], actions.shape[1], deap_expr_length[i], max_const, max_len, min_len)
-
+        for i in range(len(deap_tokens)):        
+            deap_priors[i,]                 = generate_priors(deap_tokens[i], actions.shape[1], deap_expr_length[i], max_const, max_len, min_len)
+    else:
+        deap_priors                     = np.zeros((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
+    
     return deap_program, deap_obs, deap_action, deap_priors
 
 

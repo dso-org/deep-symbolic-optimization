@@ -157,7 +157,11 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
     def validate(p):
         
-        raise NotImplementedError
+        return reward(p)
+    
+    def long_validate(p):
+        
+        return reward(p)
 
     def evaluate(p):
 
@@ -213,6 +217,7 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
     task = dsr.task.Task(reward_function=reward,
                          validate_function=validate,
+                         long_validate_function=long_validate,
                          evaluate=evaluate,
                          library=library,
                          stochastic=stochastic,

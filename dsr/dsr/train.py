@@ -5,13 +5,14 @@ import multiprocessing
 from itertools import compress
 from datetime import datetime
 from collections import defaultdict
+from operator import itemgetter
 
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile, join_obs
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
 
@@ -33,6 +34,46 @@ def hof_work(p):
 
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+def long_validate_and_get_best_p(r, programs, is_base):
+    
+    # How many finalists will we test?
+    lvf         = programs[0].task.extra_info["long_validation_finalists"]
+    # Gives us the N maximum r values
+    r_ind       = np.argpartition(r, -lvf)[-lvf:]
+    # Translate from list by index values
+    p_finals    = itemgetter(*r_ind)(programs)
+    # Do a long validation on the N finalists
+    # Unless you are doing something that make r and base_r
+    # different, these are identical and once you have computer one,
+    # the other is free. 
+    if is_base:
+        r_finals    = [p.base_long_validate for p in p_finals]
+    else:
+        r_finals    = [p.long_validate for p in p_finals]        
+    # pick the finalist with the best long validation
+    p_best      = programs[r_ind[np.argmax(r_finals)]] 
+        
+    return p_best
+
+def policy_stats(p_train, is_on_policy):
+    
+    # Show on v off policy stats over programs
+    if is_on_policy:
+        pr          = [p.validate       for p in p_train if p.on_policy]
+        ps          = "on"
+    else:
+        pr          = [p.validate       for p in p_train if not p.on_policy]
+        ps          = "off"
+        
+    pr_N = len(pr)
+    
+    if pr_N > 0:
+        policy_r    = np.array(pr)
+        max_pr      = np.amax(policy_r)
+        min_pr      = np.amin(policy_r)
+        mean_pr     = np.mean(policy_r)
+        print("Max {} policy R {} Min {} Mean {} N {}".format(ps, max_pr, min_pr, mean_pr, pr_N))
 
 # def sympy_work(p):
 #     sympy_expr = p.sympy_expr
@@ -173,20 +214,24 @@ def learn(sess, controller, pool, gp_controller,
     all_r_size              = batch_size
 
     if gp_controller is not None:
-        run_gp_meld             = True
-        gp_verbose              = gp_controller.config_gp_meld["verbose"]
+        run_gp_meld                 = True
+        gp_verbose                  = gp_controller.config_gp_meld["verbose"]
         if gp_controller.config_gp_meld["train_n"]:
             all_r_size              = batch_size+gp_controller.config_gp_meld["train_n"]
         else:
             all_r_size              = batch_size+1
+                        
+        scaling_ratio               = None
+        loss_ratio                  = None
     else:
-        gp_controller           = None
-        run_gp_meld             = False                         
-        gp_verbose              = False
+        gp_controller               = None
+        run_gp_meld                 = False                         
+        gp_verbose                  = False
+        gp_reduce_train_strength    = None
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
-
+    
     # Create the summary writer
     if summary:
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -275,6 +320,10 @@ def learn(sess, controller, pool, gp_controller,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
+    
+    if run_gp_meld and gp_controller.config_gp_meld["record_best"]:
+        all_r_size              = all_r_size + min([n_epochs, gp_controller.config_gp_meld["record_best_size"]])
+    
     all_r = np.zeros(shape=(n_epochs, all_r_size), dtype=np.float32)
     
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
@@ -314,8 +363,9 @@ def learn(sess, controller, pool, gp_controller,
             if gp_verbose:           
                 print("************************")
                 print("Number of Evaluations: {}".format(nevals))
+                print("Returned {} Prograns".format(len(deap_programs)))
                 print("************************")
-                print("Deap Programs:")
+                print("Best New Deap Program:")
                 deap_programs[0].print_stats()
                 print("************************")
                                                
@@ -344,13 +394,13 @@ def learn(sess, controller, pool, gp_controller,
         # We may option later to return these to the controller.  
         if run_gp_meld:
             programs    = programs + deap_programs
-            actions     = np.append(actions, deap_actions, axis=0)
-            obs         = [np.append(obs[0], deap_obs[0], axis=0),
-                           np.append(obs[1], deap_obs[1], axis=0),
-                           np.append(obs[2], deap_obs[2], axis=0)]
-            priors      = np.append(priors, deap_priors, axis=0) 
+            obs         = join_obs(obs, deap_obs)
+            actions     = np.append(actions, deap_actions, axis=0) 
+            priors      = np.append(priors, deap_priors, axis=0)
+            #actions     = join_actions(actions, deap_actions)
+            #priors      = join_priors(priors, deap_priors) 
 
-            
+        initial_pop     = len(programs)
         # Retrieve metrics
         '''
             base_r:   is the reward regardless of complexity penalty.
@@ -364,7 +414,8 @@ def learn(sess, controller, pool, gp_controller,
         s           = [p.str for p in programs] # Str representations of Programs
         on_policy   = np.array([p.on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
-        all_r[step] = base_r
+        
+        all_r[step][:base_r.shape[0]] = base_r
         
         if save_positional_entropy: 
             positional_entropy[step] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -409,7 +460,6 @@ def learn(sess, controller, pool, gp_controller,
         if epsilon is not None and epsilon < 1.0:
             # Compute reward quantile estimate
             if use_memory: # Memory-augmented quantile
-
                 # Get subset of Programs not in buffer
                 unique_programs = [p for p in programs \
                                    if p.str not in memory_queue.unique_items]
@@ -482,7 +532,7 @@ def learn(sess, controller, pool, gp_controller,
                 programs            = _p
             else:
                 if run_gp_meld and gp_verbose:
-                    print("{} GP solutions returned to controller".format(gp_controller.config_gp_meld["train_n"]))
+                    print("Up to {} GP solutions returned to controller".format(gp_controller.config_gp_meld["train_n"]))
                 '''
                     Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
                 '''
@@ -520,7 +570,16 @@ def learn(sess, controller, pool, gp_controller,
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r       = np.clip(r,        -1e6, 1e6)
         r_train = np.clip(r_train,  -1e6, 1e6)
+        
+        # Optionally, we can reduce the strength of the GP sample rewards so they are more in line with RL
+        if gp_verbose:            
+            print("initial Samples: {}".format(initial_pop))
+            print("Training Samples: {}".format(len(p_train)))
+            print("Quantile: {}".format(quantile))
 
+            policy_stats(p_train, is_on_policy=True)
+            policy_stats(p_train, is_on_policy=False)
+            
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
@@ -584,6 +643,7 @@ def learn(sess, controller, pool, gp_controller,
         else:
             pqt_batch = None
 
+        # ******************************************************************************************************
         # Train the controller
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
         if summary:
@@ -602,15 +662,33 @@ def learn(sess, controller, pool, gp_controller,
             
             r_max : If we include something like a complexity penalty, then this is the augmented r. If we do not
             then base_r = r. 
+            
+            Long validation is a special case where testing a program rigorously is very expensive. Up till now we have doing less
+            expensive testing. Now we will test a subset and update r for that subset. An example of when we would do this is
+            when doing the Control task. 
         '''
         new_r_best = False
         new_base_r_best = False
         
-        if prev_r_best is None or r_max > prev_r_best:
+        if "do_long_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_long_validate"]:
+            p_best = long_validate_and_get_best_p(r, programs, is_base=False)
+            
+            if prev_r_best is None or p_best.long_validate > prev_r_best:  
+                new_r_best  = True
+                p_r_best    = p_best
+        
+        elif prev_r_best is None or r_max > prev_r_best:            
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
+        
+        if "do_long_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_long_validate"]:
+            p_best = long_validate_and_get_best_p(base_r, programs, is_base=True)
             
-        if prev_base_r_best is None or base_r_max > prev_base_r_best:
+            if prev_base_r_best is None or p_best.long_validate > prev_base_r_best:
+                new_base_r_best = True
+                p_base_r_best   = p_best
+        
+        elif prev_base_r_best is None or base_r_max > prev_base_r_best:
             new_base_r_best = True
             p_base_r_best = programs[np.argmax(base_r)]
             

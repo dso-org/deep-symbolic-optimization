@@ -476,7 +476,13 @@ class Controller(object):
                                               inputs=get_input(B.obs),
                                               sequence_length=B.lengths, # Backpropagates only through sequence length
                                               dtype=tf.float32)
+                
+            #logits                 = tf.Print(logits, [logits],   "Logits 1 ",  summarize=1000000)
+            
             logits += B.priors
+            #logits                 = tf.Print(logits, [B.priors],   "B.priors ",  summarize=1000000)
+            #logits                 = tf.Print(logits, [logits],   "Logits 2 ",  summarize=1000000)
+            
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
@@ -548,6 +554,9 @@ class Controller(object):
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
+            
+            if self.off_policy_stats:
+                loss                 = tf.Print(loss, [loss],   "INIT Loss as Entropy Loss ",  summarize=100)
 
             # PPO loss
             if ppo:
@@ -570,13 +579,18 @@ class Controller(object):
                     # Baseline is the worst of the current samples r
                     pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")        
                     # Loss already is set to entropy loss
+                    
                     loss += pg_loss
+                    #loss = pg_loss
 
             # Priority queue training loss
             if pqt:
                 pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
+
+            if self.off_policy_stats:
+                loss                 = tf.Print(loss, [loss],   "FINAL Loss ",  summarize=100)
 
             self.loss = loss
 
