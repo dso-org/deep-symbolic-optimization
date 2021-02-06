@@ -20,7 +20,7 @@ REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_slice=None, n_episodes_train=5, n_episodes_validate=100, n_episodes_test=1000, 
     success_score=None, stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0, do_validate=False, slice_optimize_stat="min"):
+    episode_seed_shift=0, do_validate=False, do_long_validate=False, long_validation_finalists=3, slice_optimize_stat="min"):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -211,6 +211,16 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         r_avg = np.mean(r_episodes)
 
         return r_avg
+    
+    def long_validate(p):
+
+        # Run the episodes
+        r_episodes = run_episodes(p, n_episodes_test, evaluate=False)
+
+        # Compute val statistics
+        r_avg = np.mean(r_episodes)
+
+        return r_avg
 
     def evaluate(p):
 
@@ -231,13 +241,16 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         return info
 
     extra_info = {
-        "symbolic_actions" : symbolic_actions,
-        "do_validate" : do_validate
+        "symbolic_actions"          : symbolic_actions,
+        "do_validate"               : do_validate,
+        "do_long_validate"          : do_long_validate,
+        "long_validation_finalists" : long_validation_finalists
     }
     
 
     task = dsr.task.Task(reward_function=reward,
                          validate_function=validate,
+                         long_validate_function=long_validate,
                          evaluate=evaluate,
                          library=library,
                          stochastic=stochastic,

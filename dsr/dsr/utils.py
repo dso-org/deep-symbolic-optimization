@@ -13,6 +13,44 @@ def is_float(s):
         return True
     except ValueError:
         return False
+   
+           
+def join_obs(o1, o2, pop_front=False, o1_idx=None, o2_idx=None):
+    # single observation
+    if len(o2[0].shape) == 1:
+        if pop_front:
+            o = [np.append(o1[0][1:], np.expand_dims(o2[0], axis=0), axis=0),
+                 np.append(o1[1][1:], np.expand_dims(o2[1], axis=0), axis=0),
+                 np.append(o1[2][1:], np.expand_dims(o2[2], axis=0), axis=0)]
+        else:
+            o = [np.append(o1[0], np.expand_dims(o2[0], axis=0), axis=0),
+                 np.append(o1[1], np.expand_dims(o2[1], axis=0), axis=0),
+                 np.append(o1[2], np.expand_dims(o2[2], axis=0), axis=0)]
+    else:
+        if pop_front:
+            if o2_idx is not None:
+                o = [np.append(o1[0][1:], np.expand_dims(o2[0][o2_idx], axis=0), axis=0),
+                     np.append(o1[1][1:], np.expand_dims(o2[1][o2_idx], axis=0), axis=0),
+                     np.append(o1[2][1:], np.expand_dims(o2[2][o2_idx], axis=0), axis=0)]
+            else:
+                o = [np.append(o1[0][1:], o2[0], axis=0),
+                     np.append(o1[1][1:], o2[1], axis=0),
+                     np.append(o1[2][1:], o2[2], axis=0)]
+            
+        else:
+            if o2_idx is not None:
+                o = [np.append(o1[0], np.expand_dims(o2[0][o2_idx], axis=0), axis=0),
+                     np.append(o1[1], np.expand_dims(o2[1][o2_idx], axis=0), axis=0),
+                     np.append(o1[2], np.expand_dims(o2[2][o2_idx], axis=0), axis=0)]
+            elif o1_idx is not None:
+                o = [np.append(np.expand_dims(o1[0][o1_idx], axis=0), o2[0], axis=0),
+                     np.append(np.expand_dims(o1[1][o1_idx], axis=0), o2[1], axis=0),
+                     np.append(np.expand_dims(o1[2][o1_idx], axis=0), o2[2], axis=0)]
+            else:
+                o = [np.append(o1[0], o2[0], axis=0),
+                     np.append(o1[1], o2[1], axis=0),
+                     np.append(o1[2], o2[2], axis=0)]
+    return o
 
 
 # Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python

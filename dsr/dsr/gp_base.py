@@ -9,6 +9,7 @@ import numpy as np
 
 from dsr.program import Program, from_tokens
 from dsr.subroutines import parents_siblings
+from dsr.utils import join_obs
 
 try:
     from deap import gp
@@ -488,6 +489,14 @@ class GPController:
         self.get_top_program        = None
         self.tokens_to_DEAP         = None
         
+        self.record_best            = config_gp_meld["record_best"]        
+        if self.record_best:
+            self.record_best_size   = config_gp_meld["record_best_size"] 
+            self.deap_programs      = []
+            self.deap_obs           = []
+            self.deap_actions       = None
+            self.deap_priors        = None
+        
     def _create_primitive_set(self, dataset):
         """
             This needs to be called in a derived task such as gp_regression
@@ -537,6 +546,57 @@ class GPController:
                 pset.addPrimitive(v.function, v.arity, name=v.name)   
         
         return pset
+    
+    def _concat_best(self, deap_programs, deap_obs, deap_actions, deap_priors):
+        
+
+        
+        if self.deap_actions is not None:
+            # add record on at the end
+            # We set these aside so we don't accidentally re-mix the top record members
+            # back into the record. 
+            _programs       = deap_programs + self.deap_programs
+            _obs            = join_obs(deap_obs,            self.deap_obs)
+            _actions        = np.append(deap_actions,       self.deap_actions, axis=0)                
+            _priors         = np.append(deap_priors,        self.deap_priors, axis=0)
+            copy_back = True
+        else:
+            copy_back = False
+    
+        # only add if we have not already added it. 
+        if deap_programs[0] not in self.deap_programs:
+            
+            if self.deap_actions is None:
+                self.deap_programs      = [deap_programs[0]]
+                self.deap_obs           = [np.expand_dims(deap_obs[0][0], axis=0), 
+                                           np.expand_dims(deap_obs[1][0], axis=0), 
+                                           np.expand_dims(deap_obs[2][0], axis=0)]
+                self.deap_actions       = np.expand_dims(deap_actions[0,:], axis=0) 
+                self.deap_priors        = np.expand_dims(deap_priors[0,:], axis=0) 
+                
+            elif len(self.deap_programs) >= self.record_best_size:
+                print("PRE self {}".format(self.deap_actions.shape))
+                # This can either be a simple buffer or do a comparison 
+                # You probably do not want the buffer to be too big since it can prevent exploration. 
+                self.deap_programs      = self.deap_programs[1:] + [deap_programs[0]]
+                self.deap_obs           = join_obs(self.deap_obs,           deap_obs, pop_front=True, o2_idx=0)
+                self.deap_actions       = np.append(self.deap_actions[1:,], np.expand_dims(deap_actions[0,:], axis=0), axis=0)
+                self.deap_priors        = np.append(self.deap_priors[1:,],  np.expand_dims(deap_priors[0,:], axis=0), axis=0)
+                
+            else:
+                print("PRE self {}".format(self.deap_actions.shape))
+                self.deap_programs      = self.deap_programs + [deap_programs[0]] 
+                self.deap_obs           = join_obs(self.deap_obs,      deap_obs, o2_idx=0)
+                self.deap_actions       = np.append(self.deap_actions, np.expand_dims(deap_actions[0,:], axis=0), axis=0)                
+                self.deap_priors        = np.append(self.deap_priors,  np.expand_dims(deap_priors[0,:], axis=0), axis=0)
+
+        if copy_back:                           
+            deap_programs           = _programs
+            deap_obs                = _obs 
+            deap_actions            = _actions 
+            deap_priors             = _priors
+            
+        return deap_programs, deap_obs, deap_actions, deap_priors
     
     def _call_pre_process(self):
         pass
@@ -589,6 +649,10 @@ class GPController:
         else:
             deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_program(self.halloffame, actions, self.config_gp_meld)
             self.return_gp_obs                                      = self.config_gp_meld["train_n"]
+        
+        # Keep a record of the best program from each step
+        if self.record_best:
+            deap_programs, deap_obs, deap_actions, deap_priors  = self._concat_best(deap_programs, deap_obs, deap_actions, deap_priors)
             
         self._call_post_process()
             

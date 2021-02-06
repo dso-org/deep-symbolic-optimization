@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "Nguyen-1",
+      "name" : "Nguyen-7",
       "function_set" : null,
       "dataset" : {
          "benchmark_source": "benchmarks.csv",
@@ -18,8 +18,7 @@
       "protected" : false,
       "reward_noise" : 0.0,
       "reward_noise_type" : "r",
-      "normalize_variance" : false,
-      "do_validate" : false
+      "normalize_variance" : false
    },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},
@@ -50,7 +49,8 @@
       "early_stopping": true,
       "hof": 100,
       "eval_all": false,
-      "pareto_front": false
+      "pareto_front": false,
+      "use_memory" : false
    },
    "controller": {
       "cell": "lstm",
@@ -60,11 +60,11 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.001,
+      "learning_rate": 0.5,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.005,
+      "entropy_weight": 0.05,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,
@@ -75,7 +75,7 @@
       "pqt_weight": 200.0,
       "pqt_use_pg": false,
       "max_length": 30,
-      "off_policy_stats": false
+      "off_policy_stats": true
    },
    "gp_meld": {
    		"desc_run_gp_meld" 		  	: "Turn on the GP component to iterate with RL?",
@@ -89,7 +89,7 @@
         "desc_seed"					: "Random seed into GP.",  
         "seed"                    	: 0,        
         "desc_verbose"			  	: "Verbosity for GP components.",
-        "verbose"                 	: false,      
+        "verbose"                 	: true,      
         "desc_max_len"			  	: "This is the max lenght of a string in GP. Most of the time, this should be the same as for RL. Default: 30",
         "max_len"                 	: 30,     
         "desc_min_len"			  	: "This is the min lenght of a string in GP. Most of the time, this should be the same as for RL. Default: 4",
@@ -109,13 +109,16 @@
         "desc_max_depth"       		: "This is mainly a widget to control memory usage. Python sets a hard limit of 90. Default: 17",
         "max_depth"               	: 30,     
         "desc_train_n"    			: "How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return but top-1 will still be in Hall of Fame. Nate: 10",
-        "train_n"                 	: 10,    
+        "train_n"                 	: 40,    
         "desc_mutate_tree_max" 		: "How deep can an inserted mutation tree be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?, Default: 2",
         "mutate_tree_max"         	: 3,        
         "max_const"               	: 3,
         "desc_init_const_epoch"		: "Each time we run a new epoch, init mutable/optimizable constants new?",
         "init_const_epoch"			: true,
-        "constrain_const"         	: true
+        "constrain_const"         	: true,
+        "compute_priors"			: true,
+        "record_best" 				: true,
+        "record_best_size" 			: 5
    },
    "language_model_prior": {
         "saved_language_model_path": "./language_model/model/saved_model",

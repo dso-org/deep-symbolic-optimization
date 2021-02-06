@@ -183,6 +183,44 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1,
     return p
 
 
+def get_best_r(p):
+    """ Get the best R we already have. This is to avoid computing
+        expensive validation Rs if we want to avoid it.
+        
+        Ww ask the local dict if we have a value in decending order
+        of goodness. If we call the cached property it would compute it.
+        So, we avoid that.
+        
+        This function is detached from the class so the cached property 
+        is activated when we need it. 
+    """ 
+    if "long_validate" in p.__dict__:
+        return p.long_validate
+    elif "validate" in p.__dict__: 
+        return p.validate
+    else:
+        return p.r
+
+
+def get_best_base_r(p):
+    """ Get the best base R we already have. This is to avoid computing
+        expensive validation Rs if we want to avoid it.
+        
+        Ww ask the local dict if we have a value in decending order
+        of goodness. If we call the cached property it would compute it.
+        So, we avoid that.
+        
+        This function is detached from the class so the cached property 
+        is activated when we need it.
+    """ 
+    if "base_long_validate" in p.__dict__:
+        return p.base_long_validate
+    elif "base_validate" in p.__dict__: 
+        return p.base_validate
+    else:
+        return p.base_r
+
+
 class Program(object):
     """
     The executable program representing the symbolic expression.
@@ -294,6 +332,18 @@ class Program(object):
                     and trigger the end of a traversal at the wrong time 
                     """
                     danglings = danglings[danglings != dangling - 1]
+            
+    def __eq__(self, p2):
+        """ Returns if the programs are the same by the string rep
+        """
+        return self.str == p2.str
+        
+    def __gt__(self, p2):
+        """ Returns if the programs are the same by the string rep
+        """
+
+        
+        return self.str == p2.str
         
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
@@ -587,7 +637,25 @@ class Program(object):
             warnings.simplefilter("ignore")
             
             return self.base_validate - self.complexity
+        
+    @cached_property
+    def base_long_validate(self):
+        """Evaluates and returns the base reward of the program on the training
+        set"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.task.long_validate_function(self)
 
+    @cached_property
+    def long_validate(self):
+        """Evaluates and returns the reward of the program on the training
+        set"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            return self.base_long_validate - self.complexity
+                
     @cached_property
     def evaluate(self):
         """Evaluates and returns the evaluation metrics of the program."""
@@ -631,12 +699,8 @@ class Program(object):
 
     def print_stats(self, print_test=False):
         """Prints the statistics of the program"""
-        if "do_validate" in self.task.extra_info and self.task.extra_info["do_validate"]:
-            print("\tReward: {}".format(self.validate))
-            print("\tBase reward: {}".format(self.base_validate))
-        else:
-            print("\tReward: {}".format(self.r))
-            print("\tBase reward: {}".format(self.base_r))
+        print("\tReward: {}".format(get_best_r(self)))
+        print("\tBase reward: {}".format(get_best_base_r(self)))
         if print_test:
             print("\tTest val: {}".format(self.evaluate['test_val']))
         print("\tCount: {}".format(self.count))
