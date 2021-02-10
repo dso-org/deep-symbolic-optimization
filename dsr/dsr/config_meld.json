@@ -117,7 +117,7 @@
         "init_const_epoch"			: true,
         "constrain_const"         	: true,
         "compute_priors"			: true,
-        "record_best" 				: true,
+        "record_best" 				: false,
         "record_best_size" 			: 5
    },
    "language_model_prior": {
