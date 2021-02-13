@@ -60,11 +60,11 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.5,
+      "learning_rate": 0.001,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.05,
+      "entropy_weight": 0.005,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,
@@ -75,7 +75,7 @@
       "pqt_weight": 200.0,
       "pqt_use_pg": false,
       "max_length": 30,
-      "off_policy_stats": true
+      "off_policy_stats": false
    },
    "gp_meld": {
    		"desc_run_gp_meld" 		  	: "Turn on the GP component to iterate with RL?",
@@ -89,7 +89,7 @@
         "desc_seed"					: "Random seed into GP.",  
         "seed"                    	: 0,        
         "desc_verbose"			  	: "Verbosity for GP components.",
-        "verbose"                 	: true,      
+        "verbose"                 	: false,      
         "desc_max_len"			  	: "This is the max lenght of a string in GP. Most of the time, this should be the same as for RL. Default: 30",
         "max_len"                 	: 30,     
         "desc_min_len"			  	: "This is the min lenght of a string in GP. Most of the time, this should be the same as for RL. Default: 4",
