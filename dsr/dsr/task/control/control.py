@@ -1,5 +1,8 @@
 import gym
 
+import multiprocessing
+from multiprocessing import Pool, TimeoutError
+
 try:
     import pybullet_envs
 except ImportError:
@@ -15,6 +18,67 @@ from . import utils as U
 
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
+
+def _get_action(p, obs):
+    """Helper function to get an action from Program p according to obs,
+    since Program.execute() requires 2D arrays but we only want 1D."""
+
+    action = p.execute(np.array([obs]))[0]
+
+    return action
+
+
+def _episode(i, p_input, action_dim, evaluate, fix_seeds, model, episode_seed_shift, reward_seed_shift, symbolic_actions, env):
+
+    r_episode   = 0.0
+
+    '''
+    if env is None:
+        env = gym.make(name, **env_kwargs)
+    '''
+    
+    # When we use the parallel version, we have to copy the program over the hard way because 
+    # Python has trouble pickling an existing program. This gets thrown away at the end of the 
+    # run here, so we don't effect the actually orignal program.
+    if isinstance(p_input,dsr.program.Program):
+        p = p_input
+    else:
+        p = Program(p_input, False)
+
+    # During evaluation, always use the same seeds
+    if evaluate:
+        env.seed(i)
+    elif fix_seeds:
+        env.seed(i + (episode_seed_shift * 100) + reward_seed_shift)
+        
+    obs = env.reset()
+    done = False
+    while not done:
+
+        # Compute anchor actions
+        if model is not None:
+            action, _ = model.predict(obs)
+        else:
+            action = np.zeros(env.action_space.shape, dtype=np.float32)
+
+        # Replace fixed symbolic actions
+        for j, fixed_p in symbolic_actions.items():
+            action[j] = _get_action(fixed_p, obs)
+
+        # Replace symbolic action with current program
+        if action_dim is not None:
+            action[action_dim] = _get_action(p, obs)
+        
+        # Replace NaNs and clip infinites
+        action[np.isnan(action)] = 0.0 # Replace NaNs with zero
+        action = np.clip(action, env.action_space.low, env.action_space.high)
+
+        obs, r, done, _ = env.step(action)
+        r_episode += r
+    
+    #print(r_episode)
+    
+    return r_episode
 
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
@@ -118,6 +182,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         model = U.model
     else:
         model = None
+        
+    gym_pool = Pool(processes = multiprocessing.cpu_count())
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions = {}
@@ -141,57 +207,43 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         else:
             assert False, "Action specifications must be None, a str/list of tokens, or 'anchor'."
 
-
     def get_action(p, obs):
         """Helper function to get an action from Program p according to obs,
         since Program.execute() requires 2D arrays but we only want 1D."""
 
-        action = p.execute(np.array([obs]))[0]
+        action = _get_action(p, obs)
 
         return action
-
 
     def run_episodes(p, n_episodes, evaluate):
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
         r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
+        
         for i in range(n_episodes):
-
-            # During evaluation, always use the same seeds
-            if evaluate:
-                env.seed(i)
-            elif fix_seeds:
-                env.seed(i + (episode_seed_shift * 100) + REWARD_SEED_SHIFT)
-                
-            obs = env.reset()
-            done = False
-            while not done:
-
-                # Compute anchor actions
-                if model is not None:
-                    action, _ = model.predict(obs)
-                else:
-                    action = np.zeros(env.action_space.shape, dtype=np.float32)
-
-                # Replace fixed symbolic actions
-                for j, fixed_p in symbolic_actions.items():
-                    action[j] = get_action(fixed_p, obs)
-
-                # Replace symbolic action with current program
-                if action_dim is not None:
-                    action[action_dim] = get_action(p, obs)
-                
-                # Replace NaNs and clip infinites
-                action[np.isnan(action)] = 0.0 # Replace NaNs with zero
-                action = np.clip(action, env.action_space.low, env.action_space.high)
-
-                obs, r, done, _ = env.step(action)
-                r_episodes[i] += r
+            r_episodes[i] = _episode(i, p, action_dim, evaluate, fix_seeds, model, episode_seed_shift, REWARD_SEED_SHIFT, symbolic_actions, env)
 
         return r_episodes
+    
+    def par_run_episodes(p, n_episodes, evaluate):
+        """Runs n_episodes episodes and returns each episodic reward.
+        
+        Parallel version for when we have just a few individuals, but lots of test oer. Thus we don't have batch or task paralellization. 
+        """
 
+        # Run the episodes and return the average episodic reward
+        r_episodes          = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
 
+        multiple_results    = [gym_pool.apply_async(_episode, (i, p.tokens, action_dim, evaluate, fix_seeds, model, episode_seed_shift, 
+                                                               REWARD_SEED_SHIFT, symbolic_actions.copy(), env)) for i in range(n_episodes)]
+        
+        vals        = [res.get() for res in multiple_results]
+        for i,v in enumerate(vals):
+            r_episodes[i] = v
+            
+        return r_episodes
+        
     def reward(p):
 
         # Run the episodes
@@ -225,7 +277,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def evaluate(p):
 
         # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_test, evaluate=True)
+        r_episodes = par_run_episodes(p, n_episodes_test, evaluate=True)
 
         # Compute eval statistics
         r_avg_test = np.mean(r_episodes)
