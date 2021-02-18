@@ -21,7 +21,10 @@ from dsr.const import make_const_optimizer
 from dsr.program import Program,  _finish_tokens, from_str_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.task.regression import gp_regression
-from dsr import gp_base
+from dsr.gp import base as gp_base
+from dsr.gp import symbolic_math as gp_symbolic_math
+from dsr.gp import const as gp_const
+from dsr.gp import tokens as gp_tokens
 from . import utils as U
 
 try:
@@ -190,13 +193,12 @@ class GPController(gp_base.GPController):
         pset, const_opt, symbolic_actions, action_dim   = self._create_primitive_set(config_task, config_training, config_gp_meld)                                         
         eval_func                                       = GenericEvaluate(const_opt, name, self.env, self.model, env_kwargs, symbolic_actions=symbolic_actions, action_dim=action_dim, 
                                                               n_episodes=n_episodes, optimize_stat=optimize_stat) 
-        check_constraint                                = gp_regression.checkConstraint
+        check_constraint                                = gp_symbolic_math.checkConstraint
         
         super(GPController, self).__init__(config_gp_meld, config_task, config_training, pset, eval_func, check_constraint, eval_func.hof)
         
-        self.get_top_n_programs                         = gp_regression.get_top_n_programs
-        self.get_top_program                            = gp_regression.get_top_program        
-        self.tokens_to_DEAP                             = gp_regression.tokens_to_DEAP
+        self.get_top_n_programs                         = gp_symbolic_math.get_top_n_programs     
+        self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
     
     def _create_model(self, algorithm, anchor, anchor_path=None):
         
@@ -243,18 +245,23 @@ class GPController(gp_base.GPController):
         max_const                   = config_gp_meld["max_const"]
         
         # Get user constants as well as mutable constants that we optimize (if any)
+        user_consts, mutable_consts = gp_const.get_consts()
+        '''
         user_consts                 = [t for i, t in enumerate(Program.library.tokens) if t.arity == 0 and t.input_var is None and t.name != "const"] 
         mutable_consts              = len([t for i, t in enumerate(Program.library.tokens) if t.name == "const"])
+        '''
         
+        pset                        = gp_symbolic_math.create_primitive_set(n_input_var)
+        '''
         pset                        = gp.PrimitiveSet("MAIN", n_input_var)
     
         # Add input variables
         rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(n_input_var)}
         pset.renameArguments(**rename_kwargs)
-    
+        '''
         # Add primitives
         pset                    = self._add_primitives(pset, function_map, function_set) 
-        pset, const_opt         = gp_regression._const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
+        pset, const_opt         = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
             
         # Get into Deap Tokens
         #self.symbolic_actions   = [self.tokens_to_DEAP(i, pset) for i in symbolic_actions]
@@ -266,7 +273,7 @@ class GPController(gp_base.GPController):
                 
         toolbox, creator    = self._base_create_toolbox(pset, eval_func, **kwargs) 
         const               = "const" in pset.context
-        toolbox             = gp_regression._create_toolbox_const(toolbox, const, max_const)
+        toolbox             = gp_const.create_toolbox_const(toolbox, const, max_const)
         
         return toolbox, creator      
         

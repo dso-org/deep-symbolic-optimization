@@ -300,9 +300,11 @@ class Program(object):
         if self.have_cython and self.len_traversal > 1:
             self.is_input_var    = array.array('i', [t.input_var is not None for t in self.traversal])
         
-        self.invalid    = False
-        self.str        = tokens.tostring()        
-        self.n_objects  = n_objects
+        self.invalid        = False
+        self.str            = tokens.tostring()        
+        self.n_objects      = n_objects
+        self.tokens         = tokens
+        self.do_optimize    = optimize 
         
         if optimize:
             _ = self.optimize()
@@ -337,14 +339,7 @@ class Program(object):
         """ Returns if the programs are the same by the string rep
         """
         return self.str == p2.str
-        
-    def __gt__(self, p2):
-        """ Returns if the programs are the same by the string rep
-        """
-
-        
-        return self.str == p2.str
-        
+            
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
 

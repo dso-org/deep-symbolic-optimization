@@ -24,6 +24,13 @@ except ImportError:
     creator     = None
     algorithms  = None
 
+r"""
+    This is the core base class for accessing DEAP and interfacing it with DSR. 
+        
+    It is mostly reserved for core DEAP items that are unrelated to any task.
+"""
+
+
 
 class GenWithRLIndividuals:
     """ Forces the generator to select a user provided member first, such as one
@@ -206,6 +213,7 @@ class GenericAlgorithm:
         logbook, halloffame, population = self._header(population, toolbox, stats, halloffame, verbose)
     
         # Begin the generational process
+        # Would this benefit from using process pooling?
         for gen in range(1, ngen + 1):
             
             # Select the next generation individuals
@@ -549,8 +557,6 @@ class GPController:
     
     def _concat_best(self, deap_programs, deap_obs, deap_actions, deap_priors):
         
-
-        
         if self.deap_actions is not None:
             # add record on at the end
             # We set these aside so we don't accidentally re-mix the top record members
@@ -607,7 +613,6 @@ class GPController:
     def __call__(self, actions):
         
         assert callable(self.get_top_n_programs)
-        assert callable(self.get_top_program)
         assert callable(self.tokens_to_DEAP)
         
         assert isinstance(actions, np.ndarray)
@@ -643,12 +648,11 @@ class GPController:
             self.halloffame.append(h)
             self.nevals += n
          
-        if self.config_gp_meld["train_n"] > 1:
+        if self.config_gp_meld["train_n"] > 0:
             deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.config_gp_meld)
             self.return_gp_obs                                      = True
         else:
-            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_program(self.halloffame, actions, self.config_gp_meld)
-            self.return_gp_obs                                      = self.config_gp_meld["train_n"]
+            self.return_gp_obs                                      = False
         
         # Keep a record of the best program from each step
         if self.record_best:
