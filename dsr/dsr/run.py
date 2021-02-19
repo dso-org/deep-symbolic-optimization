@@ -26,13 +26,13 @@ from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 
 
-def train_dsr(name_and_seed, config):
+def train_dsr(seeded_benchmark, config):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
     # Override the benchmark name and output file
-    name, seed = name_and_seed
-    config["task"]["name"] = name
-    config["training"]["output_file"] = "dsr_{}_{}.csv".format(name, seed)
+    benchmark_name, seed = seeded_benchmark
+    config["task"]["name"] = benchmark_name
+    config["training"]["output_file"] = "dsr_{}_{}.csv".format(benchmark_name, seed)
 
     # Try importing TensorFlow (with suppressed warnings), Controller, and learn
     # When parallelizing across tasks, these will already be imported, hence try/except
@@ -56,12 +56,12 @@ def train_dsr(name_and_seed, config):
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
     if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
         import gym
-        gym.make(name)
+        gym.make(benchmark_name)
 
     # Train the model
     model = DeepSymbolicOptimizer(config)
     start = time.time()
-    result = {"name" : name, "seed" : seed} # Name and seed are listed first
+    result = {"name" : benchmark_name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
     result.pop("program")
@@ -69,17 +69,17 @@ def train_dsr(name_and_seed, config):
     return result
 
 
-def train_gp(name_and_seed, logdir, config_task, config_gp):
+def train_gp(seeded_benchmark, logdir, config_task, config_gp):
     """Trains GP and returns dict of reward, expression, and program"""
 
-    name, seed = name_and_seed
-    config_gp["seed"] = seed + zlib.adler32(name.encode("utf-8"))
+    benchmark_name, seed = seeded_benchmark
+    config_gp["seed"] = seed + zlib.adler32(benchmark_name.encode("utf-8"))
 
     start = time.time()
 
     # Load the dataset
     config_dataset = config_task["dataset"]
-    config_dataset["name"] = name
+    config_dataset["name"] = benchmark_name
     dataset = BenchmarkDataset(**config_dataset)
 
     # Fit the GP
@@ -107,10 +107,10 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
     df_len = pd.DataFrame(logbook.chapters["size"]).drop(drop, axis=1)
     df_len = df_len.rename({"avg" : "l_avg"}, axis=1)
     df = pd.concat([df_fitness, df_len], axis=1, sort=False)
-    df.to_csv(os.path.join(logdir, "gp_{}_{}.csv".format(name, seed)), index=False)
+    df.to_csv(os.path.join(logdir, "gp_{}_{}.csv".format(benchmark_name, seed)), index=False)
 
     result = {
-        "name" : name,
+        "name" : benchmark_name,
         "seed" : seed,
         "r" : r,
         "base_r" : base_r,
@@ -123,6 +123,33 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
     }
 
     return result
+
+
+def _get_benchmarks(arg_benchmark, config_benchmarks, benchmark_dir=None):
+    # Use benchmark name from config if not specified as command-line arg
+    if len(arg_benchmark) == 0:
+        if isinstance(config_benchmarks, str):
+            benchmarks = (config_benchmarks,)
+        elif isinstance(config_benchmarks, list):
+            benchmarks = tuple(config_benchmarks)
+    else:
+        benchmarks = arg_benchmark
+    original_benchmarks = list(benchmarks)
+    # load all available benchmarks
+    benchmark_dir = resource_filename("dsr.task", "regression") if benchmark_dir == None else benchmark_dir
+    benchmark_path = os.path.join(
+        benchmark_dir,
+        "benchmarks.csv")
+    benchmark_df = pd.read_csv(benchmark_path, index_col=None, encoding="ISO-8859-1")
+    # make sure we get the right benchmarks
+    benchmarks = []
+    for benchmark in original_benchmarks:
+        if benchmark[-3:] == "...":
+            replace_benchmarks = list(benchmark_df['name'].loc[benchmark_df['name'].str.startswith(benchmark[:-3])])
+            benchmarks += replace_benchmarks
+            continue
+        benchmarks.append(benchmark)
+    return benchmarks
 
 
 @click.command()
@@ -150,43 +177,39 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     config_gp = config.get("gp")                                        # GP hyperparameters
     config_gp_meld = config.get('gp_meld')
 
+    # Load all benchmarks
+    unique_benchmarks = _get_benchmarks(b, config_task["name"], config_task["dataset"]["root"])
+    # Generate benchmark-seed pairs for each MC. When passed to the TF RNG,
+    # seeds will be added to checksums on the benchmark names
+    benchmarks = unique_benchmarks.copy()
+
+    benchmarks *= mc
+    seeds = (np.arange(mc) + seed_shift).repeat(len(unique_benchmarks)).tolist()
+    seeded_benchmarks = list(zip(benchmarks, seeds))
+    benchmark_count = len(seeded_benchmarks)
+
+
+    logfile_name = unique_benchmarks[0] if len(unique_benchmarks) == 1 else 'Mixed'
     # Create output directories
     if output_filename is None:
-        output_filename = "benchmark_{}.csv".format(method)
+        output_filename = "{}_{}_summary.csv".format(method, logfile_name)
+
     config_training["logdir"] = os.path.join(
         config_training["logdir"],
-        "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
+        "log_{}_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S"), logfile_name))
+
     logdir = config_training["logdir"]
     if "dataset" in config_task and "backup" in config_task["dataset"] and config_task["dataset"]["backup"]:
         config_task["dataset"]["logdir"] = logdir
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
-    # Use benchmark name from config if not specified as command-line arg
-    if len(b) == 0:
-        if isinstance(config_task["name"], str):
-            b = (config_task["name"],)
-        elif isinstance(config_task["name"], list):
-            b = tuple(config_task["name"])
-
-    # HACK: DSR-specific shortcut to run all Nguyen benchmarks
-    benchmarks = list(b)
-    if "Nguyen" in benchmarks:
-        benchmarks.remove("Nguyen")
-        benchmarks += ["Nguyen-{}".format(i+1) for i in range(12)]
-
-    # Generate benchmark-seed pairs for each MC. When passed to the TF RNG,
-    # seeds will be added to checksums on the benchmark names
-    unique_benchmarks = benchmarks.copy()
-    benchmarks *= mc
-    seeds = (np.arange(mc) + seed_shift).repeat(len(unique_benchmarks)).tolist()
-    names_and_seeds = list(zip(benchmarks, seeds))
 
     # Edit n_cores_task and/or n_cores_batch
     if n_cores_task == -1:
         n_cores_task = multiprocessing.cpu_count()
-    if n_cores_task > len(benchmarks):
-        print("Setting 'n_cores_task' to {} for batch because there are only {} benchmarks.".format(len(benchmarks), len(benchmarks)))
-        n_cores_task = len(benchmarks)
+    if n_cores_task > benchmark_count:
+        print("Setting 'n_cores_task' to {} for batch because there are only {} benchmarks.".format(benchmark_count, benchmark_count))
+        n_cores_task = benchmark_count
     if method == "dsr":
         if config_training["verbose"] and n_cores_task > 1:
             print("Setting 'verbose' to False for parallelized run.")
@@ -214,13 +237,13 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     write_header = True
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
-        for result in pool.imap_unordered(work, names_and_seeds):
+        for result in pool.imap_unordered(work, seeded_benchmarks):
             pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
             write_header = False
     else:
-        for name_and_seed in names_and_seeds:
-            result = work(name_and_seed)
+        for seeded_benchmark in seeded_benchmarks:
+            result = work(seeded_benchmark)
             pd.DataFrame(result, index=[0]).to_csv(output_filename, header=write_header, mode='a', index=False)
             write_header = False
 
