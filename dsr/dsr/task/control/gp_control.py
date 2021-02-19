@@ -21,6 +21,7 @@ from dsr.const import make_const_optimizer
 from dsr.program import Program,  _finish_tokens, from_str_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.task.regression import gp_regression
+from dsr.task.control import control
 from dsr.gp import base as gp_base
 from dsr.gp import symbolic_math as gp_symbolic_math
 from dsr.gp import const as gp_const
@@ -40,9 +41,6 @@ except ImportError:
     creator     = None
     algorithms  = None
     
-
-
-
 class GenericEvaluate(gp_regression.GenericEvaluate):
     
     def __init__(self, const_opt, name, env, model, env_kwargs, symbolic_actions=None, action_dim=None, n_episodes=5, 
@@ -51,10 +49,7 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
         assert gym is not None
         
         super(gp_regression.GenericEvaluate, self).__init__(early_stopping=early_stopping, threshold=threshold)
-        
-        # Define closures for environment and anchor model
-        
-        #self.env                = gym.make(name, **env_kwargs)
+             
         self.env                = env
         
         self.fitness            = None
@@ -93,39 +88,21 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
         """Helper function to get an action from Program p according to obs,
         since Program.execute() requires 2D arrays but we only want 1D."""
 
-        action = p.execute(np.array([obs]))[0]
-
-        return action
+        return p.execute(np.array([obs]))[0]
+    
+    def _get_action(self, f, obs):
+        
+        return f(*obs)
     
     def _gym_loop(self, individual, f):
         
         r_episodes = np.zeros(self.n_episodes, dtype=np.float64) # Episodic rewards for each episode
         
         for i in range(self.n_episodes):
-        
-            self.env.seed(i)
-            obs = self.env.reset()
-            
-            done = False
-            while not done:
-        
-                if self.model is not None:
-                    action, _   = self.model.predict(obs)
-                else:
-                    action      = np.zeros(self.env.action_space.shape, dtype=np.float32)
-                
-                for j, fixed_p in self.symbolic_actions.items():
-                    action[j]   = self._get_dsr_action(fixed_p, obs)
-                
-                if self.action_dim is not None:
-                    action[self.action_dim] = f(*obs)
-                
-                action[np.isnan(action)]    = 0.0 # Replace NaNs with zero
-                action                      = np.clip(action, self.env.action_space.low, self.env.action_space.high)
-                
-                obs, r, done, _             = self.env.step(action) # Does r get small as we get better?
-                r_episodes[i] += r
-                                
+            r_episodes[i] = control.episode(i, f, action_dim=self.action_dim, evaluate=False, fix_seeds=True, 
+                                            model=self.model, episode_seed_shift=0,  symbolic_actions=self.symbolic_actions, env=self.env, 
+                                            get_action=self._get_action, get_fixed_action=self._get_dsr_action)
+                                        
         return r_episodes
     
     def _single_eval(self, individual, f):
@@ -154,15 +131,14 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
             optimizer is in const.py as "scipy" : ScipyMinimize
         '''
         
-        individual  = self._optimize_individual(individual) # Skips if we are not doing const optimization
+        #individual  = self._optimize_individual(individual, eval_dataset=None) # Skips if we are not doing const optimization
         f           = self.toolbox.compile(expr=individual)
         ret         = self._single_eval(individual, f)
         
         return ret
         
-    
             
-class GPController(gp_base.GPController):
+class GPController(gp_symbolic_math.GPController):
     
     def __init__(self, config_gp_meld, config_task, config_training):
     
@@ -175,20 +151,12 @@ class GPController(gp_base.GPController):
         anchor          = config_task["anchor "]    if "anchor " in config_task     else None
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
-        
-        assert "Bullet" not in name or pybullet_envs is not None, "Must install pybullet_envs."
-        
-        if env_kwargs is None:
-            env_kwargs = {}
-        
-        self.env                                        = gym.make(name, **env_kwargs)
-        
-        if "Bullet" in name:
-            self.env = U.TimeFeatureWrapper(self.env)
+   
+        self.env, env_kwargs                            = control.make_env(name, env_kwargs)
             
         self.action_spec                                = action_spec
         
-        self._create_model(self, algorithm, anchor)
+        self.model                                      = control.create_model(action_spec, algorithm, anchor, anchor_path=None)
         
         pset, const_opt, symbolic_actions, action_dim   = self._create_primitive_set(config_task, config_training, config_gp_meld)                                         
         eval_func                                       = GenericEvaluate(const_opt, name, self.env, self.model, env_kwargs, symbolic_actions=symbolic_actions, action_dim=action_dim, 
@@ -199,19 +167,7 @@ class GPController(gp_base.GPController):
         
         self.get_top_n_programs                         = gp_symbolic_math.get_top_n_programs     
         self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
-    
-    def _create_model(self, algorithm, anchor, anchor_path=None):
-        
-        # Load the anchor model (if applicable)
-        if "anchor" in self.action_spec:
-            # Load custom anchor, if provided, otherwise load default
-            if algorithm is not None and anchor is not None and anchor_path is not None:
-                U.load_model(algorithm, anchor_path)
-            else:
-                U.load_default_model(name)
-            self.model = U.model
-        else:
-            self.model = None
+   
 
     def _create_primitive_set(self, config_task, config_training, config_gp_meld):
         """Create a DEAP primitive set from DSR functions and consts
@@ -219,24 +175,9 @@ class GPController(gp_base.GPController):
         
         assert gp is not None,              "Did not import gp. Is it installed?"
         
-        symbolic_actions    = {}
-        action_dim          = None
-        n_input_var         = self.env.observation_space.shape[0]
-        
-        for i, spec in enumerate(self.action_spec):
-    
-            # Action taken from anchor policy
-            if spec == "anchor":
-                continue
-            
-            # Action dimnension being learned
-            if spec is None:
-                action_dim = i
-            # Pre-specified symbolic policy
-            elif isinstance(spec, list) or isinstance(spec, str):
-                symbolic_actions[i] = from_str_tokens(spec, optimize=False, skip_cache=True)
-            else:
-                assert False, "Action specifications must be None, a str/list of tokens, or 'anchor'."
+        n_input_var                 = self.env.observation_space.shape[0]
+                
+        symbolic_actions, action_dim    = control.create_symbolic_actions(self.action_spec)
         
         function_set                = config_task['function_set']
         const_params                = config_training['const_params']
@@ -246,22 +187,12 @@ class GPController(gp_base.GPController):
         
         # Get user constants as well as mutable constants that we optimize (if any)
         user_consts, mutable_consts = gp_const.get_consts()
-        '''
-        user_consts                 = [t for i, t in enumerate(Program.library.tokens) if t.arity == 0 and t.input_var is None and t.name != "const"] 
-        mutable_consts              = len([t for i, t in enumerate(Program.library.tokens) if t.name == "const"])
-        '''
         
         pset                        = gp_symbolic_math.create_primitive_set(n_input_var)
-        '''
-        pset                        = gp.PrimitiveSet("MAIN", n_input_var)
-    
-        # Add input variables
-        rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(n_input_var)}
-        pset.renameArguments(**rename_kwargs)
-        '''
+
         # Add primitives
-        pset                    = self._add_primitives(pset, function_map, function_set) 
-        pset, const_opt         = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
+        pset                        = self._add_primitives(pset, function_map, function_set) 
+        pset, const_opt             = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
             
         # Get into Deap Tokens
         #self.symbolic_actions   = [self.tokens_to_DEAP(i, pset) for i in symbolic_actions]
@@ -269,12 +200,6 @@ class GPController(gp_base.GPController):
             
         return pset, const_opt, symbolic_actions, action_dim
 
-    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
-                
-        toolbox, creator    = self._base_create_toolbox(pset, eval_func, **kwargs) 
-        const               = "const" in pset.context
-        toolbox             = gp_const.create_toolbox_const(toolbox, const, max_const)
-        
-        return toolbox, creator      
-        
+   
+            
         

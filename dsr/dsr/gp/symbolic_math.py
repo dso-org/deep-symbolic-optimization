@@ -3,11 +3,15 @@ from functools import partial, wraps
 import copy
 import random
 import operator
+import warnings
 
 from dsr.program import Program,  _finish_tokens
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.gp import base as gp_base
 from dsr.gp import tokens as gp_tokens
+from dsr.gp import const as gp_const
+from dsr.gp import controller_base
+from dsr.gp import generic_evaluate_base
 
 try:
     from deap import gp
@@ -319,4 +323,94 @@ def stringify_for_sympy(f):
             stack[-1][1].append(string)
     return string
 
+
+class GenericEvaluate(generic_evaluate_base.GenericEvaluate):
+    
+    def __init__(self, *args, **kwargs):
+        
+        super(GenericEvaluate, self).__init__(*args, **kwargs)
+    
+    def _optimize_individual(self, individual, eval_data_set):
+        
+        assert self.toolbox is not None, "Must set toolbox first."
+
+        if self.optimize:
+            
+            # HACK: If early stopping threshold has been reached, don't do training optimization
+            # Check if best individual has NMSE below threshold on test set
+            if self.early_stopping and len(self.hof) > 0 and self._finish_eval(self.hof[0], eval_data_set, self.test_fitness)[0] < self.threshold:
+                return (1.0,)
+            
+            const_idxs = [i for i, node in enumerate(individual) if node.name.startswith("mutable_const_")] # optimze by chnaging to == with index values
+            
+            if len(const_idxs) > 0:
+                
+                # Objective function for evaluating constants
+                def obj(individual, consts):        
+                    individual  = gp_const.set_const_individuals(const_idxs, consts, individual)        
+    
+                    f           = self.toolbox.compile(expr=individual)
+    
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+
+                    # Run the program and get result
+                    res = self._single_eval(individual, f)
+                        
+                    # Sometimes this evaluation can fail. If so, return largest error possible.
+                    if np.isfinite(res):
+                        return res
+                    else:
+                        return np.finfo(np.float).max
+    
+                obj_call = partial(obj,individual)
+    
+                # Do the optimization and set the optimized constants
+                x0                  = np.ones(len(const_idxs))
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    optimized_consts    = self.const_opt(obj_call, x0)
+                
+                individual = gp_const.set_const_individuals(const_idxs, optimized_consts, individual) 
+
+        return individual
+                
+    def __call__(self, *args, **kwargs):
+        
+        raise NotImplementedError
+    
+
+class GPController(controller_base.GPController):
+    
+    def __init__(self, *args, **kwargs):
+        
+        super(GPController, self).__init__(*args, **kwargs)
+        
+    def _create_primitive_set(self, *args, **kwargs):
+        
+        raise NotImplementedError
+    
+    def _create_toolbox_const(self, toolbox, const, max_const):
+     
+        # If we have constants and a defined maximum number, put the constraint in here               
+        if const and max_const is not None:
+            assert isinstance(max_const,int)
+            assert max_const >= 0
+            num_const = lambda ind : len([node for node in ind if node.name.startwith("mutable_const_")])
+            toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
+            toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
+    
+        if const and constrain_const is True:
+            toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
+            toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
+        
+        return toolbox
+        
+    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
+                
+        toolbox, creator    = self._base_create_toolbox(pset, eval_func, **kwargs) 
+        const               = "const" in pset.context
+        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
+        
+        return toolbox, creator   
 
