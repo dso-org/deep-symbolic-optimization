@@ -11,6 +11,7 @@ from dsr.library import Token, PlaceholderConstant
 #from dsr.const import make_const_optimizer
 #from dsr.program import Program,  _finish_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
+from dsr.task.regression import regression
 from dsr.gp import base as gp_base
 from dsr.gp import symbolic_math as gp_symbolic_math
 from dsr.gp import const as gp_const
@@ -30,7 +31,7 @@ except ImportError:
     algorithms  = None
 
     
-class GenericEvaluate(gp_base.GenericEvaluate):
+class GenericEvaluate(gp_symbolic_math.GenericEvaluate):
     
     def __init__(self, const_opt, dataset, fitness_metric="nmse", early_stopping=False, threshold=1e-12):
         
@@ -90,60 +91,15 @@ class GenericEvaluate(gp_base.GenericEvaluate):
         res     = np.mean((y - y_hat)**2)
         
         return res
-    
-    def _optimize_individual(self, individual):
         
-        assert self.toolbox is not None, "Must set toolbox first."
-
-        if self.optimize:
-            
-            # HACK: If early stopping threshold has been reached, don't do training optimization
-            # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self._finish_eval(self.hof[0], self.X_test, self.test_fitness)[0] < self.threshold:
-                return (1.0,)
-            
-            const_idxs = [i for i, node in enumerate(individual) if node.name.startswith("mutable_const_")] # optimze by chnaging to == with index values
-            
-            if len(const_idxs) > 0:
-                
-                # Objective function for evaluating constants
-                def obj(individual, consts):        
-                    individual  = gp_const.set_const_individuals(const_idxs, consts, individual)        
-    
-                    f           = self.toolbox.compile(expr=individual)
-    
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-
-                    # Run the program and get result
-                    res = self._single_eval(individual, f)
-                        
-                    # Sometimes this evaluation can fail. If so, return largest error possible.
-                    if np.isfinite(res):
-                        return res
-                    else:
-                        return np.finfo(np.float).max
-    
-                obj_call = partial(obj,individual)
-    
-                # Do the optimization and set the optimized constants
-                x0                  = np.ones(len(const_idxs))
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    optimized_consts    = self.const_opt(obj_call, x0)
-                
-                individual = gp_const.set_const_individuals(const_idxs, optimized_consts, individual) 
-
-        return individual
-    
     def __call__(self, individual):
 
-        individual = self._optimize_individual(individual) # Skips if we are not doing const optimization
+        individual = self._optimize_individual(individual, eval_data_set=self.X_test) # Skips if we are not doing const optimization
     
         return self._finish_eval(individual, self.X_train, self.train_fitness)
 
         
-class GPController(gp_base.GPController):
+class GPController(gp_symbolic_math.GPController):
     
     def __init__(self, config_gp_meld, config_task, config_training):
         
@@ -176,42 +132,18 @@ class GPController(gp_base.GPController):
         
         pset                        = gp_symbolic_math.create_primitive_set(dataset.X_train.shape[1])
         
-        '''
-        pset                        = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
-    
-        # Add input variables, use prefix x via renaming
-        # This only renames the exterior name and mapping and does not change the name as the node is known to 
-        # itself. This is a probably a bug in DEAP. This naming works if the first tokens in DSR are always 
-        # the varaible tokens. This assumtion should be checked.
-        rename_kwargs               = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
-        pset.renameArguments(**rename_kwargs)
-        '''
-        
         # Add primitives
         pset                        = self._add_primitives(pset, function_map, dataset.function_set) 
             
         pset, const_opt             = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
         
         return pset, const_opt
-
-    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
-                
-        toolbox, creator    = self._base_create_toolbox(pset, eval_func, **kwargs) 
-        const               = "const" in pset.context
-        toolbox             = gp_const.create_toolbox_const(toolbox, const, max_const)
-        
-        return toolbox, creator
     
     def _call_pre_process(self):
         
         if self.init_const_epoch:
             # Reset all mutable constants when we call DEAP GP?
-            gp_const.reset_consts(self.pset.mapping, 1.0)
-
-    
-
-
-
+            self.pset.mapping = gp_const.reset_consts(self.pset.mapping, 1.0)
 
 
 

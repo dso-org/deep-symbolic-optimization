@@ -31,6 +31,8 @@ def reset_consts(pset_mapping, val=1.0):
     for k, v in pset_mapping.items():
         if v.name.startswith("mutable_const_"):
             v.value = 1.0
+            
+    return pset_mapping
 
 
 def get_consts():
@@ -78,21 +80,7 @@ def const_opt(pset, mutable_consts, max_const, user_consts, const_params, config
     return pset, const_opt
 
 
-def create_toolbox_const(toolbox, const, max_const):
-     
-    # If we have constants and a defined maximum number, put the constraint in here               
-    if const and max_const is not None:
-        assert isinstance(max_const,int)
-        assert max_const >= 0
-        num_const = lambda ind : len([node for node in ind if node.name.startwith("mutable_const_")])
-        toolbox.decorate("mate",        gp.staticLimit(key=num_const, max_value=max_const))
-        toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
 
-    if const and constrain_const is True:
-        toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
-        toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
-    
-    return toolbox
 
 
 
