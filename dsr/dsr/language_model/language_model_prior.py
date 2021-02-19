@@ -16,16 +16,13 @@ class LanguageModelPrior(object):
 
     Parameters
     ----------
-    dsr_function_set: list of functions
-        Function set used in main dsr model
+    dsr_library: dsr.library.Library
+        Library used in main dsr model
 
-    dsr_n_input_var: int
-        Number of variables used in main model
-
-    saved_language_model_path: str
+    model_path: str
         Path to separately trained mathematical language model to use as prior
 
-    saved_language_model_lib: str
+    lib_path: str
         Path to token library of mathematical language model
 
     embedding_size: int
@@ -37,21 +34,22 @@ class LanguageModelPrior(object):
         Share probabilities among terminal tokens?
     """
 
-    def __init__(self, dsr_function_set, dsr_n_input_var, 
-                saved_language_model_path="./language_model/model/saved_model", 
-                saved_language_model_lib="./language_model/model/saved_model/word_dict.pkl",
+    def __init__(self, dsr_library,
+                model_path="./language_model/model/saved_model", 
+                lib_path="./language_model/model/saved_model/word_dict.pkl",
                 embedding_size=32, num_layers=1, num_hidden=256,
                 prob_sharing=True
                 ):
-        self.dsr_n_input_var = dsr_n_input_var
+
+        self.dsr_n_input_var = len(dsr_library.input_tokens)
         self.prob_sharing = prob_sharing
 
-        with open(saved_language_model_lib, 'rb') as f:
+        with open(lib_path, 'rb') as f:
             self.lm_token2idx = pickle.load(f)
-        self.dsr2lm, self.lm2dsr = self.set_lib_to_lib(dsr_function_set, dsr_n_input_var)
+        self.dsr2lm, self.lm2dsr = self.set_lib_to_lib(dsr_library)
 
         self.language_model = LanguageModel(len(self.lm_token2idx), embedding_size, num_layers, num_hidden, mode='predict')
-        self.lsess = self.load_model(saved_language_model_path)
+        self.lsess = self.load_model(model_path)
         self.next_state = None
         self._zero_state = np.zeros(num_hidden, dtype=np.float32)
 
@@ -61,12 +59,12 @@ class LanguageModelPrior(object):
         saver.restore(sess,tf.train.latest_checkpoint(saved_language_model_path))
         return sess
 
-    def set_lib_to_lib(self, dsr_function_set, dsr_n_input_var):
+    def set_lib_to_lib(self, dsr_library):
         """match token libraries of dsr and lm (LanguageModel)"""
 
         # dsr token -> lm token
-        dsr2lm = [self.lm_token2idx['TERMINAL'] for _ in range(dsr_n_input_var)]
-        dsr2lm += [self.lm_token2idx[func.lower()] for func in dsr_function_set] # ex) [1,1,1,2,3,4,5,6,7,8,9], len(dsr2lm) = len(library of dsr)
+        dsr2lm = [self.lm_token2idx['TERMINAL']] * self.dsr_n_input_var
+        dsr2lm += [self.lm_token2idx[t.name.lower()] for t in dsr_library.tokens if t.input_var is None] # ex) [1,1,1,2,3,4,5,6,7,8,9], len(dsr2lm) = len(library of dsr)
         
         # lm token -> dsr token
         lm2dsr = {lm_idx: i for i, lm_idx in enumerate(dsr2lm)}
