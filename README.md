@@ -127,7 +127,7 @@ python -m dsr.run config.json --b=Nguyen-1 --mc=2 --num_cores=2
 ### Train DSR on all Nguyen benchmarks using 12 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen --num_cores=12
+python -m dsr.run config.json --b=Nguyen... --num_cores=12
 ```
 
 ### Train 2 independent runs of GP on Nguyen-1
