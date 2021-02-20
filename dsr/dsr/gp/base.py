@@ -6,6 +6,12 @@ from itertools import chain
 from collections import defaultdict
 from operator import attrgetter
 import numpy as np
+import time
+
+import multiprocessing
+from multiprocessing import Pool, TimeoutError
+from pathos.multiprocessing import ProcessingPool
+from pathos.multiprocessing import ProcessPool
 
 from dsr.program import Program, from_tokens
 from dsr.subroutines import parents_siblings
@@ -100,22 +106,30 @@ def popConstraint():
 
     return decorator
 
-
 class GenericAlgorithm:
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
         more control over how it runs.
     """
     def __init__(self):
-        
         assert gp is not None, "Did not import gp. Is DEAP installed?"
+        
+    def _divide_chunks(self, l, n): 
+        # looping till length l 
+        for i in range(0, len(l), n):  
+            yield l[i:i + n] 
     
+    # Would this benefit from using process pooling?
     def _eval(self, population, halloffame, toolbox):
         
         # Evaluate the individuals with an invalid fitness
         # This way we do not evaluate individuals that we have already seen.
         invalid_ind     = [ind for ind in population if not ind.fitness.valid]
-        fitnesses       = toolbox.map(toolbox.evaluate, invalid_ind)
-        
+        # Toolbox.map is registered as the built in python map function.
+        # Note that registered functions are still wrapped. 
+        # Here we just iterate over all invalid_ind using the function in toolbox.evaluate
+        # SEE: toolbox in DEAP base.py
+        fitnesses       = toolbox.cmap(toolbox.evaluate, invalid_ind)
+
         # If we get back a nan, set it to inf so we never pick it. 
         # We will deal with inf later as needed
         for ind, fit in zip(invalid_ind, fitnesses):
@@ -131,7 +145,7 @@ class GenericAlgorithm:
                 halloffame=None, verbose=__debug__):
         
         logbook                             = tools.Logbook()
-        logbook.header                      = ['gen', 'nevals'] + (stats.fields if stats else [])
+        logbook.header                      = ['gen', 'nevals', 'timer'] + (stats.fields if stats else [])
     
         population, halloffame, invalid_ind = self._eval(population, halloffame, toolbox)
     
@@ -143,23 +157,25 @@ class GenericAlgorithm:
             
         return logbook, halloffame, population
     
+    # Would this benefit from using process pooling?
     def _var_and(self, population, toolbox, cxpb, mutpb):
  
         offspring = [toolbox.clone(ind) for ind in population]
     
-        # Apply crossover and mutation on the offspring
+        # Apply crossover on the offspring
         for i in range(1, len(offspring), 2):
             if random.random() < cxpb:
                 offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i])
                 
                 del offspring[i - 1].fitness.values, offspring[i].fitness.values
-    
+
+        # Apply mutation on the offspring        
         for i in range(len(offspring)):
             if random.random() < mutpb:
                 offspring[i], = toolbox.mutate(offspring[i])
                 
                 del offspring[i].fitness.values
-    
+        
         return offspring
     
     def __call__(self, population, toolbox, cxpb, mutpb, ngen, stats=None,
@@ -168,7 +184,6 @@ class GenericAlgorithm:
         logbook, halloffame, population = self._header(population, toolbox, stats, halloffame, verbose)
     
         # Begin the generational process
-        # Would this benefit from using process pooling?
         for gen in range(1, ngen + 1):
             
             # Select the next generation individuals
@@ -209,10 +224,14 @@ class GenericAlgorithm:
             endindex    = -1
         
         columns = self.logbook.header
+        
         if not columns:
             columns = sorted(self.logbook[0].keys()) + sorted(self.logbook.chapters.keys())
+                                
         if not self.logbook.columns_len or len(self.logbook.columns_len) != len(columns):
             self.logbook.columns_len = map(len, columns)
+
+        # Start index is set at function call, or is 0 if doing the header
 
         chapters_txt = {}
         offsets = defaultdict(int)
@@ -227,8 +246,10 @@ class GenericAlgorithm:
             str_line = []
             for j, name in enumerate(columns):
                 if name in chapters_txt:
+                    # Put Chapter over the column label line
                     column = chapters_txt[name][i+offsets[name]]
                 else:
+                    # Put the column label
                     value = line.get(name, "")
                     string = "{0:n}" if isinstance(value, float) else "{0}"
                     column = string.format(value)
@@ -264,10 +285,9 @@ class GenericAlgorithm:
             else:
                 str_matrix = chain(header, str_matrix)
             
-            
         template    = "\t".join("{%i:<%i}" % (i, l) for i, l in enumerate(self.logbook.columns_len))
         text        = [template.format(*line) for line in str_matrix]
-
+        
         return "\n".join(text)
     
     
@@ -283,18 +303,21 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         self.logbook, self.halloffame, self.population = self._header(population, toolbox, stats, halloffame, verbose)
         
-        self.toolbox    = toolbox
-        self.cxpb       = cxpb
-        self.mutpb      = mutpb
-        self.stats      = stats
-        self.verbose    = verbose
+        self.toolbox        = toolbox
+        self.cxpb           = cxpb
+        self.mutpb          = mutpb
+        self.stats          = stats
+        self.verbose        = verbose
         
         self.gen        = 0
         
     def __call__(self, init_halloffame=False):
     
+    
         if init_halloffame:
             self.halloffame = tools.HallOfFame(maxsize=1)
+            
+        t1                                          = time.perf_counter()
     
         # Select the next generation individuals
         offspring                                   = self.toolbox.select(self.population, len(self.population))
@@ -314,7 +337,9 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         # number of evaluations
         nevals                                      = len(invalid_ind)
         
-        self.logbook.record(gen=self.gen, nevals=nevals, **record)
+        timer                                       = time.perf_counter() - t1
+        
+        self.logbook.record(gen=self.gen, nevals=nevals, timer=timer, **record)
         
         if self.verbose:
             print(self.logbook.stream)

@@ -99,9 +99,9 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
         r_episodes = np.zeros(self.n_episodes, dtype=np.float64) # Episodic rewards for each episode
         
         for i in range(self.n_episodes):
-            r_episodes[i] = control.episode(i, f, action_dim=self.action_dim, evaluate=False, fix_seeds=True, 
-                                            model=self.model, episode_seed_shift=0,  symbolic_actions=self.symbolic_actions, env=self.env, 
-                                            get_action=self._get_action, get_fixed_action=self._get_dsr_action)
+            r_episodes[i]       = control.episode(f, action_dim=self.action_dim, evaluate=False, fix_seeds=True, 
+                                                  model=self.model, episode_seed_shift=0,  symbolic_actions=self.symbolic_actions, env=self.env, seed=i,
+                                                  get_action=self._get_action, get_fixed_action=self._get_dsr_action)
                                         
         return r_episodes
     
@@ -168,7 +168,14 @@ class GPController(gp_symbolic_math.GPController):
         self.get_top_n_programs                         = gp_symbolic_math.get_top_n_programs     
         self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
    
-
+    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
+                
+        toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=True, **kwargs) 
+        const               = "const" in pset.context
+        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
+        
+        return toolbox, creator 
+   
     def _create_primitive_set(self, config_task, config_training, config_gp_meld):
         """Create a DEAP primitive set from DSR functions and consts
         """

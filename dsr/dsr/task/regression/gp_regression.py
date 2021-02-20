@@ -30,6 +30,18 @@ except ImportError:
     creator     = None
     algorithms  = None
 
+
+def mse(y, y_hat, var_y):
+    return np.mean((y - y_hat)**2)
+
+def rmse(y, y_hat, var_y):
+    return np.sqrt(np.mean((y - y_hat)**2))
+    
+def nmse(y, y_hat, var_y):
+    return np.mean((y - y_hat)**2 / var_y)
+
+def nrmse(y, y_hat, var_y):
+    return np.sqrt(np.mean((y - y_hat)**2 / var_y))
     
 class GenericEvaluate(gp_symbolic_math.GenericEvaluate):
     
@@ -51,10 +63,22 @@ class GenericEvaluate(gp_symbolic_math.GenericEvaluate):
         else:
             self.optimize = False
     
-    # This should be replaced by the task provided metric
+    # This should be replaced by the task provided metric    
     def _make_fitness(self, metric):
         """Generates a fitness function by name"""
 
+        if metric == "mse":
+            fitness = mse
+        elif metric == "rmse":
+            fitness = rmse
+        elif metric == "nmse":
+            fitness = nmse
+        elif metric == "nrmse":
+            fitness = nrmse
+        else:
+            raise ValueError("Metric not recognized.")
+            
+        '''
         if metric == "mse":
             fitness = lambda y, y_hat, var_y : np.mean((y - y_hat)**2)
 
@@ -69,6 +93,7 @@ class GenericEvaluate(gp_symbolic_math.GenericEvaluate):
 
         else:
             raise ValueError("Metric not recognized.")
+        '''
 
         return fitness
 
@@ -116,6 +141,14 @@ class GPController(gp_symbolic_math.GPController):
         self.get_top_n_programs     = gp_symbolic_math.get_top_n_programs
         self.tokens_to_DEAP         = gp_tokens.math_tokens_to_DEAP
         self.init_const_epoch       = config_gp_meld["init_const_epoch"]
+        
+    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
+                
+        toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=False, **kwargs) 
+        const               = "const" in pset.context
+        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
+        
+        return toolbox, creator  
 
     def _create_primitive_set(self, dataset, config_training, config_gp_meld):
         """Create a DEAP primitive set from DSR functions and consts
