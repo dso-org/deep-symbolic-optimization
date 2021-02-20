@@ -1,4 +1,7 @@
 import numpy as np
+import multiprocessing
+from multiprocessing import Pool
+from pathos.multiprocessing import ProcessPool
 
 try:
     from deap import gp
@@ -125,15 +128,21 @@ class GPController:
     def _base_create_toolbox(self, pset, eval_func, 
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
                              gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
-                             popConstraint=None):
+                             popConstraint=None, parallel_eval=True):
     
         assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
         assert callable(eval_func),                 "evaluation function should be callable"
         assert callable(gen_func),                  "gen_func should be callable"
-            
+        
+        # NOTE from deap.creator.create: create(name, base, **kargs):
+        # ALSO: Creates a new class named *name* inheriting from *base* 
+        
         # Create custom fitness and individual classes
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
+    
+        # NOTE from deap.base.Toolbox:  def register(self, alias, function, *args, **kargs):
+        # ALSO the function in toolbox is defined as: partial(function, *args, **kargs)
     
         # Define the evolutionary operators
         toolbox = base.Toolbox()
@@ -153,6 +162,15 @@ class GPController:
     
         toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth))
         toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth))
+        
+        #overide the built in map function in toolbox
+        if parallel_eval:
+            print("GP Controller using parallel evaluation via Pathos")
+            pool = ProcessPool(nodes = multiprocessing.cpu_count())
+            print("\t>>> Using {} processes".format(pool.ncpus))
+            toolbox.register("cmap", pool.map)   
+        else:
+            toolbox.register("cmap", map) 
             
         # Create the training function
         return toolbox, creator

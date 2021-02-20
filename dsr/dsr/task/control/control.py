@@ -2,6 +2,9 @@ import gym
 
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
+from pathos.multiprocessing import ProcessPool
+from pathos.pp import ParallelPool
+from functools import partial
 
 try:
     import pybullet_envs
@@ -17,7 +20,11 @@ from dsr.functions import create_tokens
 from . import utils as U
 
 
-REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
+REWARD_SEED_SHIFT   = int(1e6) # Reserve the first million seeds for evaluation
+
+# If we put it inside the task, DSR dies since it sees a pool inside a pool with 
+# n_cores_batch set. So, we put it here. 
+#GYM_POOL            = Pool(processes = multiprocessing.cpu_count())
 
 def _get_action(p, obs):
     """Helper function to get an action from Program p according to obs,
@@ -28,29 +35,31 @@ def _get_action(p, obs):
     return action
 
 
-def episode(i, p_input, action_dim, evaluate, fix_seeds, model, episode_seed_shift,  symbolic_actions, env, 
+def episode(p_input, action_dim, evaluate, fix_seeds, model, episode_seed_shift,  symbolic_actions, env, seed,
             reward_seed_shift=REWARD_SEED_SHIFT, get_action=_get_action, get_fixed_action=_get_action):
 
     r_episode   = 0.0
 
     assert callable(get_action)
     assert callable(get_fixed_action)
+    assert seed is not None
     
     # When we use the parallel version, we have to copy the program over the hard way because 
     # Python has trouble pickling an existing program. This gets thrown away at the end of the 
     # run here, so we don't effect the actually orignal program.
-    if isinstance(p_input,dsr.program.Program):
-        p = p_input
-    elif callable(p_input):
-        p = p_input
-    else:
-        p = Program(p_input, False)
+    if action_dim is not None:
+        if isinstance(p_input,dsr.program.Program):
+            p = p_input
+        elif callable(p_input):
+            p = p_input
+        else:
+            p = Program(p_input, False)
 
     # During evaluation, always use the same seeds
     if evaluate:
-        env.seed(i)
+        env.seed(seed)
     elif fix_seeds:
-        env.seed(i + (episode_seed_shift * 100) + reward_seed_shift)
+        env.seed(seed + (episode_seed_shift * 100) + reward_seed_shift)
         
     obs = env.reset()
     done = False
@@ -222,7 +231,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     model                           = create_model(action_spec, algorithm, anchor, anchor_path=None)
         
-    gym_pool                        = Pool(processes = multiprocessing.cpu_count())
+    #gym_pool                        = Pool(processes = multiprocessing.cpu_count())
+    #gym_pool                        = ParallelPool(nodes = multiprocessing.cpu_count())
+    GYM_POOL            = Pool(processes = multiprocessing.cpu_count())
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions, action_dim    = create_symbolic_actions(action_spec)
@@ -242,7 +253,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
         
         for i in range(n_episodes):
-            r_episodes[i] = episode(i, p, action_dim, evaluate, fix_seeds, model, episode_seed_shift, symbolic_actions, env)
+            r_episodes[i] = episode(p, action_dim, evaluate, fix_seeds, model, episode_seed_shift, symbolic_actions, env, seed=i)
 
         return r_episodes
     
@@ -252,17 +263,30 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         Parallel version for when we have just a few individuals, but lots of test oer. Thus we don't have batch or task paralellization. 
         """
 
-        print("Run Par")
+        #print("Run Par")
 
         # Run the episodes and return the average episodic reward
-        r_episodes          = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
-
-        multiple_results    = [gym_pool.apply_async(episode, (i, p.tokens, action_dim, evaluate, fix_seeds, model, episode_seed_shift, 
-                                                               symbolic_actions.copy(), env)) for i in range(n_episodes)]
+        '''
+        efunc               = partial(episode, p.tokens, action_dim, evaluate, fix_seeds, model, episode_seed_shift, symbolic_actions, env)
         
-        vals        = [res.get() for res in multiple_results]
+        seeds               = [i for i in range(n_episodes)]
+        
+        results             = gym_pool.amap(efunc, seeds) # Order is unimportant here, so we use async mapping
+        
+        while not results.ready():
+            pass
+        
+        r_episodes          = np.array(results.get())
+        '''
+        
+        r_episodes          = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
+        
+        multiple_results    = [GYM_POOL.apply_async(episode, (p.tokens, action_dim, evaluate, fix_seeds, model, episode_seed_shift, 
+                                                               symbolic_actions, env, seed)) for seed in range(n_episodes)]
+                
+        vals                = [res.get() for res in multiple_results]
         for i,v in enumerate(vals):
-            r_episodes[i] = v
+            r_episodes[i]   = v  # Ordering probably does not matter here. 
             
         return r_episodes
         
@@ -279,7 +303,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def validate(p):
 
         # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_validate, evaluate=False)
+        r_episodes = par_run_episodes(p, n_episodes_validate, evaluate=False)
 
         # Compute val statistics
         r_avg = np.mean(r_episodes)
@@ -288,8 +312,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     
     def long_validate(p):
 
-        # Run the episodes
-        r_episodes = run_episodes(p, n_episodes_test, evaluate=False)
+        # Run the episodes        
+        r_episodes = par_run_episodes(p, n_episodes_test, evaluate=False)
 
         # Compute val statistics
         r_avg = np.mean(r_episodes)

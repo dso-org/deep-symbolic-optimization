@@ -35,7 +35,21 @@ def hof_work(p):
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-def long_validate_and_get_best_p(r, programs, is_base):
+def base_long_val_work(p):
+    return p.base_long_validate
+
+def long_val_work(p):
+    return p.long_validate
+
+def base_val_work(p):
+    return p.base_validate
+
+def val_work(p):
+    return p.validate
+
+# This is probably better to use an internal pool since we have so
+# few p left here. 
+def long_validate_and_get_best_p(r, programs, is_base, pool=None):
     
     # How many finalists will we test?
     lvf         = programs[0].task.extra_info["long_validation_finalists"]
@@ -48,9 +62,15 @@ def long_validate_and_get_best_p(r, programs, is_base):
     # different, these are identical and once you have computer one,
     # the other is free. 
     if is_base:
-        r_finals    = [p.base_long_validate for p in p_finals]
+        if pool is None:
+            r_finals    = [p.base_long_validate for p in p_finals]
+        else:
+            r_finals    = pool.map(base_long_val_work, p_finals)
     else:
-        r_finals    = [p.long_validate for p in p_finals]        
+        if pool is None:
+            r_finals    = [p.long_validate for p in p_finals]   
+        else:
+            r_finals    = pool.map(long_val_work, p_finals)   
     # pick the finalist with the best long validation
     p_best      = programs[r_ind[np.argmax(r_finals)]] 
         
@@ -397,8 +417,6 @@ def learn(sess, controller, pool, gp_controller,
             obs         = join_obs(obs, deap_obs)
             actions     = np.append(actions, deap_actions, axis=0) 
             priors      = np.append(priors, deap_priors, axis=0)
-            #actions     = join_actions(actions, deap_actions)
-            #priors      = join_priors(priors, deap_priors) 
 
         initial_pop     = len(programs)
         # Retrieve metrics
@@ -551,9 +569,15 @@ def learn(sess, controller, pool, gp_controller,
         if "do_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_validate"]:
             if gp_verbose:
                 print("Validating {} Rewards".format(len(programs)))
-            base_r          = [p.base_validate  for p in programs] # base_r Needs to be done before r
-            r               = [p.validate       for p in programs]
-            r_train         = [p.validate       for p in p_train]
+                
+            if pool is None:
+                base_r          = [p.base_validate  for p in programs] # base_r Needs to be done before r
+                r               = [p.validate       for p in programs]
+                r_train         = [p.validate       for p in p_train]
+            else:
+                base_r          = pool.map(base_val_work, programs) 
+                r               = pool.map(val_work, programs) 
+                r_train         = pool.map(val_work, p_train)
             
             base_r_max      = np.max(base_r)
             base_r_best     = max(base_r_max, base_r_best)

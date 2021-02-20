@@ -27,10 +27,9 @@ except ImportError:
     algorithms  = None
 
 
-### >>> These are components to be removed...
+# We define constraint checking here because we can exit early once we have found a violation. 
 
 TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
-
 
 # Define inverse tokens
 INVERSE_TOKENS = {
@@ -96,8 +95,6 @@ def check_trig(names):
                 
     return False
 
-### <<<
-
 def checkConstraint(max_length, min_length, max_depth):
     """Check a varety of constraints on a memeber. These include:
         Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
@@ -135,7 +132,7 @@ def checkConstraint(max_length, min_length, max_depth):
 
     return decorator
 
-
+# This may not be in use, but may be used later
 def popConstraint():
     """Check a varety of constraints on a member. These include:
         
@@ -404,13 +401,5 @@ class GPController(controller_base.GPController):
             toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
             toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
         
-        return toolbox
-        
-    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
-                
-        toolbox, creator    = self._base_create_toolbox(pset, eval_func, **kwargs) 
-        const               = "const" in pset.context
-        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
-        
-        return toolbox, creator   
+        return toolbox 
 
