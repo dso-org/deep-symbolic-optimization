@@ -47,12 +47,13 @@
         "output_file": null,
         "save_all_r": false,
         "early_stopping": true,
-        "hof": null,
+        "hof": 100,
         "use_memory": true,
         "memory_capacity": 1e3,
         "warm_start": null,
         "memory_threshold": null,
-        "save_positional_entropy": true
+        "save_positional_entropy": false,
+        "pareto_front": true
    },
    "controller": {
       "cell": "lstm",
