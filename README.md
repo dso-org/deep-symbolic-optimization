@@ -166,3 +166,18 @@ python -m dsr.run base.json --method=dsr --mc=50 --n_cores_task=24 --b=Dataset1 
 Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv` 
 
 
+## Summary and evaluation of a log path
+
+With this tool one can easily get a summary of the executed experiment that is generated from the log files.
+If plots are generated they will be placed in the same log directory.
+### Commandline usage
+
+```
+python -m dsr.logeval path_to_log_directory --log_count 10 --show_hof --show_pf --save_plots --show_plots
+```
+### Jupyter notebook usage
+```
+from dsr.logeval import LogEval
+log = LogEval(path_to_log_directory)
+log.analyze_log(log_count=10, show_hof=True, show_pf=True, show_plots=True)
+```
