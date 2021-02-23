@@ -17,14 +17,12 @@ import dsr
 from dsr.program import Program, from_str_tokens
 from dsr.library import Library
 from dsr.functions import create_tokens
+from dsr.utils import cached_property
 from . import utils as U
 
 
 REWARD_SEED_SHIFT   = int(1e6) # Reserve the first million seeds for evaluation
 
-# If we put it inside the task, DSR dies since it sees a pool inside a pool with 
-# n_cores_batch set. So, we put it here. 
-#GYM_POOL            = Pool(processes = multiprocessing.cpu_count())
 
 def _get_action(p, obs):
     """Helper function to get an action from Program p according to obs,
@@ -86,8 +84,6 @@ def episode(p_input, action_dim, evaluate, fix_seeds, model, episode_seed_shift,
         obs, r, done, _ = env.step(action)
         r_episode += r
     
-    #print(r_episode)
-    
     return r_episode
 
 
@@ -148,9 +144,26 @@ def make_env(name, env_kwargs):
         
     return env, env_kwargs
 
+'''
+    We need a wrapper since if the pool is inside the control task itself, Python gets upset when 
+    we use n_cores_batch since it sees a pool of processes within a pool. This tucks it aside. 
+    so we can parallelize gym runs for long validation and evaluation, but use batch pooling
+    for shorter tests.
+'''
+class pool_wrapper:
+
+    def __init__(self):
+        self.pool = None
+        
+    def __call__(self):
+        if self.pool is None:
+            self.pool = Pool(processes = multiprocessing.cpu_count())
+            
+        return self.pool
+
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
-    anchor=None, n_episodes_slice=None, n_episodes_train=5, n_episodes_validate=100, n_episodes_test=1000, 
+    anchor=None, n_episodes_slice=None, n_episodes_train=5, n_episodes_validate=100, n_episodes_long_validate=1000, n_episodes_test=1000, 
     success_score=None, stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
     episode_seed_shift=0, do_validate=False, do_long_validate=False, long_validation_finalists=3, slice_optimize_stat="min"):
     """
@@ -229,11 +242,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     assert len([v for v in action_spec if v is None]) <= 1, "No more than 1 action_spec element can be None."
     assert int(algorithm is None) + int(anchor is None) in [0, 2], "Either none or both of (algorithm, anchor) must be None."
 
-    model                           = create_model(action_spec, algorithm, anchor, anchor_path=None)
+    model       = create_model(action_spec, algorithm, anchor, anchor_path=None)
         
-    #gym_pool                        = Pool(processes = multiprocessing.cpu_count())
-    #gym_pool                        = ParallelPool(nodes = multiprocessing.cpu_count())
-    GYM_POOL            = Pool(processes = multiprocessing.cpu_count())
+    gym_pool    = pool_wrapper()
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions, action_dim    = create_symbolic_actions(action_spec)
@@ -246,42 +257,28 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         return action
 
-    def run_episodes(p, n_episodes, evaluate):
+    def run_episodes(p, n_episodes, evaluate, extra_seed_shift=0):
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
         r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
         
         for i in range(n_episodes):
-            r_episodes[i] = episode(p, action_dim, evaluate, fix_seeds, model, episode_seed_shift, symbolic_actions, env, seed=i)
+            r_episodes[i] = episode(p, action_dim, evaluate, fix_seeds, model, episode_seed_shift+extra_seed_shift, symbolic_actions, env, seed=i)
 
         return r_episodes
-    
-    def par_run_episodes(p, n_episodes, evaluate):
+
+    def par_run_episodes(p, n_episodes, evaluate, extra_seed_shift=0):
         """Runs n_episodes episodes and returns each episodic reward.
         
         Parallel version for when we have just a few individuals, but lots of test oer. Thus we don't have batch or task paralellization. 
-        """
-
-        #print("Run Par")
-
-        # Run the episodes and return the average episodic reward
-        '''
-        efunc               = partial(episode, p.tokens, action_dim, evaluate, fix_seeds, model, episode_seed_shift, symbolic_actions, env)
-        
-        seeds               = [i for i in range(n_episodes)]
-        
-        results             = gym_pool.amap(efunc, seeds) # Order is unimportant here, so we use async mapping
-        
-        while not results.ready():
-            pass
-        
-        r_episodes          = np.array(results.get())
-        '''
-        
+        """       
         r_episodes          = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
         
-        multiple_results    = [GYM_POOL.apply_async(episode, (p.tokens, action_dim, evaluate, fix_seeds, model, episode_seed_shift, 
+        seed_shift          = episode_seed_shift+extra_seed_shift
+        par_fix_seeds       = True      # We alllllways need to seed here otherwise each process runs just like the other. 
+        
+        multiple_results    = [gym_pool().apply_async(episode, (p.tokens, action_dim, evaluate, par_fix_seeds, model, seed_shift, 
                                                                symbolic_actions, env, seed)) for seed in range(n_episodes)]
                 
         vals                = [res.get() for res in multiple_results]
@@ -303,22 +300,29 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     def validate(p):
 
         # Run the episodes
-        r_episodes = par_run_episodes(p, n_episodes_validate, evaluate=False)
+        r_episodes          = par_run_episodes(p, n_episodes_validate, evaluate=False)
+
+        # Use new seeds never in reward
+        extra_seed_shift    = n_episodes_train 
 
         # Compute val statistics
-        r_avg = np.mean(r_episodes)
+        v_r_avg = np.mean(r_episodes)
 
-        return r_avg
+        return v_r_avg
     
     def long_validate(p):
 
         # Run the episodes        
-        r_episodes = par_run_episodes(p, n_episodes_test, evaluate=False)
+        r_episodes          = par_run_episodes(p, n_episodes_long_validate, evaluate=False)
+        
+        # Use new seeds never in reward or short validate
+        extra_seed_shift    = n_episodes_train + n_episodes_validate # 
 
         # Compute val statistics
-        r_avg = np.mean(r_episodes)
+        lv_r_avg = np.mean(r_episodes)
+        print("Long Validation: {}".format(lv_r_avg))
 
-        return r_avg
+        return lv_r_avg
 
     def evaluate(p):
 
@@ -329,7 +333,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         r_avg_test = np.mean(r_episodes)
         success_rate = np.mean(r_episodes >= success_score)
         success = success_rate == 1.0
-
+        
         info = {
             "r_avg_test" : r_avg_test,
             "success_rate" : success_rate,

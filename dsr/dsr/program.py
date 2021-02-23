@@ -639,7 +639,7 @@ class Program(object):
         set"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
+
             return self.task.long_validate_function(self)
 
     @cached_property
@@ -693,7 +693,11 @@ class Program(object):
 
 
     def print_stats(self, print_test=False):
-        """Prints the statistics of the program"""
+        """Prints the statistics of the program
+        
+            We will print the most honest reward possible when using validation.
+        """
+        
         print("\tReward: {}".format(get_best_r(self)))
         print("\tBase reward: {}".format(get_best_base_r(self)))
         if print_test:
