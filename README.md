@@ -170,6 +170,19 @@ Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv`
 
 With this tool one can easily get a summary of the executed experiment that is generated from the log files.
 If plots are generated they will be placed in the same log directory.
+### Program integration
+Printing the summary is automatically turned on as well as plotting the curves for HoF and PF if they are logged.
+Can be changed in `config.json`:
+```
+{
+   ...
+   "summary": {
+      "print": true,
+      "save_plots": true
+   },
+   ...
+}
+```
 ### Commandline usage
 
 ```
