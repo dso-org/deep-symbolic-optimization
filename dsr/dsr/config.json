@@ -20,6 +20,10 @@
       "reward_noise_type" : "r",
       "normalize_variance" : false
    },
+   "summary": {
+      "print": true,
+      "save_plots": true
+   },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},
       "repeat" : {"tokens" : "const", "max_" : 3},
