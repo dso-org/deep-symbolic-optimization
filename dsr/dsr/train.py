@@ -342,7 +342,9 @@ def learn(sess, controller, pool, gp_controller,
 
     # Main training loop
     p_final = None
+    p_eval_best = None
     base_r_best = -np.inf
+    p_base_eval_best = None
     r_best = -np.inf
     prev_r_best = None
     prev_base_r_best = None
@@ -699,9 +701,11 @@ def learn(sess, controller, pool, gp_controller,
             Long validation is a special case where testing a program rigorously is very expensive. Up till now we have doing less
             expensive testing. Now we will test a subset and update r for that subset. An example of when we would do this is
             when doing the Control task. 
-        '''
+        '''            
         new_r_best = False
         new_base_r_best = False
+        new_eval_best = False
+        new_base_eval_best = False
         
         if "do_long_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_long_validate"]:
             p_best = long_validate_and_get_best_p(r, programs, is_base=False)
@@ -714,6 +718,12 @@ def learn(sess, controller, pool, gp_controller,
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
         
+        # Only evaluate a top HOF potential 
+        if new_r_best and p_r_best.evaluate["test_val"] is not None:
+            if p_eval_best is None or p_r_best.evaluate["test_val"] > p_eval_best.evaluate["test_val"]:
+                new_eval_best   = True
+                p_eval_best     = p_r_best
+        
         if "do_long_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_long_validate"]:
             p_best = long_validate_and_get_best_p(base_r, programs, is_base=True)
             
@@ -724,6 +734,12 @@ def learn(sess, controller, pool, gp_controller,
         elif prev_base_r_best is None or base_r_max > prev_base_r_best:
             new_base_r_best = True
             p_base_r_best = programs[np.argmax(base_r)]
+        
+        # Only evaluate a top HOF potential 
+        if new_base_r_best and p_base_r_best.evaluate["test_val"] is not None:
+            if p_base_eval_best is None or p_base_r_best.evaluate["test_val"] > p_base_eval_best.evaluate["test_val"]:
+                new_base_eval_best  = True
+                p_base_eval_best    = p_base_r_best
             
         prev_r_best = r_best
         prev_base_r_best = base_r_best
@@ -736,27 +752,34 @@ def learn(sess, controller, pool, gp_controller,
             print("All time best Program:")
             p_base_r_best.print_stats(print_test=True)
             print("************************")
-
+            if "do_long_validate" in programs[0].task.extra_info:
+                print("All time best Evaluation:")
+                p_base_eval_best.print_stats(print_test=True)
+                print("************************")
         # Print new best expression
 
         if verbose:
-            if new_r_best and new_base_r_best:
-                if p_r_best == p_base_r_best:
-                    print("\nNew best overall")
-                    p_r_best.print_stats(print_test=True)
-                else:
-                    print("\nNew best reward")
-                    p_r_best.print_stats()
-                    print("...and new best base reward")
-                    p_base_r_best.print_stats(print_test=True)
-
-            elif new_r_best:
-                print("\nNew best reward")
-                p_r_best.print_stats(print_test=True)
-
-            elif new_base_r_best:
-                print("\nNew best base reward")
-                p_base_r_best.print_stats(print_test=True)
+            def print_best(cond, new_best, new_base_best, p_best, p_base_best):
+                if new_best and new_base_best:
+                    if p_best == p_base_best:
+                        print("\nNew {} best overall".format(cond))
+                        p_best.print_stats(print_test=True)
+                    else:
+                        print("\nNew {} best reward".format(cond))
+                        p_best.print_stats()
+                        print("...and new {} best base reward".format(cond))
+                        p_base_best.print_stats(print_test=True)
+    
+                elif new_best:
+                    print("\nNew {} best reward".format(cond))
+                    p_best.print_stats(print_test=True)
+    
+                elif new_base_best:
+                    print("\nNew {} best base reward".format(cond))
+                    p_base_best.print_stats(print_test=True)
+                
+            print_best("r", new_r_best, new_base_r_best, p_r_best, p_base_r_best)
+            print_best("eval", new_eval_best, new_base_eval_best, p_eval_best, p_base_eval_best)
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):

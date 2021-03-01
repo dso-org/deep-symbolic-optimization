@@ -113,11 +113,12 @@ class GenericAlgorithm:
     def __init__(self):
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
+    '''
     def _divide_chunks(self, l, n): 
         # looping till length l 
         for i in range(0, len(l), n):  
             yield l[i:i + n] 
-    
+    '''
     # Would this benefit from using process pooling?
     def _eval(self, population, halloffame, toolbox):
         

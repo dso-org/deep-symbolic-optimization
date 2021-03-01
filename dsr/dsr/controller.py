@@ -595,6 +595,8 @@ class Controller(object):
             self.loss = loss
 
         def make_optimizer(name, learning_rate):
+            self.global_step = tf.Variable(0, trainable=False)
+
             if name == "adam":
                 return tf.train.AdamOptimizer(learning_rate=learning_rate)
             if name == "rmsprop":
@@ -604,10 +606,10 @@ class Controller(object):
             raise ValueError("Did not recognize optimizer '{}'".format(name))
 
         # Create training op
-        optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
+        self.optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
         with tf.name_scope("train"):
-            self.grads_and_vars = optimizer.compute_gradients(self.loss)
-            self.train_op = optimizer.apply_gradients(self.grads_and_vars)
+            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
+            self.train_op = self.optimizer.apply_gradients(self.grads_and_vars, global_step=self.global_step)
             # The two lines above are equivalent to:
             # self.train_op = optimizer.minimize(self.loss)
         with tf.name_scope("grad_norm"):

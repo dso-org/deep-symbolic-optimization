@@ -29,30 +29,20 @@ class GenericEvaluate():
         self.early_stopping     = early_stopping
         self.threshold          = threshold
         
-    def _finish_eval(self, individual, X, fitness):
+    def set_toolbox(self,toolbox):
         
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            f       = self.toolbox.compile(expr=individual)
-            y_hat   = f(*X)
-            fit     = (fitness(y_hat=y_hat),)
-        
-        return fit
-    
-    def _single_eval(self, individual, f):
+        self.toolbox = toolbox   
+            
+    def reward(self, individual, f):
         """
             This is called by some derived classes, but does not always need to
             fall in the flow of a derived class. Sometimes it can be ignored. 
         """
         raise NotImplementedError
-        
+            
     def __call__(self, individual):
         """
             This needs to be called in a derived task such as gp_regression
         """
-        
         raise NotImplementedError
 
-    def set_toolbox(self,toolbox):
-        
-        self.toolbox = toolbox   
