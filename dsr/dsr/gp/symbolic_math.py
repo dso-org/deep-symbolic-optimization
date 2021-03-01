@@ -335,7 +335,7 @@ class GenericEvaluate(generic_evaluate_base.GenericEvaluate):
             
             # HACK: If early stopping threshold has been reached, don't do training optimization
             # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self._finish_eval(self.hof[0], eval_data_set, self.test_fitness)[0] < self.threshold:
+            if self.early_stopping and len(self.hof) > 0 and self.reward(self.hof[0], eval_data_set, self.test_fitness)[0] < self.threshold:
                 return (1.0,)
             
             const_idxs = [i for i, node in enumerate(individual) if node.name.startswith("mutable_const_")] # optimze by chnaging to == with index values
@@ -346,21 +346,10 @@ class GenericEvaluate(generic_evaluate_base.GenericEvaluate):
                 def obj(individual, consts):        
                     individual  = gp_const.set_const_individuals(const_idxs, consts, individual)        
     
-                    f           = self.toolbox.compile(expr=individual)
-    
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-
                     # Run the program and get result
-                    res = self._single_eval(individual, f)
-                        
-                    # Sometimes this evaluation can fail. If so, return largest error possible.
-                    if np.isfinite(res):
-                        return res
-                    else:
-                        return np.finfo(np.float).max
-    
-                obj_call = partial(obj,individual)
+                    return self.reward(individual, eval_data_set, self.test_fitness)[0]
+                    
+                obj_call = partial(obj, individual)
     
                 # Do the optimization and set the optimized constants
                 x0                  = np.ones(len(const_idxs))
@@ -371,21 +360,29 @@ class GenericEvaluate(generic_evaluate_base.GenericEvaluate):
                 individual = gp_const.set_const_individuals(const_idxs, optimized_consts, individual) 
 
         return individual
-                
-    def __call__(self, *args, **kwargs):
-        
-        raise NotImplementedError
-    
+                    
 
 class GPController(controller_base.GPController):
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, config_gp_meld, *args, **kwargs):
         
-        super(GPController, self).__init__(*args, **kwargs)
+        super(GPController, self).__init__(config_gp_meld, *args, **kwargs)
+        
+        self.get_top_n_programs                         = get_top_n_programs     
+        self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
+        self.init_const_epoch                           = config_gp_meld["init_const_epoch"]
         
     def _create_primitive_set(self, *args, **kwargs):
         
         raise NotImplementedError
+    
+    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):
+                
+        toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=parallel_eval, **kwargs) 
+        const               = "const" in pset.context
+        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
+        
+        return toolbox, creator  
     
     def _create_toolbox_const(self, toolbox, const, max_const):
      
@@ -402,4 +399,35 @@ class GPController(controller_base.GPController):
             toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
         
         return toolbox 
+    
+    def _create_primitive_set(self, config_training, config_gp_meld, config_task, n_input_var, function_set=None):
+        """Create a DEAP primitive set from DSR functions and consts
+        """
+        
+        assert gp is not None,              "Did not import gp. Is it installed?"
+        
+        if 'function_set' in config_task and config_task['function_set'] is not None:
+            function_set                = config_task['function_set']
+            
+        assert function_set is not None,    "Must have a function set of tokens"
+        
+        const_params                = config_training['const_params']
+        max_const                   = config_gp_meld["max_const"]
+        
+        # Get user constants as well as mutable constants that we optimize (if any)
+        user_consts, mutable_consts = gp_const.get_consts()
+        
+        pset                        = create_primitive_set(n_input_var)
+        
+        # Add primitives
+        pset                        = self._add_primitives(pset, function_map, function_set) 
+        pset, const_opt             = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
+        
+        return pset, const_opt
+
+    def _call_pre_process(self):
+        
+        if self.init_const_epoch:
+            # Reset all mutable constants when we call DEAP GP?
+            self.pset.mapping = gp_const.reset_consts(self.pset.mapping, 1.0)
 

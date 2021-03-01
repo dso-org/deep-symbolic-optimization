@@ -72,7 +72,9 @@ class GPController:
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
-                                                           gen_func            = self.gen_func, max_len=config_gp_meld["max_len"], 
+                                                           gen_func            = self.gen_func, 
+                                                           parallel_eval       = config_gp_meld["parallel_eval"], 
+                                                           max_len             = config_gp_meld["max_len"], 
                                                            min_len             = config_gp_meld["min_len"], 
                                                            tournament_size     = config_gp_meld["tournament_size"], 
                                                            max_depth           = config_gp_meld["max_depth"], 

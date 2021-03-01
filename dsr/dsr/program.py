@@ -639,7 +639,7 @@ class Program(object):
         set"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-
+     
             return self.task.long_validate_function(self)
 
     @cached_property

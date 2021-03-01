@@ -5,6 +5,7 @@ from multiprocessing import Pool, TimeoutError
 from pathos.multiprocessing import ProcessPool
 from pathos.pp import ParallelPool
 from functools import partial
+import random
 
 try:
     import pybullet_envs
@@ -242,9 +243,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     assert len([v for v in action_spec if v is None]) <= 1, "No more than 1 action_spec element can be None."
     assert int(algorithm is None) + int(anchor is None) in [0, 2], "Either none or both of (algorithm, anchor) must be None."
 
-    model       = create_model(action_spec, algorithm, anchor, anchor_path=None)
-        
-    gym_pool    = pool_wrapper()
+    model                   = create_model(action_spec, algorithm, anchor, anchor_path=None)
+    gym_pool                = pool_wrapper()
+    #val_extra_seed_shift    = 0
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions, action_dim    = create_symbolic_actions(action_spec)
@@ -299,11 +300,12 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     def validate(p):
 
-        # Run the episodes
-        r_episodes          = par_run_episodes(p, n_episodes_validate, evaluate=False)
-
         # Use new seeds never in reward
-        extra_seed_shift    = n_episodes_train 
+        # Add in a random number so we are not ALWAYS using the same seed numbers. Only evaluate should do this. 
+        extra_seed_shift    = n_episodes_train + random.randint(0,1e9)
+
+        # Run the episodes
+        r_episodes          = par_run_episodes(p, n_episodes_validate, evaluate=False, extra_seed_shift=extra_seed_shift)
 
         # Compute val statistics
         v_r_avg = np.mean(r_episodes)
@@ -312,15 +314,15 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     
     def long_validate(p):
 
-        # Run the episodes        
-        r_episodes          = par_run_episodes(p, n_episodes_long_validate, evaluate=False)
-        
         # Use new seeds never in reward or short validate
-        extra_seed_shift    = n_episodes_train + n_episodes_validate # 
+        # Add in a random number so we are not ALWAYS using the same seed numbers. Only evaluate should do this. 
+        extra_seed_shift    = n_episodes_train + n_episodes_validate + int(1e9) + random.randint(0,1e9)
 
+        # Run the episodes        
+        r_episodes          = par_run_episodes(p, n_episodes_long_validate, evaluate=False, extra_seed_shift=extra_seed_shift)
+        
         # Compute val statistics
         lv_r_avg = np.mean(r_episodes)
-        print("Long Validation: {}".format(lv_r_avg))
 
         return lv_r_avg
 

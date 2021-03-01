@@ -5,6 +5,8 @@ import warnings
 from functools import partial, wraps
 from operator import attrgetter
 import numpy as np
+import os
+import struct
 
 try:
     import gym
@@ -98,14 +100,19 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
         
         r_episodes = np.zeros(self.n_episodes, dtype=np.float64) # Episodic rewards for each episode
         
+        # Mix things up a little, not nessesary, but for good measure
+        seed_shift  = max(int(1e12), struct.unpack("<L", os.urandom(4))[0]) - int(1e3) 
+        
         for i in range(self.n_episodes):
             r_episodes[i]       = control.episode(f, action_dim=self.action_dim, evaluate=False, fix_seeds=True, 
-                                                  model=self.model, episode_seed_shift=0,  symbolic_actions=self.symbolic_actions, env=self.env, seed=i,
+                                                  model=self.model, episode_seed_shift=0,  symbolic_actions=self.symbolic_actions, env=self.env, seed=(i+seed_shift),
                                                   get_action=self._get_action, get_fixed_action=self._get_dsr_action)
                                         
         return r_episodes
     
-    def _single_eval(self, individual, f):
+    def reward(self, individual):
+        
+        f           = self.toolbox.compile(expr=individual)
         
         # Sometimes this evaluation can fail. If so, return largest error possible.
         with warnings.catch_warnings():
@@ -116,10 +123,6 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
                 return [np.finfo(np.float).max]
         
         return [self.optimize_stat(r_episodes) * -1.0]
-
-    def _finish_eval(self, individual, f):
-        
-        raise NotImplementedError 
     
     def __call__(self, individual):
 
@@ -131,16 +134,14 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
             optimizer is in const.py as "scipy" : ScipyMinimize
         '''
         
-        #individual  = self._optimize_individual(individual, eval_dataset=None) # Skips if we are not doing const optimization
-        f           = self.toolbox.compile(expr=individual)
-        ret         = self._single_eval(individual, f)
-        
-        return ret
+        return self.reward(individual)
         
             
 class GPController(gp_symbolic_math.GPController):
     
     def __init__(self, config_gp_meld, config_task, config_training):
+        
+        assert gp is not None, "Did not import gp. Is DEAP installed?"
     
         name            = config_task["name"]
         action_spec     = config_task["action_spec"]
@@ -150,63 +151,23 @@ class GPController(gp_symbolic_math.GPController):
         algorithm       = config_task["algorithm"]  if "algorithm" in config_task   else None
         anchor          = config_task["anchor "]    if "anchor " in config_task     else None
         
-        assert gp is not None, "Did not import gp. Is DEAP installed?"
-   
         self.env, env_kwargs                            = control.make_env(name, env_kwargs)
             
         self.action_spec                                = action_spec
-        
+        symbolic_actions, action_dim                    = control.create_symbolic_actions(self.action_spec)
         self.model                                      = control.create_model(action_spec, algorithm, anchor, anchor_path=None)
         
-        pset, const_opt, symbolic_actions, action_dim   = self._create_primitive_set(config_task, config_training, config_gp_meld)                                         
-        eval_func                                       = GenericEvaluate(const_opt, name, self.env, self.model, env_kwargs, symbolic_actions=symbolic_actions, action_dim=action_dim, 
-                                                              n_episodes=n_episodes, optimize_stat=optimize_stat) 
+        pset, const_opt                                 = self._create_primitive_set(config_training, config_gp_meld, config_task, 
+                                                                                     n_input_var=self.env.observation_space.shape[0])       
+        
+        eval_func                                       = GenericEvaluate(const_opt, name, self.env, self.model, env_kwargs, 
+                                                                          symbolic_actions=symbolic_actions, action_dim=action_dim, 
+                                                                          n_episodes=n_episodes, optimize_stat=optimize_stat) 
+        
         check_constraint                                = gp_symbolic_math.checkConstraint
         
         super(GPController, self).__init__(config_gp_meld, config_task, config_training, pset, eval_func, check_constraint, eval_func.hof)
         
-        self.get_top_n_programs                         = gp_symbolic_math.get_top_n_programs     
-        self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
-   
-    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, **kwargs):
-                
-        toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=True, **kwargs) 
-        const               = "const" in pset.context
-        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
-        
-        return toolbox, creator 
-   
-    def _create_primitive_set(self, config_task, config_training, config_gp_meld):
-        """Create a DEAP primitive set from DSR functions and consts
-        """
-        
-        assert gp is not None,              "Did not import gp. Is it installed?"
-        
-        n_input_var                 = self.env.observation_space.shape[0]
-                
-        symbolic_actions, action_dim    = control.create_symbolic_actions(self.action_spec)
-        
-        function_set                = config_task['function_set']
-        const_params                = config_training['const_params']
-        have_const                  = "const" in function_set  
-        const_optimizer             = "scipy"
-        max_const                   = config_gp_meld["max_const"]
-        
-        # Get user constants as well as mutable constants that we optimize (if any)
-        user_consts, mutable_consts = gp_const.get_consts()
-        
-        pset                        = gp_symbolic_math.create_primitive_set(n_input_var)
-
-        # Add primitives
-        pset                        = self._add_primitives(pset, function_map, function_set) 
-        pset, const_opt             = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
-            
-        # Get into Deap Tokens
-        #self.symbolic_actions   = [self.tokens_to_DEAP(i, pset) for i in symbolic_actions]
-        self.symbolic_actions   = symbolic_actions
-            
-        return pset, const_opt, symbolic_actions, action_dim
-
    
             
         
