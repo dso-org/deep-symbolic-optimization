@@ -1,12 +1,35 @@
 """Class for Prior object."""
 
 import numpy as np
+from functools import wraps
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
 
+def prior_wrapper(library):
+    """This wraps a prior object and allows to create priors when we already have 
+    all the actions at once. It can be used by GP for access into prior objects. 
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(actions, parent, sibling, _dangling=None):
+            
+            priors      = np.zeros((actions.shape[0], actions.shape[1], library.L), dtype=np.float32)
+            dangling    = np.ones((actions.shape[0]))
+                               
+            # For each step in time                                  
+            for t in range(actions.shape[1]):
+                dangling        += library.arities[actions[:,t]] - 1   
+                priors[:,t,:]   = func(actions[:,:t], parent[:,:t], sibling[:,:t], dangling)
+            
+            return priors
 
-def make_prior(library, config_prior):
+        return wrapper
+
+    return decorator
+
+
+def make_prior(library, config_prior, wrap_prior=False):
     """Factory function for JointPrior object."""
 
     prior_dict = {
@@ -36,6 +59,8 @@ def make_prior(library, config_prior):
             # Token not in the Library.
             try:
                 prior = prior_class(library, **single_prior_args)
+                if wrap_prior:
+                    prior = prior_wrapper(library)(prior)
                 warning = prior.validate()
             except TokenNotFoundError:
                 prior = None
