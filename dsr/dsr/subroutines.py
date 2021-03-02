@@ -4,7 +4,7 @@ from numba import jit, prange
 import numpy as np
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def parents_siblings(tokens, arities, parent_adjust):
     """
     Given a batch of action sequences, computes and returns the parents and
@@ -62,7 +62,7 @@ def parents_siblings(tokens, arities, parent_adjust):
     return adj_parents, siblings
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def ancestors(actions, arities, ancestor_tokens):
     """
     Given a batch of action sequences, determines whether the next element of
