@@ -115,7 +115,8 @@ class DeepSymbolicOptimizer():
             
             gp_controller = GPController(self.config_gp_meld,
                                          self.config_task,
-                                         self.config_training)
+                                         self.config_training,
+                                         self.config_prior)
         else:
             gp_controller = None
         return gp_controller

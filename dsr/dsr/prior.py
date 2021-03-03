@@ -1,35 +1,12 @@
 """Class for Prior object."""
 
 import numpy as np
-from functools import wraps
+#from functools import wraps
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
 
-def prior_wrapper(library):
-    """This wraps a prior object and allows to create priors when we already have 
-    all the actions at once. It can be used by GP for access into prior objects. 
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(actions, parent, sibling, _dangling=None):
-            
-            priors      = np.zeros((actions.shape[0], actions.shape[1], library.L), dtype=np.float32)
-            dangling    = np.ones((actions.shape[0]))
-                               
-            # For each step in time                                  
-            for t in range(actions.shape[1]):
-                dangling        += library.arities[actions[:,t]] - 1   
-                priors[:,t,:]   = func(actions[:,:t], parent[:,:t], sibling[:,:t], dangling)
-            
-            return priors
-
-        return wrapper
-
-    return decorator
-
-
-def make_prior(library, config_prior, wrap_prior=False):
+def make_prior(library, config_prior, at_once=False):
     """Factory function for JointPrior object."""
 
     prior_dict = {
@@ -58,9 +35,7 @@ def make_prior(library, config_prior, wrap_prior=False):
             # Attempt to build the Prior. Any Prior can fail if it references a
             # Token not in the Library.
             try:
-                prior = prior_class(library, **single_prior_args)
-                if wrap_prior:
-                    prior = prior_wrapper(library)(prior)
+                prior   = prior_class(library, **single_prior_args)
                 warning = prior.validate()
             except TokenNotFoundError:
                 prior = None
@@ -77,7 +52,10 @@ def make_prior(library, config_prior, wrap_prior=False):
             if warning is None:
                 priors.append(prior)
 
-    joint_prior = JointPrior(library, priors)
+    if at_once:
+        joint_prior = JointPriorAtOnce(library, priors)
+    else:
+        joint_prior = JointPrior(library, priors)
 
     print("-- Building prior -------------------")
     print("\n".join(["WARNING: " + message for message in warnings]))
@@ -130,6 +108,30 @@ class JointPrior():
         message = "\n".join(prior.describe() for prior in self.priors)
         return message
 
+
+class JointPriorAtOnce(JointPrior):
+        
+    def process(self, i, actions, parent, sibling):
+    
+        priors      = np.zeros((actions.shape[0], actions.shape[1], self.library.L), dtype=np.float32)
+        dangling    = np.ones((actions.shape[0]))
+        
+        # For each step in time                                  
+        for t in range(actions.shape[1]):
+            dangling        += self.library.arities[actions[:,t]] - 1   
+            priors[:,t,:]   = self.priors[i](actions[:,:t], parent[:,t], sibling[:,t], dangling)
+                
+        return priors
+            
+    def __call__(self, actions, parent, sibling):
+        zero_prior = np.zeros((actions.shape[0], actions.shape[1], self.L), dtype=np.float32)
+        ind_priors = [zero_prior.copy() for _ in range(len(self.priors))]
+        for i in range(len(self.priors)):
+            ind_priors[i] += self.process(i, actions, parent, sibling)
+        combined_prior = sum(ind_priors) + zero_prior # TBD FIX HACK
+        # TBD: Status report if any samples have no choices
+        return combined_prior
+                 
 
 class Prior():
     """Abstract class whose call method return logits."""
@@ -220,8 +222,8 @@ class Constraint(Prior):
             Logit adjustment. Since these are hard constraints, each element is
             either 0.0 or -np.inf.
         """
-
         prior = np.zeros((mask.shape[0], self.L), dtype=np.float32)
+        
         for t in tokens:
             prior[mask, t] = -np.inf
         return prior
@@ -303,7 +305,7 @@ class RelationalConstraint(Constraint):
             mask += np.logical_and(np.isin(sibling, self.targets),
                                    np.isin(parent, adj_effectors))
             prior = self.make_constraint(mask, [self.targets])
-
+            
         return prior
 
     def describe(self):
@@ -385,6 +387,7 @@ class InverseUnaryConstraint(Constraint):
     def __init__(self, library):
         Prior.__init__(self, library)
         self.priors = []
+        
         for target, effector in library.inverse_tokens.items():
             targets = [target]
             effectors = [effector]
@@ -400,9 +403,8 @@ class InverseUnaryConstraint(Constraint):
             return message
         return None
 
-    def __call__(self, actions, parent, sibling, dangling):
-        prior = sum([prior(actions, parent, sibling, dangling)
-                     for prior in self.priors])
+    def __call__(self, actions, parent, sibling, dangling):      
+        prior = sum([prior(actions, parent, sibling, dangling) for prior in self.priors])
         return prior
 
     def describe(self):
