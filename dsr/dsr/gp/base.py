@@ -368,7 +368,10 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         if self.verbose:
             print('Population Size {}'.format(len(self.population)))
-            
+
+
+# THIS FUNCTION WILL GO AWAY AT SOME POINT       
+'''     
 def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
     """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
     """
@@ -398,9 +401,9 @@ def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
     deap_program        = [from_tokens(deap_tokens, optimize=True, on_policy=False, optimized_consts=optimized_consts)]
 
     return deap_program, deap_obs, deap_action,  deap_tokens, deap_expr_length
-
+'''
     
-def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens):
+def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens, priors_func=None):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
         
@@ -462,9 +465,18 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
     deap_sibling[:,0]       = max_tok
     deap_obs_action[:,0]    = max_tok
     deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
+    
+    if priors_func is not None:
+        print("Running Prior Function")
+        dp                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
+        ds                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
+        dp[:,:-1]               = deap_parent[:,1:]
+        ds[:,:-1]               = deap_sibling[:,1:]
+        deap_priors             = priors_func(deap_action, dp, ds)
+    else:
+        deap_priors             = np.zeros((len(deap_tokens), deap_actions.shape[1], max_tok), dtype=np.float32)
         
-    return deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length 
-
+    return deap_program, deap_obs, deap_action, deap_tokens, deap_priors, deap_expr_length 
 
 
 def DEAP_to_tokens(individual, tokens_size):

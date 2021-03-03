@@ -139,7 +139,7 @@ class GenericEvaluate(gp_regression.GenericEvaluate):
             
 class GPController(gp_symbolic_math.GPController):
     
-    def __init__(self, config_gp_meld, config_task, config_training):
+    def __init__(self, config_gp_meld, config_task, config_training, config_prior):
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
     
@@ -166,7 +166,8 @@ class GPController(gp_symbolic_math.GPController):
         
         check_constraint                                = gp_symbolic_math.checkConstraint
         
-        super(GPController, self).__init__(config_gp_meld, config_task, config_training, pset, eval_func, check_constraint, eval_func.hof)
+        super(GPController, self).__init__(config_gp_meld, config_task, config_training, config_prior, 
+                                           pset, eval_func, check_constraint, eval_func.hof)
         
    
             

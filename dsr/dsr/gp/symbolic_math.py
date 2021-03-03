@@ -12,7 +12,7 @@ from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
 from dsr.gp import generic_evaluate_base
-from dsr.prior import TrigConstraint, ConstConstraint, NoInputsConstraint, InverseUnaryConstraint, RepeatConstraint, prior_wrapper
+from dsr.prior import TrigConstraint, ConstConstraint, NoInputsConstraint, InverseUnaryConstraint, RepeatConstraint
 from dsr.subroutines import parents_siblings
 
 
@@ -271,7 +271,7 @@ def create_primitive_set(n_input_var):
     return pset
 
 
-def get_top_n_programs(population, actions, config_gp_meld):
+def get_top_n_programs(population, actions, config_gp_meld, prior_func):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
         
@@ -285,22 +285,22 @@ def get_top_n_programs(population, actions, config_gp_meld):
     
     max_tok     = Program.library.L
 
-    deap_program, deap_obs, deap_action, deap_tokens, deap_expr_length  = gp_base._get_top_n_programs(population, n, actions, max_len, min_len, gp_tokens.DEAP_to_math_tokens)
-    
+    deap_program, deap_obs, deap_action, deap_tokens, deap_priors, deap_expr_length  = gp_base._get_top_n_programs(population, n, actions, 
+                                                                                                                   max_len, min_len, gp_tokens.DEAP_to_math_tokens, prior_func)
+    '''
     if config_gp_meld["compute_priors"]:
         
-        tc                              = prior_wrapper(Program.library)
-        tcw                             = tc(TrigConstraint(Program.library))
-        deap_priors                     = tcw(deap_action, deap_obs[1], deap_obs[2])
-        '''
+        #tc                              = prior_wrapper(Program.library)(TrigConstraint(Program.library))
+        #deap_priors                     = tc(deap_action, deap_obs[1], deap_obs[2]) # <--- What should go here?
+        
         deap_priors                     = np.empty((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
                         
         for i in range(len(deap_tokens)):        
             deap_priors[i,]                 = generate_priors(deap_tokens[i], actions.shape[1], deap_expr_length[i], max_const, max_len, min_len)
-        '''
+        
     else:
         deap_priors                     = np.zeros((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
-    
+    '''
     return deap_program, deap_obs, deap_action, deap_priors
 
 

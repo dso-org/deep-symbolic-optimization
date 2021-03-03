@@ -17,10 +17,12 @@ except ImportError:
     algorithms  = None
 
 from dsr.gp import base as gp_base
+from dsr.prior import make_prior
+from dsr.program import Program
 
 class GPController:
     
-    def __init__(self, config_gp_meld, config_task, config_training, 
+    def __init__(self, config_gp_meld, config_task, config_training, config_prior, 
                  pset, eval_func, check_constraint, hof, gen_func=gp_base.GenWithRLIndividuals()):
         
         '''    
@@ -119,6 +121,12 @@ class GPController:
             self.deap_obs           = []
             self.deap_actions       = None
             self.deap_priors        = None
+        
+        if config_gp_meld["compute_priors"]:
+            self.prior_func             = make_prior(Program.library , config_prior, at_once=True)
+        else:
+            self.prior_func             = None
+        
         
     def _create_primitive_set(self, *args, **kwargs):
         """
@@ -280,7 +288,7 @@ class GPController:
             self.nevals += n
          
         if self.config_gp_meld["train_n"] > 0:
-            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.config_gp_meld)
+            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.config_gp_meld, self.prior_func)
             self.return_gp_obs                                      = True
         else:
             self.return_gp_obs                                      = False
