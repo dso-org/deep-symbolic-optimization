@@ -11,3 +11,4 @@ dsr/dsr/summary*
 dsr/build
 dsr/dsr/cyfunc*
 **/log/
+/tmp
