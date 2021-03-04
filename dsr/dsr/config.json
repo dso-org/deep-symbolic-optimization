@@ -20,6 +20,11 @@
       "reward_noise_type" : "r",
       "normalize_variance" : false
    },
+   "postprocess": {
+      "method" : "dsr",
+      "print": true,
+      "save_plots": true
+   },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},
       "repeat" : {"tokens" : "const", "max_" : 3},
@@ -47,12 +52,13 @@
         "output_file": null,
         "save_all_r": false,
         "early_stopping": true,
-        "hof": null,
+        "hof": 100,
         "use_memory": true,
         "memory_capacity": 1e3,
         "warm_start": null,
         "memory_threshold": null,
-        "save_positional_entropy": true
+        "save_positional_entropy": true,
+        "pareto_front": true
    },
    "controller": {
       "cell": "lstm",
@@ -111,29 +117,29 @@
    "gp_meld": {
    		"run_gp_meld"             	: false,
         "init_population_size"    	: 1,
-        "p_crossover"             	: 0.5,    
-        "p_mutate"                	: 0.5,    
-        "seed"                    	: 0,        
-        "verbose"                 	: false,      
-        "max_len"                 	: 30,     
-        "min_len"                 	: 4,        
-        "steps"                	  	: 20,        
+        "p_crossover"             	: 0.5,
+        "p_mutate"                	: 0.5,
+        "seed"                    	: 0,
+        "verbose"                 	: false,
+        "max_len"                 	: 30,
+        "min_len"                 	: 4,
+        "steps"                	  	: 20,
         "rand_pop_n"              	: 0,
-        "pop_pad"                 	: 0,         
-        "fitness_metric"          	: "nmse",    
-        "recycle_max_size"        	: 0,        
-        "tournament_size"         	: 5,   
-        "max_depth"               	: 30,     
-        "train_n"                 	: 10,    
-        "mutate_tree_max"         	: 3,        
+        "pop_pad"                 	: 0,
+        "fitness_metric"          	: "nmse",
+        "recycle_max_size"        	: 0,
+        "tournament_size"         	: 5,
+        "max_depth"               	: 30,
+        "train_n"                 	: 10,
+        "mutate_tree_max"         	: 3,
         "max_const"               	: 3,
         "constrain_const"         	: true
    },
    "language_model_prior": {
         "saved_language_model_path": "./language_model/model/saved_model",
         "saved_language_model_lib" : "./language_model/model/saved_model/word_dict.pkl",
-        "embedding_size":32, 
-        "num_layers":1, 
+        "embedding_size":32,
+        "num_layers":1,
         "num_hidden":256,
         "prob_sharing": true
     }
