@@ -20,7 +20,8 @@
       "reward_noise_type" : "r",
       "normalize_variance" : false
    },
-   "summary": {
+   "postprocess": {
+      "method": "dsr",
       "print": true,
       "save_plots": true
    },
