@@ -21,7 +21,7 @@
       "normalize_variance" : false
    },
    "postprocess": {
-      "method" : "dsr",
+      "method": "dsr",
       "print": true,
       "save_plots": true
    },
@@ -57,7 +57,7 @@
         "memory_capacity": 1e3,
         "warm_start": null,
         "memory_threshold": null,
-        "save_positional_entropy": true,
+        "save_positional_entropy": false,
         "pareto_front": true
    },
    "controller": {
