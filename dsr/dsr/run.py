@@ -170,6 +170,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # HACK: DSR-specific shortcut to run all Nguyen benchmarks
     benchmarks = list(b)
+    config["task"]["name"] = benchmarks
     if "Nguyen" in benchmarks:
         benchmarks.remove("Nguyen")
         benchmarks += ["Nguyen-{}".format(i+1) for i in range(12)]
