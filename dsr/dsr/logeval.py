@@ -118,6 +118,8 @@ class LogEval():
             self.warnings.append('Missing config file!')
         if exp_config['task']['function_set'] is None:
             exp_config['task']['function_set'] = self._get_tokenset(exp_config['task'])
+        if isinstance(exp_config["task"]["name"], list):
+            exp_config["task"]["name"] = exp_config["task"]["name"][0]
         return exp_config
 
     def _get_tokenset(self, task_config):
@@ -130,7 +132,7 @@ class LogEval():
         tokenset_df = pd.read_csv(
             os.path.join(root_dir, "function_sets.csv"),
             index_col=None, encoding="ISO-8859-1")
-        tokenset_name = benchmark_df[benchmark_df['name']==task_config['name']]['function_set'].item()
+        tokenset_name = benchmark_df[benchmark_df['name']==task_config['name'][0]]['function_set'].item()
         return tokenset_df[tokenset_df['name']==tokenset_name]['function_set'].item()
 
     def _get_benchmarks(self):
