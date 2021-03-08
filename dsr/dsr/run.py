@@ -231,7 +231,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
         log = LogEval(logdir)
         log.analyze_log(
             log_count=5,
-            show_hof=config_training["hof"]>0,
+            show_hof=config_training["hof"] != None and config_training["hof"] > 0,
             show_pf=config_training["pareto_front"],
             save_plots=config["postprocess"]["save_plots"])
 
