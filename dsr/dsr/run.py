@@ -305,14 +305,14 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
                 show_pf=config["training"]["pareto_front"],
                 save_plots=config["postprocess"]["save_plots"])
 
-    if config["summary"]["print"]:
+    if config["postprocess"]["print"]:
         from dsr.logeval import LogEval
         log = LogEval(logdir)
         log.analyze_log(
             log_count=5,
             show_hof=config_training["hof"]>0,
             show_pf=config_training["pareto_front"],
-            save_plots=config["summary"]["save_plots"])
+            save_plots=config["postprocess"]["save_plots"])
 
 
 if __name__ == "__main__":
