@@ -176,7 +176,7 @@ Can be changed in `config.json`:
 ```
 {
    ...
-   "summary": {
+   "postprocess": {
       "print": true,
       "save_plots": true
    },
