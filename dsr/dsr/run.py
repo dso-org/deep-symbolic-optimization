@@ -300,19 +300,10 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
                 config["paths"]["log_dir"],
                 config_file=config["paths"]["config_file"])
             log.analyze_log(
-                log_count=5,
+                log_count=config["postprocess"]["print_count"],
                 show_hof=config["training"]["hof"] != None and config["training"]["hof"] > 0,
                 show_pf=config["training"]["pareto_front"],
                 save_plots=config["postprocess"]["save_plots"])
-
-    if config["postprocess"]["print"]:
-        from dsr.logeval import LogEval
-        log = LogEval(logdir)
-        log.analyze_log(
-            log_count=5,
-            show_hof=config_training["hof"]>0,
-            show_pf=config_training["pareto_front"],
-            save_plots=config["postprocess"]["save_plots"])
 
 
 if __name__ == "__main__":
