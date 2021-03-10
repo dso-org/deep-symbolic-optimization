@@ -5,16 +5,12 @@ import random
 import operator
 import warnings
 
-from dsr.program import Program,  _finish_tokens
 from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
 from dsr.gp import base as gp_base
 from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
 from dsr.gp import generic_evaluate_base
-from dsr.prior import TrigConstraint, ConstConstraint, NoInputsConstraint, InverseUnaryConstraint, RepeatConstraint
-from dsr.subroutines import parents_siblings
-
 
 try:
     from deap import gp
@@ -135,6 +131,7 @@ def checkConstraint(max_length, min_length, max_depth):
 
     return decorator
 
+
 # This may not be in use, but may be used later
 def popConstraint():
     """Check a varety of constraints on a member. These include:
@@ -164,102 +161,6 @@ def popConstraint():
     return decorator    
 
 
-# library_length = program.L. This should be folded into task
-# This is going away and will be replaced with calls into prior.py
-def generate_priors(tokens, max_exp_length, expr_length, max_const, max_len, min_len):
-        
-    priors              = np.zeros((max_exp_length, Program.library.L), dtype=np.float32)
-    
-    trig_descendant     = False
-    const_tokens        = 0
-    dangling            = 1
-    offset              = 1 # Put in constraint at t+1
-    
-    # Never start with a terminal token
-    ###priors[0, Program.library.terminal_tokens] = -np.inf
-    
-    tc  = TrigConstraint(Program.library)
-    #cc  = ConstConstraint(Program.library)
-    nic = NoInputsConstraint(Program.library) 
-    iuc = InverseUnaryConstraint(Program.library)
-    #rc  = RepeatConstraint(Program.library)
-    
-    priors += tc(tokens[:, np.newaxis],None,None,None)
-    #priors += cc(tokens[:, np.newaxis],None,None,None)
-    priors += nic(tokens[:, np.newaxis],None,None,None)
-    priors += iuc(tokens[:, np.newaxis],None,None,None)
-    #priors += rc(tokens[:, np.newaxis],None,None,None)
-    
-    print("prior {}".format(prior))
-    
-    for i,t in enumerate(tokens): 
-        
-        dangling    += Program.library.arities[t] - 1
-        
-        '''
-            Note, actions == tokens
-        '''
-        '''
-        if (dangling == 1) & (np.sum(np.isin(tokens, Program.library.float_tokens), axis=1) == 0):
-            priors[i+offset, Program.library.float_tokens] = -np.inf
-        '''
-        # Something is still borken in here
-        if i < len(tokens) - 1:
-            
-            # check trig descendants
-            '''
-            if t in Program.library.trig_tokens:
-                trig_descendant = True
-                trig_dangling   = 1
-            elif trig_descendant:
-                if t in Program.library.binary_tokens:
-                    trig_dangling += 1
-                elif t not in Program.library.unary_tokens:
-                    trig_dangling -= 1
-                    
-                if trig_dangling == 0:
-                    trig_descendant = False
-            
-            if trig_descendant:
-                priors[i+offset, Program.library.trig_tokens] = -np.inf
-            '''
-            # Check inverse tokens
-            '''
-            if t in Program.library.inverse_tokens:
-                priors[i+offset, Program.library.inverse_tokens[t]] = -np.inf    # The second token cannot be inv the first one 
-            '''
-            # Check const tokens        
-            '''
-            if i < len(tokens) - 2:
-                if t in Program.binary_tokens:
-                    if tokens[i+1] == Program.const_token:
-                        priors[i+2, Program.const_token] = -np.inf     # The second token cannot be const if the first is        
-            '''
-            '''
-            if t in Program.library.unary_tokens:
-                priors[i+offset, Program.library.const_token] = -np.inf         # Cannot have const inside unary token
-
-            if t == Program.library.const_token:
-                const_tokens += 1
-                if const_tokens >= max_const:
-                    priors[i+offset:, Program.const_token] = -np.inf      # Cap the number of consts
-            '''
-            # Constrain terminals 
-            '''
-            if (i + 2) < min_len and dangling == 1:
-                priors[i+offset, Program.library.terminal_tokens] = -np.inf
-                
-            if (i + 2) >= max_len // 2:
-                remaining   = max_len - (i + 1)
-                
-                if dangling >= remaining - 1:
-                    priors[i+offset, Program.library.binary_tokens] = -np.inf
-                elif dangling == remaining:
-                    priors[i+offset, Program.library.unary_tokens]  = -np.inf
-             '''
-    return priors
-
-
 def create_primitive_set(n_input_var):
     
     pset = gp.PrimitiveSet("MAIN", n_input_var)
@@ -271,6 +172,7 @@ def create_primitive_set(n_input_var):
     return pset
 
 
+# This function may go away at some point.
 def get_top_n_programs(population, actions, config_gp_meld, prior_func):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
@@ -279,28 +181,12 @@ def get_top_n_programs(population, actions, config_gp_meld, prior_func):
     """
     
     n           = config_gp_meld["train_n"] 
-    max_const   = config_gp_meld["max_const"]
     max_len     = config_gp_meld["max_len"] 
     min_len     = config_gp_meld["min_len"]
     
-    max_tok     = Program.library.L
-
     deap_program, deap_obs, deap_action, deap_tokens, deap_priors, deap_expr_length  = gp_base._get_top_n_programs(population, n, actions, 
                                                                                                                    max_len, min_len, gp_tokens.DEAP_to_math_tokens, prior_func)
-    '''
-    if config_gp_meld["compute_priors"]:
-        
-        #tc                              = prior_wrapper(Program.library)(TrigConstraint(Program.library))
-        #deap_priors                     = tc(deap_action, deap_obs[1], deap_obs[2]) # <--- What should go here?
-        
-        deap_priors                     = np.empty((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
-                        
-        for i in range(len(deap_tokens)):        
-            deap_priors[i,]                 = generate_priors(deap_tokens[i], actions.shape[1], deap_expr_length[i], max_const, max_len, min_len)
-        
-    else:
-        deap_priors                     = np.zeros((len(deap_tokens), actions.shape[1], max_tok), dtype=np.float32)
-    '''
+
     return deap_program, deap_obs, deap_action, deap_priors
 
 
@@ -394,20 +280,16 @@ class GPController(controller_base.GPController):
         self.get_top_n_programs                         = get_top_n_programs     
         self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
         self.init_const_epoch                           = config_gp_meld["init_const_epoch"]
-        
-    def _create_primitive_set(self, *args, **kwargs):
-        
-        raise NotImplementedError
-    
+            
     def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):
                 
         toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=parallel_eval, **kwargs) 
         const               = "const" in pset.context
-        toolbox             = self._create_toolbox_const(toolbox, const, max_const)
+        toolbox             = self._create_toolbox_const(toolbox, const, max_const, constrain_const)
         
         return toolbox, creator  
     
-    def _create_toolbox_const(self, toolbox, const, max_const):
+    def _create_toolbox_const(self, toolbox, const, max_const, constrain_const):
      
         # If we have constants and a defined maximum number, put the constraint in here               
         if const and max_const is not None:

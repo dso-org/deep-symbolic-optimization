@@ -8,9 +8,9 @@ from textwrap import indent
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
-import gym
+###import gym
 
-from dsr.functions import Token, PlaceholderConstant, function_map
+from dsr.functions import PlaceholderConstant
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U

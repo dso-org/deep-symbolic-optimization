@@ -1,21 +1,10 @@
-import random
-import operator
-import copy
 import warnings
-from functools import partial, wraps
-from operator import attrgetter
+from functools import partial
 import numpy as np
 
-from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
-from dsr.library import Token, PlaceholderConstant
-#from dsr.const import make_const_optimizer
-#from dsr.program import Program,  _finish_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
-from dsr.task.regression import regression
-from dsr.gp import base as gp_base
 from dsr.gp import symbolic_math as gp_symbolic_math
-from dsr.gp import const as gp_const
-from dsr.gp import tokens as gp_tokens
+
 
 try:
     from deap import gp

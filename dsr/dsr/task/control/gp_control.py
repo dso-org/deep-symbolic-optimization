@@ -1,9 +1,4 @@
-import random
-import operator
-import copy
 import warnings
-from functools import partial, wraps
-from operator import attrgetter
 import numpy as np
 import os
 import struct
@@ -18,17 +13,9 @@ try:
 except ImportError:
     pybullet_envs = None
 
-from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
-from dsr.const import make_const_optimizer
-from dsr.program import Program,  _finish_tokens, from_str_tokens
-from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.task.regression import gp_regression
 from dsr.task.control import control
-from dsr.gp import base as gp_base
 from dsr.gp import symbolic_math as gp_symbolic_math
-from dsr.gp import const as gp_const
-from dsr.gp import tokens as gp_tokens
-from . import utils as U
 
 try:
     from deap import gp
