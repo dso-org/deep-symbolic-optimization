@@ -1,6 +1,5 @@
 import numpy as np
 import multiprocessing
-from multiprocessing import Pool
 from pathos.multiprocessing import ProcessPool
 
 try:
@@ -19,6 +18,7 @@ except ImportError:
 from dsr.gp import base as gp_base
 from dsr.prior import make_prior
 from dsr.program import Program
+from dsr.utils import join_obs
 
 class GPController:
     
@@ -123,7 +123,7 @@ class GPController:
             self.deap_priors        = None
         
         if config_gp_meld["compute_priors"]:
-            self.prior_func             = make_prior(Program.library , config_prior, at_once=True)
+            self.prior_func             = make_prior(Program.library, config_prior, at_once=True)
         else:
             self.prior_func             = None
         

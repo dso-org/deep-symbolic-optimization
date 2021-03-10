@@ -1,10 +1,6 @@
 import gym
-
 import multiprocessing
-from multiprocessing import Pool, TimeoutError
-from pathos.multiprocessing import ProcessPool
-from pathos.pp import ParallelPool
-from functools import partial
+from multiprocessing import Pool
 import random
 
 try:
@@ -18,7 +14,6 @@ import dsr
 from dsr.program import Program, from_str_tokens
 from dsr.library import Library
 from dsr.functions import create_tokens
-from dsr.utils import cached_property
 from . import utils as U
 
 

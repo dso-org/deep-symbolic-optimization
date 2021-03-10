@@ -1,21 +1,13 @@
 import random
-import operator
-import warnings
-from functools import partial, wraps
+from functools import wraps
 from itertools import chain
 from collections import defaultdict
 from operator import attrgetter
 import numpy as np
 import time
 
-import multiprocessing
-from multiprocessing import Pool, TimeoutError
-from pathos.multiprocessing import ProcessingPool
-from pathos.multiprocessing import ProcessPool
-
 from dsr.program import Program, from_tokens
 from dsr.subroutines import parents_siblings
-from dsr.utils import join_obs
 
 try:
     from deap import gp
@@ -113,12 +105,6 @@ class GenericAlgorithm:
     def __init__(self):
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
-    '''
-    def _divide_chunks(self, l, n): 
-        # looping till length l 
-        for i in range(0, len(l), n):  
-            yield l[i:i + n] 
-    '''
     # Would this benefit from using process pooling?
     def _eval(self, population, halloffame, toolbox):
         
@@ -369,48 +355,13 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         if self.verbose:
             print('Population Size {}'.format(len(self.population)))
 
-
-# THIS FUNCTION WILL GO AWAY AT SOME POINT       
-'''     
-def _get_top_program(halloffame, actions, max_len, min_len, DEAP_to_tokens):
-    """ In addition to returning the best program, this will also compute DSR compatible parents, siblings and actions.
-    """
-    max_tok                                           = Program.library.L
-    deap_tokens, optimized_consts, deap_expr_length   = DEAP_to_tokens(halloffame[-1][0], actions.shape[1])
-       
-    deap_parent         = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
-    deap_sibling        = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
-    deap_obs_action     = np.zeros(deap_tokens.shape[0], dtype=np.int32) 
-    
-    deap_action         = np.empty(deap_tokens.shape[0], dtype=np.int32)
-    deap_obs_action[1:] = deap_tokens[:-1]
-    deap_action         = deap_tokens
-    deap_action[0]      = max_tok
-           
-    for i in range(deap_expr_length-1):       
-        p, s                = parents_siblings(np.expand_dims(deap_tokens[0:i+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
-        deap_parent[i+1]    = p
-        deap_sibling[i+1]   = s
-    
-    deap_parent[0]      = max_tok - len(Program.library.terminal_tokens)
-    deap_sibling[0]     = max_tok
-    deap_obs_action[0]  = max_tok
-
-    deap_obs            = [deap_obs_action, deap_parent, deap_sibling]
-    deap_action         = np.expand_dims(deap_action,axis=0)    
-    deap_program        = [from_tokens(deap_tokens, optimize=True, on_policy=False, optimized_consts=optimized_consts)]
-
-    return deap_program, deap_obs, deap_action,  deap_tokens, deap_expr_length
-'''
     
 def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens, priors_func=None):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
         
         Next we compute DSR compatible parents, siblings and actions.  
-    """
-    scores          = np.zeros(len(population),dtype=np.float)
-    
+    """  
     # Highest to lowest sorting.
     population      = sorted(population, key=attrgetter('fitness'), reverse=True)
     
@@ -441,7 +392,6 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
     deap_action[:,0]    = max_tok
     deap_program        = []
     deap_tokens         = []
-    optimized_consts    = []
     deap_expr_length    = []
     
     for i,p in enumerate(population):
@@ -467,14 +417,13 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
     deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
     
     if priors_func is not None:
-        print("Running Prior Function")
         dp                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
         ds                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
         dp[:,:-1]               = deap_parent[:,1:]
         ds[:,:-1]               = deap_sibling[:,1:]
         deap_priors             = priors_func(deap_action, dp, ds)
     else:
-        deap_priors             = np.zeros((len(deap_tokens), deap_actions.shape[1], max_tok), dtype=np.float32)
+        deap_priors             = np.zeros((len(deap_tokens), deap_action.shape[1], max_tok), dtype=np.float32)
         
     return deap_program, deap_obs, deap_action, deap_tokens, deap_priors, deap_expr_length 
 
@@ -561,30 +510,3 @@ def generic_train(toolbox, hof, algorithm,
         del gp.const
 
     return hof[0], logbook
-
-
-if __name__ == "__main__":
-        
-    import json
-    
-    with open("dsr/config.json", encoding='utf-8') as f:
-        config = json.load(f)
-
-    # Required configs
-    config_task             = config["task"]            # Task specification parameters
-    
-    config_dataset          = config_task["dataset"]
-    config_dataset["name"]  = 'R1'
-    dataset                 = BenchmarkDataset(**config_dataset)
-
-    pset, const_opt         = create_primitive_set(dataset)
-    hof                     = tools.HallOfFame(maxsize=1)                   # Create a Hall of Fame object
-    eval_func               = GenericEvaluate(const_opt, hof, dataset)      # Create the object/function that evaluates the population
-    toolbox                 = create_toolbox(pset, eval_func, max_len=30)   # Create a DEAP toolbox
-    algorithms              = GenericAlgorithm()                            # Actual loop function that runs GP
-    
-    eval_func.set_toolbox(toolbox)                                          # Put the toolbox into the evaluation function
-    
-    hof, logbook            = generic_train(toolbox, hof, algorithms)
-    
-    print(hof)

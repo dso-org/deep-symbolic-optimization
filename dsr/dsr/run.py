@@ -11,17 +11,14 @@ import time
 from datetime import datetime
 import multiprocessing
 from functools import partial
-from pkg_resources import resource_filename
 import zlib
 
 import click
 import numpy as np
 import pandas as pd
 from sympy.parsing.sympy_parser import parse_expr
-from sympy import srepr
 
 from dsr import DeepSymbolicOptimizer
-from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 
@@ -40,8 +37,8 @@ def train_dsr(name_and_seed, config):
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         import tensorflow as tf
         tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-        from dsr.controller import Controller
-        from dsr.train import learn
+        ###from dsr.controller import Controller
+        ###from dsr.train import learn
     except ModuleNotFoundError: # Specific subclass of ImportError for when module is not found, probably needs to be excepted first
         print("One or more libraries not found")
         raise ModuleNotFoundError
@@ -145,10 +142,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     config_training = config["training"]    # Training hyperparameters
 
     # Optional configs
-    config_controller = config.get("controller")                        # Controller hyperparameters
-    config_language_model_prior = config.get("language_model_prior")    # Language model hyperparameters
-    config_gp = config.get("gp")                                        # GP hyperparameters
-    config_gp_meld = config.get('gp_meld')
+    config_gp = config.get("gp")            # GP hyperparameters
 
     # Create output directories
     if output_filename is None:

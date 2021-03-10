@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import scipy
 
 import dsr
 from dsr.library import Library

@@ -29,33 +29,11 @@ def work(p):
     optimized_constants = p.optimize()
     return optimized_constants, p.base_r
 
-
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
-
-'''
-def base_long_val_work(p):
-    return p.base_long_validate
-
-def long_val_work(p):
-    return p.long_validate
-'''
-'''
-def base_val_work(p):
-    return p.base_validate
-
-def val_work(p):
-    return p.validate
-'''
-'''
-def p_val_work(p):
-    _ = p.validate
-    _ = p.base_validate
-    return p
-'''
 
 # This is probably better to use an internal pool since we have so
 # few p left here. 
@@ -246,13 +224,13 @@ def learn(sess, controller, pool, gp_controller,
         else:
             all_r_size              = batch_size+1
                         
-        scaling_ratio               = None
-        loss_ratio                  = None
+        ##scaling_ratio               = None
+        ##loss_ratio                  = None
     else:
         gp_controller               = None
         run_gp_meld                 = False                         
         gp_verbose                  = False
-        gp_reduce_train_strength    = None
+        ##gp_reduce_train_strength    = None
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -359,7 +337,7 @@ def learn(sess, controller, pool, gp_controller,
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
     
     nevals              = 0
-    program_val_log     = []
+    ##program_val_log     = []
 
     for step in range(n_epochs):
 

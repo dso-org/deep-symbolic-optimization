@@ -326,7 +326,7 @@ class Controller(object):
             # Applies constraints
             def get_action_parent_sibling_prior_dangling(actions, dangling):
                 n = actions.shape[0] # Batch size
-                i = actions.shape[1] - 1 # Current index
+                ###i = actions.shape[1] - 1 # Current index (unused?)
                 action = actions[:, -1] # Current action
 
                 # Depending on the constraints, may need to compute parents and siblings
@@ -370,7 +370,7 @@ class Controller(object):
 
 
             # Define loop function to be used by tf.nn.raw_rnn.
-            initial_cell_input = get_input(initial_obs)
+            ###initial_cell_input = get_input(initial_obs) # (unused?)
             def loop_fn(time, cell_output, cell_state, loop_state):
 
                 if cell_output is None: # time == 0
@@ -477,12 +477,7 @@ class Controller(object):
                                               sequence_length=B.lengths, # Backpropagates only through sequence length
                                               dtype=tf.float32)
                 
-            #logits                 = tf.Print(logits, [logits],   "Logits 1 ",  summarize=1000000)
-            
             logits += B.priors
-            #logits                 = tf.Print(logits, [B.priors],   "B.priors ",  summarize=1000000)
-            #logits                 = tf.Print(logits, [logits],   "Logits 2 ",  summarize=1000000)
-            
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
@@ -581,7 +576,6 @@ class Controller(object):
                     # Loss already is set to entropy loss
                     
                     loss += pg_loss
-                    #loss = pg_loss
 
             # Priority queue training loss
             if pqt:
@@ -702,7 +696,7 @@ class Controller(object):
 
             # Perform multiple epochs of minibatch training
             feed_dict[self.old_neglogp_ph] = old_neglogp
-            indices = np.arange(len(r))
+            indices = np.arange(len(r)) # <---- r is undefined
             for epoch in range(self.ppo_n_iters):
                 self.rng.shuffle(indices)
                 minibatches = np.array_split(indices, self.ppo_n_mb)

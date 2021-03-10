@@ -1,4 +1,3 @@
-import warnings
 
 try:
     from deap import gp
