@@ -59,6 +59,7 @@ def long_validate_and_get_best_p(r, programs, is_base):
         
     return p_best
 
+
 def policy_stats(p_train, is_on_policy):
     
     # Show on v off policy stats over programs
@@ -78,10 +79,6 @@ def policy_stats(p_train, is_on_policy):
         mean_pr     = np.mean(policy_r)
         print("Max {} policy R {} Min {} Mean {} N {}".format(ps, max_pr, min_pr, mean_pr, pr_N))
 
-# def sympy_work(p):
-#     sympy_expr = p.sympy_expr
-#     str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
-#     return sympy_expr, str_sympy_expr
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -224,13 +221,10 @@ def learn(sess, controller, pool, gp_controller,
         else:
             all_r_size              = batch_size+1
                         
-        ##scaling_ratio               = None
-        ##loss_ratio                  = None
     else:
         gp_controller               = None
         run_gp_meld                 = False                         
         gp_verbose                  = False
-        ##gp_reduce_train_strength    = None
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -337,7 +331,6 @@ def learn(sess, controller, pool, gp_controller,
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
     
     nevals              = 0
-    ##program_val_log     = []
 
     for step in range(n_epochs):
 
@@ -393,9 +386,6 @@ def learn(sess, controller, pool, gp_controller,
             
             # First get a dict of all programs without a reward. The dict will force
             # the set to have unique members
-            #p_dict                  = {p.str:p for p in programs if "base_r" not in p.__dict__}
-            #programs_to_optimize    = [v for k,v in p_dict.items()]
-            #programs_to_optimize    = list(set([p for p in programs if "base_r" not in p.__dict__]))
             programs_to_optimize    = [p for p in programs if "base_r" not in p.__dict__]
 
             # Optimize and compute base_r
