@@ -8,7 +8,6 @@ from textwrap import indent
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
-###import gym
 
 from dsr.functions import PlaceholderConstant
 from dsr.const import make_const_optimizer

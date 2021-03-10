@@ -1,7 +1,6 @@
 """Class for Prior object."""
 
 import numpy as np
-#from functools import wraps
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
