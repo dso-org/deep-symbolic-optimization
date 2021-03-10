@@ -117,7 +117,7 @@
         "init_const_epoch"			: true,
         "constrain_const"         	: true,
         "desc_compute_priors"		: "Turn on the computation of priors for return to RL controller. For regression task, seems to make no difference.",
-        "compute_priors"			: false,
+        "compute_priors"			: true,
         "desc_parallel_eval"		: "Evaluate GP population in parallel. Overhead makes this only good for expensive tasks like Controller.",
         "parallel_eval" 			: false,
         "record_best" 				: false,
