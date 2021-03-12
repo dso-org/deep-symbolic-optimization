@@ -16,6 +16,7 @@ except ImportError:
     algorithms  = None
 
 from dsr.gp import base as gp_base
+from dsr.gp import tokens as gp_tokens
 from dsr.prior import make_prior
 from dsr.program import Program
 from dsr.utils import join_obs
@@ -54,7 +55,8 @@ class GPController:
         assert isinstance(config_gp_meld,dict) 
         assert isinstance(config_task,dict) 
         assert isinstance(config_training,dict) 
-        assert isinstance(pset, gp.PrimitiveSetTyped)
+        #assert isinstance(pset, gp.PrimitiveSetTyped)
+        assert isinstance(pset, gp_tokens.PrimitiveSetTyped)
         assert callable(eval_func)
         assert callable(check_constraint)
         assert isinstance(hof, tools.HallOfFame)
@@ -140,7 +142,8 @@ class GPController:
                              gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
                              popConstraint=None, parallel_eval=True):
     
-        assert isinstance(pset, gp.PrimitiveSet),   "pset should be a gp.PrimitiveSet"
+        #assert isinstance(pset, gp.PrimitiveSet) or 
+        assert isinstance(pset, gp_tokens.PrimitiveSet),   "pset should be a PrimitiveSet"
         assert callable(eval_func),                 "evaluation function should be callable"
         assert callable(gen_func),                  "gen_func should be callable"
         

@@ -163,7 +163,8 @@ def popConstraint():
 
 def create_primitive_set(n_input_var):
     
-    pset = gp.PrimitiveSet("MAIN", n_input_var)
+    #pset = gp.PrimitiveSet("MAIN", n_input_var)
+    pset = gp_tokens.PrimitiveSet("MAIN", n_input_var)
 
     # Add input variables
     rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(n_input_var)}
