@@ -1,5 +1,6 @@
 import numpy as np
 from dsr.program import Program,  _finish_tokens
+from collections import defaultdict
 
 try:
     from deap import gp
@@ -13,7 +14,10 @@ except ImportError:
     tools       = None
     creator     = None
     algorithms  = None
-    
+
+# Define the name of type for any types.
+__type__ = object
+
 r"""
     This is a base class for accessing DEAP and interfacing it with DSR. 
         
@@ -35,7 +39,8 @@ def DEAP_to_math_tokens(individual, tokens_size):
         
         t = individual[i]
         
-        if isinstance(t, gp.Terminal):
+        #if isinstance(t, gp.Terminal):
+        if isinstance(t, Terminal):    
             if t.name.startswith("user_const_"):
                 '''
                     User provided constants which do not change.
@@ -114,7 +119,8 @@ def math_tokens_to_DEAP(tokens, primitive_set):
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
-    assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
+    #assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
+    assert isinstance(primitive_set, PrimitiveSet), "You need to supply a valid primitive set for translation."
     assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
     
     '''
@@ -196,4 +202,249 @@ def math_tokens_to_DEAP(tokens, primitive_set):
     '''
     return individual
 
+
+class Primitive(object):
+    """Class that encapsulates a primitive and when called with arguments it
+    returns the Python code to call the primitive with the arguments.
+
+        >>> pr = Primitive("mul", (int, int), int)
+        >>> pr.format(1, 2)
+        'mul(1, 2)'
+    """
+    __slots__ = ('name', 'arity', 'args', 'ret', 'seq', 'token')
+
+    def __init__(self, name, args, ret, token):
+        assert isinstance(token,int)
+        self.name   = name
+        self.arity  = len(args)
+        self.args   = args
+        self.ret    = ret
+        args        = ", ".join(map("{{{0}}}".format, range(self.arity)))
+        self.seq    = "{name}({args})".format(name=self.name, args=args)
+        self.token  = token
+
+    def format(self, *args):
+        return self.seq.format(*args)
+
+    def __eq__(self, other):
+        if type(self) is type(other):
+            return all(getattr(self, slot) == getattr(other, slot)
+                       for slot in self.__slots__)
+        else:
+            return NotImplemented
+
+
+class Terminal(object):
+    """Class that encapsulates terminal primitive in expression. Terminals can
+    be values or 0-arity functions.
+    """
+    __slots__ = ('name', 'value', 'ret', 'conv_fct', 'token')
+
+    def __init__(self, terminal, symbolic, ret, token):
+        assert isinstance(token,int)
+        self.ret        = ret
+        self.value      = terminal
+        self.name       = str(terminal)
+        self.conv_fct   = str if symbolic else repr
+        self.token      = token
+
+    @property
+    def arity(self):
+        return 0
+
+    def format(self):
+        return self.conv_fct(self.value)
+
+    def __eq__(self, other):
+        if type(self) is type(other):
+            return all(getattr(self, slot) == getattr(other, slot)
+                       for slot in self.__slots__)
+        else:
+            return NotImplemented
+
+
+class Ephemeral(Terminal):
+    """Class that encapsulates a terminal which value is set when the
+    object is created. To mutate the value, a new object has to be
+    generated. This is an abstract base class. When subclassing, a
+    staticmethod 'func' must be defined.
+    """
+
+    def __init__(self):
+        Terminal.__init__(self, self.func(), symbolic=False, ret=self.ret, token=Program.library.names.index("const"))
+
+    @staticmethod
+    def func():
+        """Return a random value used to define the ephemeral state.
+        """
+        raise NotImplementedError
+
+
+class PrimitiveSetTyped(object):
+    """Class that contains the primitives that can be used to solve a
+    Strongly Typed GP problem. The set also defined the researched
+    function return type, and input arguments type and number.
+    """
+
+    def __init__(self, name, in_types, ret_type, prefix="ARG"):
+              
+        self.terminals = defaultdict(list)
+        self.primitives = defaultdict(list)
+        self.arguments = []
+        # setting "__builtins__" to None avoid the context
+        # being polluted by builtins function when evaluating
+        # GP expression.
+        self.context = {"__builtins__": None}
+        self.mapping = dict()
+        self.terms_count = 0
+        self.prims_count = 0
+
+        self.name = name
+        self.ret = ret_type
+        self.ins = in_types
+    
+        for i, type_ in enumerate(in_types):
+            arg_str = "{prefix}{index}".format(prefix=prefix, index=i)
+            self.arguments.append(arg_str)
+            # Each variable token ID is just its number as the first n tokens
+            term = Terminal(arg_str, True, ret=type_, token=i) 
+            self._add(term)
+            self.terms_count += 1
+
+    def renameArguments(self, **kargs):
+        """Rename function arguments with new names from *kargs*.
+        """
+        for i, old_name in enumerate(self.arguments):
+            if old_name in kargs:
+                new_name = kargs[old_name]
+                self.arguments[i] = new_name
+                self.mapping[new_name] = self.mapping[old_name]
+                self.mapping[new_name].value = new_name
+                del self.mapping[old_name]
+
+    def _add(self, prim):
+        def addType(dict_, ret_type):
+            if ret_type not in dict_:
+                new_list = []
+                for type_, list_ in dict_.items():
+                    if issubclass(type_, ret_type):
+                        for item in list_:
+                            if item not in new_list:
+                                new_list.append(item)
+                dict_[ret_type] = new_list
+
+        addType(self.primitives, prim.ret)
+        addType(self.terminals, prim.ret)
+
+        self.mapping[prim.name] = prim
+        if isinstance(prim, Primitive):
+            for type_ in prim.args:
+                addType(self.primitives, type_)
+                addType(self.terminals, type_)
+            dict_ = self.primitives
+        else:
+            dict_ = self.terminals
+
+        for type_ in dict_:
+            if issubclass(prim.ret, type_):
+                dict_[type_].append(prim)
+
+    def addPrimitive(self, primitive, in_types, ret_type, name):
+        """Add a primitive to the set.
+
+        :param primitive: callable object or a function.
+        :param in_types: list of primitives arguments' type
+        :param ret_type: type returned by the primitive.
+        :param name: alternative name for the primitive instead
+                     of its __name__ attribute.
+        """
+        #if name is None:
+        #    name = primitive.__name__
+               
+        prim = Primitive(name, in_types, ret=ret_type, token=Program.library.names.index(name))
+
+        assert name not in self.context or \
+               self.context[name] is primitive, \
+            "Primitives are required to have a unique name. " \
+            "Consider using the argument 'name' to rename your " \
+            "second '%s' primitive." % (name,)
+
+        self._add(prim)
+        self.context[prim.name] = primitive
+        self.prims_count += 1
+
+    def addTerminal(self, terminal, ret_type, name):
+        """Add a terminal to the set. Terminals can be named
+        using the optional *name* argument. This should be
+        used : to define named constant (i.e.: pi); to speed the
+        evaluation time when the object is long to build; when
+        the object does not have a __repr__ functions that returns
+        the code to build the object; when the object class is
+        not a Python built-in.
+
+        :param terminal: Object, or a function with no arguments.
+        :param ret_type: Type of the terminal.
+        :param name: defines the name of the terminal in the expression.
+        """
+        symbolic = False
+        #if name is None and callable(terminal):
+        #    name = terminal.__name__
+        
+        assert name not in self.context, \
+            "Terminals are required to have a unique name. " \
+            "Consider using the argument 'name' to rename your " \
+            "second %s terminal." % (name,)
+
+        if name is not None:
+            self.context[name] = terminal
+            terminal = name
+            symbolic = True
+        elif terminal in (True, False):
+            # To support True and False terminals with Python 2.
+            self.context[str(terminal)] = terminal
+
+        if name.startswith("user_const_"):
+            prim = Terminal(terminal, symbolic, ret=ret_type, token=Program.library.names.index(name.split('_')[2]))
+        elif name.startswith("mutable_const_"):
+            prim = Terminal(terminal, symbolic, ret=ret_type, token=Program.library.names.index("const"))
+        else:
+            # We don't support other types at the moment
+            raise ValueError
+            
+        self._add(prim)
+        self.terms_count += 1
+        
+    @property
+    def terminalRatio(self):
+        """Return the ratio of the number of terminals on the number of all
+        kind of primitives.
+        """
+        return self.terms_count / float(self.terms_count + self.prims_count)
+
+
+class PrimitiveSet(PrimitiveSetTyped):
+    """Class same as :class:`~deap.gp.PrimitiveSetTyped`, except there is no
+    definition of type.
+    """
+
+    def __init__(self, name, arity, prefix="ARG"):
+        args = [__type__] * arity
+        PrimitiveSetTyped.__init__(self, name, args, ret_type=__type__, prefix=prefix)
+
+    def addPrimitive(self, primitive, arity, name):
+        """Add primitive *primitive* with arity *arity* to the set.
+        If a name *name* is provided, it will replace the attribute __name__
+        attribute to represent/identify the primitive.
+        """
+        assert arity > 0, "arity should be >= 1"
+        args = [__type__] * arity
+        PrimitiveSetTyped.addPrimitive(self, primitive, args, ret_type=__type__, name=name)
+
+    def addTerminal(self, terminal, name):
+        """Add a terminal to the set."""
+        PrimitiveSetTyped.addTerminal(self, terminal, ret_type=__type__, name=name)
+
+    def addEphemeralConstant(self, name, ephemeral):
+        """Add an ephemeral constant to the set."""
+        PrimitiveSetTyped.addEphemeralConstant(self, name, ephemeral, ret_type=__type__)
 
