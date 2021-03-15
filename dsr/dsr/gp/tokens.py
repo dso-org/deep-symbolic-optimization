@@ -15,8 +15,13 @@ except ImportError:
     creator     = None
     algorithms  = None
 
-# Define the name of type for any types.
+# Define the name of type for any types. This is a DEAP widget thingy. 
 __type__ = object
+
+try:
+    CONST_TOKEN = Program.library.names.index("const")
+except:
+    CONST_TOKEN = None
 
 r"""
     This is a base class for accessing DEAP and interfacing it with DSR. 
@@ -24,18 +29,31 @@ r"""
     These are pure symblic components which relate to any symblic task. These are not purely task agnostic and
     are kept seprate from core.
 """
-
 def DEAP_to_math_tokens(individual, tokens_size):
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
 
-    l = min(len(individual),tokens_size)
+    l                   = min(len(individual), tokens_size)
   
-    tokens              = np.zeros(tokens_size,dtype=np.int32)
+    tokens              = np.zeros(tokens_size, dtype=np.int32)
+    arities             = np.empty(l)
     optimized_consts    = []
     
-    for i in range(l):
+    if CONST_TOKEN is not None:
+        for i in range(l): 
+            ind         = individual[i]
+            tokens[i]   = ind.token
+            arities[i]  = ind.arity
+            if ind.token == CONST_TOKEN: optimized_consts.append(ind.value) 
+    else:   
+        for i in range(l): tokens[i], arities[i] = individual[i].token, individual[i].arity
+        
+    dangling            = 1 + np.cumsum(arities - 1) 
+    expr_length         = 1 + np.argmax(dangling == 0)
+    
+    """    
+        tokens[i]   = individual[i].token
         
         t = individual[i]
         
@@ -70,11 +88,12 @@ def DEAP_to_math_tokens(individual, tokens_size):
             '''
             # Get the index number for this op from the op list in Program.library
             tokens[i] = Program.library.names.index(t.name)
+    
             
     arities         = np.array([Program.library.arities[t] for t in tokens])
     dangling        = 1 + np.cumsum(arities - 1) 
     expr_length     = 1 + np.argmax(dangling == 0)
-  
+    """
     '''
         Here we return the tokens as a list of indexable integers as well as a list of library token objects. 
         We primarily need to library token objects if we want to keep track of optimized mutable constants 
@@ -119,7 +138,6 @@ def math_tokens_to_DEAP(tokens, primitive_set):
         
     assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
-    #assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
     assert isinstance(primitive_set, PrimitiveSet), "You need to supply a valid primitive set for translation."
     assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
     
@@ -271,7 +289,7 @@ class Ephemeral(Terminal):
     """
 
     def __init__(self):
-        Terminal.__init__(self, self.func(), symbolic=False, ret=self.ret, token=Program.library.names.index("const"))
+        Terminal.__init__(self, self.func(), symbolic=False, ret=self.ret, token=CONST_TOKEN)
 
     @staticmethod
     def func():
@@ -360,7 +378,9 @@ class PrimitiveSetTyped(object):
         """
         #if name is None:
         #    name = primitive.__name__
-               
+        
+        ###print("adding primitve {}".format(name))
+        
         prim = Primitive(name, in_types, ret=ret_type, token=Program.library.names.index(name))
 
         assert name not in self.context or \
@@ -406,12 +426,45 @@ class PrimitiveSetTyped(object):
         if name.startswith("user_const_"):
             prim = Terminal(terminal, symbolic, ret=ret_type, token=Program.library.names.index(name.split('_')[2]))
         elif name.startswith("mutable_const_"):
-            prim = Terminal(terminal, symbolic, ret=ret_type, token=Program.library.names.index("const"))
+            prim = Terminal(terminal, symbolic, ret=ret_type, token=CONST_TOKEN)
         else:
             # We don't support other types at the moment
             raise ValueError
-            
+        
+        ###print("adding terminal {}".format(name))
+        
         self._add(prim)
+        self.terms_count += 1
+        
+    def addEphemeralConstant(self, name, ephemeral, ret_type):
+        """Add an ephemeral constant to the set. An ephemeral constant
+        is a no argument function that returns a random value. The value
+        of the constant is constant for a Tree, but may differ from one
+        Tree to another.
+
+        :param name: name used to refers to this ephemeral type.
+        :param ephemeral: function with no arguments returning a random value.
+        :param ret_type: type of the object returned by *ephemeral*.
+        """
+        module_gp = globals()
+        if name not in module_gp:
+            class_ = type(name, (Ephemeral,), {'func': staticmethod(ephemeral),
+                                               'ret': ret_type})
+            module_gp[name] = class_
+        else:
+            class_ = module_gp[name]
+            if issubclass(class_, Ephemeral):
+                if class_.func is not ephemeral:
+                    raise Exception("Ephemerals with different functions should "
+                                    "be named differently, even between psets.")
+                elif class_.ret is not ret_type:
+                    raise Exception("Ephemerals with the same name and function "
+                                    "should have the same type, even between psets.")
+            else:
+                raise Exception("Ephemerals should be named differently "
+                                "than classes defined in the gp module.")
+
+        self._add(class_)
         self.terms_count += 1
         
     @property

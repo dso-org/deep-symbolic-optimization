@@ -1,6 +1,7 @@
 import numpy as np
 from dsr.const import make_const_optimizer
 from dsr.program import Program
+from dsr.gp import tokens as gp_tokens
 
 try:
     from deap import gp
@@ -14,13 +15,17 @@ except ImportError:
     tools       = None
     creator     = None
     algorithms  = None
-
+    
+try:
+    CONST_TOKEN = Program.library.names.index("const")
+except:
+    CONST_TOKEN = None
 
 def set_const_individuals(const_idxs, consts, individual):
         
     # These are optimizable constants, not user constants. 
     for i, const in zip(const_idxs, consts):
-        individual[i] = gp.Terminal(const, False, object)
+        individual[i] = gp_tokens.Terminal(const, False, object, token=CONST_TOKEN)
         individual[i].name = "mutable_const_{}".format(i) 
         
     return individual
@@ -30,7 +35,7 @@ def reset_consts(pset_mapping, val=1.0):
         
     for k, v in pset_mapping.items():
         if v.name.startswith("mutable_const_"):
-            v.value = 1.0
+            v.value = val # 1.0
             
     return pset_mapping
 
