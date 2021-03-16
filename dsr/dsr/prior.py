@@ -185,6 +185,19 @@ class Prior():
         """
 
         raise NotImplementedError
+    
+    def is_violated(self, actions, parent, sibling):
+        """
+        Given a set of actions, tells us if a prior constraint has been violated 
+        post hoc. 
+
+        Returns
+        -------
+        violated : Bool
+        """
+        
+        raise NotImplementedError
+        
 
     def describe(self):
         """Describe the Prior."""
@@ -270,43 +283,6 @@ class RelationalConstraint(Constraint):
             return message
         return None
 
-    def __call__(self, actions, parent, sibling, dangling):
-
-        if self.relationship == "descendant":
-            mask = ancestors(actions=actions,
-                             arities=self.library.arities,
-                             ancestor_tokens=self.effectors)
-            prior = self.make_constraint(mask, self.targets)
-
-        elif self.relationship == "child":
-            parents = self.effectors
-            adj_parents = self.library.parent_adjust[parents]
-            mask = np.isin(parent, adj_parents)
-            prior = self.make_constraint(mask, self.targets)
-
-        elif self.relationship == "sibling":
-            # The sibling relationship is reflexive: if A is a sibling of B,
-            # then B is also a sibling of A. Thus, we combine two priors, where
-            # targets and effectors are swapped.
-            mask = np.isin(sibling, self.effectors)
-            prior = self.make_constraint(mask, self.targets)
-            mask = np.isin(sibling, self.targets)
-            prior += self.make_constraint(mask, self.effectors)
-
-        elif self.relationship == "uchild":
-            # Case 1: parent is a unary effector
-            unary_effectors = np.intersect1d(self.effectors,
-                                             self.library.unary_tokens)
-            adj_unary_effectors = self.library.parent_adjust[unary_effectors]
-            mask = np.isin(parent, adj_unary_effectors)
-            # Case 2: sibling is a target and parent is an effector
-            adj_effectors = self.library.parent_adjust[self.effectors]
-            mask += np.logical_and(np.isin(sibling, self.targets),
-                                   np.isin(parent, adj_effectors))
-            prior = self.make_constraint(mask, [self.targets])
-            
-        return prior
-
     def describe(self):
 
         targets = ", ".join([self.library.names[t] for t in self.targets])
@@ -322,20 +298,189 @@ class RelationalConstraint(Constraint):
         return message
 
 
-class TrigConstraint(RelationalConstraint):
+class DescendantRelationalConstraint(RelationalConstraint):
+    
+    def __init__(self, **kwargs):
+        super(DescendantRelationalConstraint, self).__init__(**kwargs, relationship="descendant")
+                
+    def __call__(self, actions, parent, sibling, dangling):
+        mask = ancestors(actions=actions,
+                         arities=self.library.arities,
+                         ancestor_tokens=self.effectors)
+        prior = self.make_constraint(mask, self.targets)
+        
+        return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        '''
+        Want:
+        '''
+        descendant = False # True when current node is a descendant of operator
+
+        # Call ancestors instead?
+        for a in actions:
+            if a in self.targets:
+                if descendant:
+                    return True
+                descendant = True
+                dangling   = 1
+            elif descendant:
+                if a in library.binary_tokens:      
+                    dangling += 1
+                elif a not in library.unary_tokens: 
+                    dangling -= 1
+                if dangling == 0:
+                    descendant = False
+                    
+        return False
+        
+        '''
+        if len(actions.shape) == 1:
+            
+        mask = ancestors(actions=actions,
+                         arities=self.library.arities,
+                         ancestor_tokens=self.effectors)
+        
+        return any(mask)
+        '''
+        
+class ChildRelationalConstraint(RelationalConstraint):
+    
+    def __init__(self, **kwargs):
+        super(ChildRelationalConstraint, self).__init__(**kwargs, relationship="child")
+        
+    def __call__(self, actions, parent, sibling, dangling):
+        parents = self.effectors
+        adj_parents = self.library.parent_adjust[parents]
+        mask = np.isin(parent, adj_parents)
+        prior = self.make_constraint(mask, self.targets)
+        
+        return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        adj_effectors = self.library.parent_adjust[self.effectors]
+        
+        '''
+        Want:
+        
+        for i, a in enumerate(actions):
+            if a in self.targets and parent[i] in adj_effectors:
+                return True
+            
+        return False
+        '''
+        
+        a1 = np.isin(actions, self.targets)
+        a2 = np.isin(parents, adj_effectors)
+        return np.any(np.logical_and(a1, a2))
+        
+        
+class SiblingRelationalConstraint(RelationalConstraint):
+    
+    def __init__(self, **kwargs):
+        super(SiblingRelationalConstraint, self).__init__(**kwargs, relationship="sibling")
+        
+    def __call__(self, actions, parent, sibling, dangling):
+        # The sibling relationship is reflexive: if A is a sibling of B,
+        # then B is also a sibling of A. Thus, we combine two priors, where
+        # targets and effectors are swapped.
+        mask = np.isin(sibling, self.effectors)
+        prior = self.make_constraint(mask, self.targets)
+        mask = np.isin(sibling, self.targets)
+        prior += self.make_constraint(mask, self.effectors)
+        
+        return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        '''
+        Want:
+        
+        for i, a in enumerate(actions):
+            if a in self.targets and sibling[i] in self.effectors:
+                return True
+            if sibling[i] in self.targets and a in self.effectors:
+                return True
+            
+        return False
+        '''
+    
+        a1 = np.isin(actions, self.targets)
+        a2 = np.isin(sibling, self.effectors)
+        if np.any(np.logical_and(a1, a2)):
+            return True
+        
+        a1 = np.isin(actions, self.effectors)
+        a2 = np.isin(sibling, self.targets)
+        if np.any(np.logical_and(a1, a2)):
+            return True
+        
+        return False
+        
+class UChildRelationalConstraint(RelationalConstraint):
+    
+    def __init__(self, **kwargs):
+        super(UChildRelationalConstraint, self).__init__(**kwargs, relationship="uchild")
+        
+    def __call__(self, actions, parent, sibling, dangling):
+        # Case 1: parent is a unary effector
+        unary_effectors = np.intersect1d(self.effectors,
+                                         self.library.unary_tokens)
+        adj_unary_effectors = self.library.parent_adjust[unary_effectors]
+        mask = np.isin(parent, adj_unary_effectors)
+        # Case 2: sibling is a target and parent is an effector
+        adj_effectors = self.library.parent_adjust[self.effectors]
+        mask += np.logical_and(np.isin(sibling, self.targets),
+                               np.isin(parent, adj_effectors))
+        prior = self.make_constraint(mask, [self.targets])
+        
+        return prior
+    
+    def is_violated(self, actions, parent, sibling):
+
+        unary_effectors     = np.intersect1d(self.effectors, self.library.unary_tokens)
+        adj_unary_effectors = self.library.parent_adjust[unary_effectors]
+        adj_effectors       = self.library.parent_adjust[self.effectors]
+
+        '''
+        Want:
+
+        for i, a in enumerate(actions):
+            if parent[i] in adj_unary_effectors:
+                if a in self.targets:
+                    return True
+            elif sibling[i] in self.targets and parent[i] in adj_effectors:
+                return True
+                
+        '''
+        
+        a1 = np.isin(parents, adj_unary_effectors)
+        a2 = np.isin(actions, self.targets)
+        if np.any(np.logical_and(a1, a2)):
+            return True
+        
+        a1 = np.isin(siblings, self.targets)
+        a2 = np.isin(parents, adj_effectors)
+        if np.any(np.logical_and(a1, a2)):
+            return True
+            
+        return False
+              
+
+class TrigConstraint(DescendantRelationalConstraint):
     """Class that constrains trig Tokens from being the desendants of trig
     Tokens."""
 
     def __init__(self, library):
         targets = library.trig_tokens
         effectors = library.trig_tokens
-        RelationalConstraint.__init__(self, library,
-                                      targets=targets,
-                                      effectors=effectors,
-                                      relationship="descendant")
+        super(TrigConstraint, self).__init__(library=library,
+                                             targets=targets,
+                                             effectors=effectors)
 
 
-class ConstConstraint(RelationalConstraint):
+class ConstConstraint(UChildRelationalConstraint):
     """Class that constrains the const Token from being the only unique child
     of all non-terminal Tokens."""
 
@@ -343,10 +488,10 @@ class ConstConstraint(RelationalConstraint):
         targets = library.const_token
         effectors = np.concatenate([library.unary_tokens,
                                     library.binary_tokens])
-        RelationalConstraint.__init__(self, library,
-                                      targets=targets,
-                                      effectors=effectors,
-                                      relationship="uchild")
+        
+        super(ConstConstraint, self).__init__(library=library,
+                                              targets=targets,
+                                              effectors=effectors)
 
 
 class NoInputsConstraint(Constraint):
@@ -373,6 +518,12 @@ class NoInputsConstraint(Constraint):
                (np.sum(np.isin(actions, self.library.input_tokens), axis=1) == 0)
         prior = self.make_constraint(mask, self.library.float_tokens)
         return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        # Doesn't make sense in this context, just return false. 
+        # Deap would check for this anyways.
+        return False
 
     def describe(self):
         message = "Sequences contain at least one input variable Token."
@@ -390,10 +541,9 @@ class InverseUnaryConstraint(Constraint):
         for target, effector in library.inverse_tokens.items():
             targets = [target]
             effectors = [effector]
-            prior = RelationalConstraint(library,
-                                         targets=targets,
-                                         effectors=effectors,
-                                         relationship="child")
+            prior = ChildRelationalConstraint(library=library,
+                                              targets=targets,
+                                              effectors=effectors)
             self.priors.append(prior)
 
     def validate(self):
@@ -405,7 +555,11 @@ class InverseUnaryConstraint(Constraint):
     def __call__(self, actions, parent, sibling, dangling):      
         prior = sum([prior(actions, parent, sibling, dangling) for prior in self.priors])
         return prior
-
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        return sum([prior.is_violated(actions, parent, sibling, None) for prior in self.priors])
+        
     def describe(self):
         message = [prior.describe() for prior in self.priors]
         return "\n".join(message)
@@ -448,6 +602,19 @@ class RepeatConstraint(Constraint):
             mask = counts >= self.max
             prior += self.make_constraint(mask, self.tokens)
         return prior
+    
+    def is_violated(self, actions):
+        
+        count = 0
+        for i, a in enumerate(actions):
+            count += a in self.tokens
+            
+        if self.min is not None and count < self.min:
+            return True
+        elif self.max is not None and count >= self.max:
+            return True
+        
+        return False 
 
     def describe(self):
         names = ", ".join([self.library.names[t] for t in self.tokens])
@@ -514,6 +681,20 @@ class LengthConstraint(Constraint):
             prior += self.make_constraint(mask, self.library.terminal_tokens)
 
         return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        # Deap has methods to do this already, in that case, it may be better to use
+        # its own methods. 
+        
+        i = actions.shape[1]
+        
+        if self.min is not None and i < self.min:
+            return True
+        if self.max is not None and i >= self.max:
+            return True
+        
+        return False
 
     def describe(self):
         message = []
@@ -549,6 +730,11 @@ class UniformArityPrior(Prior):
         # This will be broadcast when added to the joint prior
         prior = self.logit_adjust
         return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        # Doesn't make sense in this context, just return false. 
+        return False
 
 
 class SoftLengthPrior(Prior):
@@ -586,3 +772,9 @@ class SoftLengthPrior(Prior):
             prior += self.nonterminal_mask * logit_adjust
 
         return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        
+        # Doesn't make sense in this context, just return false. 
+        return False
+    
