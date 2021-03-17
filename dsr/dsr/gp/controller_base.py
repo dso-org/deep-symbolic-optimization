@@ -73,6 +73,9 @@ class GPController:
         
         self.check_constraint       = check_constraint
         
+        # Create widget for checking constraint violations
+        self.joint_prior_violation  = make_prior(Program.library, config_prior, use_violation=True, use_deap=True)
+        
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
                                                            gen_func            = self.gen_func, 
@@ -124,7 +127,7 @@ class GPController:
             self.deap_priors        = None
         
         if config_gp_meld["compute_priors"]:
-            self.prior_func             = make_prior(Program.library, config_prior, at_once=True)
+            self.prior_func             = make_prior(Program.library, config_prior, use_at_once=True)
         else:
             self.prior_func             = None
         
@@ -161,6 +164,7 @@ class GPController:
         toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
         
         if callable(popConstraint):
+            #toolbox.decorate("individual", popConstraint(self.joint_prior_violation))
             toolbox.decorate("individual", popConstraint())
         
         toolbox.register("population",  tools.initRepeat, list, toolbox.individual)
@@ -171,8 +175,8 @@ class GPController:
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
         toolbox.register('mutate',      gp_base.multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
-        toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth))
-        toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth))
+        toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
+        toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
         
         #overide the built in map function in toolbox
         if parallel_eval:
