@@ -1,6 +1,7 @@
 import numpy as np
 from dsr.program import Program,  _finish_tokens
 from collections import defaultdict
+from numba import jit, prange
 
 try:
     from deap import gp
@@ -22,6 +23,15 @@ try:
     CONST_TOKEN = Program.library.names.index("const")
 except:
     CONST_TOKEN = None
+
+r"""
+    Fast special case version of below
+"""
+def opt_DEAP_to_math_tokens(individual):
+
+    tokens = np.array([i.token for i in individual], dtype=np.int32)
+    
+    return tokens
 
 r"""
     This is a base class for accessing DEAP and interfacing it with DSR. 
@@ -239,7 +249,7 @@ class Primitive(object):
         self.ret    = ret
         args        = ", ".join(map("{{{0}}}".format, range(self.arity)))
         self.seq    = "{name}({args})".format(name=self.name, args=args)
-        self.token  = token
+        self.token  = token # DSR Token library number
 
     def format(self, *args):
         return self.seq.format(*args)
@@ -264,7 +274,7 @@ class Terminal(object):
         self.value      = terminal
         self.name       = str(terminal)
         self.conv_fct   = str if symbolic else repr
-        self.token      = token
+        self.token      = token # DSR Token library number
 
     @property
     def arity(self):

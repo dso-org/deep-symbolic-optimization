@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 from dsr.program import Program, from_tokens
-from dsr.subroutines import parents_siblings
+from dsr.subroutines import parents_siblings, parents_siblings_at_once
 
 try:
     from deap import gp
@@ -386,6 +386,8 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
     
     deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
     deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
+    #tmp_parent          = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
+    #tmp_sibling         = np.zeros((len(population),actions.shape[1]), dtype=np.int32)
     deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
     deap_obs_action     = np.empty((len(population),actions.shape[1]), dtype=np.int32)
     
@@ -402,17 +404,31 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
         deap_action[i,:]                = dt
         
         deap_program.append(from_tokens(dt, optimize=True, on_policy=False, optimized_consts=oc))
-                
+        
+        deap_parent[i,:], deap_sibling[i,:] = parents_siblings_at_once(np.expand_dims(dt, axis=0), 
+                                                                       arities=Program.library.arities, 
+                                                                       parent_adjust=Program.library.parent_adjust)
+        
+        
+        '''
         for j in range(actions.shape[1]-1):       
             # Parent and sibling given the current action
             # Action should be alligned with parent and sibling.
             # The current action should be passed into function inclusivly of itself [:j+1]. 
             p, s                    = parents_siblings(np.expand_dims(dt[0:j+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
-            deap_parent[i,j+1]      = p
-            deap_sibling[i,j+1]     = s
+            tmp_parent[i,j+1]       = p
+            tmp_sibling[i,j+1]      = s
+            
+        print("-----------------------------------")
+        print(deap_parent[i,:])
+        print(tmp_parent[i,:])
+        print(deap_sibling[i,:])
+        print(tmp_sibling[i,:])
+        '''
+               
     
-    deap_parent[:,0]        = max_tok - len(Program.library.terminal_tokens)
-    deap_sibling[:,0]       = max_tok
+    #deap_parent[:,0]        = max_tok - len(Program.library.terminal_tokens)
+    #deap_sibling[:,0]       = max_tok
     deap_obs_action[:,0]    = max_tok
     deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
     
