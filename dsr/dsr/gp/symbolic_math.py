@@ -94,7 +94,7 @@ def check_trig(names):
                 
     return False
 '''
-def checkConstraint(max_length, min_length, max_depth):
+def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
     """Check a varety of constraints on a memeber. These include:
         Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
         
@@ -131,6 +131,7 @@ def checkConstraint(max_length, min_length, max_depth):
 
     return decorator
 '''
+
 # This is called when we mate or mutate and individual
 def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
     """Check a varety of constraints on a memeber. These include:
@@ -138,6 +139,9 @@ def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
         
         This is a decorator function that attaches to mutate or mate functions in
         DEAP.
+        
+        >>> This has been tested and gives the same answer as the old constraint 
+            function given trig and inverse constraints. 
     """
     def decorator(func):
         @wraps(func)
@@ -164,6 +168,44 @@ def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
 
     return decorator
 
+'''
+# This is called when we mate or mutate and individual
+def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
+    """Check a varety of constraints on a memeber. These include:
+        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
+        
+        This is a decorator function that attaches to mutate or mate functions in
+        DEAP.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
+            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
+                        
+            for i, ind in enumerate(new_inds):
+                
+                l = len(ind)
+                
+                if l > max_length:
+                    new_inds[i] = random.choice(keep_inds)
+                elif l < min_length:
+                    new_inds[i] = random.choice(keep_inds)
+                elif operator.attrgetter("height")(ind) > max_depth:
+                    new_inds[i] = random.choice(keep_inds)
+                else:
+                    names = [node.name for node in new_inds[i]]
+                    old = check_inv(names) or check_trig(names)
+                    if old != joint_prior_violation(new_inds[i]):
+                        print("{}, {} : {}".format(check_inv(names), check_trig(names), joint_prior_violation(new_inds[i])))
+                    if joint_prior_violation(new_inds[i]):
+                        new_inds[i] = random.choice(keep_inds)                    
+            return new_inds
+
+        return wrapper
+
+    return decorator
+'''
 
 # This may not be in use, but may be used later
 def popConstraint():
@@ -192,8 +234,8 @@ def popConstraint():
         return wrapper
 
     return decorator    
-'''
 
+'''
 # This is called when we randomly generate a new individual
 def popConstraint(joint_prior_violation):
     """Check a varety of constraints on a member. These include:
