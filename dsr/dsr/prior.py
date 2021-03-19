@@ -1,31 +1,18 @@
 """Class for Prior object."""
 
 import numpy as np
-from numba import jit, prange
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
-from dsr.gp.tokens import DEAP_to_math_tokens, opt_DEAP_to_math_tokens
-from dsr.subroutines import parents_siblings_at_once
-
+from dsr.gp.tokens import opt_DEAP_to_math_tokens, individual_to_dsr_aps
+from dsr.subroutines import jit_check_constraint_violation, \
+        jit_check_constraint_violation_descendant, jit_check_constraint_violation_uchild
 
 
 def make_prior(library, config_prior, 
                use_at_once=False, use_violation=False, use_deap=False):
     """Factory function for JointPrior object."""
 
-    prior_dict = {
-        "relational" : RelationalConstraint,
-        "length" : LengthConstraint,
-        "repeat" : RepeatConstraint,
-        "inverse" : InverseUnaryConstraint,
-        "trig" : TrigConstraint,
-        "const" : ConstConstraint,
-        "no_inputs" : NoInputsConstraint,
-        "soft_length" : SoftLengthPrior,
-        "uniform_arity" : UniformArityPrior
-    }
-    
     '''
         Prior functions which are either provided by Deap itself or 
         don't make sense when applying at_once constraint violations.
@@ -38,10 +25,10 @@ def make_prior(library, config_prior,
     priors = []
     warnings = []
     for prior_type, prior_args in config_prior.items():
-        assert prior_type in prior_dict, \
+        assert prior_type in PRIOR_DICT, \
             "Unrecognized prior type: {}.".format(prior_type)
         
-        prior_class = prior_dict[prior_type]
+        prior_class = PRIOR_DICT[prior_type]
         
         # This prior does not make sense to use with a final constraint
         if use_violation and prior_type in violation_exempt:
@@ -81,7 +68,6 @@ def make_prior(library, config_prior,
                 priors.append(prior)
 
     if use_at_once:
-        # The same for now ...
         if use_deap:
             joint_prior = JointPriorAtOnceDeap(library, priors)
         else:
@@ -94,7 +80,11 @@ def make_prior(library, config_prior,
     else:
         joint_prior = JointPrior(library, priors)
 
-    print("-- Building prior -------------------")
+    if use_deap:
+        print("-- Building Deap prior --------------")
+    else:
+        print("-- Building prior -------------------")
+    
     print("\n".join(["WARNING: " + message for message in warnings]))
     print(joint_prior.describe())
     print("-------------------------------------")
@@ -170,23 +160,11 @@ class JointPriorAtOnce(JointPrior):
         return combined_prior
     
 
-def ind_to_aps(individual, library):
-        
-        # Get the action tokens from individuals 
-        actions             = opt_DEAP_to_math_tokens(individual)
-        # Add one dim at the front to be (1 x L)
-        actions             = np.expand_dims(actions,axis=0) 
-        # Get the parent/siblings for 
-        parent, sibling     = parents_siblings_at_once(actions, arities=library.arities, parent_adjust=library.parent_adjust)
-        
-        return actions, parent, sibling
-
-
 class JointPriorAtOnceDeap(JointPriorAtOnce):
     
     def __call__(self, individual):
         
-        actions, parent, sibling = ind_to_aps(individual, self.library)
+        actions, parent, sibling = individual_to_dsr_aps(individual, self.library)
         
         return super(JointPriorAtOnceDeap, self).__call__(actions, parent, sibling)
 
@@ -206,7 +184,7 @@ class JointPriorViolationDeap(JointPriorViolation):
     
     def __call__(self, individual):
         
-        actions, parent, sibling = ind_to_aps(individual, self.library)
+        actions, parent, sibling = individual_to_dsr_aps(individual, self.library)
         
         return super(JointPriorViolationDeap, self).__call__(actions, parent, sibling)
     
@@ -284,100 +262,6 @@ class Prior():
         return message
 
 
-@jit(nopython=True, parallel=False)
-def jit_check_constraint_violation(actions, actions_tokens, other, other_tokens):
-    '''
-    Want:
-    
-    np.any(np.logical_and(np.isin(actions, actions_tokens), np.isin(other, other_tokens)))
-    
-    This needs to be very fast since it runs inline during GP evaluation
-    '''
-     
-    _,L     = actions.shape
-    A       = actions_tokens.shape[0]
-    O       = other_tokens.shape[0]
-    
-    for l in range(L):
-        # Check if this token matches a constraint token
-        aset = False
-        for a in range(A):
-            if actions[0,l] == actions_tokens[a]:
-                aset = True
-                break
-        
-        if aset:    
-            # Check if the other also matches one of its constraints
-            for o in range(O):
-                if other[0,l] == other_tokens[o]:
-                    return True
-                    
-    return False
-
-
-@jit(nopython=True, parallel=False)
-def jit_check_descendant_violation(actions, target_tokens, binary_tokens, unary_tokens):
-
-    '''
-    Want:
-            
-        descendant = False # True when current node is a descendant of operator
-        
-        for a in actions:
-            if a in self.targets:
-                if descendant:
-                    return True
-                descendant = True
-                dangling   = 1
-            elif descendant:
-                if a in library.binary_tokens:      
-                    dangling += 1
-                elif a not in library.unary_tokens: 
-                    dangling -= 1
-                if dangling == 0:
-                    descendant = False
-                    
-        return False
-        
-        This needs to be very fast since it runs inline during GP evaluation
-    '''
-
-    def a_in_b(a, B_tokens, B):
-        for b in range(B):
-            if a == B_tokens[b]:
-                return True
-        return False
-                            
-    def a_not_in_b(a, B_tokens, B):
-        for b in range(B):
-            if a == B_tokens[b]:
-                return False
-        return True
-            
-    _,L     = actions.shape
-    T       = target_tokens.shape[0]
-    B       = binary_tokens.shape[0]
-    U       = unary_tokens.shape[0]
-    
-    descendant = False # True when current node is a descendant of operator
-
-    for l in range(L):
-        if a_in_b(actions[0,l], target_tokens, T):
-            if descendant:
-                return True
-            descendant  = True
-            dangling    = 1
-        elif descendant:
-            if a_in_b(actions[0,l], binary_tokens, B):
-                dangling += 1
-            elif a_not_in_b(actions[0,l], unary_tokens, U):
-                dangling -= 1
-            if dangling == 0:
-                descendant = False
-                
-    return False           
-        
-
 class Constraint(Prior):
     def __init__(self, library):
         Prior.__init__(self, library)
@@ -413,8 +297,24 @@ class Constraint(Prior):
         return prior
     
     def check_constraint_violation(self, actions, actions_tokens, other, other_tokens):
+        r'''
+            Here we already have an action and want to know if it would have violated
+            a constraint. 
+        '''
         
         return jit_check_constraint_violation(actions, actions_tokens, other, other_tokens)
+    
+    def make_constraint_prior(self, actions_tokens, other, other_tokens):
+        r'''
+            Here we with to prevent an action, so the mask returns a template of actions to
+            avoid
+        '''
+        
+        mask    = np.isin(other, other_tokens)
+        # We do not include actions since they have not yet happened. This is 
+        # different from above. 
+        prior   = self.make_constraint(mask, actions_tokens)
+        return prior
         
 
 class RelationalConstraint(Constraint):
@@ -438,11 +338,44 @@ class RelationalConstraint(Constraint):
         The type of relationship to constrain.
     """
 
-    def __init__(self, library, targets, effectors, relationship):
+    def __init__(self, library, targets, effectors, relationship, base=False):
         Prior.__init__(self, library)
         self.targets = library.actionize(targets)
         self.effectors = library.actionize(effectors)
         self.relationship = relationship
+        
+        # Backwards Compatibility
+        if not base:
+            self.call_constraint = PRIOR_DICT[relationship](library=library, 
+                                                            targets=targets, 
+                                                            effectors=effectors)
+            assert isinstance(self.call_constraint, RelationalConstraint)
+        else:
+            self.call_constraint = None
+            
+    def __call__(self, actions, parent, sibling, dangling):
+        """
+        Compute the prior (logit adjustment) given the current actions.
+
+        Returns
+        -------
+        prior : array
+            Logit adjustment for selecting next action. Shape is (batch_size,
+            self.L).
+        """
+        # Backwards Compatibility
+        if self.call_constraint is not None:
+            return self.call_constraint(actions, parent, sibling, dangling)
+        else:
+            raise NotImplementedError
+        
+    def is_violated(self, actions, parent, sibling):
+        
+        # Backwards Compatibility
+        if self.call_constraint is not None:
+            return self.call_constraint.is_violated(actions, parent, sibling)
+        else:
+            raise NotImplementedError
 
     def validate(self):
         message = []
@@ -477,7 +410,7 @@ class RelationalConstraint(Constraint):
 class DescendantRelationalConstraint(RelationalConstraint):
     
     def __init__(self, **kwargs):
-        super(DescendantRelationalConstraint, self).__init__(**kwargs, relationship="descendant")
+        super(DescendantRelationalConstraint, self).__init__(**kwargs, relationship="descendant", base=True)
                 
     def __call__(self, actions, parent, sibling, dangling):
         mask = ancestors(actions=actions,
@@ -487,162 +420,84 @@ class DescendantRelationalConstraint(RelationalConstraint):
         
         return prior
     
-    
     def is_violated(self, actions, parent, sibling):
         
-        '''
-        Want:
-        '''
-        return jit_check_descendant_violation(actions, self.targets, self.library.binary_tokens, self.library.unary_tokens)
+        return jit_check_constraint_violation_descendant(actions, self.targets, self.library.binary_tokens, self.library.unary_tokens)
     
-
-        '''
-        if len(actions.shape) == 1:
-            
-        mask = ancestors(actions=actions,
-                         arities=self.library.arities,
-                         ancestor_tokens=self.effectors)
-        
-        return any(mask)
-        '''
         
 class ChildRelationalConstraint(RelationalConstraint):
     
     def __init__(self, **kwargs):
-        super(ChildRelationalConstraint, self).__init__(**kwargs, relationship="child")
+        super(ChildRelationalConstraint, self).__init__(**kwargs, relationship="child", base=True)
+        
+    def _adj_parents(self):
+        parents = self.effectors
+        return self.library.parent_adjust[parents]
         
     def __call__(self, actions, parent, sibling, dangling):
-        parents = self.effectors
-        adj_parents = self.library.parent_adjust[parents]
-        mask = np.isin(parent, adj_parents)
-        prior = self.make_constraint(mask, self.targets)
-        
+
+        prior = self.make_constraint_prior(self.targets, parent, self._adj_parents())
+
         return prior
     
     def is_violated(self, actions, parent, sibling):
         
-        adj_effectors = self.library.parent_adjust[self.effectors]
-        
-        '''
-        Want:
-        
-        for i, a in enumerate(actions):
-            if a in self.targets and parent[i] in adj_effectors:
-                return True
-            
-        return False
-        '''
-        return self.check_constraint_violation(actions, self.targets, parent, adj_effectors)
-        
-        '''
-        a1 = np.isin(actions, self.targets)
-        a2 = np.isin(parent, adj_effectors)
-        return np.any(np.logical_and(a1, a2))
-        '''
+        return self.check_constraint_violation(actions, self.targets, parent, self._adj_parents())
         
         
 class SiblingRelationalConstraint(RelationalConstraint):
     
     def __init__(self, **kwargs):
-        super(SiblingRelationalConstraint, self).__init__(**kwargs, relationship="sibling")
+        super(SiblingRelationalConstraint, self).__init__(**kwargs, relationship="sibling", base=True)
         
     def __call__(self, actions, parent, sibling, dangling):
         # The sibling relationship is reflexive: if A is a sibling of B,
         # then B is also a sibling of A. Thus, we combine two priors, where
         # targets and effectors are swapped.
-        mask = np.isin(sibling, self.effectors)
-        prior = self.make_constraint(mask, self.targets)
-        mask = np.isin(sibling, self.targets)
-        prior += self.make_constraint(mask, self.effectors)
-        
+        prior =     self.make_constraint_prior(self.targets, sibling, self.effectors)
+        prior +=    self.make_constraint_prior(self.effectors, sibling, self.targets)
+
         return prior
     
     def is_violated(self, actions, parent, sibling):
-        '''
-        Want:
-        
-        for i, a in enumerate(actions):
-            if a in self.targets and sibling[i] in self.effectors:
-                return True
-            if sibling[i] in self.targets and a in self.effectors:
-                return True
-            
-        return False
-        '''
+
         if self.check_constraint_violation(actions, self.targets, siblings, self.effectors):
             return true
         
         if self.check_constraint_violation(actions, self.effectors, sibling, self.targets):
             return true
     
-        '''
-        a1 = np.isin(actions, self.targets)
-        a2 = np.isin(sibling, self.effectors)
-        if np.any(np.logical_and(a1, a2)):
-            return True
-        
-        a1 = np.isin(actions, self.effectors)
-        a2 = np.isin(sibling, self.targets)
-        if np.any(np.logical_and(a1, a2)):
-            return True
-        '''
-        
         return False
+        
         
 class UChildRelationalConstraint(RelationalConstraint):
     
     def __init__(self, **kwargs):
-        super(UChildRelationalConstraint, self).__init__(**kwargs, relationship="uchild")
+        super(UChildRelationalConstraint, self).__init__(**kwargs, relationship="uchild", base=True)
+        
+    def _adj_unary_effectors(self):
+        unary_effectors = np.intersect1d(self.effectors, self.library.unary_tokens)
+        return self.library.parent_adjust[unary_effectors]
+    
+    def _adj_effectors(self):
+        return self.library.parent_adjust[self.effectors]
         
     def __call__(self, actions, parent, sibling, dangling):
+                
         # Case 1: parent is a unary effector
-        unary_effectors = np.intersect1d(self.effectors,
-                                         self.library.unary_tokens)
-        adj_unary_effectors = self.library.parent_adjust[unary_effectors]
-        mask = np.isin(parent, adj_unary_effectors)
+        mask = np.isin(parent, self._adj_unary_effectors())
+        
         # Case 2: sibling is a target and parent is an effector
-        adj_effectors = self.library.parent_adjust[self.effectors]
         mask += np.logical_and(np.isin(sibling, self.targets),
-                               np.isin(parent, adj_effectors))
+                               np.isin(parent, self._adj_effectors()))
         prior = self.make_constraint(mask, [self.targets])
         
         return prior
     
     def is_violated(self, actions, parent, sibling):
 
-        unary_effectors     = np.intersect1d(self.effectors, self.library.unary_tokens)
-        adj_unary_effectors = self.library.parent_adjust[unary_effectors]
-        adj_effectors       = self.library.parent_adjust[self.effectors]
-
-        '''
-        Want:
-
-        for i, a in enumerate(actions):
-            if parent[i] in adj_unary_effectors:
-                if a in self.targets:
-                    return True
-            elif sibling[i] in self.targets and parent[i] in adj_effectors:
-                return True
-                
-        '''
-        if self.check_constraint_violation(actions, self.targets, parents, adj_unary_effectors):
-            return true
-        
-        if self.check_constraint_violation(siblings, self.targets, parents, adj_effectors):
-            return true
-        '''
-        a1 = np.isin(parents, adj_unary_effectors)
-        a2 = np.isin(actions, self.targets)
-        if np.any(np.logical_and(a1, a2)):
-            return True
-        
-        a1 = np.isin(siblings, self.targets)
-        a2 = np.isin(parents, adj_effectors)
-        if np.any(np.logical_and(a1, a2)):
-            return True
-        ''' 
-        return False
-              
+        return jit_check_constraint_violation_uchild(actions, parent, sibling, self.targets, self._adj_unary_effectors(), self._adj_effectors())
+                      
 
 class TrigConstraint(DescendantRelationalConstraint):
     """Class that constrains trig Tokens from being the desendants of trig
@@ -958,3 +813,22 @@ class SoftLengthPrior(Prior):
         # Doesn't make sense in this context, just return false. 
         return False
     
+    
+PRIOR_DICT = {
+    "relational" : RelationalConstraint,
+    "length" : LengthConstraint,
+    "repeat" : RepeatConstraint,
+    "inverse" : InverseUnaryConstraint,
+    "trig" : TrigConstraint,
+    "const" : ConstConstraint,
+    "no_inputs" : NoInputsConstraint,
+    "soft_length" : SoftLengthPrior,
+    "uniform_arity" : UniformArityPrior,
+    # Backwards Compatibility
+    "child" : ChildRelationalConstraint,
+    "descendant" : DescendantRelationalConstraint,
+    "sibling" : SiblingRelationalConstraint,
+    "uchild" : UChildRelationalConstraint
+}
+
+

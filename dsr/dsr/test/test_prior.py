@@ -1,5 +1,11 @@
 """Tests for various Priors."""
 
+r"""
+    Run from hypothesis_testing/dsr/dsr as:
+    
+        pytest test/test_prior.py
+"""
+
 import pytest
 
 from dsr.core import DeepSymbolicOptimizer

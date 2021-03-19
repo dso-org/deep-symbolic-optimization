@@ -1,7 +1,7 @@
 import numpy as np
 from dsr.program import Program,  _finish_tokens
 from collections import defaultdict
-from numba import jit, prange
+from dsr.subroutines import jit_parents_siblings_at_once
 
 try:
     from deap import gp
@@ -25,7 +25,8 @@ except:
     CONST_TOKEN = None
 
 r"""
-    Fast special case version of below
+    Fast special case version of below. This is mainly used during constraint 
+    checking. 
 """
 def opt_DEAP_to_math_tokens(individual):
 
@@ -229,6 +230,21 @@ def math_tokens_to_DEAP(tokens, primitive_set):
         You're all individuals! 
     '''
     return individual
+
+
+def individual_to_dsr_aps(individual, library):
+    r"""
+        This will convert a deap individual to a DSR action, parent, sibling group.
+    """ 
+        
+    # Get the action tokens from individuals 
+    actions             = opt_DEAP_to_math_tokens(individual)
+    # Add one dim at the front to be (1 x L)
+    actions             = np.expand_dims(actions,axis=0) 
+    # Get the parent/siblings for 
+    parent, sibling     = jit_parents_siblings_at_once(actions, arities=library.arities, parent_adjust=library.parent_adjust)
+    
+    return actions, parent, sibling
 
 
 class Primitive(object):

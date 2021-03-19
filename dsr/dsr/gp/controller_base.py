@@ -164,6 +164,7 @@ class GPController:
         toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
         
         if callable(popConstraint):
+            print("Using Population Generation Constraint")
             #toolbox.decorate("individual", popConstraint(self.joint_prior_violation))
             toolbox.decorate("individual", popConstraint())
         

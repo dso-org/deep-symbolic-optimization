@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 from dsr.program import Program, from_tokens
-from dsr.subroutines import parents_siblings, parents_siblings_at_once
+from dsr.subroutines import parents_siblings, jit_parents_siblings_at_once
 
 try:
     from deap import gp
@@ -405,9 +405,9 @@ def _get_top_n_programs(population, n, actions, max_len, min_len, DEAP_to_tokens
         
         deap_program.append(from_tokens(dt, optimize=True, on_policy=False, optimized_consts=oc))
         
-        deap_parent[i,:], deap_sibling[i,:] = parents_siblings_at_once(np.expand_dims(dt, axis=0), 
-                                                                       arities=Program.library.arities, 
-                                                                       parent_adjust=Program.library.parent_adjust)
+        deap_parent[i,:], deap_sibling[i,:] = jit_parents_siblings_at_once(np.expand_dims(dt, axis=0), 
+                                                                           arities=Program.library.arities, 
+                                                                           parent_adjust=Program.library.parent_adjust)
         
         
         '''
