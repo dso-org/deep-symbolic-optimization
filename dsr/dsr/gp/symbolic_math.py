@@ -27,7 +27,7 @@ except ImportError:
 
 
 # We define constraint checking here because we can exit early once we have found a violation. 
-
+'''
 TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
 
 # Define inverse tokens
@@ -93,6 +93,7 @@ def check_trig(names):
                 trig_descendant = False
                 
     return False
+'''
 '''
 def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
     """Check a varety of constraints on a memeber. These include:
@@ -206,7 +207,7 @@ def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
 
     return decorator
 '''
-
+'''
 # This may not be in use, but may be used later
 def popConstraint():
     """Check a varety of constraints on a member. These include:
@@ -234,8 +235,8 @@ def popConstraint():
         return wrapper
 
     return decorator    
-
 '''
+
 # This is called when we randomly generate a new individual
 def popConstraint(joint_prior_violation):
     """Check a varety of constraints on a member. These include:
@@ -260,7 +261,7 @@ def popConstraint(joint_prior_violation):
         return wrapper
 
     return decorator  
-'''
+
 
 def create_primitive_set(n_input_var):
     
@@ -274,6 +275,7 @@ def create_primitive_set(n_input_var):
 
 
 # This function may go away at some point.
+'''
 def get_top_n_programs(population, actions, config_gp_meld, prior_func):
     """ Get the top n members of the population, We will also do some things like remove 
         redundant members of the population, which there tend to be a lot of.
@@ -289,7 +291,7 @@ def get_top_n_programs(population, actions, config_gp_meld, prior_func):
                                                                                                                    max_len, min_len, gp_tokens.DEAP_to_math_tokens, prior_func)
 
     return deap_program, deap_obs, deap_action, deap_priors
-
+'''
 
 def convert_inverse_prim(prim, args):
     """
@@ -378,8 +380,9 @@ class GPController(controller_base.GPController):
         
         super(GPController, self).__init__(config_gp_meld, *args, **kwargs)
         
-        self.get_top_n_programs                         = get_top_n_programs     
+        #self.get_top_n_programs                         = get_top_n_programs     
         self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
+        self.DEAP_to_tokens                             = gp_tokens.DEAP_to_math_tokens
         self.init_const_epoch                           = config_gp_meld["init_const_epoch"]
             
     def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):
