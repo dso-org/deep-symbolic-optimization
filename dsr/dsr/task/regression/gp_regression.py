@@ -57,10 +57,8 @@ class GenericEvaluate(gp_symbolic_math.GenericEvaluate):
         else:
             raise ValueError("Metric not recognized.")
 
-
         return fitness
-    
-        
+            
     def reward(self, individual, X, fitness):
         
         try:
