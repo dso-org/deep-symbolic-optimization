@@ -16,14 +16,18 @@ from . import utils as U
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
+# This is a dictionary with  "NameEnv" : [minR, maxR]
+# The reward scaling is then given by r_scale = minR/(minR-maxR) - r/(minR-maxR) 
+#  
 REWARD_SCALE = {
-    "CustomCartPoleContinuous-v0" : 1000.0,
-    "MountainCarContinuous-v0" : 93.95,
-    "Pendulum-v0" : -147.56,
-    "InvertedDoublePendulumBulletEnv-v0" : 9357.77,
-    "InvertedPendulumSwingupBulletEnv-v0" : 891.34,
-    "LunarLanderContinuous-v2" : 272.65,
-    "HopperBulletEnv-v0" : 2741.86
+    "CustomCartPoleContinuous-v0" : [0.0,1000.0],
+    "MountainCarContinuous-v0" : [0.0,93.95],
+    "Pendulum-v0" : [-1300.0,-147.56],
+    "InvertedDoublePendulumBulletEnv-v0" : [0.0,9357.77],
+    "InvertedPendulumSwingupBulletEnv-v0" : [0.0,891.34],
+    "LunarLanderContinuous-v2" : [0.0,272.65],
+    "HopperBulletEnv-v0" : [0.0,2741.86],
+    "ReacherBulletEnv-v0" : [0.0, 19.05]
 }
 
 
@@ -99,7 +103,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     env = gym.make(name, **env_kwargs)
 
     if reward_scale:
-        reward_scale = np.abs(REWARD_SCALE[name])
+        [minR, maxR] = REWARD_SCALE[name]
     else:
         reward_scale = None
 
@@ -219,7 +223,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Scale rewards
         if reward_scale is not None:
-            r_avg /= reward_scale
+            r_avg = minR/(minR-maxR) - r_avg/(minR-maxR)
 
         return r_avg
 
