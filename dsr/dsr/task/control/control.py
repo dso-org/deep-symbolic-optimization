@@ -16,9 +16,8 @@ from . import utils as U
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
-# This is a dictionary with  "NameEnv" : [minR, maxR]
-# The reward scaling is then given by r_scale = minR/(minR-maxR) - r/(minR-maxR) 
-#  
+# This is a dictionary with  "NameEnv" : [minR, maxR].
+# The reward scaling is given by r_scaled = minR/(minR-maxR) - r/(minR-maxR) 
 REWARD_SCALE = {
     "CustomCartPoleContinuous-v0" : [0.0,1000.0],
     "MountainCarContinuous-v0" : [0.0,93.95],
