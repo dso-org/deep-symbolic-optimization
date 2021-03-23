@@ -5,8 +5,7 @@ import random
 import operator
 import warnings
 
-from dsr.functions import function_map, UNARY_TOKENS, BINARY_TOKENS
-from dsr.gp import base as gp_base
+from dsr.functions import function_map
 from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
@@ -26,121 +25,14 @@ except ImportError:
     algorithms  = None
 
 
-# We define constraint checking here because we can exit early once we have found a violation. 
-'''
-TRIG_TOKENS = ["sin", "cos", "tan", "csc", "sec", "cot"]
-
-# Define inverse tokens
-INVERSE_TOKENS = {
-    "exp" : "log",
-    "neg" : "neg",
-    "inv" : "inv",
-    "sqrt" : "n2"
-}
-
-
-# Add inverse trig functions
-INVERSE_TOKENS.update({
-    t : "arc" + t for t in TRIG_TOKENS
-    })
-
-
-# Add reverse
-INVERSE_TOKENS.update({
-    v : k for k, v in INVERSE_TOKENS.items()
-    })
-
-
-def check_const(ind):
-    """Returns True if children of a parent are all const tokens."""
-
-    names = [node.name for node in ind]
-    for i, name in enumerate(names):
-        if name in UNARY_TOKENS and "const" in names[i+1]:
-            return True
-        if name in BINARY_TOKENS and "const" in names[i+1] and "const" in names[i+2]:
-            return True
-    return False
-
-
-def check_inv(names):
-    """Returns True if two sequential tokens are inverse unary operators."""
-
-    for i, name in enumerate(names[:-1]):
-        if name in INVERSE_TOKENS and names[i+1] == INVERSE_TOKENS[name]:
-            return True
-    return False
-
-
-def check_trig(names):
-    """Returns True if a descendant of a trig operator is another trig
-    operator."""
-        
-    trig_descendant = False # True when current node is a descendant of a trig operator
-
-    for name in names:
-        if name in TRIG_TOKENS:
-            if trig_descendant:
-                return True
-            trig_descendant = True
-            trig_dangling   = 1
-        elif trig_descendant:
-            if name in BINARY_TOKENS:
-                trig_dangling += 1
-            elif name not in UNARY_TOKENS:
-                trig_dangling -= 1
-            if trig_dangling == 0:
-                trig_descendant = False
-                
-    return False
-'''
-'''
-def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
-    """Check a varety of constraints on a memeber. These include:
-        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
-        
-        This is a decorator function that attaches to mutate or mate functions in
-        DEAP.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
-            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
-                        
-            for i, ind in enumerate(new_inds):
-                
-                l = len(ind)
-                
-                if l > max_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif l < min_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif operator.attrgetter("height")(ind) > max_depth:
-                    new_inds[i] = random.choice(keep_inds)
-                else:  
-                    names = [node.name for node in new_inds[i]]
-                    
-                    if check_inv(names):
-                        new_inds[i] = random.choice(keep_inds)
-                    elif check_trig(names):
-                        new_inds[i] = random.choice(keep_inds)
-                    
-            return new_inds
-
-        return wrapper
-
-    return decorator
-'''
-
 # This is called when we mate or mutate and individual
 def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
     """Check a varety of constraints on a memeber. These include:
-        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
+        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetse. 
         
         This is a decorator function that attaches to mutate or mate functions in
         DEAP.
-        
+                
         >>> This has been tested and gives the same answer as the old constraint 
             function given trig and inverse constraints. 
     """
@@ -169,80 +61,14 @@ def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
 
     return decorator
 
-'''
-# This is called when we mate or mutate and individual
-def checkConstraint(max_length, min_length, max_depth, joint_prior_violation):
-    """Check a varety of constraints on a memeber. These include:
-        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetes. 
-        
-        This is a decorator function that attaches to mutate or mate functions in
-        DEAP.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
-            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
-                        
-            for i, ind in enumerate(new_inds):
-                
-                l = len(ind)
-                
-                if l > max_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif l < min_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif operator.attrgetter("height")(ind) > max_depth:
-                    new_inds[i] = random.choice(keep_inds)
-                else:
-                    names = [node.name for node in new_inds[i]]
-                    old = check_inv(names) or check_trig(names)
-                    if old != joint_prior_violation(new_inds[i]):
-                        print("{}, {} : {}".format(check_inv(names), check_trig(names), joint_prior_violation(new_inds[i])))
-                    if joint_prior_violation(new_inds[i]):
-                        new_inds[i] = random.choice(keep_inds)                    
-            return new_inds
-
-        return wrapper
-
-    return decorator
-'''
-'''
-# This may not be in use, but may be used later
-def popConstraint():
-    """Check a varety of constraints on a member. These include:
-        
-        This is a decorator function that attaches to the individual function in
-        DEAP.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-
-            while(True):
-                inds    = func(*args, **kwargs)               # Calls the wrapped function and returns results
-                names   = [node.name for node in inds]
-                    
-                if check_inv(names):
-                    continue
-                elif check_trig(names):
-                    continue
-                else:
-                    break
-                    
-            return inds
-
-        return wrapper
-
-    return decorator    
-'''
 
 # This is called when we randomly generate a new individual
 def popConstraint(joint_prior_violation):
-    """Check a varety of constraints on a member. These include:
+    r""" Check a varety of constraints on a member. This function can optionally run 
+         each time we generate a new individual from scratch. 
         
-        This is a decorator function that attaches to the individual function in
-        DEAP.
+         This is a decorator function that attaches to the individual function in
+         DEAP.
     """
     def decorator(func):
         @wraps(func)
@@ -273,25 +99,6 @@ def create_primitive_set(n_input_var):
     
     return pset
 
-
-# This function may go away at some point.
-'''
-def get_top_n_programs(population, actions, config_gp_meld, prior_func):
-    """ Get the top n members of the population, We will also do some things like remove 
-        redundant members of the population, which there tend to be a lot of.
-        
-        Next we compute DSR compatible parents, siblings and actions.  
-    """
-    
-    n           = config_gp_meld["train_n"] 
-    max_len     = config_gp_meld["max_len"] 
-    min_len     = config_gp_meld["min_len"]
-    
-    deap_program, deap_obs, deap_action, deap_tokens, deap_priors, deap_expr_length  = gp_base._get_top_n_programs(population, n, actions, 
-                                                                                                                   max_len, min_len, gp_tokens.DEAP_to_math_tokens, prior_func)
-
-    return deap_program, deap_obs, deap_action, deap_priors
-'''
 
 def convert_inverse_prim(prim, args):
     """
@@ -380,13 +187,15 @@ class GPController(controller_base.GPController):
         
         super(GPController, self).__init__(config_gp_meld, *args, **kwargs)
         
-        #self.get_top_n_programs                         = get_top_n_programs     
+        # Get a mapping to the conversion functions used to get Deap to tokens and back
+        # These are ones used in symbolic math. 
         self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
         self.DEAP_to_tokens                             = gp_tokens.DEAP_to_math_tokens
         self.init_const_epoch                           = config_gp_meld["init_const_epoch"]
             
     def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):
-                
+        
+        # Call the base class toolbox creator then do some special case things needed for symbolic math
         toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=parallel_eval, **kwargs) 
         const               = "const" in pset.context
         toolbox             = self._create_toolbox_const(toolbox, const, max_const, constrain_const)
@@ -404,8 +213,8 @@ class GPController(controller_base.GPController):
             toolbox.decorate("mutate",      gp.staticLimit(key=num_const, max_value=max_const))
     
         if const and constrain_const is True:
-            toolbox.decorate("mate",        gp.staticLimit(key=check_const, max_value=0))
-            toolbox.decorate("mutate",      gp.staticLimit(key=check_const, max_value=0))
+            toolbox.decorate("mate",        gp.staticLimit(key=self.check_constraint, max_value=0))
+            toolbox.decorate("mutate",      gp.staticLimit(key=self.check_constraint, max_value=0))
         
         return toolbox 
     

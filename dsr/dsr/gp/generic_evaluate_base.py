@@ -13,7 +13,10 @@ except ImportError:
     algorithms  = None
 
 class GenericEvaluate():
-    
+    r"""
+        This is the base class for evaluation using Deap. It is for the most part
+        an abstract class in as much as you can have one in python.
+    """ 
     def __init__(self, early_stopping, threshold, hof=None):
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
@@ -28,7 +31,7 @@ class GenericEvaluate():
         self.early_stopping     = early_stopping
         self.threshold          = threshold
         
-    def set_toolbox(self,toolbox):
+    def set_toolbox(self, toolbox):
         
         self.toolbox = toolbox   
             

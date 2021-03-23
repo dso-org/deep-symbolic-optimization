@@ -2,7 +2,7 @@ import numpy as np
 import multiprocessing
 from pathos.multiprocessing import ProcessPool
 from operator import attrgetter
-from dsr.subroutines import parents_siblings, jit_parents_siblings_at_once
+from dsr.subroutines import jit_parents_siblings_at_once
 
 try:
     from deap import gp
@@ -21,7 +21,6 @@ from dsr.gp import base as gp_base
 from dsr.gp import tokens as gp_tokens
 from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
-from dsr.utils import join_obs
 
 class GPController:
     
@@ -116,7 +115,6 @@ class GPController:
         self.nevals                 = 0
         self.return_gp_obs          = None
         
-        #self.get_top_n_programs     = None
         self.get_top_program        = None
         self.tokens_to_DEAP         = None
         self.DEAP_to_tokens         = None
@@ -135,9 +133,6 @@ class GPController:
             self.prior_func             = None
             
         self.train_n                = self.config_gp_meld["train_n"] 
-        #self.max_len                = self.config_gp_meld["max_len"] 
-        #self.min_len                = self.config_gp_meld["min_len"]
-        
         
     def _create_primitive_set(self, *args, **kwargs):
         """
@@ -150,7 +145,10 @@ class GPController:
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
                              gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
                              popConstraint=None, parallel_eval=True):
-    
+        r"""
+            This creates a Deap toolbox with options we set.
+        """
+        
         assert isinstance(pset, gp_tokens.PrimitiveSet),   "pset should be a PrimitiveSet"
         assert callable(eval_func),                 "evaluation function should be callable"
         assert callable(gen_func),                  "gen_func should be callable"
@@ -170,10 +168,11 @@ class GPController:
         toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
         toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
         
+        # We can apply constraints when we generate fresh population. This is not %100 nessesary
+        # since we apply constraints when we evaluate them too. 
         if callable(popConstraint):
             print("Using Population Generation Constraint")
             toolbox.decorate("individual", popConstraint(self.joint_prior_violation))
-            #toolbox.decorate("individual", popConstraint())
         
         toolbox.register("population",  tools.initRepeat, list, toolbox.individual)
         toolbox.register("compile",     gp.compile, pset=pset)
@@ -199,64 +198,14 @@ class GPController:
         return toolbox, creator
     
     def _add_primitives(self, pset, function_map, function_set):        
-    
+        r"""
+            Add our basic primitives such as sin and mulitply
+        """
         for k, v in function_map.items():
             if k in function_set:
                 pset.addPrimitive(v.function, v.arity, name=v.name)   
         
         return pset
-    
-    # This method will probably go away at some point unless ...
-    '''
-    def _concat_best(self, deap_programs, deap_obs, deap_actions, deap_priors):
-        
-        if self.deap_actions is not None:
-            # add record on at the end
-            # We set these aside so we don't accidentally re-mix the top record members
-            # back into the record. 
-            _programs       = deap_programs + self.deap_programs
-            _obs            = join_obs(deap_obs,            self.deap_obs)
-            _actions        = np.append(deap_actions,       self.deap_actions, axis=0)                
-            _priors         = np.append(deap_priors,        self.deap_priors, axis=0)
-            copy_back = True
-        else:
-            copy_back = False
-    
-        # only add if we have not already added it. 
-        if deap_programs[0] not in self.deap_programs:
-            
-            if self.deap_actions is None:
-                self.deap_programs      = [deap_programs[0]]
-                self.deap_obs           = [np.expand_dims(deap_obs[0][0], axis=0), 
-                                           np.expand_dims(deap_obs[1][0], axis=0), 
-                                           np.expand_dims(deap_obs[2][0], axis=0)]
-                self.deap_actions       = np.expand_dims(deap_actions[0,:], axis=0) 
-                self.deap_priors        = np.expand_dims(deap_priors[0,:], axis=0) 
-                
-            elif len(self.deap_programs) >= self.record_best_size:
-                print("PRE self {}".format(self.deap_actions.shape))
-                # This can either be a simple buffer or do a comparison 
-                # You probably do not want the buffer to be too big since it can prevent exploration. 
-                self.deap_programs      = self.deap_programs[1:] + [deap_programs[0]]
-                self.deap_obs           = join_obs(self.deap_obs,           deap_obs, pop_front=True, o2_idx=0)
-                self.deap_actions       = np.append(self.deap_actions[1:,], np.expand_dims(deap_actions[0,:], axis=0), axis=0)
-                self.deap_priors        = np.append(self.deap_priors[1:,],  np.expand_dims(deap_priors[0,:], axis=0), axis=0)
-                
-            else:
-                print("PRE self {}".format(self.deap_actions.shape))
-                self.deap_programs      = self.deap_programs + [deap_programs[0]] 
-                self.deap_obs           = join_obs(self.deap_obs,      deap_obs, o2_idx=0)
-                self.deap_actions       = np.append(self.deap_actions, np.expand_dims(deap_actions[0,:], axis=0), axis=0)                
-                self.deap_priors        = np.append(self.deap_priors,  np.expand_dims(deap_priors[0,:], axis=0), axis=0)
-
-        if copy_back:                           
-            deap_programs           = _programs
-            deap_obs                = _obs 
-            deap_actions            = _actions 
-            deap_priors             = _priors
-            
-        return deap_programs, deap_obs, deap_actions, deap_priors
-    '''
     
     def get_top_n_programs(self, population, actions, DEAP_to_tokens, priors_func=None):
         
@@ -291,20 +240,15 @@ class GPController:
         
         deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
         deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
-        #tmp_parent          = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
-        #tmp_sibling         = np.zeros((len(population),actions.shape[1]), dtype=np.int32)
         deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
         deap_obs_action     = np.empty((len(population),actions.shape[1]), dtype=np.int32)
         
         deap_action[:,0]    = max_tok
         deap_program        = []
-        deap_tokens         = []
-        #deap_expr_length    = []
         
+        # Take each members and get the nesseasry DSR components such as siblings and observations. 
         for i,p in enumerate(population):
             dt, oc, dexpl                   = DEAP_to_tokens(p, actions.shape[1])
-            #deap_tokens.append(dt)
-            #deap_expr_length.append(dexpl)
             deap_obs_action[i,1:]           = dt[:-1]
             deap_action[i,:]                = dt
             
@@ -313,30 +257,11 @@ class GPController:
             deap_parent[i,:], deap_sibling[i,:] = jit_parents_siblings_at_once(np.expand_dims(dt, axis=0), 
                                                                                arities=Program.library.arities, 
                                                                                parent_adjust=Program.library.parent_adjust)
-            
-            
-            '''
-            for j in range(actions.shape[1]-1):       
-                # Parent and sibling given the current action
-                # Action should be alligned with parent and sibling.
-                # The current action should be passed into function inclusivly of itself [:j+1]. 
-                p, s                    = parents_siblings(np.expand_dims(dt[0:j+1],axis=0), arities=Program.library.arities, parent_adjust=Program.library.parent_adjust)
-                tmp_parent[i,j+1]       = p
-                tmp_sibling[i,j+1]      = s
-                
-            print("-----------------------------------")
-            print(deap_parent[i,:])
-            print(tmp_parent[i,:])
-            print(deap_sibling[i,:])
-            print(tmp_sibling[i,:])
-            '''
-                   
-        
-        #deap_parent[:,0]        = max_tok - len(Program.library.terminal_tokens)
-        #deap_sibling[:,0]       = max_tok
+                               
         deap_obs_action[:,0]    = max_tok
         deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
         
+        # We can generate the priors needed for the update/training step of the DSR network. 
         if priors_func is not None:
             dp                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
             ds                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
@@ -345,15 +270,19 @@ class GPController:
             deap_priors             = priors_func(deap_action, dp, ds)
         else:
             deap_priors             = np.zeros((len(deap_program), deap_action.shape[1], max_tok), dtype=np.float32)
-            
-        #return deap_program, deap_obs, deap_action, deap_tokens, deap_priors, deap_expr_length 
-    
+                
         return deap_program, deap_obs, deap_action, deap_priors
     
     def _call_pre_process(self):
+        r"""
+            For derived classes, we can run a preprocess before we do the __call__ items in the base class.
+        """
         pass
     
     def _call_post_process(self):
+        r"""
+            For derived classes, we can run a post-process before we do the __call__ items in the base class.
+        """
         pass
             
     def __call__(self, actions):
@@ -363,10 +292,13 @@ class GPController:
         assert callable(self.DEAP_to_tokens)
         assert isinstance(actions, np.ndarray)
         
+        # stuff for a derive class to run first. 
         self._call_pre_process()
         
+        # Get DSR generated batch members into Deap based "individuals" 
         individuals = [self.creator.Individual(self.tokens_to_DEAP(a, self.pset)) for a in actions]
         
+        # Add in random population members?
         if self.config_gp_meld["rand_pop_n"] > 0:
             individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
                 
@@ -376,6 +308,7 @@ class GPController:
         else:
             self.algorithms.set_population(individuals)
         
+        # We can add actions more than once exanding GP population x many times
         for i in range(self.config_gp_meld["pop_pad"]):
             self.algorithms.append_population(individuals)
         
@@ -387,6 +320,7 @@ class GPController:
         self.logbook     = []
         self.nevals      = 0
         
+        # RUN EACH GP STEP
         for i in range(self.config_gp_meld["steps"]):    
             p, l, h, n  = self.algorithms(init_halloffame=True) # Should probably store each HOF
             self.population  = self.population + p
@@ -394,18 +328,14 @@ class GPController:
             self.halloffame.append(h)
             self.nevals += n
          
+        # Get back the best n members. 
         if self.config_gp_meld["train_n"] > 0:
             deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.DEAP_to_tokens, self.prior_func)
             self.return_gp_obs                                      = True
         else:
             self.return_gp_obs                                      = False
         
-        # Keep a record of the best program from each step
-        '''
-        if self.record_best:
-            deap_programs, deap_obs, deap_actions, deap_priors  = self._concat_best(deap_programs, deap_obs, deap_actions, deap_priors)
-        '''
-                
+        # derived classes can run extra post process items here.                 
         self._call_post_process()
             
         return deap_programs, deap_obs, deap_actions, deap_priors
