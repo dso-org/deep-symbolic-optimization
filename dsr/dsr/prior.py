@@ -775,7 +775,14 @@ class UniformArityPrior(Prior):
 class SoftLengthPrior(Prior):
     """Class the puts a soft prior on length. Before loc, terminal probabilities
     are scaled by exp(-(t - loc) ** 2 / (2 * scale)) where dangling == 1. After
-    loc, non-terminal probabilities are scaled by that number."""
+    loc, non-terminal probabilities are scaled by that number.
+    
+    
+    What is a good default?
+    
+        Maybe: "soft_length" : {"loc" : 15, "scale" : 1}
+    
+    """
 
     def __init__(self, library, loc, scale):
 
