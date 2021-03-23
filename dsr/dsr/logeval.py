@@ -58,6 +58,7 @@ class LogEval():
         self.path = {}
         self.path["log"] = log_path
         self.path["config"] = os.path.join(log_path, config_file)
+        print('PATH', self.path["config"])
         self.path["cmd"] = os.path.join(log_path, "cmd.out")
 
         # Get information about the command line arguments
@@ -283,13 +284,15 @@ class LogEval():
 @click.option("--show_plots", is_flag=True, help="Generate plots and show results as simple plots.")
 @click.option("--save_plots", is_flag=True, help="Generate plots and safe to log file as simple plots.")
 def main(log_path, log_count, show_hof, show_pf, show_plots, save_plots):
-    log = LogEval(log_path)
-    log.analyze_log(
-        log_count=log_count,
-        show_hof=show_hof,
-        show_pf=show_pf,
-        show_plots=show_plots,
-        save_plots=save_plots)
+    config_files = [f for f in os.listdir(log_path) if f.endswith('.json')]
+    for config_file in config_files:
+        log = LogEval(log_path, config_file)
+        log.analyze_log(
+            log_count=log_count,
+            show_hof=show_hof,
+            show_pf=show_pf,
+            show_plots=show_plots,
+            save_plots=save_plots)
 
 if __name__ == "__main__":
     main()
