@@ -63,48 +63,6 @@ def DEAP_to_math_tokens(individual, tokens_size):
     dangling            = 1 + np.cumsum(arities - 1) 
     expr_length         = 1 + np.argmax(dangling == 0)
     
-    """    
-        tokens[i]   = individual[i].token
-        
-        t = individual[i]
-        
-        #if isinstance(t, gp.Terminal):
-        if isinstance(t, Terminal):    
-            if t.name.startswith("user_const_"):
-                '''
-                    User provided constants which do not change.
-                '''
-                # The ID back to DSR terminal token is stored in the name
-                tokens[i]   = Program.library.names.index(t.name.split('_')[2])
-            elif t.name.startswith("mutable_const_"):
-                '''
-                    Optimizable contstants which we can call the optimizer on.
-                '''
-                # Get the constant token, this will not store the actual const. It however is in the lib tokens. 
-                tokens[i]                   = Program.library.names.index("const")
-                optimized_consts.append(t.value)
-            else:
-                '''
-                    Arg tokens also known as X.
-                '''
-                # Get the int which is contained in "ARG{}",
-                # Here is it is not x{} since the rename function does not change the internal node name. 
-                # This is due to the name being recast through str() when the terminal sets its own name. 
-                # Most likely this is a bug in DEAP
-                input_var   = int(t.name[3:])
-                tokens[i]   = input_var         
-        else:
-            '''
-                Function tokens such as sin, log and multiply 
-            '''
-            # Get the index number for this op from the op list in Program.library
-            tokens[i] = Program.library.names.index(t.name)
-    
-            
-    arities         = np.array([Program.library.arities[t] for t in tokens])
-    dangling        = 1 + np.cumsum(arities - 1) 
-    expr_length     = 1 + np.argmax(dangling == 0)
-    """
     '''
         Here we return the tokens as a list of indexable integers as well as a list of library token objects. 
         We primarily need to library token objects if we want to keep track of optimized mutable constants 
@@ -401,12 +359,7 @@ class PrimitiveSetTyped(object):
         :param ret_type: type returned by the primitive.
         :param name: alternative name for the primitive instead
                      of its __name__ attribute.
-        """
-        #if name is None:
-        #    name = primitive.__name__
-        
-        ###print("adding primitve {}".format(name))
-        
+        """        
         prim = Primitive(name, in_types, ret=ret_type, token=Program.library.names.index(name))
 
         assert name not in self.context or \
@@ -433,8 +386,6 @@ class PrimitiveSetTyped(object):
         :param name: defines the name of the terminal in the expression.
         """
         symbolic = False
-        #if name is None and callable(terminal):
-        #    name = terminal.__name__
         
         assert name not in self.context, \
             "Terminals are required to have a unique name. " \
@@ -456,8 +407,6 @@ class PrimitiveSetTyped(object):
         else:
             # We don't support other types at the moment
             raise ValueError
-        
-        ###print("adding terminal {}".format(name))
         
         self._add(prim)
         self.terms_count += 1

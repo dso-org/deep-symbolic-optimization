@@ -4,7 +4,7 @@ import numpy as np
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
-from dsr.gp.tokens import opt_DEAP_to_math_tokens, individual_to_dsr_aps
+from dsr.gp.tokens import individual_to_dsr_aps
 from dsr.subroutines import jit_check_constraint_violation, \
         jit_check_constraint_violation_descendant, jit_check_constraint_violation_uchild
 
@@ -461,11 +461,11 @@ class SiblingRelationalConstraint(RelationalConstraint):
     
     def is_violated(self, actions, parent, sibling):
 
-        if self.check_constraint_violation(actions, self.targets, siblings, self.effectors):
-            return true
+        if self.check_constraint_violation(actions, self.targets, sibling, self.effectors):
+            return True
         
         if self.check_constraint_violation(actions, self.effectors, sibling, self.targets):
-            return true
+            return True
     
         return False
         

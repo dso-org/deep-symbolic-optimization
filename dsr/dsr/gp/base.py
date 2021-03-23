@@ -2,12 +2,8 @@ import random
 from functools import wraps
 from itertools import chain
 from collections import defaultdict
-from operator import attrgetter
 import numpy as np
 import time
-
-from dsr.program import Program, from_tokens
-from dsr.subroutines import parents_siblings, jit_parents_siblings_at_once
 
 try:
     from deap import gp
@@ -27,8 +23,6 @@ r"""
         
     It is mostly reserved for core DEAP items that are unrelated to any task.
 """
-
-
 
 class GenWithRLIndividuals:
     """ Forces the generator to select a user provided member first, such as one
@@ -86,7 +80,7 @@ def multi_mutate(individual, expr, pset):
 
 def popConstraint():
     """
-        This needs to be called in a derived task such as gp_regression
+        This needs to be called in a derived task such as gp_regression.
     """
     def decorator(func):
         @wraps(func)
@@ -97,6 +91,7 @@ def popConstraint():
         return wrapper
 
     return decorator
+
 
 class GenericAlgorithm:
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
