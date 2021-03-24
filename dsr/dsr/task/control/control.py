@@ -26,7 +26,8 @@ REWARD_SCALE = {
     "InvertedPendulumSwingupBulletEnv-v0" : [0.0,891.34],
     "LunarLanderContinuous-v2" : [0.0,272.65],
     "HopperBulletEnv-v0" : [0.0,2741.86],
-    "ReacherBulletEnv-v0" : [0.0, 19.05]
+    "ReacherBulletEnv-v0" : [-5.0, 19.05],
+    "BipedalWalker-v2" : [-60.0, 312.0]
 }
 
 
