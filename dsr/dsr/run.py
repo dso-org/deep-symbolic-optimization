@@ -148,43 +148,43 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
 
     # set common paths
     paths = {}
-    paths["root_dir"] = resource_filename("dsr.task", "regression") \
-        if config["task"]["dataset"]["root"] == None \
-            else config["task"]["dataset"]["root"]
-    paths["benchmark_file"] = "benchmarks.csv" \
-        if config["task"]["dataset"]["benchmark_source"] == None \
-            else config["task"]["dataset"]["benchmark_source"]
-    paths["tokenset_path"] = os.path.join(
-        paths["root_dir"], "function_sets.csv")
     paths["log_dir"] = os.path.join(
         config["training"]["logdir"],
         "log_{}_{}".format(
             datetime.now().strftime("%Y-%m-%d-%H%M%S"),
             log_appendix))
-    if "dataset" in config["task"] \
-            and "backup" in config["task"]["dataset"] \
-            and config["task"]["dataset"]["backup"]:
-        config["task"]["dataset"]["logdir"] = paths["log_dir"]
-
-    # Update config where necessary
-    config["training"]["logdir"] = paths["log_dir"]
-    config["postprocess"]["method"] = method
-
     # Create log dir and save commandline arguments
     os.makedirs(paths["log_dir"], exist_ok=True)
     with open(os.path.join(paths["log_dir"], "cmd.out"), 'w') as f:
         print(" ".join(sys.argv), file=f)
 
-    # load all available benchmarks
-    benchmark_df = pd.read_csv(
-        os.path.join(paths["root_dir"], paths["benchmark_file"]),
-        index_col=None, encoding="ISO-8859-1")
+    # Update config where necessary
+    config["training"]["logdir"] = paths["log_dir"]
+    config["postprocess"]["method"] = method
 
-    # load available token sets
-    if config["task"]["function_set"] == None:
-        tokenset_df = pd.read_csv(
-            paths["tokenset_path"],
+    benchmark_df = None
+    if config["task"]["task_type"] == "regression":
+        paths["root_dir"] = resource_filename("dsr.task", "regression") \
+            if config["task"]["dataset"]["root"] == None \
+                else config["task"]["dataset"]["root"]
+        paths["benchmark_file"] = "benchmarks.csv" \
+            if config["task"]["dataset"]["benchmark_source"] == None \
+                else config["task"]["dataset"]["benchmark_source"]
+        paths["tokenset_path"] = os.path.join(
+            paths["root_dir"], "function_sets.csv")
+        if "dataset" in config["task"] \
+                and "backup" in config["task"]["dataset"] \
+                and config["task"]["dataset"]["backup"]:
+            config["task"]["dataset"]["logdir"] = paths["log_dir"]
+        # load all available benchmarks
+        benchmark_df = pd.read_csv(
+            os.path.join(paths["root_dir"], paths["benchmark_file"]),
             index_col=None, encoding="ISO-8859-1")
+        # load available token sets
+        if config["task"]["function_set"] == None:
+            tokenset_df = pd.read_csv(
+                paths["tokenset_path"],
+                index_col=None, encoding="ISO-8859-1")
 
     # Helper functions
     def _set_individual_paths(benchmark):
@@ -202,10 +202,11 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     def _set_individual_config(benchmark):
         new_config = copy.deepcopy(config)
         new_config["task"]["name"] = benchmark
-        tokenset_name = benchmark_df[
-            benchmark_df["name"]==benchmark]["function_set"].item()
-        new_config["task"]["function_set"] = tokenset_df[
-            tokenset_df["name"]==tokenset_name]["function_set"].item().split(',')
+        if not isinstance(config["task"]["function_set"], list):
+            tokenset_name = benchmark_df[
+                benchmark_df["name"]==benchmark]["function_set"].item()
+            new_config["task"]["function_set"] = tokenset_df[
+                tokenset_df["name"]==tokenset_name]["function_set"].item().split(',')
         new_config["paths"] = _set_individual_paths(benchmark)
         with open(new_config["paths"]["config_path"], 'w') as f:
             json.dump(new_config, f, indent=4)
