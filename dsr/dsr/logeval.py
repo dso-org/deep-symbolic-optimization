@@ -23,13 +23,16 @@ class LogEval():
             "name": "Hall of Fame",
             "x_label": [
                 "HoF reward distrubtion",
-                "HoF error distrubtion"],
+                "HoF error distrubtion",
+                "HoF test reward distrubtion"],
             "x": [
+                "index",
                 "index",
                 "index"],
             "y": [
                 "r",
-                "nmse_test"]
+                "nmse_test",
+                "r_avg_test"]
         },
         "pf": {
             "name": "Pareto Front",
@@ -193,44 +196,39 @@ class LogEval():
                 filtered_df = filtered_df.append(row, ignore_index=True)
         return filtered_df
 
-    def plot_results(self, results, log_type="hof", boxplot_on=False, show_plots=False, safe_plots=False):
+    def plot_results(self, results, log_type="hof", boxplot_on=False, show_plots=False, save_plots=False):
         """Plot data from log files ("hof" or "pf")."""
-        col_count = len(self.PLOT_HELPER[log_type]["y"])
+        col_count = 0
+        _x = []
+        _y = []
+        _x_label = []
+        for i in range(len(self.PLOT_HELPER[log_type]["y"])):
+            if self.PLOT_HELPER[log_type]["y"][i] in results:
+                col_count += 1
+                _x.append(self.PLOT_HELPER[log_type]["x"][i])
+                _y.append(self.PLOT_HELPER[log_type]["y"][i])
+                _x_label.append(self.PLOT_HELPER[log_type]["x_label"][i])
         row_count = 2 if boxplot_on else 1
         fig, ax = plt.subplots(row_count, col_count, figsize=(8 * col_count, 4* row_count))
         for i in range(col_count):
             if boxplot_on:
-                sns.lineplot(
-                    data=results,
-                    x=self.PLOT_HELPER[log_type]["x"][i],
-                    y=self.PLOT_HELPER[log_type]["y"][i],
-                    ax=ax[0, i])
-                ax[0, i].set_xlabel(
-                    self.PLOT_HELPER[log_type]["x_label"][i])
-                ax[0, i].set_ylabel(
-                    self.PLOT_HELPER[log_type]["y"][i])
-                sns.boxplot(
-                    results[self.PLOT_HELPER[log_type]["y"][i]],
-                    ax=ax[1, i])
-                ax[1, i].set_xlabel(
-                    self.PLOT_HELPER[log_type]["y"][i])
+                sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
+                ax[0, i].set_xlabel(_x_label[i])
+                ax[0, i].set_ylabel(_y[i])
+                sns.boxplot(results[_y[i]], ax=ax[1, i])
+                ax[1, i].set_xlabel( _y[i])
             else:
-                sns.lineplot(
-                    x=results[self.PLOT_HELPER[log_type]["x"][i]],
-                    y=results[self.PLOT_HELPER[log_type]["y"][i]],
-                    ax=ax[i])
-                ax[i].set_xlabel(
-                    self.PLOT_HELPER[log_type]["x_label"][i])
-                ax[i].set_ylabel(
-                    self.PLOT_HELPER[log_type]["y"][i])
+                sns.lineplot(x=results[_x[i]], y=results[_y[i]], ax=ax[i])
+                ax[i].set_xlabel(_x_label[i])
+                ax[i].set_ylabel(_y[i])
         plt.suptitle(
             "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.exp_config["task"]["name"]),
             fontsize=14)
         plt.tight_layout()
-        if safe_plots:
-            safe_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], log_type))
-            print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], safe_path))
-            plt.savefig(safe_path)
+        if save_plots:
+            save_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], log_type))
+            print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], save_path))
+            plt.savefig(save_path)
         if show_plots:
             plt.show()
         plt.close()
@@ -259,7 +257,7 @@ class LogEval():
                 if show_plots or save_plots:
                     self.plot_results(
                         self.hof_df, log_type="hof", boxplot_on=True,
-                        show_plots=show_plots, safe_plots=save_plots)
+                        show_plots=show_plots, save_plots=save_plots)
             if not self.pf_df is None and show_pf:
                 print("Pareto Front_____")
                 for i in range(min(log_count,len(self.pf_df.index))):
@@ -269,7 +267,7 @@ class LogEval():
                 if show_plots or save_plots:
                     self.plot_results(
                         self.pf_df, log_type="pf",
-                        show_plots=show_plots, safe_plots=save_plots)
+                        show_plots=show_plots, save_plots=save_plots)
         except:
             print("Error when analyzing!")
             [print("    --> {}".format(warning)) for warning in self.warnings]
@@ -282,7 +280,7 @@ class LogEval():
 @click.option("--show_hof", is_flag=True, help="Show Hall of Fame results.")
 @click.option("--show_pf", is_flag=True, help="Show Pareto Front results.")
 @click.option("--show_plots", is_flag=True, help="Generate plots and show results as simple plots.")
-@click.option("--save_plots", is_flag=True, help="Generate plots and safe to log file as simple plots.")
+@click.option("--save_plots", is_flag=True, help="Generate plots and save to log file as simple plots.")
 def main(log_path, log_count, show_hof, show_pf, show_plots, save_plots):
     config_files = [f for f in os.listdir(log_path) if f.endswith('.json')]
     for config_file in config_files:
