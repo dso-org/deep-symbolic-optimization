@@ -22,7 +22,8 @@ ENVS = {
     #"BipedalWalker-v2": {},
     "CustomCartPoleContinuous-v0": {
         "n_actions" : 1,
-        "symbolic" : ["add,mul,10.0,x3,x4"] 
+        #"symbolic" : ["add,mul,10.0,x3,x4"]  # Ours
+        "symbolic" : ["add,mul,31.9,x3,add,mul,8.2,x4,add,x1,mul,2.3,x2"] # LQR optimal
     },
     "HopperBulletEnv-v0" : {
         "n_actions" : 3,
@@ -135,18 +136,22 @@ def main(env=None,  episodes=10, source=None):
 
             # Run episodes
             action_durations = []
+            episode_rewards = []
             for i in range(episodes):
                 env.seed(i + REGRESSION_SEED_SHIFT)
                 obs = env.reset()
                 done = False
+                rewards = []
                 while not done:
                     action_start_time = time.time()
                     [action, _states], predict_duration = model.predict(obs)
                     action_durations.append(predict_duration)
-                    obs, rewards, done, info = env.step(action)
-
-            text.append("{} [action dim = {}]: {:.4f} ms [Model load time: {:.4f} s]".format(
-                env_name, action.shape, np.mean(action_durations)*1000., model_load_duration))
+                    obs, reward, done, info = env.step(action)
+                    rewards.append(reward)
+                episode_rewards.append(sum(rewards))
+            avg_reward = sum(episode_rewards) / len(episode_rewards)
+            text.append("{} [action dim = {}]: {:.4f} ms [Model load time: {:.4f} s] [Avg. reward: {:.4f}]".format(
+                env_name, action.shape, np.mean(action_durations)*1000., model_load_duration, avg_reward))
         # Print summary
         print(" ")
         print("=== {} =========================".format(source))
