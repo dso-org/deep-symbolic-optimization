@@ -1,12 +1,17 @@
 """Class for Prior object."""
 
 import numpy as np
+import warnings
+import inspect
+import copy
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
 from dsr.gp.tokens import individual_to_dsr_aps
 from dsr.subroutines import jit_check_constraint_violation, \
-        jit_check_constraint_violation_descendant, jit_check_constraint_violation_uchild
+        jit_check_constraint_violation_descendant_with_target_tokens, \
+        jit_check_constraint_violation_descendant_no_target_tokens, \
+        jit_check_constraint_violation_uchild
 
 
 def make_prior(library, config_prior, 
@@ -195,6 +200,7 @@ class Prior():
     def __init__(self, library):
         self.library = library
         self.L = library.L
+        self.mask_val = -np.inf
 
     def validate(self):
         """
@@ -253,8 +259,8 @@ class Prior():
         violated : Bool
         """
         
-        raise NotImplementedError        
-
+        raise NotImplementedError
+        
     def describe(self):
         """Describe the Prior."""
 
@@ -293,8 +299,55 @@ class Constraint(Prior):
         prior = np.zeros((mask.shape[0], self.L), dtype=np.float32)
         
         for t in tokens:
-            prior[mask, t] = -np.inf
+            prior[mask, t] = self.mask_val
         return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        """
+        Given a set of actions, tells us if a prior constraint has been violated 
+        post hoc. 
+        
+        This is a generic version that will run using the __call__ function so that one
+        does not have to write a function twice for both DSR and Deap. 
+        
+        >>>HOWEVER<<<
+        
+        Using this function is less optimal than writing a variant for Deap. So...
+        
+        If you create a constraint and find you use if often with Deap, you should gp ahead anf
+        write the optimal version. 
+
+        Returns
+        -------
+        violated : Bool
+        """
+        caller          = inspect.getframeinfo(inspect.stack()[1][0])
+        
+        warnings.warn("{} ({}) {} : Using a slower version of constraint for Deap. You should write your own.".format(caller.filename, caller.lineno, type(self).__name__))
+        
+        assert len(actions.shape) == 2, "Only takes in one action at a time since this is how Deap will use it."
+        assert actions.shape[0] == 1, "Only takes in one action at a time since this is how Deap will use it."
+          
+        old_val         = copy.deepcopy(self.mask_val)
+        self.mask_val   = 1.0
+        dangling        = np.ones((1), dtype=np.int32)
+        
+        # For each step in time, get the prior                                
+        for t in range(actions.shape[1]):
+            dangling    += self.library.arities[actions[:,t]] - 1   
+            priors      = self.__call__(actions[:,:t], parent[:,t], sibling[:,t], dangling)
+            
+            # Does our action conflict with this prior?
+            if priors[0,actions[0,t]]:
+                return True
+             
+        return False
+    
+    def test_is_violated(self, actions, parent, sibling):
+        r"""
+            This allows one to call the generic version of "is_violated" for testing purposes.
+        """
+        return Constraint.is_violated(self, actions, parent, sibling)
     
     def check_constraint_violation(self, actions, actions_tokens, other, other_tokens):
         r'''
@@ -408,9 +461,14 @@ class RelationalConstraint(Constraint):
 
 
 class DescendantRelationalConstraint(RelationalConstraint):
-    
-    def __init__(self, **kwargs):
-        super(DescendantRelationalConstraint, self).__init__(**kwargs, relationship="descendant", base=True)
+    r"""
+        Given a token a non-terminal token A, does it contain and instance of A (or like A)
+        as a descendant. An example might be a trig constraint like sin(exp(x*cos(x))). Here
+        cos(x) is inside sin() and would violate this.
+    """
+    def __init__(self, library, **kwargs):
+        kwargs.pop('relationship', None)
+        super(DescendantRelationalConstraint, self).__init__(library, **kwargs, relationship="descendant", base=True)
                 
     def __call__(self, actions, parent, sibling, dangling):
         mask = ancestors(actions=actions,
@@ -422,13 +480,17 @@ class DescendantRelationalConstraint(RelationalConstraint):
     
     def is_violated(self, actions, parent, sibling):
         
-        return jit_check_constraint_violation_descendant(actions, self.targets, self.library.binary_tokens, self.library.unary_tokens)
+        return jit_check_constraint_violation_descendant_with_target_tokens(actions, self.targets, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
     
         
 class ChildRelationalConstraint(RelationalConstraint):
-    
-    def __init__(self, **kwargs):
-        super(ChildRelationalConstraint, self).__init__(**kwargs, relationship="child", base=True)
+    r"""
+        Are two special matching tokens in a direct child/parent relationship? An example would be
+        log(exp(x)).
+    """
+    def __init__(self,  library, **kwargs):
+        kwargs.pop('relationship', None)
+        super(ChildRelationalConstraint, self).__init__(library, **kwargs, relationship="child", base=True)
         
     def _adj_parents(self):
         parents = self.effectors
@@ -441,14 +503,18 @@ class ChildRelationalConstraint(RelationalConstraint):
         return prior
     
     def is_violated(self, actions, parent, sibling):
-        
+                
         return self.check_constraint_violation(actions, self.targets, parent, self._adj_parents())
         
         
 class SiblingRelationalConstraint(RelationalConstraint):
-    
-    def __init__(self, **kwargs):
-        super(SiblingRelationalConstraint, self).__init__(**kwargs, relationship="sibling", base=True)
+    r"""
+        Are two special matching tokens siblings or each other? For example, if we never want to multiply
+        NaN and Inf then both mul(NaN,Inf) and mul(Inf,NaN) would violate.
+    """
+    def __init__(self,  library, **kwargs):
+        kwargs.pop('relationship', None)
+        super(SiblingRelationalConstraint, self).__init__(library, **kwargs, relationship="sibling", base=True)
         
     def __call__(self, actions, parent, sibling, dangling):
         # The sibling relationship is reflexive: if A is a sibling of B,
@@ -471,9 +537,14 @@ class SiblingRelationalConstraint(RelationalConstraint):
         
         
 class UChildRelationalConstraint(RelationalConstraint):
+    r"""
+        This prevents certain tokens from being the only child of other tokens. For instance, 
+        if we have a optimizable constant, this would prevent exp(const) or mul(const,const). 
+    """
     
-    def __init__(self, **kwargs):
-        super(UChildRelationalConstraint, self).__init__(**kwargs, relationship="uchild", base=True)
+    def __init__(self,  library, **kwargs):
+        kwargs.pop('relationship', None)
+        super(UChildRelationalConstraint, self).__init__(library, **kwargs, relationship="uchild", base=True)
         
     def _adj_unary_effectors(self):
         unary_effectors = np.intersect1d(self.effectors, self.library.unary_tokens)
@@ -509,11 +580,22 @@ class TrigConstraint(DescendantRelationalConstraint):
         super(TrigConstraint, self).__init__(library=library,
                                              targets=targets,
                                              effectors=effectors)
+        
+    def is_violated(self, actions, parent, sibling):
+        
+        # Call a slightly faster descendant computation since target is the same as effectors
+        return jit_check_constraint_violation_descendant_no_target_tokens(actions, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
 
 
 class ConstConstraint(UChildRelationalConstraint):
     """Class that constrains the const Token from being the only unique child
-    of all non-terminal Tokens."""
+    of all non-terminal Tokens.
+    
+    This namely applies to optimizable/mutable constants, not user supplied ones.
+    
+    The idea is that something like exp(const) or mul(const,const) just adds complexity over
+    using const without parent functions. 
+    """
 
     def __init__(self, library):
         targets = library.const_token
@@ -638,17 +720,16 @@ class RepeatConstraint(Constraint):
             prior += self.make_constraint(mask, self.tokens)
         return prior
     
-    def is_violated(self, actions):
+    def is_violated(self, actions, parent, sibling):
         
         count = 0
-        for i, a in enumerate(actions):
-            count += a in self.tokens
-            
-        if self.min is not None and count < self.min:
-            return True
-        elif self.max is not None and count >= self.max:
-            return True
-        
+        for i, a in enumerate(actions[0,:]):
+            if a in self.tokens:
+                if count == self.max:
+                    return True
+                else:
+                    count += 1
+                
         return False 
 
     def describe(self):
@@ -719,15 +800,7 @@ class LengthConstraint(Constraint):
     
     def is_violated(self, actions, parent, sibling):
         
-        # Deap has methods to do this already, in that case, it may be better to use
-        # its own methods. 
-        
-        i = actions.shape[1]
-        
-        if self.min is not None and i < self.min:
-            return True
-        if self.max is not None and i >= self.max:
-            return True
+        # Deap already does this, just return false. 
         
         return False
 
