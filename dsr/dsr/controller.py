@@ -221,6 +221,9 @@ class Controller(object):
             entropy_gamma = 1.0
         entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
         
+        if entropy_gamma != 1.0:
+            print("Controller Using Hierarchical Entropy")
+        
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
 

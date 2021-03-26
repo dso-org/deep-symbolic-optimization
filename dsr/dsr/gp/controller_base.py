@@ -74,8 +74,14 @@ class GPController:
         
         self.check_constraint       = check_constraint
         
-        # Create widget for checking constraint violations
+        # Create widget for checking constraint violations inside Deap. 
         self.joint_prior_violation  = make_prior(Program.library, config_prior, use_violation=True, use_deap=True)
+        
+        # Create widget for creating priors to pass to DSR training.         
+        if config_gp_meld["compute_priors"]:
+            self.prior_func             = make_prior(Program.library, config_prior, use_at_once=True)
+        else:
+            self.prior_func             = None
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
@@ -118,20 +124,7 @@ class GPController:
         self.get_top_program        = None
         self.tokens_to_DEAP         = None
         self.DEAP_to_tokens         = None
-        
-        self.record_best            = config_gp_meld["record_best"]        
-        if self.record_best:
-            self.record_best_size   = config_gp_meld["record_best_size"] 
-            self.deap_programs      = []
-            self.deap_obs           = []
-            self.deap_actions       = None
-            self.deap_priors        = None
-        
-        if config_gp_meld["compute_priors"]:
-            self.prior_func             = make_prior(Program.library, config_prior, use_at_once=True)
-        else:
-            self.prior_func             = None
-            
+                    
         self.train_n                = self.config_gp_meld["train_n"] 
         
     def _create_primitive_set(self, *args, **kwargs):

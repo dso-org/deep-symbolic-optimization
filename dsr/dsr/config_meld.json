@@ -25,7 +25,8 @@
       "repeat" : {"tokens" : "const", "max_" : 3},
       "inverse" : {},
       "const" : {},
-      "trig" : {}
+      "trig" : {},
+      "uniform_arity" : {}
    },
    "training": {
       "logdir": "./log",
@@ -81,7 +82,7 @@
    		"desc_run_gp_meld" 		  	: "Turn on the GP component to iterate with RL?",
    		"run_gp_meld"             	: true,
    		"desc_verbose"			  	: "Verbosity for GP components.",
-        "verbose"                 	: true,     
+        "verbose"                 	: false,     
    		"desc_init_population_size"	: "Random population to start out with other than what we get from the controller. Setting to 1 smooths init (this is a small bug). Default: 1",
         "init_population_size"    	: 1,
         "desc_p_crossover"		  	: "Probability that GP will cross bread two memebers. Note, this can co-occure independantly with mutate. Default: 0.5",
@@ -119,9 +120,7 @@
         "desc_compute_priors"		: "Turn on the computation of priors for return to RL controller. For regression task, seems to make no difference.",
         "compute_priors"			: false,
         "desc_parallel_eval"		: "Evaluate GP population in parallel. Overhead makes this only good for expensive tasks like Controller.",
-        "parallel_eval" 			: false,
-        "record_best" 				: false,
-        "record_best_size" 			: 5
+        "parallel_eval" 			: false
    },
    "language_model_prior": {
         "saved_language_model_path": "./language_model/model/saved_model",

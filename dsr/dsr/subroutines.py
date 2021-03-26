@@ -250,9 +250,9 @@ def jit_check_constraint_violation(actions, actions_tokens, other, other_tokens)
     # For each action:
     for l in range(L):
         # Check if this token matches a constraint token
-        if a_in_b(actions[0,l], actions_tokens, A):
-            # Check if the other also matches one of its constraints
-            return a_in_b(other[0,l], other_tokens, O)
+        # And check if the other also matches one of its constraints
+        if a_in_b(actions[0,l], actions_tokens, A) and a_in_b(other[0,l], other_tokens, O):
+            return True
                     
     return False
 
@@ -318,22 +318,21 @@ def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_toke
     # For each action:
     for l in range(L):
         
-        # CASE 1: parent is a unary effector
-        #     >>> if (parent[i] in adj_unary_effectors) 
-        if a_in_b(parent[0,l], adj_unary_effectors, U):
-            return a_in_b(actions[0,l], actions_tokens, A)
-        
-        # CASE 2: sibling is a target and parent is an effector
-        #     >>> or (sibling[i] in self.targets and parent[i] in adj_effectors)
-        if a_in_b(sibling[0,l], actions_tokens, A):
-            if a_in_b(parent[0,l], adj_effectors, E):
-                 return a_in_b(actions[0,l], actions_tokens, A)
+        # Is this the right action?
+        if a_in_b(actions[0,l], actions_tokens, A):
+            # CASE 1: parent is a unary effector
+            if a_in_b(parent[0,l], adj_unary_effectors, U):
+                return True
+            
+            # CASE 2: sibling is a target and parent is an effector
+            if a_in_b(sibling[0,l], actions_tokens, A) and a_in_b(parent[0,l], adj_effectors, E):
+                return True
             
     return False
 
 
 @jit(nopython=True, parallel=False)
-def jit_check_constraint_violation_descendant(actions, target_tokens, binary_tokens, unary_tokens):
+def jit_check_constraint_violation_descendant_no_target_tokens(actions, effector_tokens, binary_tokens, unary_tokens):
 
     r"""
     Given an action sequence, another type of sequences such as siblings 
@@ -365,6 +364,92 @@ def jit_check_constraint_violation_descendant(actions, target_tokens, binary_tok
         return False
         
     >>> This has been tested against the old Trig constraint and gives the same answer
+    
+    Parameters
+    __________
+
+    actions : np.ndarray, shape=(1, L), dtype=np.int32
+        Batch of action sequences. Values correspond to library indices.
+        
+    effector_tokens : np.ndarray, dtype=np.int32
+        Array of constraint tokens to match action against.
+
+    binrary_tokens : np.ndarray, dtype=np.int32
+        Array of binary function tokens in the current library. 
+        
+    uniary_tokens : np.ndarray, dtype=np.int32
+        Array of unary function tokens in the current library. 
+
+    Returns
+    _______
+
+    bool : Was the constraint violated. 
+    
+    """
+
+    # Is this token item A found in the list of tokens in B?
+    def a_in_b(a, B_tokens, B):
+        for b in range(B):
+            if a == B_tokens[b]:
+                return True
+        return False
+    
+    # Is this token item A NOT found in the list of tokens in B?                        
+    def a_not_in_b(a, B_tokens, B):
+        for b in range(B):
+            if a == B_tokens[b]:
+                return False
+        return True
+            
+    _,L     = actions.shape
+    E       = effector_tokens.shape[0]
+    B       = binary_tokens.shape[0]
+    U       = unary_tokens.shape[0]
+    
+    descendant = False # True when current node is a descendant of operator
+
+    # For each action:
+    for l in range(L):
+        
+        action = actions[0,l]
+        
+        if a_in_b(action, effector_tokens, E):
+            # Does action match a target token?
+            if descendant:
+                # a token was found previously, but
+                # we are still in a dangling node, therefore
+                # we have a token inside a token expression
+                # that we are not allowed to have e.g.
+                # sin(sin(x)) .
+                
+                return True
+            descendant  = True
+            dangling    = 1
+        elif descendant:
+            if a_in_b(action, binary_tokens, B):
+                # Does action match a binary token?
+                # Then add one to dangling.
+                dangling += 1
+            elif a_not_in_b(action, unary_tokens, U):
+                # Does action match a terminal token?
+                # Then subtract one from dangling.
+                # We skip the instance of unary since 
+                # this leaves dangling to be += 0 
+                # and assume that any token not binary 
+                # and unary is a terminal. 
+                dangling -= 1
+            
+            # If we no longer have any dangling nodes, 
+            # Then we cannot be a descendant.     
+            if dangling == 0:
+                descendant = False
+                
+    return False  
+
+@jit(nopython=True, parallel=False)
+def jit_check_constraint_violation_descendant_with_target_tokens(actions, target_tokens, effector_tokens, binary_tokens, unary_tokens):
+
+    r"""
     
     Parameters
     __________
@@ -414,18 +499,13 @@ def jit_check_constraint_violation_descendant(actions, target_tokens, binary_tok
         
         action = actions[0,l]
         
-        if a_in_b(action, target_tokens, T):
+        if a_in_b(action, effector_tokens, T):
             # Does action match a target token?
-            if descendant:
-                # a token was found previously, but
-                # we are still in a dangling node, therefore
-                # we have a token inside a token expression
-                # that we are not allowed to have e.g.
-                # sin(sin(x)) .
-                
-                return True
             descendant  = True
             dangling    = 1
+        elif a_in_b(action, target_tokens, T):
+            if descendant:                
+                return True
         elif descendant:
             if a_in_b(action, binary_tokens, B):
                 # Does action match a binary token?
@@ -446,4 +526,6 @@ def jit_check_constraint_violation_descendant(actions, target_tokens, binary_tok
                 descendant = False
                 
     return False  
+
+    
 
