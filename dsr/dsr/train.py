@@ -282,11 +282,11 @@ def learn(sess, controller, pool, gp_controller,
     nevals              = 0
     program_val_log     = []
 
-    for step in range(n_epochs):
+    for epoch in range(n_epochs):
 
         if gp_verbose:
             print("************************************************************************")
-            print("STEP {}".format(step))
+            print("EPOCH {}".format(epoch))
             print("************************")
 
         # Set of str representations for all Programs ever seen
@@ -367,10 +367,10 @@ def learn(sess, controller, pool, gp_controller,
         s           = [p.str for p in programs] # Str representations of Programs
         on_policy   = np.array([p.on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
-        all_r[step] = base_r
+        all_r[epoch] = base_r
         
         if save_positional_entropy: 
-            positional_entropy[step] = np.apply_along_axis(empirical_entropy, 0, actions)
+            positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
 
         if eval_all:            
             success = [p.evaluate.get("success") for p in programs]
@@ -436,7 +436,7 @@ def learn(sess, controller, pool, gp_controller,
                 if memory_threshold is not None:
                     print("Memory weight:", memory_w.sum())
                     if memory_w.sum() > memory_threshold:
-                        quantile_variance(memory_queue, controller, batch_size, epsilon, step)
+                        quantile_variance(memory_queue, controller, batch_size, epsilon, epoch)
 
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
@@ -570,7 +570,7 @@ def learn(sess, controller, pool, gp_controller,
         # Train the controller
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
         if summary:
-            writer.add_summary(summaries, step)
+            writer.add_summary(summaries, epoch)
             writer.flush()
 
         # Update the memory queue
@@ -594,7 +594,7 @@ def learn(sess, controller, pool, gp_controller,
 
         if gp_verbose:
             print("************************")
-            print("Best step Program:")
+            print("Best epoch Program:")
             programs[np.argmax(base_r)].print_stats()
             print("************************")
             print("All time best Program:")
@@ -623,19 +623,19 @@ def learn(sess, controller, pool, gp_controller,
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
-            all_r = all_r[:(step + 1)]
+            all_r = all_r[:(epoch + 1)]
             print("Early stopping criteria met; breaking early.")
             break
         if early_stopping and p_base_r_best.evaluate.get("success"):
-            all_r = all_r[:(step + 1)]
+            all_r = all_r[:(epoch + 1)]
             print("Early stopping criteria met; breaking early.")
             break
 
-        if verbose and step > 0 and step % 10 == 0:
-            print("Completed {} steps".format(step))
+        if verbose and epoch > 0 and epoch % 10 == 0:
+            print("Training epoch {}/{}".format(epoch, n_epochs))
 
         if debug >= 2:
-            print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
+            print("\nParameter means after epoch {} of {}:".format(epoch+1, n_epochs))
             print_var_means()
             
         if run_gp_meld:
@@ -727,7 +727,7 @@ def learn(sess, controller, pool, gp_controller,
             error_types[p.error_type] += p.count
             error_nodes[p.error_node] += p.count
     if n_invalid > 0:
-        total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
+        total_samples = (epoch + 1)*batch_size # May be less than n_samples if breaking early
         print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
         print("Error type counts:")
         for error_type, count in error_types.items():
