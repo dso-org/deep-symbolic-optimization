@@ -253,7 +253,7 @@ class LogEval():
                 for i in range(len(self.warnings)):
                     print('  {}'.format(self.warnings[i]))
             if not self.hof_df is None and show_hof:
-                print('Hallo of Fame____')
+                print('Hallo of Fame (Top {} of {})____'.format(min(log_count,len(self.hof_df.index)), len(self.hof_df.index)))
                 for i in range(min(log_count,len(self.hof_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} <-- {}'.format(
                         i, self.hof_df.iloc[i]['seed'], self.hof_df.iloc[i]['r'],
@@ -263,7 +263,7 @@ class LogEval():
                         self.hof_df, log_type='hof', boxplot_on=True,
                         show_plots=show_plots, safe_plots=save_plots)
             if not self.pf_df is None and show_pf:
-                print('Pareto Front_____')
+                print('Pareto Front (Top {} of {})____'.format(min(log_count,len(self.pf_df.index)), len(self.pf_df.index)))
                 for i in range(min(log_count,len(self.pf_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} C={:03d} <-- {}'.format(
                         i, self.pf_df.iloc[i]['seed'], self.pf_df.iloc[i]['r'],
