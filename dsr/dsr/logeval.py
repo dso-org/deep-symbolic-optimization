@@ -237,7 +237,7 @@ class LogEval():
             plt.show()
         plt.close()
 
-    def analyze_log(self, log_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False):
+    def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False):
         """Generates a summary of important experiment outcomes."""
         print('=== Log analysis =========================================')
         try:
@@ -253,8 +253,8 @@ class LogEval():
                 for i in range(len(self.warnings)):
                     print('  {}'.format(self.warnings[i]))
             if not self.hof_df is None and show_hof:
-                print('Hall of Fame (Top {} of {})____'.format(min(log_count,len(self.hof_df.index)), len(self.hof_df.index)))
-                for i in range(min(log_count,len(self.hof_df.index))):
+                print('Hall of Fame (Top {} of {})____'.format(min(show_count,len(self.hof_df.index)), len(self.hof_df.index)))
+                for i in range(min(show_count,len(self.hof_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} <-- {}'.format(
                         i, self.hof_df.iloc[i]['seed'], self.hof_df.iloc[i]['r'],
                         self.hof_df.iloc[i]['expression']))
@@ -263,8 +263,8 @@ class LogEval():
                         self.hof_df, log_type='hof', boxplot_on=True,
                         show_plots=show_plots, safe_plots=save_plots)
             if not self.pf_df is None and show_pf:
-                print('Pareto Front (Top {} of {})____'.format(min(log_count,len(self.pf_df.index)), len(self.pf_df.index)))
-                for i in range(min(log_count,len(self.pf_df.index))):
+                print('Pareto Front (Top {} of {})____'.format(min(show_count,len(self.pf_df.index)), len(self.pf_df.index)))
+                for i in range(min(show_count,len(self.pf_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} C={:03d} <-- {}'.format(
                         i, self.pf_df.iloc[i]['seed'], self.pf_df.iloc[i]['r'],
                         self.pf_df.iloc[i]['complexity'], self.pf_df.iloc[i]['expression']))
@@ -280,15 +280,15 @@ class LogEval():
 
 @click.command()
 @click.argument('log_path', default=None)
-@click.option('--log_count', default=10, type=int, help="Number of results we want to see from each metric.")
+@click.option('--show_count', default=10, type=int, help="Number of results we want to see from each metric.")
 @click.option('--show_hof', is_flag=True, help='Show Hall of Fame results.')
 @click.option('--show_pf', is_flag=True, help='Show Pareto Front results.')
 @click.option('--show_plots', is_flag=True, help='Generate plots and show results as simple plots.')
 @click.option('--save_plots', is_flag=True, help='Generate plots and safe to log file as simple plots.')
-def main(log_path, log_count, show_hof, show_pf, show_plots, save_plots):
+def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots):
     log = LogEval(log_path)
     log.analyze_log(
-        log_count=log_count,
+        show_count=show_count,
         show_hof=show_hof,
         show_pf=show_pf,
         show_plots=show_plots,
