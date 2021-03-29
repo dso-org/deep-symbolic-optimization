@@ -64,7 +64,18 @@ class BenchmarkDataset(object):
             root = resource_filename("dsr.task", "regression")
         benchmark_path = os.path.join(root, benchmark_source)
         benchmark_df = pd.read_csv(benchmark_path, index_col=0, encoding="ISO-8859-1")
-        row = benchmark_df.loc[name]
+        try:
+            row = benchmark_df.loc[name]
+        except:
+            # Make this error is little more visible. 
+            print("")
+            print("=====================================================")
+            print(">>> UNABEL TO FIND BENCHMARK: \"{}\"".format(name))
+            print("=====================================================")
+            print("")
+            # Rethrow the exception
+            raise
+            
         self.n_input_var = row["variables"]
 
         # Create symbolic expression

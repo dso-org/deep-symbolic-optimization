@@ -44,15 +44,15 @@ def _finish_tokens(tokens, n_objects: int = 1):
         
     """
     
-    arities         = np.array([Program.library.arities[t] for t in tokens])
+    arities = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
-    dangling        = 1 + np.cumsum(arities - 1) 
+    dangling = 1 + np.cumsum(arities - 1) 
     
     if -n_objects in (dangling - 1):
         # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
-        expr_length     = 1 + np.argmax((dangling - 1) == -n_objects)
-        tokens          = tokens[:expr_length]
+        expr_length = 1 + np.argmax((dangling - 1) == -n_objects)
+        tokens = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
         tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
@@ -292,24 +292,24 @@ class Program(object):
         against reward function, and evalutes the reward.
         """
         
-        self.traversal      = [Program.library[t] for t in tokens]
-        self.const_pos      = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
+        self.traversal = [Program.library[t] for t in tokens]
+        self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
         self.len_traversal  = len(self.traversal)
 
         if self.have_cython and self.len_traversal > 1:
-            self.is_input_var    = array.array('i', [t.input_var is not None for t in self.traversal])
+            self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])
         
-        self.invalid        = False
-        self.str            = tokens.tostring()        
-        self.n_objects      = n_objects
-        self.tokens         = tokens
-        self.do_optimize    = optimize 
+        self.invalid = False
+        self.str = tokens.tostring()        
+        self.n_objects = n_objects
+        self.tokens = tokens
+        self.do_optimize = optimize 
         
         if optimize:
             _ = self.optimize()
             
-        self.count      = 1
-        self.on_policy  = on_policy # Note if a program was created on policy
+        self.count = 1
+        self.on_policy = on_policy # Note if a program was created on policy
 
         if self.n_objects > 1:
             # Fill list of multi-traversals
@@ -470,7 +470,7 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
-            assert isinstance(const, float) or isinstance(const, np.float), "Input to program constants must be of a floating point type"
+            assert U.is_float, "Input to program constants must be of a floating point type"
             # Create a new instance of PlaceholderConstant instead of changing
             # the "values" attribute, otherwise all Programs will have the same
             # instance and just overwrite each other's value.

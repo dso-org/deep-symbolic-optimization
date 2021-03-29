@@ -19,11 +19,6 @@ except ImportError:
 # Define the name of type for any types. This is a DEAP widget thingy. 
 __type__ = object
 
-try:
-    CONST_TOKEN = Program.library.names.index("const")
-except:
-    CONST_TOKEN = None
-
 r"""
     Fast special case version of below. This is mainly used during constraint 
     checking. 
@@ -51,12 +46,12 @@ def DEAP_to_math_tokens(individual, tokens_size):
     arities             = np.empty(l)
     optimized_consts    = []
     
-    if CONST_TOKEN is not None:
+    if Program.library.const_token is not None:
         for i in range(l): 
             ind         = individual[i]
             tokens[i]   = ind.token
             arities[i]  = ind.arity
-            if ind.token == CONST_TOKEN: optimized_consts.append(ind.value) 
+            if ind.token == Program.library.const_token: optimized_consts.append(ind.value) 
     else:   
         for i in range(l): tokens[i], arities[i] = individual[i].token, individual[i].arity
         
@@ -273,7 +268,7 @@ class Ephemeral(Terminal):
     """
 
     def __init__(self):
-        Terminal.__init__(self, self.func(), symbolic=False, ret=self.ret, token=CONST_TOKEN)
+        Terminal.__init__(self, self.func(), symbolic=False, ret=self.ret, token=Program.library.const_token)
 
     @staticmethod
     def func():
@@ -403,7 +398,7 @@ class PrimitiveSetTyped(object):
         if name.startswith("user_const_"):
             prim = Terminal(terminal, symbolic, ret=ret_type, token=Program.library.names.index(name.split('_')[2]))
         elif name.startswith("mutable_const_"):
-            prim = Terminal(terminal, symbolic, ret=ret_type, token=CONST_TOKEN)
+            prim = Terminal(terminal, symbolic, ret=ret_type, token=Program.library.const_token)
         else:
             # We don't support other types at the moment
             raise ValueError
