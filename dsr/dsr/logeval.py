@@ -56,7 +56,7 @@ class LogEval():
         # Prepare variable to store calculated metrics
         self.metrics = {}
 
-        # define pathes
+        # define paths
         self.path = {}
         self.path['log'] = log_path
         self.path['config'] = os.path.join(log_path, config_file)
