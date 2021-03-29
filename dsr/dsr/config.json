@@ -22,8 +22,7 @@
    },
    "postprocess": {
       "method": "dsr",
-      "print": true,
-      "print_count": 5,
+      "show_count": 5,
       "save_plots": true
    },
    "prior": {
