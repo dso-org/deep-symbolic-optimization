@@ -25,6 +25,7 @@ from dsr import DeepSymbolicOptimizer
 from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
+from dsr.logeval import LogEval
 
 
 def train_dsr(seeded_benchmark):
@@ -295,16 +296,14 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     for benchmark in [*unique_benchmark_configs]:
         config = unique_benchmark_configs[benchmark]
-        if config["postprocess"]["print"]:
-            from dsr.logeval import LogEval
-            log = LogEval(
-                config["paths"]["log_dir"],
-                config_file=config["paths"]["config_file"])
-            log.analyze_log(
-                log_count=config["postprocess"]["print_count"],
-                show_hof=config["training"]["hof"] != None and config["training"]["hof"] > 0,
-                show_pf=config["training"]["pareto_front"],
-                save_plots=config["postprocess"]["save_plots"])
+        log = LogEval(
+            config["paths"]["log_dir"],
+            config_file=config["paths"]["config_file"])
+        log.analyze_log(
+            show_count=config["postprocess"]["show_count"],
+            show_hof=config["training"]["hof"] != None and config["training"]["hof"] > 0,
+            show_pf=config["training"]["pareto_front"],
+            save_plots=config["postprocess"]["save_plots"])
 
 
 if __name__ == "__main__":
