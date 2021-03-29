@@ -24,6 +24,9 @@ class LogEval():
             'x_label': [
                 'HoF reward distrubtion',
                 'HoF error distrubtion'],
+            'y_label': [
+                'Reward',
+                'Error'],
             'x': [
                 'index',
                 'index'],
@@ -34,8 +37,11 @@ class LogEval():
         'pf': {
             'name': 'Pareto Front',
             'x_label': [
-                'Reward over Complexity',
-                'Error over Complexity'],
+                'Complexity',
+                'Complexity'],
+            'y_label': [
+                'Reward',
+                'Error'],
             'x': [
                 'complexity',
                 'complexity'],
@@ -210,7 +216,7 @@ class LogEval():
                 ax[0, i].set_xlabel(
                     self.PLOT_HELPER[log_type]['x_label'][i])
                 ax[0, i].set_ylabel(
-                    self.PLOT_HELPER[log_type]['y'][i])
+                    self.PLOT_HELPER[log_type]['y_label'][i])
                 sns.boxplot(
                     results[self.PLOT_HELPER[log_type]['y'][i]],
                     ax=ax[1, i])
@@ -224,7 +230,7 @@ class LogEval():
                 ax[i].set_xlabel(
                     self.PLOT_HELPER[log_type]['x_label'][i])
                 ax[i].set_ylabel(
-                    self.PLOT_HELPER[log_type]['y'][i])
+                    self.PLOT_HELPER[log_type]['y_label'][i])
         plt.suptitle(
             "{} - {}".format(self.PLOT_HELPER[log_type]['name'], self.exp_config['task']['name']),
             fontsize=14)
