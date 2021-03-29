@@ -253,7 +253,7 @@ class LogEval():
                 for i in range(len(self.warnings)):
                     print('  {}'.format(self.warnings[i]))
             if not self.hof_df is None and show_hof:
-                print('Hallo of Fame (Top {} of {})____'.format(min(log_count,len(self.hof_df.index)), len(self.hof_df.index)))
+                print('Hall of Fame (Top {} of {})____'.format(min(log_count,len(self.hof_df.index)), len(self.hof_df.index)))
                 for i in range(min(log_count,len(self.hof_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} <-- {}'.format(
                         i, self.hof_df.iloc[i]['seed'], self.hof_df.iloc[i]['r'],
