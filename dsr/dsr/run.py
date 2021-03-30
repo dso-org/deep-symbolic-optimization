@@ -247,7 +247,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     configs = []
     benchmarks = []
     seeds = []
-    for benchmark in [*unique_benchmark_configs]:
+    for benchmark in unique_benchmark_configs:
         benchmarks.extend([benchmark] * mc)
         configs.extend([unique_benchmark_configs[benchmark]] * mc)
         seeds.extend((np.arange(mc) + seed_shift).tolist())
