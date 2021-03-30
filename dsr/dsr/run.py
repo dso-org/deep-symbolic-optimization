@@ -294,8 +294,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
             write_header = False
 
-    for benchmark in [*unique_benchmark_configs]:
-        config = unique_benchmark_configs[benchmark]
+    for config in unique_benchmark_configs.values():
         log = LogEval(
             config["paths"]["log_dir"],
             config_file=config["paths"]["config_file"])
