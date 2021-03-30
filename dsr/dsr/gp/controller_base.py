@@ -2,7 +2,6 @@ import numpy as np
 import multiprocessing
 from pathos.multiprocessing import ProcessPool
 from operator import attrgetter
-from dsr.subroutines import jit_parents_siblings_at_once
 
 try:
     from deap import gp
@@ -17,6 +16,7 @@ except ImportError:
     creator     = None
     algorithms  = None
 
+from dsr.subroutines import jit_parents_siblings_at_once
 from dsr.gp import base as gp_base
 from dsr.gp import tokens as gp_tokens
 from dsr.prior import make_prior
