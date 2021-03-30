@@ -166,10 +166,10 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     benchmark_df = None
     if config["task"]["task_type"] == "regression":
         paths["root_dir"] = resource_filename("dsr.task", "regression") \
-            if config["task"]["dataset"]["root"] == None \
+            if config["task"]["dataset"]["root"] is None \
                 else config["task"]["dataset"]["root"]
         paths["benchmark_file"] = "benchmarks.csv" \
-            if config["task"]["dataset"]["benchmark_source"] == None \
+            if config["task"]["dataset"]["benchmark_source"] is None \
                 else config["task"]["dataset"]["benchmark_source"]
         paths["tokenset_path"] = os.path.join(
             paths["root_dir"], "function_sets.csv")
@@ -182,7 +182,7 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
             os.path.join(paths["root_dir"], paths["benchmark_file"]),
             index_col=None, encoding="ISO-8859-1")
         # load available token sets
-        if config["task"]["function_set"] == None:
+        if config["task"]["function_set"] is None:
             tokenset_df = pd.read_csv(
                 paths["tokenset_path"],
                 index_col=None, encoding="ISO-8859-1")
