@@ -258,7 +258,8 @@ def jit_check_constraint_violation(actions, actions_tokens, other, other_tokens)
 
 
 @jit(nopython=True, parallel=False)
-def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_tokens, adj_unary_effectors, adj_effectors):
+def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_tokens, 
+                                          adj_unary_effectors, adj_effectors):
     r"""
     Given an action sequence, another type of sequences such as siblings 
     or children and constraint tokens, this will return a bool which tells if
@@ -332,7 +333,8 @@ def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_toke
 
 
 @jit(nopython=True, parallel=False)
-def jit_check_constraint_violation_descendant_no_target_tokens(actions, effector_tokens, binary_tokens, unary_tokens):
+def jit_check_constraint_violation_descendant_no_target_tokens(\
+        actions, effector_tokens, binary_tokens, unary_tokens):
 
     r"""
     Given an action sequence, another type of sequences such as siblings 
@@ -447,7 +449,8 @@ def jit_check_constraint_violation_descendant_no_target_tokens(actions, effector
     return False  
 
 @jit(nopython=True, parallel=False)
-def jit_check_constraint_violation_descendant_with_target_tokens(actions, target_tokens, effector_tokens, binary_tokens, unary_tokens):
+def jit_check_constraint_violation_descendant_with_target_tokens(\
+        actions, target_tokens, effector_tokens, binary_tokens, unary_tokens):
 
     r"""
     

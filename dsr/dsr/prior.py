@@ -345,7 +345,8 @@ class Constraint(Prior):
     
     def test_is_violated(self, actions, parent, sibling):
         r"""
-            This allows one to call the generic version of "is_violated" for testing purposes.
+            This allows one to call the generic version of "is_violated" for testing purposes
+            from the derived classes even if they have an optimized version. 
         """
         return Constraint.is_violated(self, actions, parent, sibling)
     
@@ -359,8 +360,8 @@ class Constraint(Prior):
     
     def make_constraint_prior(self, actions_tokens, other, other_tokens):
         r'''
-            Here we with to prevent an action, so the mask returns a template of actions to
-            avoid
+            Here we wish to prevent an action, so the mask returns a template of actions to
+            avoid.
         '''
         
         mask    = np.isin(other, other_tokens)
@@ -480,7 +481,8 @@ class DescendantRelationalConstraint(RelationalConstraint):
     
     def is_violated(self, actions, parent, sibling):
         
-        return jit_check_constraint_violation_descendant_with_target_tokens(actions, self.targets, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
+        return jit_check_constraint_violation_descendant_with_target_tokens(\
+                actions, self.targets, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
     
         
 class ChildRelationalConstraint(RelationalConstraint):
@@ -567,7 +569,8 @@ class UChildRelationalConstraint(RelationalConstraint):
     
     def is_violated(self, actions, parent, sibling):
 
-        return jit_check_constraint_violation_uchild(actions, parent, sibling, self.targets, self._adj_unary_effectors(), self._adj_effectors())
+        return jit_check_constraint_violation_uchild(actions, parent, sibling, self.targets, 
+                                                     self._adj_unary_effectors(), self._adj_effectors())
                       
 
 class TrigConstraint(DescendantRelationalConstraint):
@@ -584,7 +587,8 @@ class TrigConstraint(DescendantRelationalConstraint):
     def is_violated(self, actions, parent, sibling):
         
         # Call a slightly faster descendant computation since target is the same as effectors
-        return jit_check_constraint_violation_descendant_no_target_tokens(actions, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
+        return jit_check_constraint_violation_descendant_no_target_tokens(\
+                actions, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
 
 
 class ConstConstraint(UChildRelationalConstraint):
