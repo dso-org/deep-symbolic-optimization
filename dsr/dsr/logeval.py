@@ -256,7 +256,7 @@ class LogEval():
                 print("Found issues_____")
                 for i in range(len(self.warnings)):
                     print("  {}".format(self.warnings[i]))
-            if not self.hof_df is None and show_hof:
+            if self.hof_df is not None and show_hof:
                 print('Hall of Fame (Top {} of {})____'.format(min(show_count,len(self.hof_df.index)), len(self.hof_df.index)))
                 for i in range(min(show_count,len(self.hof_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} <-- {}'.format(
