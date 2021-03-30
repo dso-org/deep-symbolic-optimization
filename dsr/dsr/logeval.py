@@ -106,7 +106,7 @@ class LogEval():
         return params
 
     def _get_correct_type(self, token):
-        """Make sute the token are recognized in the correct type."""
+        """Make sure the token are recognized in the correct type."""
         if any(c.isdigit() for c in token):
             if any(c.isalpha() for c in token):
                 return str(token)
