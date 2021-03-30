@@ -79,7 +79,6 @@ class LogEval():
         # Load benchmark data (one row per seed)
         self.summary_df = self._get_summary()
 
-        # TODO: Get data for all tasks if more than one
         # Load hof if available
         self.hof_df = self._get_log(log_type="hof")
         # Load pareto front if available
