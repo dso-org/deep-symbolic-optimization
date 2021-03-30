@@ -266,7 +266,7 @@ class LogEval():
                     self.plot_results(
                         self.hof_df, log_type="hof", boxplot_on=True,
                         show_plots=show_plots, save_plots=save_plots)
-            if not self.pf_df is None and show_pf:
+            if self.pf_df is not None and show_pf:
                 print('Pareto Front ({} of {})____'.format(min(show_count,len(self.pf_df.index)), len(self.pf_df.index)))
                 for i in range(min(show_count,len(self.pf_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} C={:03d} <-- {}'.format(
