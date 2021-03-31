@@ -1,9 +1,9 @@
 """Sampling obs, and action data from a Zoo or dsr policy on a Gym environment.
 Usage:
     - Run all envs for zoo and dsp: python latency.py
-    - Run all envs for zoo and dsp: python latency.py --source zoo
+    - Run all envs for specific source: python latency.py --source zoo
     - Run specific env for zoo and dsp: python latency.py --env Pendulum-v0
-    - Run specific env for zoo or dsp: python latency.py --env Pendulum-v0 --source zoo
+    - Run specific env only for specific source: python latency.py --env Pendulum-v0 --source zoo
     - Change number of episodes: python latency.py --episodes 100
 """
 import numpy as np
