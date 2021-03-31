@@ -20,6 +20,10 @@
       "reward_noise_type" : "r",
       "normalize_variance" : false
    },
+   "postprocess": {
+      "method": "dsr",
+      "save_plots": true
+   },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},
       "repeat" : {"tokens" : "const", "max_" : 3},
@@ -47,12 +51,13 @@
         "output_file": null,
         "save_all_r": false,
         "early_stopping": true,
-        "hof": null,
+        "hof": 100,
         "use_memory": true,
         "memory_capacity": 1e3,
         "warm_start": null,
         "memory_threshold": null,
-        "save_positional_entropy": true
+        "save_positional_entropy": false,
+        "pareto_front": true
    },
    "controller": {
       "cell": "lstm",
