@@ -24,6 +24,7 @@ from dsr import DeepSymbolicOptimizer
 from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
+from dsr.logeval import LogEval
 
 
 def train_dsr(name_and_seed, config):
@@ -170,6 +171,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # HACK: DSR-specific shortcut to run all Nguyen benchmarks
     benchmarks = list(b)
+    config["task"]["name"] = benchmarks
     if "Nguyen" in benchmarks:
         benchmarks.remove("Nguyen")
         benchmarks += ["Nguyen-{}".format(i+1) for i in range(12)]
@@ -225,6 +227,13 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
             write_header = False
 
     print("Results saved to: {}".format(output_filename))
+
+    log = LogEval(logdir)
+    log.analyze_log(
+        show_count=5,
+        show_hof=config_training["hof"] is not None and config_training["hof"] > 0,
+        show_pf=config_training["pareto_front"],
+        save_plots=config["postprocess"]["save_plots"])
 
 
 if __name__ == "__main__":
