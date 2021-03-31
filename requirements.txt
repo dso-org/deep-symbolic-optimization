@@ -15,4 +15,4 @@ enum34~=1.1.6
 stable-baselines[mpi]
 datarobot
 dataclasses
-
+seaborn
