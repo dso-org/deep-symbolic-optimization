@@ -22,8 +22,8 @@ ENVS = {
     #"BipedalWalker-v2": {},
     "CustomCartPoleContinuous-v0": {
         "n_actions" : 1,
-        #"symbolic" : ["add,mul,10.0,x3,x4"]  # Ours
-        "symbolic" : ["add,mul,31.9,x3,add,mul,8.2,x4,add,x1,mul,2.3,x2"] # LQR optimal
+        "symbolic" : ["add,mul,10.0,x3,x4"]  # Ours
+        #"symbolic" : ["add,mul,31.9,x3,add,mul,8.2,x4,add,x1,mul,2.3,x2"] # LQR optimal
     },
     "HopperBulletEnv-v0" : {
         "n_actions" : 3,
@@ -60,6 +60,15 @@ ENVS = {
     #    "symbolic" : ["1,0"]
     #}
 }
+
+
+def get_env_info(env_name, env):
+    print(" ")
+    print("==========================================")
+    print("Env: {}".format(env_name))
+    print("Action space: {} --> Single Agent Sample: {}".format(env.action_space, env.action_space.sample()))
+    print("Observation space: {} --> Single Agent Sample: {}".format(env.observation_space, env.reset()))
+    print("==========================================")
 
 
 class Model():
@@ -116,10 +125,24 @@ class Model():
 @click.command()
 @click.option("--env", type=str, default=None, help="Name of environment to sample")
 @click.option("--episodes", type=int, default=10, help="Number of episodes to sample.")
+@click.option("--max_steps", type=int, default=None, help="Max number of steps per episodes.")
 @click.option("--source", type=str, default=None, help="Source of model (zoo or dsp).")
-def main(env=None,  episodes=10, source=None):
+@click.option("--seed", type=int, default=0, help="Environment seed.")
+@click.option("--print_env", is_flag=True, help="Print out information about the environment.")
+@click.option("--print_state", is_flag=True, help="Simple way to observe states when stepping through an environment.")
+@click.option("--print_action", is_flag=True, help="Simple way to observe actions when stepping through an environment.")
+@click.option("--print_reward", is_flag=True, help="Simple way to observe rewards when stepping through an environment.")
+@click.option("--print_all", is_flag=True, help="Simple way to observe everything when stepping through an environment.")
+def main(env=None,  episodes=10, max_steps=None, source=None, seed=0,
+        print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False):
     env_names = {env: ENVS[env]} if isinstance(env, str) else ENVS
     sources = [source] if isinstance(source, str) else ["zoo", "dsp"]
+
+    if print_all:
+        print_env = True
+        print_state = True
+        print_action = True
+        print_reward = True
 
     for source in sources:
         text = []
@@ -128,6 +151,8 @@ def main(env=None,  episodes=10, source=None):
             env = gym.make(env_name)
             if "Bullet" in env_name:
                 env = U.TimeFeatureWrapper(env)
+            if print_env:
+                get_env_info(env_name, env)
 
             # Load model
             model_load_start = time.time()
@@ -137,25 +162,37 @@ def main(env=None,  episodes=10, source=None):
             # Run episodes
             action_durations = []
             episode_rewards = []
+            episode_steps = []
             for i in range(episodes):
-                env.seed(i + REGRESSION_SEED_SHIFT)
+                episode_step = 1
+                env.seed(seed + i + REGRESSION_SEED_SHIFT)
                 obs = env.reset()
+                if print_state:
+                    print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step - 1), ["{:.4f}".format(x) for x in obs])
                 done = False
                 rewards = []
                 while not done:
                     action_start_time = time.time()
                     [action, _states], predict_duration = model.predict(obs)
+                    if print_action:
+                        print("[E {:3d}/S {:3d}] A:".format(i + 1, episode_step), ["{:.4f}".format(x) for x in action])
                     action_durations.append(predict_duration)
                     obs, reward, done, info = env.step(action)
+                    if print_reward:
+                        print("[E {:3d}/S {:3d}] R: {:.4f}".format(i + 1, episode_step, reward))
+                    if print_state:
+                        print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step), ["{:.4f}".format(x) for x in obs])
                     rewards.append(reward)
+                    episode_step += 1
+                    if max_steps is not None and max_steps == episode_step:
+                        done = True
                 episode_rewards.append(sum(rewards))
+                episode_steps.append(episode_step)
             avg_reward = sum(episode_rewards) / len(episode_rewards)
-            text.append("{} [action dim = {}]: {:.4f} ms [Model load time: {:.4f} s] [Avg. reward: {:.4f}]".format(
-                env_name, action.shape, np.mean(action_durations)*1000., model_load_duration, avg_reward))
+            text.append("{} [action dim = {}] --> [Reward: {:.4f}] [Steps: {:3d}] [Action latency: {:.4f} ms] [Model load time: {:.4f} s]".format(
+                env_name, action.shape, avg_reward, int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
         # Print summary
-        print(" ")
-        print("=== {} =========================".format(source))
-        print("Avg. action durations after {} episodes".format(episodes))
+        print("=== {} === Averages over {} episodes =========================".format(source, episodes))
         for line in text:
             print(line)
     print("============================")
