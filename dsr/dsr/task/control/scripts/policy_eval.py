@@ -5,6 +5,10 @@ Usage:
     - Run specific env for zoo and dsp: python latency.py --env Pendulum-v0
     - Run specific env only for specific source: python latency.py --env Pendulum-v0 --source zoo
     - Change number of episodes: python latency.py --episodes 100
+For debugging we can shorten running time and print more information:
+    - Print env information: python latency.py --env Pendulum-v0 --print_env
+    - Print action/state/reward per step: python latency.py --env Pendulum-v0 --print_action --print_state --print_reward
+    - Same as above: python latency.py --env Pendulum-v0 --print_all
 """
 import numpy as np
 import click
