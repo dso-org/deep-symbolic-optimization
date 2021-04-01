@@ -60,6 +60,7 @@
         "pareto_front": true
    },
    "controller": {
+      "summary" : false,
       "cell": "lstm",
       "num_layers": 1,
       "num_units": 32,
