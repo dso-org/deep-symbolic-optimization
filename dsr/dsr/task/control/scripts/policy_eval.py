@@ -10,6 +10,8 @@ For debugging we can shorten running time and print more information:
     - Print action/state/reward per step: python latency.py --env Pendulum-v0 --print_action --print_state --print_reward
     - Same as above: python latency.py --env Pendulum-v0 --print_all
 """
+import csv
+import os
 import numpy as np
 import click
 import gym
@@ -149,6 +151,7 @@ def main(env=None,  episodes=10, max_steps=None, source=None, seed=0,
         print_reward = True
 
     for source in sources:
+        csv_content= []
         text = []
         for env_name in env_names:
             # Make gym environment
@@ -157,6 +160,9 @@ def main(env=None,  episodes=10, max_steps=None, source=None, seed=0,
                 env = U.TimeFeatureWrapper(env)
             if print_env:
                 get_env_info(env_name, env)
+
+            if max_steps is None:
+                max_steps = env._max_episode_steps
 
             # Load model
             model_load_start = time.time()
@@ -188,17 +194,28 @@ def main(env=None,  episodes=10, max_steps=None, source=None, seed=0,
                         print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step), ["{:.4f}".format(x) for x in obs])
                     rewards.append(reward)
                     episode_step += 1
-                    if max_steps is not None and max_steps == episode_step:
+                    if not done and max_steps == episode_step:
                         done = True
                 episode_rewards.append(sum(rewards))
                 episode_steps.append(episode_step)
-            avg_reward = sum(episode_rewards) / len(episode_rewards)
             text.append("{} [action dim = {}] --> [Reward: {:.4f}] [Steps: {:3d}] [Action latency: {:.4f} ms] [Model load time: {:.4f} s]".format(
-                env_name, action.shape, avg_reward, int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
+                env_name, action.shape, np.mean(episode_rewards), int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
+            csv_content.append([env_name, max_steps, episodes, int(np.mean(episode_steps)),
+                np.mean(episode_rewards),model_load_duration,np.mean(action_durations)*1000.])
         # Print summary
         print("=== {} === Averages over {} episodes =========================".format(source, episodes))
         for line in text:
             print(line)
+        file_name = 'policy_eval_results_{}.csv'.format(source)
+        if not os.path.exists(file_name):
+            with open(file_name,'w') as result_file:
+                file_pointer = csv.writer(result_file, dialect='excel')
+                file_pointer.writerow(
+                    ["environment", "max_steps", "episodes", "avg_steps_episode",
+                     "avg_rewards_episode", "model_load_s", "action_latency_ms"])
+        with open(file_name,'a') as result_file:
+            file_pointer = csv.writer(result_file, dialect='excel')
+            file_pointer.writerows(csv_content)
     print("============================")
 
 if __name__ == "__main__":
