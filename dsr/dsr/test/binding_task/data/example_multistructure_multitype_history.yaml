@@ -1,0 +1,1129 @@
+description: {description: 'History database contents from mysql+mysqlconnector:///?read_default_file=/g/g14/tadesaut/.my.cnf.',
+  name: 'history_mysql+mysqlconnector:///?read_default_file=/g/g14/tadesaut/.my.cnf'}
+history:
+  request_20200620_212920_589916:
+    request_id: request_20200620_212920_589916
+    result:
+      AntigenDescription: ['md5_8a15314203489564a25dfec6e3096a87 Mutant_number: md5_8a15314203489564a25dfec6e3096a87
+          Master: s230_6nb6 Mutations: A49M,N57A,A61D,Y110W,G335V']
+      AntigenID: [md5_8a15314203489564a25dfec6e3096a87]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLMVITSDGRAKFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHWFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQVSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [0.00235]
+      FoldXInterfaceDG: [-9.37599]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-13.9806]
+      WT_FoldXInterfaceDG: [-11.0799]
+      delta_FoldXAverageDDG: [15.2411]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [f3574a73091dc1cf6889f0b1a5e2d284, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_212920_589916.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_212925_534348:
+    request_id: request_20200620_212925_534348
+    result:
+      AntigenDescription: ['md5_d77e8db6ba56e292b53f88a6c9059b15 Mutant_number: md5_d77e8db6ba56e292b53f88a6c9059b15
+          Master: s230_6nb6 Mutations: D54Q,N57A,D62R,S103L']
+      AntigenID: [md5_d77e8db6ba56e292b53f88a6c9059b15]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSQGRAKFYARSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNLRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-13.881]
+      FoldXInterfaceDG: [-11.9309]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-14.6331]
+      WT_FoldXInterfaceDG: [-11.9359]
+      delta_FoldXAverageDDG: [0.8582299999999999]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [548c1d02d416305a6e97d736412480e4, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_212925_534348.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_212940_171853:
+    request_id: request_20200620_212940_171853
+    result:
+      AntigenDescription: ['md5_d283df7557355d18be4ff3e016ac8e16 Mutant_number: md5_d283df7557355d18be4ff3e016ac8e16
+          Master: s230_6nb6 Mutations: K58R,A61H']
+      AntigenID: [md5_d283df7557355d18be4ff3e016ac8e16]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNRFYHDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-14.4977]
+      FoldXInterfaceDG: [-10.9602]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-13.7903]
+      WT_FoldXInterfaceDG: [-11.0852]
+      delta_FoldXAverageDDG: [-0.67196]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [7e3bd5e24d76614d666b98ad38bcbc79, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_212940_171853.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_212949_215053:
+    request_id: request_20200620_212949_215053
+    result:
+      AntigenDescription: ['md5_8bd58d51b18ae39862f91735be54d3a8 Mutant_number: md5_8bd58d51b18ae39862f91735be54d3a8
+          Master: s230_6nb6 Mutations: S53Y,N57A,R67Q,I70L,D272N,D274Q']
+      AntigenID: [md5_8bd58d51b18ae39862f91735be54d3a8]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITYDGRAKFYADSVKGQFTLSREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSNGQTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-7.773389999999999]
+      FoldXInterfaceDG: [-11.943]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-15.8329]
+      WT_FoldXInterfaceDG: [-12.3313]
+      delta_FoldXAverageDDG: [8.87715]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [7999ce37f666a3ea0c8b0cef57637f84, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_212949_215053.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_212959_829724:
+    request_id: request_20200620_212959_829724
+    result:
+      AntigenDescription: ['md5_f0b7af8b99a41c8f7a8f5b2160f297e7 Mutant_number: md5_f0b7af8b99a41c8f7a8f5b2160f297e7
+          Master: s230_6nb6 Mutations: A61D,G273T']
+      AntigenID: [md5_f0b7af8b99a41c8f7a8f5b2160f297e7]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDTDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-9.23836]
+      FoldXInterfaceDG: [-10.9846]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-13.8286]
+      WT_FoldXInterfaceDG: [-11.1234]
+      delta_FoldXAverageDDG: [4.7931]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c504b5a904b5d5eb81a08dca07e4d531, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_212959_829724.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_213007_347624:
+    request_id: request_20200620_213007_347624
+    result:
+      AntigenDescription: ['md5_d1ed2f7e568ee882bd9c383362308b9e Mutant_number: md5_d1ed2f7e568ee882bd9c383362308b9e
+          Master: s230_6nb6 Mutations: A61H,S63G,R67D,H109F,G273S,G335H,S336M']
+      AntigenID: [md5_d1ed2f7e568ee882bd9c383362308b9e]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYHDGVKGDFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPFYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDSDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQHMHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [32.4815]
+      FoldXInterfaceDG: [-10.6915]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-15.3809]
+      WT_FoldXInterfaceDG: [-11.0713]
+      delta_FoldXAverageDDG: [45.0379]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [8c6f721a1dba71885bffc730f053f964, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_213007_347624.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_213018_163831:
+    request_id: request_20200620_213018_163831
+    result:
+      AntigenDescription: ['md5_37e410332aade4ea9f5ca239b28c2b38 Mutant_number: md5_37e410332aade4ea9f5ca239b28c2b38
+          Master: s230_6nb6 Mutations: N57M,S271L']
+      AntigenID: [md5_37e410332aade4ea9f5ca239b28c2b38]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRMKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYLDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-51.2605]
+      FoldXInterfaceDG: [-12.6984]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-49.0924]
+      WT_FoldXInterfaceDG: [-10.4344]
+      delta_FoldXAverageDDG: [-2.37066]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c6b68fa0eedcf59b4cc039ab5884e69a, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_213018_163831.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants
+  request_20200620_213024_215620:
+    request_id: request_20200620_213024_215620
+    result:
+      AntigenDescription: ['md5_664d3379da87541cc6790d058ff55a64 Mutant_number: md5_664d3379da87541cc6790d058ff55a64
+          Master: s230_6nb6 Mutations: S53F,A61D,I70T,S103F,S271L']
+      AntigenID: [md5_664d3379da87541cc6790d058ff55a64]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITFDGRNKFYDDSVKGRFTTSREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNFRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYLDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-47.6192]
+      FoldXInterfaceDG: [-10.7363]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-50.3395]
+      WT_FoldXInterfaceDG: [-9.85319]
+      delta_FoldXAverageDDG: [2.79656]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [1f4cb3e9af60df0a1b6df40c60655d20, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_213024_215620.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/B/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants
+  request_20200626_205931_762787:
+    request_id: request_20200626_205931_762787
+    result:
+      AntigenDescription: ['md5_743ded2ca60e1fc0a666d42749a70cf5 Mutant_number: md5_743ded2ca60e1fc0a666d42749a70cf5
+          Master: s230_6nb6 Mutations: A49E,N57A,K58R,G273S']
+      AntigenID: [md5_743ded2ca60e1fc0a666d42749a70cf5]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLEVITSDGRARFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDSDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [-0.114]
+      RosettaFlexDDGMax: [0.231]
+      RosettaFlexDDGMin: [-0.475]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [377795c7a0d7b74d513e483c85ee8b22, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_205931_762787.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_205940_045608:
+    request_id: request_20200626_205940_045608
+    result:
+      AntigenDescription: ['md5_743ded2ca60e1fc0a666d42749a70cf5 Mutant_number: md5_743ded2ca60e1fc0a666d42749a70cf5
+          Master: s230_6nb6 Mutations: A49E,N57A,K58R,G273S']
+      AntigenID: [md5_743ded2ca60e1fc0a666d42749a70cf5]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLEVITSDGRARFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDSDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [0.135]
+      RosettaFlexDDGMax: [0.721]
+      RosettaFlexDDGMin: [-0.396]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [377795c7a0d7b74d513e483c85ee8b22, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_205940_045608.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_205951_521225:
+    request_id: request_20200626_205951_521225
+    result:
+      AntigenDescription: ['md5_743ded2ca60e1fc0a666d42749a70cf5 Mutant_number: md5_743ded2ca60e1fc0a666d42749a70cf5
+          Master: s230_6nb6 Mutations: A49E,N57A,K58R,G273S']
+      AntigenID: [md5_743ded2ca60e1fc0a666d42749a70cf5]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLEVITSDGRARFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDSDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [-0.14]
+      RosettaFlexDDGMax: [1.402]
+      RosettaFlexDDGMin: [-0.9079999999999999]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [377795c7a0d7b74d513e483c85ee8b22, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_205951_521225.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_213348_286723:
+    request_id: request_20200626_213348_286723
+    result:
+      AntigenDescription: ['md5_ceeb3efb26196c0e77030fb75e5a6d4e Mutant_number: md5_ceeb3efb26196c0e77030fb75e5a6d4e
+          Master: s230_6nb6 Mutations: S53F,N57Q,H337I']
+      AntigenID: [md5_ceeb3efb26196c0e77030fb75e5a6d4e]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITFDGRQKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSIWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [0.235]
+      RosettaFlexDDGMax: [0.627]
+      RosettaFlexDDGMin: [0.027000000000000003]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [fa353d2d97522a5e564d0c2378e8a730, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_213348_286723.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_213348_288089:
+    request_id: request_20200626_213348_288089
+    result:
+      AntigenDescription: ['md5_f70a1b77d8e7d35650362787cf7e76ba Mutant_number: md5_f70a1b77d8e7d35650362787cf7e76ba
+          Master: s230_6nb6 Mutations: A49L,D54A,N57Q,S271N,D272R,G273S,H337L']
+      AntigenID: [md5_f70a1b77d8e7d35650362787cf7e76ba]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLLVITSAGRQKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYNRSDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSLWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [0.126]
+      RosettaFlexDDGMax: [1.214]
+      RosettaFlexDDGMin: [-0.652]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [d020089ad09e6f49c9f6877984029c1b, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_213348_288089.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_213743_981250:
+    request_id: request_20200626_213743_981250
+    result:
+      AntigenDescription: ['md5_ddca4d4018258494920ae04ee9750929 Mutant_number: md5_ddca4d4018258494920ae04ee9750929
+          Master: s230_6nb6 Mutations: S53Y,N57A,H109F,G273M']
+      AntigenID: [md5_ddca4d4018258494920ae04ee9750929]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITYDGRAKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPFYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDMDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [0.473]
+      RosettaFlexDDGMax: [0.878]
+      RosettaFlexDDGMin: [0.057999999999999996]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [5d0d9cd4109ce275ee7076882f791f5e, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_213743_981250.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_213743_982658:
+    request_id: request_20200626_213743_982658
+    result:
+      AntigenDescription: ['md5_458df5dd785ff0b8a88d29d00e430a2a Mutant_number: md5_458df5dd785ff0b8a88d29d00e430a2a
+          Master: s230_6nb6 Mutations: A49L,D62N,G273T']
+      AntigenID: [md5_458df5dd785ff0b8a88d29d00e430a2a]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLLVITSDGRNKFYANSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDTDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [-0.217]
+      RosettaFlexDDGMax: [0.607]
+      RosettaFlexDDGMin: [-0.937]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [ea6cca146861358aec7c2fcac6988c29, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_213743_982658.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200626_214333_760919:
+    request_id: request_20200626_214333_760919
+    result:
+      AntigenDescription: ['md5_455eb107b59134221f5009cc010a9489 Mutant_number: md5_455eb107b59134221f5009cc010a9489
+          Master: s230_6nb6 Mutations: R30V,G273K']
+      AntigenID: [md5_455eb107b59134221f5009cc010a9489]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFVNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDKDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      RosettaFlexDDGAvg: [-0.009000000000000001]
+      RosettaFlexDDGMax: [0.442]
+      RosettaFlexDDGMin: [-0.29]
+      StructureHash:
+      - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [32030f9dcdeb3204a4485914cc4d04a5, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200626_214333_760919.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [2e9470df23141b8084ed8f972d034787, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/C/nCoV_FAB.7bz5_6nb8.RBD_s230.A_C.RosettaEmin.pdb]
+    study_type: rosetta_listed_mutants_fl
+  request_20200619_104109_242859:
+    request_id: request_20200619_104109_242859
+    result:
+      AntigenDescription: ['md5_43e36f76d23350f2497cc0be651eea1f Mutant_number: md5_43e36f76d23350f2497cc0be651eea1f
+          Master: s230_6nb6 Mutations: A61D,S103L,H109A,Y110F']
+      AntigenID: [md5_43e36f76d23350f2497cc0be651eea1f]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNLRDYFPAFFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-12.7675]
+      FoldXInterfaceDG: [-11.0157]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-13.857]
+      WT_FoldXInterfaceDG: [-11.0029]
+      delta_FoldXAverageDDG: [-0.0858]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [5e1b2984bcb486d66a4afe1eed37eff2, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_104109_242859.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_104328_981370:
+    request_id: request_20200619_104328_981370
+    result:
+      AntigenDescription: ['md5_7c1251804582ee7aeb5f9058344873ab Mutant_number: md5_7c1251804582ee7aeb5f9058344873ab
+          Master: s230_6nb6 Mutations: T52M,N57A,K58R,A61D,Y270T']
+      AntigenID: [md5_7c1251804582ee7aeb5f9058344873ab]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVIMSDGRARFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVTSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-47.0522]
+      FoldXInterfaceDG: [-8.83297]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-47.0974]
+      WT_FoldXInterfaceDG: [-7.5483199999999995]
+      delta_FoldXAverageDDG: [0.49027]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [0cf53d1b0f3968c61dd0b4a37c7b78b6, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_104328_981370.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_104550_372879:
+    request_id: request_20200619_104550_372879
+    result:
+      AntigenDescription: ['md5_d93bca2727f56d5b9599c362d4707b60 Mutant_number: md5_d93bca2727f56d5b9599c362d4707b60
+          Master: s230_6nb6 Mutations: K65L,T69L,Y270E,S271N']
+      AntigenID: [md5_d93bca2727f56d5b9599c362d4707b60]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVLGRFLISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVENDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-15.5456]
+      FoldXInterfaceDG: [-15.511]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-16.0432]
+      WT_FoldXInterfaceDG: [-12.9007]
+      delta_FoldXAverageDDG: [0.70823]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [a2f9413dc66c1275b539fc562b83841c, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_104550_372879.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_104808_601217:
+    request_id: request_20200619_104808_601217
+    result:
+      AntigenDescription: ['md5_0578cc62adbf36e192e1a4a5f83a8870 Mutant_number: md5_0578cc62adbf36e192e1a4a5f83a8870
+          Master: s230_6nb6 Mutations: N57A,A61D,H109M']
+      AntigenID: [md5_0578cc62adbf36e192e1a4a5f83a8870]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRAKFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPMYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-51.3666]
+      FoldXInterfaceDG: [-9.842889999999999]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-48.8628]
+      WT_FoldXInterfaceDG: [-9.73771]
+      delta_FoldXAverageDDG: [-1.5459100000000001]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c4cf00dc99223e40c6388ffe8f0156fd, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_104808_601217.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_105031_586453:
+    request_id: request_20200619_105031_586453
+    result:
+      AntigenDescription: ['md5_7735e713019414be593e136846c5f600 Mutant_number: md5_7735e713019414be593e136846c5f600
+          Master: s230_6nb6 Mutations: R56I,K58R,K65L,T69V,Y270D,S271N']
+      AntigenID: [md5_7735e713019414be593e136846c5f600]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGINRFYADSVLGRFVISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVDNDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-17.965]
+      FoldXInterfaceDG: [-15.8079]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-17.0812]
+      WT_FoldXInterfaceDG: [-13.5191]
+      delta_FoldXAverageDDG: [-0.92901]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [b69a4d5cb4605b05d2bd1b7763945af0, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_105031_586453.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_105253_187543:
+    request_id: request_20200619_105253_187543
+    result:
+      AntigenDescription: ['md5_dc08175ee22521f130894d52f13dc25a Mutant_number: md5_dc08175ee22521f130894d52f13dc25a
+          Master: s230_6nb6 Mutations: T52M,S53F,K65L,G66M,Y270D,S271E']
+      AntigenID: [md5_dc08175ee22521f130894d52f13dc25a]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVIMFDGRNKFYADSVLMRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVDEDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-16.1333]
+      FoldXInterfaceDG: [-15.7485]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+      WT_FoldXFinalDG: [-17.0268]
+      WT_FoldXInterfaceDG: [-13.5096]
+      delta_FoldXAverageDDG: [0.34088]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [3f67f38c3616b036f851a79e2b474c79, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_105253_187543.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [c219e7558772dd25bafcea0e605d4ec1, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.6w41_6nb8.RBD_s230.C_A.refined.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_105515_738027:
+    request_id: request_20200619_105515_738027
+    result:
+      AntigenDescription: ['md5_d1926c4957cdcba630f23106716a8c06 Mutant_number: md5_d1926c4957cdcba630f23106716a8c06
+          Master: s230_6nb6 Mutations: K58R,S103L,Y270D,S271N']
+      AntigenID: [md5_d1926c4957cdcba630f23106716a8c06]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNRFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNLRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVDNDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-44.9125]
+      FoldXInterfaceDG: [-8.2609]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-45.9738]
+      WT_FoldXInterfaceDG: [-6.61936]
+      delta_FoldXAverageDDG: [1.37985]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [cd52095256f8717a51394bb566bc9fd8, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_105515_738027.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants
+  request_20200619_105740_362701:
+    request_id: request_20200619_105740_362701
+    result:
+      AntigenDescription: ['md5_3758d191402de7ca7d64c98dfe68a710 Mutant_number: md5_3758d191402de7ca7d64c98dfe68a710
+          Master: s230_6nb6 Mutations: A61D,H109A,Y110F,S271E']
+      AntigenID: [md5_3758d191402de7ca7d64c98dfe68a710]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPAFFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYEDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-51.3335]
+      FoldXInterfaceDG: [-10.3443]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-49.7385]
+      WT_FoldXInterfaceDG: [-10.1789]
+      delta_FoldXAverageDDG: [-1.98911]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [5f23c023a6fd05bca7dd1419ec8dc690, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200619_105740_362701.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants
+  request_handmod_20200619_105740_362701:  # Fake record: antigen from request_20200620_212920_589916 all else request_20200619_105740_362701
+    request_id: request_handmod_20200619_105740_362701
+    result:
+      AntigenDescription: ['md5_8a15314203489564a25dfec6e3096a87 Mutant_number: md5_8a15314203489564a25dfec6e3096a87
+                Master: s230_6nb6 Mutations: A49M,N57A,A61D,Y110W,G335V']
+      AntigenID: [md5_8a15314203489564a25dfec6e3096a87]
+      AntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLMVITSDGRAKFYDDSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHWFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQVSHWPPTFGQGTKVEIK]
+      Emin: [false]
+      FoldXFinalDG: [-51.3335]
+      FoldXInterfaceDG: [-10.3443]
+      MasterAntigenDescription: [s230_6nb6 seq_of_antiSARS_s230_from_6nb6]
+      MasterAntigenID: [s230_6nb6]
+      MasterAntigenSequence: [QAQLVESGGALVQPGRSLRLSCAASGFTFRNYAMHWVRQAPATGLQWLAVITSDGRNKFYADSVKGRFTISREDSKNTLYLQMDSLRGEDTAVYYCVTQRDNSRDYFPHYFHDMDVWGQGTTVAVSSDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIKDVVLTQSPLSLPVTLGQPASISCRSSQSLVYSDGDTYLNWFQQRPGQSPRRLIYQVSNRDSGVPDRFSGSGSGTDFTLKISRVEAEDVGVYYCMQGSHWPPTFGQGTKVEIK]
+      StructureHash:
+      - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      StructurePath: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+      WT_FoldXFinalDG: [-49.7385]
+      WT_FoldXInterfaceDG: [-10.1789]
+      delta_FoldXAverageDDG: [-1.98911]
+    status: FINISHED
+    study_parameters:
+      ANTIGEN_CHAINS_IN_STRUCT:
+        label: [ANTIGEN_CHAINS_IN_STRUCT.1]
+        values: [A]
+      ANTIGEN_FASTA_HASH:
+        label: [ANTIGEN_FASTA_HASH.1]
+        values:
+        - [f3574a73091dc1cf6889f0b1a5e2d284, MD5]
+      ANTIGEN_FASTA_PATH:
+        label: [ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/mutants_request_20200620_212920_589916.fasta]
+      MASTER_ANTIGEN_FASTA_HASH:
+        label: [MASTER_ANTIGEN_FASTA_HASH.1]
+        values:
+        - [c1ac28e9b2ba4741111f084ba5ae46f5, MD5]
+      MASTER_ANTIGEN_FASTA_PATH:
+        label: [MASTER_ANTIGEN_FASTA_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_fastas/s230_6nb6.fasta]
+      STRUCTURE_HASH:
+        label: [STRUCTURE_HASH.1]
+        values:
+        - [7e889fa86e03875fb22863d03d55f142, MD5_ALL]
+      STRUCTURE_PATH:
+        label: [STRUCTURE_PATH.1]
+        values: [abag_ml/test/unit_test_data/example_multistructure_history_structures/A/nCoV_FAB.7bz5_6nb8.RBD_s230.S_A.refined.final.pdb]
+    study_type: foldx_listed_mutants

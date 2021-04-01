@@ -1,9 +1,11 @@
 """Class for Prior object."""
 
 import numpy as np
+import yaml
 
 from dsr.subroutines import ancestors
-from dsr.library import TokenNotFoundError
+from dsr.library import TokenNotFoundError, Token
+import dsr.constants as constants
 
 
 def make_prior(library, config_prior):
@@ -18,7 +20,8 @@ def make_prior(library, config_prior):
         "const" : ConstConstraint,
         "no_inputs" : NoInputsConstraint,
         "soft_length" : SoftLengthPrior,
-        "uniform_arity" : UniformArityPrior
+        "uniform_arity" : UniformArityPrior,
+        "seq_positions": SequencePositionsConstraint
     }
 
     priors = []
@@ -27,7 +30,8 @@ def make_prior(library, config_prior):
         assert prior_type in prior_dict, \
             "Unrecognized prior type: {}.".format(prior_type)
         prior_class = prior_dict[prior_type]
-
+        print(prior_type)
+        print(prior_args)
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:
@@ -297,7 +301,7 @@ class RelationalConstraint(Constraint):
 
 
 class TrigConstraint(RelationalConstraint):
-    """Class that constrains trig Tokens from being the desendants of trig
+    """Class that constrains trig Tokens from being the descendants of trig
     Tokens."""
 
     def __init__(self, library):
@@ -560,3 +564,77 @@ class SoftLengthPrior(Prior):
             prior += self.nonterminal_mask * logit_adjust
 
         return prior
+
+
+class SequencePositionsConstraint(Constraint):
+    """Class that constrains Tokens to follow the constraints defined in the YAML file. """
+
+    def __init__(self, library, yaml_file):
+        """
+        Parameters
+        ----------
+        yaml_file : str
+            YAML file containing sequence positions constraints.
+
+        """
+
+        Prior.__init__(self, library)
+
+        # read in constraint YAML file
+        try:
+            with open(yaml_file) as fh:
+                self.config = yaml.full_load(fh)
+        except FileNotFoundError:
+            print("Could not open/read file:", yaml_file)
+
+        # load master sequence - new samples will be based on it
+        self.master_seq = self.config['description']['master_seq']
+
+        # store allowed mutation in a dict for faster access
+        self.allowed_mutations = dict()
+        for p in self.config['AllowedMutations']:
+            # Per Tom: positions in the yaml file starts from 1 and not 0
+            self.allowed_mutations[p[0] - 1] = p[1]
+
+    def initial_prior(self):
+        """ Prior for time step 0 """
+        prior = np.zeros((1, self.L), dtype=np.float32)
+        prior = self.__calculate_prior(prior, 0)[0, :]
+        return prior
+
+    def __call__(self, actions, parent, sibling, dangling):
+        """ Prior for time-step > 0. """
+        # Initialize the prior
+        prior = self.init_zeros(actions)
+        seq_position = actions.shape[1]
+        prior = self.__calculate_prior(prior, seq_position)
+        return prior
+
+    def __calculate_prior(self, prior, seq_position):
+        """ Calculate prior logits based on the information in the yaml file. """
+
+        # it's the "sequence ending" token - not going to be in the sample
+        if seq_position >= len(self.master_seq):
+            return prior
+
+        # check if there is any restriction for this particular position
+        if seq_position in self.allowed_mutations:  # allowed to mutate
+            # not all AA are allowed, but some
+            if len(self.allowed_mutations[seq_position]) < len(constants.AMINO_ACIDS):
+                # False: allowed to mutate
+                # True: constrained - cannot be mutated
+                mask = [False if aa in self.allowed_mutations[seq_position] else True 
+                        for aa in constants.AMINO_ACIDS]
+                prior[:, mask] = -np.inf
+            else:
+                # all AAs have the same chance, then no constraint imposed
+                pass
+        else: # mutation is not allowed
+            mask = [True] * len(constants.AMINO_ACIDS)
+            mask[constants.AMINO_ACIDS.index(self.master_seq[seq_position])] = False
+            prior[:, mask] = -np.inf
+        return prior
+
+    def describe(self):
+        message = "Sequence positions constraint description"
+        return message

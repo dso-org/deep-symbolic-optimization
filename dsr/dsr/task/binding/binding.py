@@ -6,15 +6,11 @@ import torch
 import dsr
 from dsr.library import Library, Token
 from dsr.functions import create_tokens
+import dsr.constants as constants
 
 import abag_ml.rl_environment_objects as rl_env_obj
 import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 import abag_agent_setup.expand_allowed_mutant_menu as abag_agent_setup_eamm
-
-
-# list of all possible amino acids
-AMINO_ACIDS = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L',
-               'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
 
 
 def make_binding_task(name, paths, reward_noise=0.0,
@@ -65,6 +61,15 @@ def make_binding_task(name, paths, reward_noise=0.0,
     i = torch.load(os.path.join(paths['base_path'], paths['history_i_tensor']))
     y = torch.load(os.path.join(paths['base_path'], paths['history_y_tensor']))
 
+    # sequence mutation mask
+    if 'sequence_mutation_mask' in paths.keys():
+        mask = pd.read_csv(os.path.join(paths['base_path'], paths['sequence_mutation_mask']))
+        assert mask.shape[0] == len(master_seqrecord)
+        mask = mask.values[:, 1]
+    else:
+        # allow mutation for all residues
+        mask = np.ones(len(master_seqrecord))
+
     env = rl_env_obj.GPModelEnvironment(
         os.path.join(paths['base_path'], paths['model_weights_pth']),
         os.path.join(paths['base_path'], paths['master_structure']),
@@ -75,7 +80,11 @@ def make_binding_task(name, paths, reward_noise=0.0,
         history_studies=None,
         history_tensor_x=x,
         history_tensor_i=i,
-        history_tensor_y=y
+        history_tensor_y=y,
+        is_sparse=paths['model_is_sparse'],
+        is_mtl=paths['model_is_mtl'],
+        parallel_featurization=False,
+        use_gpu=True
     )
 
     def reward(p):
@@ -92,10 +101,7 @@ def make_binding_task(name, paths, reward_noise=0.0,
 
         """
         rwd = env.reward(''.join([t.name for t in p.traversal]))
-
-        # TODO: confirm with Tom if negative is still necessary
-        rwd = - rwd.item()
-        print('Reward: ', rwd)
+        rwd = rwd.item()
         
         return rwd
 
@@ -117,7 +123,7 @@ def make_binding_task(name, paths, reward_noise=0.0,
         return info
 
     # define amino acids as tokens
-    tokens = [Token(None, aa, arity=1, complexity=1) for aa in AMINO_ACIDS]
+    tokens = [Token(None, aa, arity=1, complexity=1) for aa in constants.AMINO_ACIDS]
 
     library = Library(tokens)
 

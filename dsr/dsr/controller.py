@@ -397,7 +397,10 @@ class Controller(object):
                     logits = cell_output + prior
                     next_cell_state = cell_state
                     emit_output = logits
+                    # tf.multinomial is deprecated: TF recommends switching to tf.random.categorical
+                    # action = tf.random.categorical(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
                     action = tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
+
                     # When implementing variable length:
                     # action = tf.where(
                     #     tf.logical_not(finished),
@@ -648,7 +651,6 @@ class Controller(object):
 
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
-
         feed_dict = {
             self.baseline : b,
             self.sampled_batch_ph : sampled_batch

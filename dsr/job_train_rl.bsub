@@ -1,0 +1,8 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -p pbatch
+#SBATCH -A ncov2019
+#SBATCH --time 24:00:00
+
+srun -N 1 python -m dsr.run dsr/config_binding_3.json --method=dsr
+
