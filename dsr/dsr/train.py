@@ -16,13 +16,6 @@ from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
 
-try:
-    from deap import tools
-    from deap import gp
-except ImportError:
-    tools   = None
-    gp      = None
-
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -254,8 +247,9 @@ def learn(sess, controller, pool, gp_controller,
         programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
+        on_policy = np.array([p.on_policy for p in programs])
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                              lengths=l, rewards=r)
+                              lengths=l, rewards=r, on_policy=on_policy)
         memory_queue.push_batch(sampled_batch, programs)
     else:
         memory_queue = None
@@ -355,8 +349,7 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-            #priors      = np.append(priors, deap_priors, axis=0)
-            priors      = np.append(priors, np.zeros((deap_actions.shape[0], priors.shape[1], priors.shape[2]), dtype=np.int32), axis=0)
+            priors      = np.append(priors, deap_priors, axis=0) 
 
             
         # Retrieve metrics
@@ -367,6 +360,9 @@ def learn(sess, controller, pool, gp_controller,
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
         r_train     = r
+        
+        # Need for Vanilla Policy Gradient (epsilon = null)
+        p_train     = programs
         
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
@@ -415,7 +411,6 @@ def learn(sess, controller, pool, gp_controller,
             This will be changed in the future when we integrate off policy support.
         '''
         if epsilon is not None and epsilon < 1.0:
-
             # Compute reward quantile estimate
             if use_memory: # Memory-augmented quantile
 
@@ -558,13 +553,13 @@ def learn(sess, controller, pool, gp_controller,
             with open(os.path.join(logdir, output_file), 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
-        # Compute sequence lengths
+        # Compute sequence lengths        
         lengths = np.array([min(len(p.traversal), controller.max_length)
-                            for p in programs], dtype=np.int32)
-
+                            for p in p_train], dtype=np.int32)
+               
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                              lengths=lengths, rewards=r_train)
+                              lengths=lengths, rewards=r_train, on_policy=on_policy)
 
         # Update and sample from the priority queue
         if priority_queue is not None:

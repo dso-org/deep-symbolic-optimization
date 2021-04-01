@@ -16,12 +16,8 @@ from dsr.utils import cached_property
 import dsr.utils as U
 
 
-try:
-    from deap import gp 
-except ImportError:
-    gp = None
-
 def _finish_tokens(tokens, n_objects: int = 1):
+
     """
     Finish the token strings to make sure they are a valid program. 
     
@@ -120,7 +116,9 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False, n_objects=1):
 
     return p
 
+
 def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1):
+
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -172,131 +170,6 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
 
     return p
 
-def DEAP_to_tokens(individual, tokens_size):
-        
-    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
-    assert isinstance(individual, gp.PrimitiveTree), "Program tokens should be a Deap GP PrimativeTree object."
-
-    l = min(len(individual),tokens_size)
-  
-    tokens = np.zeros(tokens_size,dtype=np.int32)
-    
-    for i in range(l):
-        
-        t = individual[i]
-        
-        if isinstance(t, gp.Terminal):
-            if t.name is "const":
-                # Get the constant token, this will not store the actual const (TO DO, fix somehow)
-                tokens[i] = Program.library.const_token
-            else:
-                # Get the int which is contained in "ARG{}",
-                tokens[i] = int(t.name[3:])
-        else:
-            # Get the index number for this op from the op list in Program.library
-            tokens[i] = Program.library.names.index(t.name)
-            
-    arities         = np.array([Program.library.arities[t] for t in tokens])
-    dangling        = 1 + np.cumsum(arities - 1) 
-    expr_length     = 1 + np.argmax(dangling == 0)
-  
-    return tokens, expr_length
-    
-def tokens_to_DEAP(tokens, primitive_set):
-    """
-    Transforms DSR standard tokens into DEAP format tokens.
-
-    DSR and DEAP format are very similar, but we need to translate it over. 
-
-    Parameters
-    ----------
-    tokens : list of integers
-        A list of integers corresponding to tokens in the library. The list
-        defines an expression's pre-order traversal. "Dangling" programs are
-        completed with repeated "x1" until the expression completes.
-
-    primitive_set : gp.PrimitiveSet
-        This should contain the list of primitives we will use. One way to create this is:
-        
-            # Create the primitive set
-            pset = gp.PrimitiveSet("MAIN", dataset.X_train.shape[1])
-
-            # Add input variables
-            rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(dataset.n_input_var)}
-            pset.renameArguments(**rename_kwargs)
-
-            # Add primitives
-            for k, v in function_map.items():
-                if k in dataset.function_set:
-                    pset.addPrimitive(v.function, v.arity, name=v.name) 
-
-    Returns
-    _______
-    individual : gp.PrimitiveTree
-        This is a specialized list that contains points to element from primitive_set that were mapped based 
-        on the translation of the tokens. 
-    """
-        
-    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
-    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
-    assert isinstance(primitive_set, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
-    assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
-    
-    '''
-        Truncate expressions that complete early; extend ones that don't complete
-    '''
-    tokens  = _finish_tokens(tokens)
-             
-    plist   = []        
-    
-    for t in tokens:
-        
-        node = Program.library[t]
-
-        if isinstance(node, float) or isinstance(node, str):
-            '''
-                NUMBER - Library supplied floating point constant. 
-                    
-                    Typically this is a constant parameter we want to optimize. Its value may change. 
-            '''
-            try:
-                p = primitive_set.mapping["const"]
-                p.value = 1.0 #node
-                plist.append(p)
-            except ValueError:
-                print("ERROR: Cannot add \"const\" from DEAP primitve set")
-                
-        elif isinstance(node, int):
-            '''
-                NUMBER - Values from input X at location given by value in node
-                
-                    This is usually the raw data point numerical values. Its value should not change. 
-            '''
-            try:
-                plist.append(primitive_set.mapping["x{}".format(node+1)])
-            except ValueError:
-                print("ERROR: Cannot add argument value \"x{}\" from DEAP primitve set".format(node))
-                
-        else:
-            '''
-                FUNCTION - Name should map from Program. Be sure to add all function map items into PrimativeSet before call. 
-                
-                    This is any common function with a name like "sin" or "log". 
-                    We assume right now all functions work on floating points. 
-            '''
-            try:
-                plist.append(primitive_set.mapping[node.name])
-            except ValueError:
-                print("ERROR: Cannot add function \"{}\" from DEAP primitve set".format(node.name))
-            
-    individual = gp.PrimitiveTree(plist)
-    
-    '''
-        Look. You've got it all wrong. You don't need to follow me. 
-        You don't need to follow anybody! You've got to think for yourselves. 
-        You're all individuals! 
-    '''
-    return individual
 
 class Program(object):
     """
