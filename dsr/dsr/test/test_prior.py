@@ -1,7 +1,8 @@
 """Tests for various Priors."""
 
 import pytest
-
+import sys
+sys.path.append('../')
 from dsr.core import DeepSymbolicOptimizer
 from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dsr.program import from_tokens, Program
@@ -451,3 +452,9 @@ def test_length(model, minmax):
 
     assert_valid(model, valid_cases)
     assert_invalid(model, invalid_cases)
+
+
+if __name__ == '__main__':
+
+    m = DeepSymbolicOptimizer("config.json")
+    test_repeat(m)

@@ -1,19 +1,23 @@
 {
     "task" : {
        "task_type" : "binding",
-       "name" : "AbAg binding affinity optimization",
+       "name" : "AbAg_binding_affinity_optimization",
        "paths" : {
-           "base_path": "/usr/workspace/wsa/andre/projects/drl/thrust3/tom_code/abag_ml/abag_ml/test/unit_test_data",
+           "base_path": "test/binding_task/data/",
            "model_weights_pth": "model_20190812_165712.pth",
            "master_seqrecord_fasta": "nCoV/80R/80R_2ghw.fasta",
            "master_structure": "nCoV/80R/RBD_FAB.15.2ghw_A.2ghw_B.80R.pdb.minimized.pdb.final.pdb", 
            "history_yaml": "example_multistructure_multitype_history.yaml",
            "history_x_tensor": "nCoV/80R/statium_80R_20201217_fx_ros_20201022_history_x_1000rows.pt",
            "history_i_tensor": "nCoV/80R/statium_80R_20201217_fx_ros_20201022_history_i_1000rows.pt",
-           "history_y_tensor": "nCoV/80R/statium_80R_20201217_fx_ros_20201022_history_y_1000rows.pt"
+           "history_y_tensor": "nCoV/80R/statium_80R_20201217_fx_ros_20201022_history_y_1000rows.pt",
+           "model_is_sparse": false,
+           "model_is_mtl": true
           }
     },
-    "prior": {},
+    "prior": {
+       "seq_positions": {"yaml_file" : "./dsr/task/binding/data/positions_prior.yaml"}
+    },
     "training": {
        "logdir": "./log/Binding",
        "n_epochs": null,

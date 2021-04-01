@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import time
+import cProfile
 from datetime import datetime
 import multiprocessing
 from functools import partial
@@ -136,7 +137,7 @@ def train_gp(name_and_seed, logdir, config_task, config_gp):
 @click.option('--b', multiple=True, type=str, help="Name of benchmark or benchmark prefix")
 def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
-
+    print('main')
     # Load the config file
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
@@ -229,4 +230,18 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
 
 if __name__ == "__main__":
+    
+    # profiler = cProfile.Profile()
+    # profiler.enable()
     main()
+    # profiler.disable()
+    # stats = pstats.Stats(profiler).sort_stats('tottime')
+
+    # s = io.StringIO()
+    # ps = pstats.Stats(profiler, stream=s).sort_stats('tottime')
+    # ps.print_stats()
+
+    # with open('cprofile.txt', 'w+') as fh:
+        # fh.write(s.getvalue())
+        # stats.dump_stats('/usr/workspace/wsa/andre/projects/drl/repo/hypothesis_testing/dsr/')
+        # cProfile.run('main()')
