@@ -73,7 +73,8 @@
       "pqt_batch_size": 1,
       "pqt_weight": 200.0,
       "pqt_use_pg": false,
-      "max_length": 30
+      "max_length": 30,
+      "off_policy_stats": false
    },
    "gp_meld": {
    		"desc_run_gp_meld" 		  	: "Turn on the GP component to iterate with RL?",
@@ -106,7 +107,7 @@
         "tournament_size"         	: 5,   
         "desc_max_depth"       		: "This is mainly a widget to control memory usage. Python sets a hard limit of 90. Default: 17",
         "max_depth"               	: 30,     
-        "desc_train_n"    			: "How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return.",
+        "desc_train_n"    			: "How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return but top-1 will still be in Hall of Fame. Nate: 10",
         "train_n"                 	: 10,    
         "desc_mutate_tree_max" 		: "How deep can an inserted mutation tree be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?, Default: 2",
         "mutate_tree_max"         	: 3,        

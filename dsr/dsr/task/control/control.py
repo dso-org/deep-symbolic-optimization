@@ -16,11 +16,25 @@ from . import utils as U
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
+# This is a dictionary with  "NameEnv" : [minR, maxR].
+# The reward scaling is given by r_scaled = minR/(minR-maxR) - r/(minR-maxR) 
+REWARD_SCALE = {
+    "CustomCartPoleContinuous-v0" : [0.0,1000.0],
+    "MountainCarContinuous-v0" : [0.0,93.95],
+    "Pendulum-v0" : [-1300.0,-147.56],
+    "InvertedDoublePendulumBulletEnv-v0" : [0.0,9357.77],
+    "InvertedPendulumSwingupBulletEnv-v0" : [0.0,891.34],
+    "LunarLanderContinuous-v2" : [0.0,272.65],
+    "HopperBulletEnv-v0" : [0.0,2741.86],
+    "ReacherBulletEnv-v0" : [-5.0, 19.05],
+    "BipedalWalker-v2" : [-60.0, 312.0]
+}
+
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
     stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0):
+    episode_seed_shift=0, reward_scale=True):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -72,6 +86,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         Training episode seeds start at episode_seed_shift * 100 +
         REWARD_SEED_SHIFT. This has no effect if fix_seeds == False.
 
+    reward_scale : bool
+        Whether to scale rewards by top Zoo evaluation score.
+
     Returns
     -------
 
@@ -84,6 +101,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     # Define closures for environment and anchor model
     env = gym.make(name, **env_kwargs)
+
+    if reward_scale:
+        [minR, maxR] = REWARD_SCALE[name]
+    else:
+        reward_scale = None
 
     # HACK: Wrap pybullet envs in TimeFeatureWrapper
     # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
@@ -198,6 +220,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Return the mean
         r_avg = np.mean(r_episodes)
+
+        # Scale rewards
+        if reward_scale is not None:
+            r_avg = minR/(minR-maxR) - r_avg/(minR-maxR)
+
         return r_avg
 
 

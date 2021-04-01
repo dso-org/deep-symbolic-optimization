@@ -113,7 +113,8 @@ def make_batch(model, actions):
     obs = [prev_actions, parents, siblings]
     priors = np.array(priors).swapaxes(0, 1)
     rewards = np.zeros(batch_size, dtype=np.float32)
-    batch = Batch(actions, obs, priors, lengths, rewards)
+    on_policy = np.ones(batch_size, dtype=np.bool)
+    batch = Batch(actions, obs, priors, lengths, rewards, on_policy)
     return batch
 
 

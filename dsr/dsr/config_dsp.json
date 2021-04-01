@@ -11,7 +11,8 @@
       "protected" : false,
       "fix_seeds" : false,
       "episode_seed_shift" : 0,
-      "env_kwargs" : {"dt" : 0.02}
+      "env_kwargs" : {"dt" : 0.02},
+      "reward_scale" : true
    },
    "training": {
       "logdir": "./log",
@@ -57,7 +58,8 @@
       "pqt_batch_size": 1,
       "pqt_weight": 200.0,
       "pqt_use_pg": false,
-      "max_length": 30
+      "max_length": 30,
+      "off_policy_stats": false
    },
    "prior": {
       "length": {"min_": 4, "max_": 30},

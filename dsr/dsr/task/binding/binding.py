@@ -84,7 +84,7 @@ def make_binding_task(name, paths, reward_noise=0.0,
         is_sparse=paths['model_is_sparse'],
         is_mtl=paths['model_is_mtl'],
         parallel_featurization=False,
-        use_gpu=True
+        use_gpu=paths['use_gpu'] if 'use_gpu' in paths else True
     )
 
     def reward(p):

@@ -19,6 +19,7 @@ def test_task_execution(model):
                                   "batch_size" : 5
                                   })
     model.config_prior["seq_positions"]["yaml_file"] = './test/binding_task/data/positions_prior.yaml'
+    model.config_task['paths']['use_gpu'] = False
     model.train()
 
 

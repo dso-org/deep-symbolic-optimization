@@ -5,8 +5,8 @@ import yaml
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError, Token
+from dsr.language_model import LanguageModelPrior as LM
 import dsr.constants as constants
-
 
 def make_prior(library, config_prior):
     """Factory function for JointPrior object."""
@@ -21,7 +21,8 @@ def make_prior(library, config_prior):
         "no_inputs" : NoInputsConstraint,
         "soft_length" : SoftLengthPrior,
         "uniform_arity" : UniformArityPrior,
-        "seq_positions": SequencePositionsConstraint
+        "seq_positions": SequencePositionsConstraint,
+        "language_model" : LanguageModelPrior
     }
 
     priors = []
@@ -530,7 +531,7 @@ class UniformArityPrior(Prior):
 
 
 class SoftLengthPrior(Prior):
-    """Class the puts a soft prior on length. Before loc, terminal probabilities
+    """Class that puts a soft prior on length. Before loc, terminal probabilities
     are scaled by exp(-(t - loc) ** 2 / (2 * scale)) where dangling == 1. After
     loc, non-terminal probabilities are scaled by that number."""
 
@@ -638,3 +639,34 @@ class SequencePositionsConstraint(Constraint):
     def describe(self):
         message = "Sequence positions constraint description"
         return message
+
+
+class LanguageModelPrior(Prior):
+    """Class that applies a prior based on a pre-trained language model."""
+
+    def __init__(self, library, weight=1.0, **kwargs):
+
+        Prior.__init__(self, library)
+
+        self.lm = LM(library, **kwargs)
+        self.weight = weight
+
+    def initial_prior(self):
+
+        # TBD: Get initial prior from language model
+        return np.zeros((self.L,), dtype=np.float32)
+
+    def __call__(self, actions, parent, sibling, dangling):
+
+        """
+        NOTE: This assumes that the prior is always called sequentially during
+        sampling. This may break if calling the prior arbitrarily.
+        """
+        if actions.shape[1] == 1:
+            self.lm.next_state = None
+
+        action = actions[:, -1] # Current action
+        prior = self.lm.get_lm_prior(action)
+        prior *= self.weight
+
+        return prior
