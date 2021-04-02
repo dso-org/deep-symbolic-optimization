@@ -16,7 +16,7 @@ from dsr.utils import cached_property
 import dsr.utils as U
 
 
-def _finish_tokens(tokens, n_objects: int = 1):
+def _finish_tokens(tokens, task_type: str, n_objects: int = 1):
 
     """
     Finish the token strings to make sure they are a valid program. 
@@ -35,6 +35,9 @@ def _finish_tokens(tokens, n_objects: int = 1):
     tokens : list of integers
         A list of integers corresponding to tokens in the library. The list
         defines an expression's pre-order traversal. 
+
+    task_type : str
+        Task type: control, regression, or binding
         
     Returns
     _______
@@ -56,8 +59,8 @@ def _finish_tokens(tokens, n_objects: int = 1):
         tokens          = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
-        #tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
-        pass
+        if task_type != 'binding':
+            tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
 
     return tokens
 
@@ -150,7 +153,8 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
     '''
         Truncate expressions that complete early; extend ones that don't complete
     '''
-    tokens = _finish_tokens(tokens, n_objects=n_objects)
+    tokens = _finish_tokens(tokens, task_type=Program.task.task_type,
+                            n_objects=n_objects)
 
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
