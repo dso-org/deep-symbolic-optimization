@@ -2,6 +2,7 @@
 
 import os
 import multiprocessing
+import time
 from itertools import compress
 from datetime import datetime
 from collections import defaultdict
@@ -11,7 +12,7 @@ import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
+from dsr.utils import empirical_entropy, get_duration, is_pareto_efficient, setup_output_files, weighted_quantile
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
 
@@ -160,7 +161,7 @@ def learn(sess, controller, pool, gp_controller,
     memory_threshold : float or None
         If not None, run quantile variance/bias estimate experiments after
         memory weight exceeds memory_threshold.
-        
+
     save_positional_entropy : bool, optional
         Whether to save evolution of positional entropy for each iteration.
 
@@ -169,7 +170,6 @@ def learn(sess, controller, pool, gp_controller,
     result : dict
         A dict describing the best-fit expression (determined by base_r).
     """
-    
     all_r_size              = batch_size
 
     if gp_controller is not None:
@@ -181,9 +181,9 @@ def learn(sess, controller, pool, gp_controller,
             all_r_size              = batch_size+1
     else:
         gp_controller           = None
-        run_gp_meld             = False                         
+        run_gp_meld             = False
         gp_verbose              = False
-    
+
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
@@ -276,17 +276,19 @@ def learn(sess, controller, pool, gp_controller,
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, all_r_size), dtype=np.float32)
-    
+
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
-    
+
     nevals              = 0
     program_val_log     = []
 
-    for step in range(n_epochs):
+    start_time = time.time()
+    print("\n-- START TRAINING -------------------")
+    for epoch in range(n_epochs):
 
         if gp_verbose:
             print("************************************************************************")
-            print("STEP {}".format(step))
+            print("EPOCH {}".format(epoch))
             print("************************")
 
         # Set of str representations for all Programs ever seen
@@ -296,29 +298,28 @@ def learn(sess, controller, pool, gp_controller,
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
-        actions, obs, priors                = controller.sample(batch_size)
-        
+        actions, obs, priors = controller.sample(batch_size)
+
         nevals += batch_size
 
         if run_gp_meld:
             '''
-                Given the set of 'actions' we have so far, we will use them as a prior seed into 
+                Given the set of 'actions' we have so far, we will use them as a prior seed into
                 the GP controller. It will take care of conversion to its own population data
-                structures. It will return programs, observations, actions that are compat with 
+                structures. It will return programs, observations, actions that are compat with
                 the current way we do things in train.py.
-            '''            
+            '''
             deap_programs, deap_obs, deap_actions, deap_priors = gp_controller(actions)
-            
             nevals += gp_controller.nevals
-            
-            if gp_verbose:           
+
+            if gp_verbose:
                 print("************************")
                 print("Number of Evaluations: {}".format(nevals))
                 print("************************")
                 print("Deap Programs:")
                 deap_programs[0].print_stats()
                 print("************************")
-                                               
+
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
             programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
@@ -341,16 +342,15 @@ def learn(sess, controller, pool, gp_controller,
                 p.base_r = base_r
 
         # If we run GP, insert GP Program, actions, priors (blank) and obs.
-        # We may option later to return these to the controller.  
+        # We may option later to return these to the controller.
         if run_gp_meld:
             programs    = programs + deap_programs
             actions     = np.append(actions, deap_actions, axis=0)
             obs         = [np.append(obs[0], deap_obs[0], axis=0),
                            np.append(obs[1], deap_obs[1], axis=0),
                            np.append(obs[2], deap_obs[2], axis=0)]
-            priors      = np.append(priors, deap_priors, axis=0) 
+            priors      = np.append(priors, deap_priors, axis=0)
 
-            
         # Retrieve metrics
         '''
             base_r:   is the reward regardless of complexity penalty.
@@ -359,20 +359,20 @@ def learn(sess, controller, pool, gp_controller,
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
         r_train     = r
-        
+
         # Need for Vanilla Policy Gradient (epsilon = null)
         p_train     = programs
-        
+
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
         on_policy   = np.array([p.on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
-        all_r[step] = base_r
-        
-        if save_positional_entropy: 
-            positional_entropy[step] = np.apply_along_axis(empirical_entropy, 0, actions)
+        all_r[epoch] = base_r
 
-        if eval_all:            
+        if save_positional_entropy:
+            positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
+
+        if eval_all:
             success = [p.evaluate.get("success") for p in programs]
             # Check for success before risk-seeking, but don't break until after
             if any(success):
@@ -399,13 +399,13 @@ def learn(sess, controller, pool, gp_controller,
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
-        
+
         '''
             Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
             Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
-        
+
             GP Integration note:
-            
+
             For the moment, GP samples get added on top of the epsilon samples making it slightly larger. 
             This will be changed in the future when we integrate off policy support.
         '''
@@ -436,7 +436,7 @@ def learn(sess, controller, pool, gp_controller,
                 if memory_threshold is not None:
                     print("Memory weight:", memory_w.sum())
                     if memory_w.sum() > memory_threshold:
-                        quantile_variance(memory_queue, controller, batch_size, epsilon, step)
+                        quantile_variance(memory_queue, controller, batch_size, epsilon, epoch)
 
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
@@ -446,12 +446,12 @@ def learn(sess, controller, pool, gp_controller,
 
             # These guys can contain the GP solutions if we run GP
             '''
-                Here we get the returned as well as stored programs and properties. 
-                
+                Here we get the returned as well as stored programs and properties.
+
                 If we are returning the GP programs to the controller, p and r will be exactly the same
                 as p_train and r_train. Othewrwise, p and r will still contain the GP programs so they
                 can still fall into the hall of fame. p_train and r_train will be different and no longer
-                contain the GP program items. 
+                contain the GP program items.
             '''
 
             keep        = base_r >= quantile
@@ -459,7 +459,7 @@ def learn(sess, controller, pool, gp_controller,
             l           = l[keep]
             s           = list(compress(s, keep))
             invalid     = invalid[keep]
-            
+
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not gp_controller.return_gp_obs:
                 if gp_verbose:
@@ -471,15 +471,13 @@ def learn(sess, controller, pool, gp_controller,
                 '''
                 _r                  = r[keep]
                 _p                  = list(compress(programs, keep))
-                    
                 keep[batch_size:]   = False
-                
                 r_train             = r[keep]
                 p_train             = list(compress(programs, keep))
-                
+
                 '''
                     These contain all the programs and rewards regardless of whether they are returned to the controller.
-                    This way, they can still be stored in the hall of fame. 
+                    This way, they can still be stored in the hall of fame.
                 '''
                 r                   = _r
                 programs            = _p
@@ -490,8 +488,8 @@ def learn(sess, controller, pool, gp_controller,
                     Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
                 '''
                 r_train = r         = r[keep]
-                p_train = programs  = list(compress(programs, keep))            
-                
+                p_train = programs  = list(compress(programs, keep))
+
             '''
                 get the action, observation, priors and on_policy status of all programs returned to the controller.
             '''
@@ -552,10 +550,10 @@ def learn(sess, controller, pool, gp_controller,
             with open(os.path.join(logdir, output_file), 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
 
-        # Compute sequence lengths        
+        # Compute sequence lengths
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in p_train], dtype=np.int32)
-               
+
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=lengths, rewards=r_train, on_policy=on_policy)
@@ -570,7 +568,7 @@ def learn(sess, controller, pool, gp_controller,
         # Train the controller
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
         if summary:
-            writer.add_summary(summaries, step)
+            writer.add_summary(summaries, epoch)
             writer.flush()
 
         # Update the memory queue
@@ -580,21 +578,21 @@ def learn(sess, controller, pool, gp_controller,
         # Update new best expression
         new_r_best = False
         new_base_r_best = False
-        
+
         if prev_r_best is None or r_max > prev_r_best:
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
-            
+
         if prev_base_r_best is None or base_r_max > prev_base_r_best:
             new_base_r_best = True
             p_base_r_best = programs[np.argmax(base_r)]
-            
+
         prev_r_best = r_best
         prev_base_r_best = base_r_best
 
         if gp_verbose:
             print("************************")
-            print("Best step Program:")
+            print("Best epoch Program:")
             programs[np.argmax(base_r)].print_stats()
             print("************************")
             print("All time best Program:")
@@ -603,41 +601,43 @@ def learn(sess, controller, pool, gp_controller,
 
         # Print new best expression
         if verbose:
+            if new_r_best or new_base_r_best:
+                print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch, n_epochs, prev_r_best))
             if new_r_best and new_base_r_best:
                 if p_r_best == p_base_r_best:
-                    print("\nNew best overall")
+                    print("\n\t** New best overall")
                     p_r_best.print_stats()
                 else:
-                    print("\nNew best reward")
+                    print("\n\t** New best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
                     p_base_r_best.print_stats()
 
             elif new_r_best:
-                print("\nNew best reward")
+                print("\n\t** New best reward")
                 p_r_best.print_stats()
 
             elif new_base_r_best:
-                print("\nNew best base reward")
+                print("\n\t** New best base reward")
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
-            all_r = all_r[:(step + 1)]
-            print("Early stopping criteria met; breaking early.")
+            all_r = all_r[:(epoch + 1)]
+            print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
         if early_stopping and p_base_r_best.evaluate.get("success"):
-            all_r = all_r[:(step + 1)]
-            print("Early stopping criteria met; breaking early.")
+            all_r = all_r[:(epoch + 1)]
+            print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
 
-        if verbose and step > 0 and step % 10 == 0:
-            print("Completed {} steps".format(step))
+        if verbose and epoch > 0 and epoch % 10 == 0:
+            print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch, n_epochs, prev_r_best))
 
         if debug >= 2:
-            print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
+            print("\nParameter means after epoch {} of {}:".format(epoch+1, n_epochs))
             print_var_means()
-            
+
         if run_gp_meld:
             if nevals > n_samples:
                 print("************************")
@@ -646,7 +646,9 @@ def learn(sess, controller, pool, gp_controller,
                 print("************************")
                 print("Max Number of Samples Exceeded. Exiting...")
                 break
+    print("-------------------------------------")
 
+    print("\n-- PROCESSING RESULTS ---------------")
     if save_all_r:
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
@@ -655,9 +657,8 @@ def learn(sess, controller, pool, gp_controller,
         with open(positional_entropy_output_file, 'ab') as f:
             np.save(f, positional_entropy)
 
-    
+
     # Save the hall of fame
-    
     if hof is not None and hof > 0:
         # For stochastic Tasks, average each unique Program's base_r_history,
         if Program.task.stochastic:
@@ -666,7 +667,7 @@ def learn(sess, controller, pool, gp_controller,
             def from_token_string(str_tokens, optimize):
                 tokens = np.fromstring(str_tokens, dtype=np.int32)
                 return from_tokens(tokens, optimize=optimize)
-    
+
             # Generate each unique Program and manually set its base_r to the average of its base_r_history
             keys = base_r_history.keys() # str_tokens for each unique Program
             vals = base_r_history.values() # base_r histories for each unique Program
@@ -676,7 +677,6 @@ def learn(sess, controller, pool, gp_controller,
                 p.count = len(base_r) # HACK
                 _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
 
-        
         # For deterministic Programs, just use the cache
         else:
             programs = list(Program.cache.values()) # All unique Programs found during training
@@ -715,7 +715,6 @@ def learn(sess, controller, pool, gp_controller,
         if hof_output_file is not None:
             print("Saving Hall of Fame to {}".format(hof_output_file))
             df.to_csv(hof_output_file, header=True, index=False)
-        
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -727,7 +726,7 @@ def learn(sess, controller, pool, gp_controller,
             error_types[p.error_type] += p.count
             error_nodes[p.error_node] += p.count
     if n_invalid > 0:
-        total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
+        total_samples = (epoch + 1)*batch_size # May be less than n_samples if breaking early
         print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
         print("Error type counts:")
         for error_type, count in error_types.items():
@@ -775,7 +774,7 @@ def learn(sess, controller, pool, gp_controller,
     # Close the pool
     if pool is not None:
         pool.close()
-    
+    print("-------------------------------------")
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
@@ -789,5 +788,5 @@ def learn(sess, controller, pool, gp_controller,
         "traversal" : repr(p),
         "program" : p
         })
-        
+
     return result
