@@ -55,7 +55,7 @@ def make_prior(library, config_prior):
 
     joint_prior = JointPrior(library, priors)
 
-    print("-- Building prior -------------------")
+    print("-- BUILDING PRIOR -------------------")
     print("\n".join(["WARNING: " + message for message in warnings]))
     print(joint_prior.describe())
     print("-------------------------------------")
