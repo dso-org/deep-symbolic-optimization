@@ -121,19 +121,19 @@ python -m dsr.run --help
 ### Train 2 indepdent runs of DSR on Nguyen-1 using 2 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen-1 --mc=2 --num_cores=2
+python -m dsr.run config.json --b=Nguyen-1 --mc=2 --n_cores_task=2
 ```
 
 ### Train DSR on all Nguyen benchmarks using 12 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen --num_cores=12
+python -m dsr.run config.json --b=Nguyen... --n_cores_task=12
 ```
 
 ### Train 2 independent runs of GP on Nguyen-1
 
 ```
-python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --num_cores=2
+python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --n_cores_task=2
 ```
 
 ### Train DSR on Nguyen-1 and Nguyen-4
@@ -163,7 +163,7 @@ python -m dsr.run config.json --b=Nguyen-1 --b=Nguyen-4
 ```
 python -m dsr.run base.json --method=dsr --mc=50 --n_cores_task=24 --b=Dataset1 --output_filename run_stats_Nguyen-12_mp.1.csv
 ```
-Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv` 
+Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv`
 
 
 ## Summary and evaluation of a log path
@@ -177,7 +177,9 @@ Can be changed in `config.json`:
 {
    ...
    "postprocess": {
+      "method": "dsr",
       "print": true,
+      "print_count": 5,
       "save_plots": true
    },
    ...
