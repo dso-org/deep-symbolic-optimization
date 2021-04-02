@@ -3,9 +3,6 @@
 from dataclasses import dataclass
 from typing import Callable, List, Dict, Any
 
-from dsr.task.regression.regression import make_regression_task
-from dsr.task.control.control import make_control_task
-from dsr.task.binding.binding import make_binding_task
 from dsr.program import Program
 from dsr.library import Library
 
@@ -72,13 +69,20 @@ def make_task(task_type, **config_task):
     task : Task
         Task object.
     """
+    # lazy import of task factory functions
+    if task_type != 'binding':
+        from dsr.task.regression.regression import make_regression_task
+        from dsr.task.control.control import make_control_task
+        # Dictionary from task name to task factory function
+        task_dict = {
+            "regression" : make_regression_task,
+            "control" : make_control_task
+        }
+    else:
+        # Dictionary from task name to task factory function
+        from dsr.task.binding.binding import make_binding_task
+        task_dict = {"binding": make_binding_task}
 
-    # Dictionary from task name to task factory function
-    task_dict = {
-        "regression" : make_regression_task,
-        "control" : make_control_task,
-        "binding": make_binding_task
-    }
     task = task_dict[task_type](**config_task)
     return task
 
