@@ -161,7 +161,7 @@ def main(env=None,  episodes=10, max_steps=None, source=None, seed=0,
             if print_env:
                 get_env_info(env_name, env)
 
-            if max_steps is None:
+            if max_steps is None and '_max_episode_steps' in dir(env):
                 max_steps = env._max_episode_steps
 
             # Load model
