@@ -102,14 +102,14 @@ class BenchmarkDataset(object):
         self.function_set = function_set_df.loc[function_set_name].tolist()[0].strip().split(',')
 
         # Prepare status output
-        output_message = '\n-- Building dataset -----------------\n'
+        output_message = '\n-- BUILDING DATASET -----------------\n'
         output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
         output_message += 'Generated data for benchmark   : {}\n'.format(name)
         output_message += 'Function set path              : {}\n'.format(function_set_path)
         output_message += 'Function set                   : {} --> {}\n'.format(function_set_name, self.function_set)
         if backup and logdir is not None:
             output_message += self.save(logdir)
-        output_message += '-------------------------------------\n\n'
+        output_message += '-------------------------------------\n'
         print(output_message)
 
     def make_X(self, spec):

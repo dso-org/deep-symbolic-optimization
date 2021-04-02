@@ -68,7 +68,6 @@ class LogEval():
         self.path = {}
         self.path["log"] = log_path
         self.path["config"] = os.path.join(log_path, config_file)
-        print('PATH', self.path["config"])
         self.path["cmd"] = os.path.join(log_path, "cmd.out")
 
         # Get information about the command line arguments
@@ -243,7 +242,7 @@ class LogEval():
 
     def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False):
         """Generates a summary of important experiment outcomes."""
-        print("=== Log analysis =========================================")
+        print("\n-- LOG ANALYSIS ---------------------")
         try:
             print("Task_____________{}".format(self.exp_config["task"]["name"]))
             print("Log path_________{}".format(self.path["log"]))
@@ -279,7 +278,7 @@ class LogEval():
         except:
             print("Error when analyzing!")
             [print("    --> {}".format(warning)) for warning in self.warnings]
-        print("==========================================================\n")
+        print("-------------------------------------\n")
 
 
 @click.command()
