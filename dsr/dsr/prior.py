@@ -31,8 +31,6 @@ def make_prior(library, config_prior):
         assert prior_type in prior_dict, \
             "Unrecognized prior type: {}.".format(prior_type)
         prior_class = prior_dict[prior_type]
-        print(prior_type)
-        print(prior_args)
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:

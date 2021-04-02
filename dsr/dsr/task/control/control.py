@@ -254,6 +254,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                 evaluate=evaluate,
                 library=library,
                 stochastic=stochastic,
+                task_type='control',
                 extra_info=extra_info)
 
     return task

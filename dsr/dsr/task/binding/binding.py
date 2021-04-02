@@ -135,6 +135,7 @@ def make_binding_task(name, paths, reward_noise=0.0,
                          evaluate=evaluate,
                          library=library,
                          stochastic=stochastic,
+                         task_type='binding',
                          extra_info=extra_info)
 
     return task

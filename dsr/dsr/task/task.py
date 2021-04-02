@@ -32,6 +32,9 @@ class Task:
     stochastic : bool
         Whether the reward function of the task is stochastic.
 
+    task_type : str
+        Task type: regression, control or binding
+
     extra_info : dict
         Extra task-specific info, e.g. reference to symbolic policies for
         control task.
@@ -41,6 +44,7 @@ class Task:
     evaluate: Callable[[Program], float]
     library: Library
     stochastic: bool
+    task_type: str
     extra_info: Dict[str, Any]
 
 
@@ -75,7 +79,6 @@ def make_task(task_type, **config_task):
         "control" : make_control_task,
         "binding": make_binding_task
     }
-
     task = task_dict[task_type](**config_task)
     return task
 
