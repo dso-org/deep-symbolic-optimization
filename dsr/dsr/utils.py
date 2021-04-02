@@ -3,6 +3,7 @@
 import os
 import functools
 import numpy as np
+import time
 
 
 def is_float(s):
@@ -65,7 +66,7 @@ def setup_output_files(logdir, output_file):
 
     all_r_output_file : string
         all_r output filename
-    
+
     hof_output_file : string
         hof output filename
 
@@ -181,3 +182,12 @@ def empirical_entropy(labels):
         ent -= i * np.log(i)
 
     return ent
+
+def get_duration(start_time):
+    return get_human_readable_time(time.time() - start_time)
+
+def get_human_readable_time(s):
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
+    d, h = divmod(h, 24)
+    return "{:02d}:{:02d}:{:02d}:{:05.2f}".format(int(d), int(h), int(m), s)
