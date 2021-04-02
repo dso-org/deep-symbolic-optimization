@@ -149,7 +149,7 @@ class LogEval():
             summary_df = summary_df.reset_index(drop=True)
             summary_df.drop("name", 1).sort_values("seed")
             try:
-                self.metrics["successrate"] = summary_df["success"]).mean()
+                self.metrics["successrate"] = summary_df["success"].mean()
             except:
                 self.metrics["successrate"] = 0.0
         except:
