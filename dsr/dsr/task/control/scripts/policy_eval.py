@@ -182,7 +182,6 @@ def main(env=None,  episodes=10, max_steps=None, source=None, seed=0,
                 done = False
                 rewards = []
                 while not done:
-                    action_start_time = time.time()
                     [action, _states], predict_duration = model.predict(obs)
                     if print_action:
                         print("[E {:3d}/S {:3d}] A:".format(i + 1, episode_step), ["{:.4f}".format(x) for x in action])
