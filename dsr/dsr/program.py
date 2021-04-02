@@ -606,7 +606,7 @@ class Program(object):
         print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
         print("\tExpression:")
-        print("{}".format(indent(self.pretty(), '\t  ')))
+        print("{}\n".format(indent(self.pretty(), '\t  ')))
 
 
     def __repr__(self):

@@ -605,20 +605,20 @@ def learn(sess, controller, pool, gp_controller,
                 print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch, n_epochs, prev_r_best))
             if new_r_best and new_base_r_best:
                 if p_r_best == p_base_r_best:
-                    print("\t** New best overall")
+                    print("\n\t** New best overall")
                     p_r_best.print_stats()
                 else:
-                    print("\t** New best reward")
+                    print("\n\t** New best reward")
                     p_r_best.print_stats()
                     print("...and new best base reward")
                     p_base_r_best.print_stats()
 
             elif new_r_best:
-                print("\t** New best reward")
+                print("\n\t** New best reward")
                 p_r_best.print_stats()
 
             elif new_base_r_best:
-                print("\t** New best base reward")
+                print("\n\t** New best base reward")
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
