@@ -30,7 +30,6 @@ REGRESSION_SEED_SHIFT = int(2e6)
 DEFAULT_SCALES = [0.5, 0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0]
 POSITIVE_SCALES = [1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
 ENVS = {
-    #"BipedalWalker-v2": {},
     "CustomCartPoleContinuous-v0": {
         "n_actions" : 1,
         "env_kwargs" : {
