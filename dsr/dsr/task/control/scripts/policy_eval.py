@@ -216,9 +216,6 @@ def main(env, alg, episodes, max_steps, seed=0,
             if print_env:
                 get_env_info(env_name, env)
 
-            if max_steps is None and '_max_episode_steps' in dir(env):
-                max_steps = env._max_episode_steps
-
             # Load model
             model_load_start = time.time()
             model = Model(env_name, alg)
@@ -251,13 +248,13 @@ def main(env, alg, episodes, max_steps, seed=0,
                         print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step), ["{:.4f}".format(x) for x in obs])
                     rewards.append(reward)
                     episode_step += 1
-                    if not done and max_steps == episode_step:
+                    if max_steps == episode_step:
                         done = True
                 episode_rewards.append(sum(rewards))
                 episode_steps.append(episode_step)
             text.append("{} [action dim = {}] --> [Reward: {:.4f}] [Steps: {:3d}] [Action latency: {:.4f} ms] [Model load time: {:.4f} s]".format(
                 env_name, action.shape, np.mean(episode_rewards), int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
-            csv_content.append([env_name, alg, max_steps, episodes, int(np.mean(episode_steps)),
+            csv_content.append([env_name, alg, episodes, int(np.mean(episode_steps)),
                 np.mean(episode_rewards), model_load_duration, np.mean(action_durations)*1000.,
                 datetime.now()])
 
@@ -271,7 +268,7 @@ def main(env, alg, episodes, max_steps, seed=0,
                 with open(file_name,'w') as result_file:
                     file_pointer = csv.writer(result_file, dialect='excel')
                     file_pointer.writerow(
-                        ["environment", "algorithm", "max_steps", "episodes", "avg_steps_episode",
+                        ["environment", "algorithm", "episodes", "avg_steps_episode",
                         "avg_rewards_episode", "model_load_s", "action_latency_ms", "date"])
             with open(file_name,'a') as result_file:
                 file_pointer = csv.writer(result_file, dialect='excel')
