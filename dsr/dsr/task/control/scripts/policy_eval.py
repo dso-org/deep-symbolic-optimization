@@ -1,8 +1,8 @@
 """Sampling obs, and action data from a Zoo or dsr policy on a Gym environment.
 Usage:
-    - Run all envs for zoo and dsp: python policy_eval.py
+    - Run all envs for zoo and symbolic: python policy_eval.py
     - Run all envs for specific alg: python policy_eval.py --alg zoo
-    - Run specific env for zoo and dsp: python policy_eval.py --env Pendulum-v0
+    - Run specific env for zoo and symbolic: python policy_eval.py --env Pendulum-v0
     - Run specific env only for specific alg: python policy_eval.py --env Pendulum-v0 --alg zoo
     - Change number of episodes: python policy_eval.py --episodes 100
 For debugging we can shorten running time and print more information:
@@ -11,12 +11,16 @@ For debugging we can shorten running time and print more information:
     - Same as above: python policy_eval.py --env Pendulum-v0 --print_all
 """
 import csv
+import glob
 import os
 import numpy as np
 import click
 import gym
 
+from datetime import datetime
 import time
+
+from pkg_resources import resource_filename
 
 import dsr.task.control.utils as U
 from dsr.program import Program, from_str_tokens
@@ -45,12 +49,12 @@ ENVS = {
     },
     #"InvertedDoublePendulumBulletEnv-v0" : {
     #    "n_actions" : 1,
-    #    "symbolic" : ["1,0"],
+    #    "symbolic" : [],
     #},
-    #"InvertedPendulumSwingupBulletEnv-v0" : {
-    #    "n_actions" : 1,
-    #    "symbolic" : ["1,0"],
-    #},
+    "InvertedPendulumSwingupBulletEnv-v0" : {
+        "n_actions" : 1,
+        "symbolic" : [],
+    },
     "LunarLanderContinuous-v2" : {
         "n_actions" : 2,
         "symbolic" : [
@@ -77,11 +81,12 @@ ENVS = {
         },
         "symbolic" : ["add,mul,-2.0,x2,div,add,mul,-8.0,x2,mul,-2.0,x3,x1"],
     },
-    #"ReacherBulletEnv-v0" : {
-    #    "n_actions" : 2,
-    #    "symbolic" : ["1,0"],
-    #}
+    "ReacherBulletEnv-v0" : {
+        "n_actions" : 2,
+        "symbolic" : [],
+    }
 }
+
 ALGS = [
     'a2c',
     'acktr',
@@ -108,10 +113,22 @@ class Model():
         self.model = self.load_model(env_name)
 
     def load_model(self, env_name):
-        if self.alg == "zoo":
-            U.load_default_model(env_name)
+        if self.alg != "symbolic":
+            env_models_path = os.path.join(resource_filename("dsr.task", "control"), "data", env_name)
+            alg_models = glob.glob("{}/*-{}.*".format(env_models_path, self.alg.lower()))
+            if len(alg_models) == 0:
+                print("WARNING: No '{}' model available for '{}'!".format(self.alg.upper(), env_name))
+                return None
+            try:
+                U.load_model(self.alg, alg_models[0])
+            except:
+                print("WARNING: Model available but could not load: '{}'".format(alg_models[0]))
+                return None
             return U.model
-        elif self.alg == "dsp":
+        else:
+            if len(ENVS[env_name]["symbolic"]) == 0:
+                 print("WARNING: No symbolic policy available for env '{}'!".format(env_name))
+                 return None
             config_task = {
                 "task_type" : "control",
                 "name" : env_name,
@@ -131,15 +148,13 @@ class Model():
                 action_models.append(
                     from_str_tokens(traversal, optimize=False, skip_cache=False, n_objects=1))
             return action_models
-        else:
-            assert False, "Unknown alg for model"
 
     def predict(self, obs):
-        if self.alg == "zoo":
+        if self.alg != "symbolic":
             start_time = time.time()
             prediction = self.model.predict(obs)
             predict_duration = time.time() - start_time
-        elif self.alg == "dsp":
+        else:
             actions = []
             predict_duration = 0
             for action_model in self.model:
@@ -149,8 +164,6 @@ class Model():
                 predict_duration += time.time() - start_time
                 actions.append(predict[0])
             prediction = np.array(actions), None
-        else:
-            assert False, "Unknown alg for model"
         return prediction, predict_duration
 
 @click.command()
@@ -164,23 +177,25 @@ class Model():
 @click.option("--print_action", is_flag=True, help="Simple way to observe actions when stepping through an environment.")
 @click.option("--print_reward", is_flag=True, help="Simple way to observe rewards when stepping through an environment.")
 @click.option("--print_all", is_flag=True, help="Simple way to observe everything when stepping through an environment.")
-def main(env,  episodes, max_steps, alg, seed=0,
+def main(env, alg, episodes, max_steps, seed=0,
         print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False):
 
     # Preparing envs from input
-    if all([isinstance(e, str) for e in env]) and all([e != "all" for e in env]):
-        assert all([e in ENVS for e in env]), "ERROR: Environment '{}' unknown!".format(env)
-        exp_envs = {e: ENVS[e] for e in env}
+    if all([isinstance(e, str) for e in env]) and all([e != "all" for e in env]) and len(env) > 0:
+        #assert all([e in ENVS for e in env]), "ERROR: Environment '{}' unknown!".format(env)
+        if not all([e in ENVS for e in env]):
+            print("WARNING: {} environment not available!".format([e for e in env if e not in ENVS]))
+        exp_envs = {e: ENVS[e] for e in env if e in ENVS}
     else:
         exp_envs = ENVS
 
     # Preparing algs from input
-    if isinstance(alg, str) and alg != "all":
-        assert alg in ALGS, "ERROR: Algorithm '{}' unknown!".format(alg.upper())
-        exp_algs = {alg: ALGS[alg]}
+    if all([isinstance(a, str) for a in alg]) and all([a != "all" for a in alg]) and len(alg) > 0:
+        if not all([a.lower() in ALGS for a in alg]):
+            print("WARNING: {} algorithm not available!".format([a for a in alg if a.lower() not in ALGS]))
+        exp_algs = [a.lower() for a in alg if a.lower() in ALGS]
     else:
         exp_algs = ALGS
-    exp_algs = [alg] if isinstance(alg, str) else ["zoo", "dsp"]
 
     # Update output if necessary
     if print_all:
@@ -208,6 +223,9 @@ def main(env,  episodes, max_steps, alg, seed=0,
             model_load_start = time.time()
             model = Model(env_name, alg)
             model_load_duration = time.time() - model_load_start
+
+            if model.model is None:
+                continue
 
             # Run episodes
             action_durations = []
@@ -239,22 +257,28 @@ def main(env,  episodes, max_steps, alg, seed=0,
                 episode_steps.append(episode_step)
             text.append("{} [action dim = {}] --> [Reward: {:.4f}] [Steps: {:3d}] [Action latency: {:.4f} ms] [Model load time: {:.4f} s]".format(
                 env_name, action.shape, np.mean(episode_rewards), int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
-            csv_content.append([env_name, max_steps, episodes, int(np.mean(episode_steps)),
-                np.mean(episode_rewards),model_load_duration,np.mean(action_durations)*1000.])
+            csv_content.append([env_name, alg, max_steps, episodes, int(np.mean(episode_steps)),
+                np.mean(episode_rewards), model_load_duration, np.mean(action_durations)*1000.,
+                datetime.now()])
+
         # Print summary
         print("=== {} === Averages over {} episodes =========================".format(alg, episodes))
-        for line in text:
-            print(line)
-        file_name = 'policy_eval_results_{}.csv'.format(alg)
-        if not os.path.exists(file_name):
-            with open(file_name,'w') as result_file:
+        if len(text) > 0:
+            for line in text:
+                print(line)
+            file_name = 'policy_eval_results.csv'
+            if not os.path.exists(file_name):
+                with open(file_name,'w') as result_file:
+                    file_pointer = csv.writer(result_file, dialect='excel')
+                    file_pointer.writerow(
+                        ["environment", "algorithm", "max_steps", "episodes", "avg_steps_episode",
+                        "avg_rewards_episode", "model_load_s", "action_latency_ms", "date"])
+            with open(file_name,'a') as result_file:
                 file_pointer = csv.writer(result_file, dialect='excel')
-                file_pointer.writerow(
-                    ["environment", "max_steps", "episodes", "avg_steps_episode",
-                     "avg_rewards_episode", "model_load_s", "action_latency_ms"])
-        with open(file_name,'a') as result_file:
-            file_pointer = csv.writer(result_file, dialect='excel')
-            file_pointer.writerows(csv_content)
+                file_pointer.writerows(csv_content)
+        else:
+            print("No algorithm/environment combinations found.")
+        print("")
     print("============================")
 
 if __name__ == "__main__":
