@@ -232,7 +232,7 @@ def learn(sess, controller, pool, gp_controller,
         priority_queue = make_queue(priority=True, capacity=k)
     else:
         priority_queue = None
-
+    # print('use_memory: ', use_memory)
     # Create the memory queue
     if use_memory:
         assert epsilon is not None and epsilon < 1.0, \
@@ -245,6 +245,9 @@ def learn(sess, controller, pool, gp_controller,
         warm_start = warm_start if warm_start is not None else batch_size
         actions, obs, priors = controller.sample(warm_start)
         programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
+        # print(priors)
+        # TODO: add master sequence to Program
+
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         on_policy = np.array([p.on_policy for p in programs])
@@ -340,6 +343,14 @@ def learn(sess, controller, pool, gp_controller,
             for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
                 p.base_r = base_r
+
+        if Program.task.task_type == 'binding':
+            # we need this extra information to assemble sequence of amino acids
+            # from both master_sequence and the generated subsequence (from RL)
+            master_seq_info = {'master_seq': controller.prior.priors[0].master_seq,
+                               'allowed_mutations': controller.prior.priors[0].allowed_mutations}
+            for p in programs:
+                p.add_extra_info(master_seq_info)
 
         # If we run GP, insert GP Program, actions, priors (blank) and obs.
         # We may option later to return these to the controller.  

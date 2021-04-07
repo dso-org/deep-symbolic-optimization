@@ -12,25 +12,27 @@
           "history_y_tensor": "statium_80R_20201217_fx_ros_20201022_history_y_statium.pt",
           "model_weights_pth": "models/sparse_stl_gp_weights_statium_adam.pth",
           "model_is_sparse": true,
-          "model_is_mtl": false
+          "model_is_mtl": false,
+          "use_gpu": true
          }
    },
    "prior": {
-      "seq_positions": {"yaml_file" : "/usr/workspace/wsa/andre/projects/drl/data/feb_4th/rl_priors_coronavirus_80R_2ghw.yaml"}
+      "seq_positions": {"yaml_file" : "/usr/workspace/wsa/andre/projects/drl/data/feb_4th/rl_priors_coronavirus_80R_2ghw.yaml",
+                        "use_context": true}
    },
    "training": {
       "logdir": "./log/Binding",
       "n_epochs": null,
-      "n_samples": 1000,
+      "n_samples": 300000,
       "batch_size": 1000,
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
       "const_params": {},
       "alpha": 0.5,
-      "epsilon": 0,
+      "epsilon": 0.1,
       "verbose": true,
-      "baseline": "R_ewma",
+      "baseline": "R_e",
       "b_jumpstart": false,
       "n_cores_batch": 1,
       "summary": false,

@@ -23,8 +23,8 @@ def test_task_execution(model):
     model.train()
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 
-#     config = json.load(open("./test/binding_task/data/config.json", 'rb'))
-#     m = DeepSymbolicOptimizer(config)
-#     test_task_execution(m)
+    config = json.load(open("./test/binding_task/data/config.json", 'rb'))
+    m = DeepSymbolicOptimizer(config)
+    test_task_execution(m)

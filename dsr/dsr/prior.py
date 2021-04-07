@@ -2,6 +2,7 @@
 
 import numpy as np
 import yaml
+from collections import OrderedDict
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError, Token
@@ -34,7 +35,7 @@ def make_prior(library, config_prior):
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:
-
+            print('single_prior_args: ', single_prior_args)
             # Attempt to build the Prior. Any Prior can fail if it references a
             # Token not in the Library.
             try:
@@ -568,7 +569,7 @@ class SoftLengthPrior(Prior):
 class SequencePositionsConstraint(Constraint):
     """Class that constrains Tokens to follow the constraints defined in the YAML file. """
 
-    def __init__(self, library, yaml_file):
+    def __init__(self, library, yaml_file, use_context):
         """
         Parameters
         ----------
@@ -590,10 +591,11 @@ class SequencePositionsConstraint(Constraint):
         self.master_seq = self.config['description']['master_seq']
 
         # store allowed mutation in a dict for faster access
-        self.allowed_mutations = dict()
+        self.allowed_mutations = OrderedDict()
         for p in self.config['AllowedMutations']:
             # Per Tom: positions in the yaml file starts from 1 and not 0
             self.allowed_mutations[p[0] - 1] = p[1]
+        self.use_context = use_context
 
     def initial_prior(self):
         """ Prior for time step 0 """
@@ -615,23 +617,35 @@ class SequencePositionsConstraint(Constraint):
         # it's the "sequence ending" token - not going to be in the sample
         if seq_position >= len(self.master_seq):
             return prior
-
-        # check if there is any restriction for this particular position
-        if seq_position in self.allowed_mutations:  # allowed to mutate
-            # not all AA are allowed, but some
-            if len(self.allowed_mutations[seq_position]) < len(constants.AMINO_ACIDS):
-                # False: allowed to mutate
-                # True: constrained - cannot be mutated
-                mask = [False if aa in self.allowed_mutations[seq_position] else True 
-                        for aa in constants.AMINO_ACIDS]
-                prior[:, mask] = -np.inf
-            else:
-                # all AAs have the same chance, then no constraint imposed
-                pass
-        else: # mutation is not allowed
-            mask = [True] * len(constants.AMINO_ACIDS)
-            mask[constants.AMINO_ACIDS.index(self.master_seq[seq_position])] = False
+        if not self.use_context:
+            # it's the "sequence ending" token - not going to be in the sample
+            if seq_position >= len(self.allowed_mutations.keys()):
+                return prior
+            # print(seq_position)
+            # print(self.allowed_mutations.keys())
+            items = list(self.allowed_mutations.items())
+            # print(type(items))
+            actual_seq_position = items[seq_position][0]
+            mask = [False if aa in self.allowed_mutations[actual_seq_position] else True 
+                    for aa in constants.AMINO_ACIDS]
             prior[:, mask] = -np.inf
+        else:
+            # check if there is any restriction for this particular position
+            if seq_position in self.allowed_mutations:  # allowed to mutate
+                # not all AA are allowed, but some
+                if len(self.allowed_mutations[seq_position]) < len(constants.AMINO_ACIDS):
+                    # False: allowed to mutate
+                    # True: constrained - cannot be mutated
+                    mask = [False if aa in self.allowed_mutations[seq_position] else True 
+                            for aa in constants.AMINO_ACIDS]
+                    prior[:, mask] = -np.inf
+                else:
+                    # all AAs have the same chance, then no constraint imposed
+                    pass
+            else: # mutation is not allowed
+                mask = [True] * len(constants.AMINO_ACIDS)
+                mask[constants.AMINO_ACIDS.index(self.master_seq[seq_position])] = False
+                prior[:, mask] = -np.inf
         return prior
 
     def describe(self):
