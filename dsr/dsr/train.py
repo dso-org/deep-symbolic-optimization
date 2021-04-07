@@ -48,7 +48,8 @@ def learn(sess, controller, pool, gp_controller,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
-          warm_start=None, memory_threshold=None, save_positional_entropy=False, n_objects=1):
+          warm_start=None, memory_threshold=None, save_positional_entropy=False,
+          n_objects=1, save_cache=False):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
@@ -165,6 +166,9 @@ def learn(sess, controller, pool, gp_controller,
     save_positional_entropy : bool, optional
         Whether to save evolution of positional entropy for each iteration.
 
+    save_cache : bool
+        Whether to save the str, count, and r of each Program in the cache.
+
     Returns
     -------
     result : dict
@@ -195,9 +199,9 @@ def learn(sess, controller, pool, gp_controller,
 
     # Create log file
     if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file = setup_output_files(logdir, output_file)
+        all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file, cache_output_file = setup_output_files(logdir, output_file)
     else:
-        all_r_output_file = hof_output_file = pf_output_file = positional_entropy_output_file = None
+        all_r_output_file = hof_output_file = pf_output_file = positional_entropy_output_file = cache_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -715,6 +719,17 @@ def learn(sess, controller, pool, gp_controller,
         if hof_output_file is not None:
             print("Saving Hall of Fame to {}".format(hof_output_file))
             df.to_csv(hof_output_file, header=True, index=False)
+
+    # Save cache
+    if save_cache and Program.cache:
+        print("Saving cache...")
+        cache_data = [(repr(p), p.count, p.r) for p in Program.cache.values()]
+        df_cache = pd.DataFrame(cache_data)
+        df_cache.columns = ["str", "count", "r"]
+        df_cache.sort_values(by=["r", "count", "str"],
+                             ascending=[False, False, True],
+                             inplace=True)
+        df_cache.to_csv(cache_output_file, header=True, index=False)
 
     # Print error statistics of the cache
     n_invalid = 0
