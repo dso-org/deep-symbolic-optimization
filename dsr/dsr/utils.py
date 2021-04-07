@@ -64,14 +64,20 @@ def setup_output_files(logdir, output_file):
     Returns:
     --------
 
-    all_r_output_file : string
+    all_r_output_file : str
         all_r output filename
 
-    hof_output_file : string
+    hof_output_file : str
         hof output filename
 
-    pf_output_file : string
+    pf_output_file : str
         pf output filename
+
+    positional_entropy_output_file : str
+        positional entropy filename
+
+    cache_output_file : str
+        cache output filename
     """
     os.makedirs(logdir, exist_ok=True)
     output_file = os.path.join(logdir, output_file)
@@ -80,6 +86,7 @@ def setup_output_files(logdir, output_file):
     hof_output_file = "{}_hof.csv".format(prefix)
     pf_output_file = "{}_pf.csv".format(prefix)
     positional_entropy_output_file = "{}_positional_entropy.npy".format(prefix)
+    cache_output_file = "{}_cache.csv".format(prefix)
     with open(output_file, 'w') as f:
         # r_best : Maximum across all iterations so far
         # r_max : Maximum across this iteration's batch
@@ -87,7 +94,7 @@ def setup_output_files(logdir, output_file):
         # r_avg_sub : Average across this iteration's epsilon-subset batch
         # n_unique_* : Number of unique Programs in batch
         # n_novel_* : Number of never-before-seen Programs per batch
-        # a_ent_* : Empirical positional entropy across sequences averaged over positions 
+        # a_ent_* : Empirical positional entropy across sequences averaged over positions
         # invalid_avg_* : Fraction of invalid Programs per batch
         headers = ["base_r_best",
                     "base_r_max",
@@ -110,7 +117,8 @@ def setup_output_files(logdir, output_file):
                     "invalid_avg_sub"]
         f.write("{}\n".format(",".join(headers)))
 
-    return all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file
+    return all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file, cache_output_file
+
 
 class cached_property(object):
     """

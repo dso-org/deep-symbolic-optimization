@@ -53,7 +53,8 @@
       "warm_start": null,
       "memory_threshold": null,
       "save_positional_entropy": false,
-      "pareto_front": false
+      "pareto_front": false,
+      "save_cache": false
    },
    "controller": {
       "cell": "lstm",
