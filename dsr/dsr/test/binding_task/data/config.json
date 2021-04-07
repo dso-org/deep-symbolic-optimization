@@ -16,7 +16,8 @@
           }
     },
     "prior": {
-       "seq_positions": {"yaml_file" : "./dsr/task/binding/data/positions_prior.yaml"}
+       "seq_positions": {"yaml_file" : "./dsr/task/binding/data/positions_prior.yaml",
+                         "use_context": false}
     },
     "training": {
        "logdir": "./log/Binding",
@@ -52,7 +53,7 @@
        "observe_action": true,
        "observe_parent": false,
        "observe_sibling": false,
-       "max_length": 247,
+       "max_length": 10,
        "entropy_weight": 0.01,
        "ppo": false,
        "ppo_clip_ratio": 0.2,

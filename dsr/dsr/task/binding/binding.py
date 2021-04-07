@@ -100,7 +100,8 @@ def make_binding_task(name, paths, reward_noise=0.0,
             rwd : Reward value
 
         """
-        rwd = env.reward(''.join([t.name for t in p.traversal]))
+        # rwd = env.reward(''.join([t.name for t in p.traversal]))
+        rwd = env.reward(''.join([t.name for t in p.assemble_sequence()]))
         rwd = rwd.item()
         
         return rwd
