@@ -58,7 +58,8 @@
       "warm_start": null,
       "memory_threshold": null,
       "save_positional_entropy": false,
-      "pareto_front": true
+      "pareto_front": true,
+      "save_cache": false
    },
    "controller": {
       "summary" : false,
