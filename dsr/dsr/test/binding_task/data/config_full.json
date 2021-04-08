@@ -12,12 +12,13 @@
            "history_i_tensor": "nCoV/80R/statium_80R_20201217_fx_ros_20201022_history_i_1000rows.pt",
            "history_y_tensor": "nCoV/80R/statium_80R_20201217_fx_ros_20201022_history_y_1000rows.pt",
            "model_is_sparse": false,
-           "model_is_mtl": true
+           "model_is_mtl": true,
+           "use_gpu": false
           }
     },
     "prior": {
-       "seq_positions": {"yaml_file" : "./dsr/task/binding/data/positions_prior.yaml",
-                         "use_context": false}
+       "seq_positions": {"yaml_file" : "./test/binding_task/data/positions_prior.yaml",
+                         "use_context": true}
     },
     "training": {
        "logdir": "./log/Binding",
@@ -53,7 +54,7 @@
        "observe_action": true,
        "observe_parent": false,
        "observe_sibling": false,
-       "max_length": 10,
+       "max_length": 247,
        "entropy_weight": 0.01,
        "ppo": false,
        "ppo_clip_ratio": 0.2,

@@ -7,14 +7,14 @@ from dsr import DeepSymbolicOptimizer
 import numpy as np
 
 
-@pytest.fixture
-def model():
-    return DeepSymbolicOptimizer("./test/binding_task/data/config.json")
+# @pytest.fixture
+# def model():
+#     return DeepSymbolicOptimizer("./test/binding_task/data/config.json")
 
-def test_read_model(model):
-    assert isinstance(model, DeepSymbolicOptimizer)
-
-def test_task_execution(model):
+@pytest.mark.parametrize("config_file", ['./test/binding_task/data/config_full.json',
+                                         './test/binding_task/data/config_full.json'])
+def test_task_execution(config_file):
+    model = DeepSymbolicOptimizer(config_file)
     model.config_training.update({"n_samples" : 10,
                                   "batch_size" : 5
                                   })
@@ -25,6 +25,6 @@ def test_task_execution(model):
 
 if __name__ == '__main__':
 
-    config = json.load(open("./test/binding_task/data/config.json", 'rb'))
+    config = json.load(open("./test/binding_task/data/config_short.json", 'rb'))
     m = DeepSymbolicOptimizer(config)
-    test_task_execution(m)
+    m.train()
