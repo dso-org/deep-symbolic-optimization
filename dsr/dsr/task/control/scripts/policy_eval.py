@@ -16,6 +16,7 @@ import os
 import numpy as np
 import click
 import gym
+from gym.wrappers import Monitor
 
 from datetime import datetime
 import time
@@ -57,8 +58,15 @@ ENVS = {
     "LunarLanderContinuous-v2" : {
         "n_actions" : 2,
         "symbolic" : [
-            "add,mul,10.0,x3,x4",
-            "add,mul,10.0,x3,x4"],
+            #"add,mul,10.0,x3,x4",
+            #"add,mul,10.0,x3,x4"
+            #"sub,add,mul,-5.99,x2,mul,0.76,sin,x3,sub,mul,9.8,x4,1.35",
+            #"add,mul,-5.99,x2,sub,mul,0.76,sin,x3,sub,mul,-9.8,x4,1.35",
+            #"mul,-3.49,div,x4,sub,x6,x3"
+            'add,add,mul,0.7624715039886016,sub,sin,x3,add,add,add,add,div,add,sin,add,0.09101695879983959,0.0922444066126055,' \
+                'add,x2,x4,0.11289444161591844,x4,x4,x4,x4,-0.0008359813574848967,-0.12271695008045375',
+            'add,add,mul,0.24326721693967257,div,div,x4,log,sin,1.019536868443063,sub,x6,x3,-0.07620830192712105,0.07787010100098943'
+            ],
     },
     "MountainCarContinuous-v0" : {
         "n_actions" : 1,
@@ -176,8 +184,9 @@ class Model():
 @click.option("--print_action", is_flag=True, help="Simple way to observe actions when stepping through an environment.")
 @click.option("--print_reward", is_flag=True, help="Simple way to observe rewards when stepping through an environment.")
 @click.option("--print_all", is_flag=True, help="Simple way to observe everything when stepping through an environment.")
+@click.option("--record", is_flag=True, help="Record the policy in the environment to an mp4.")
 def main(env, alg, episodes, max_steps, seed=0,
-        print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False):
+        print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False, record=False):
 
     # Preparing envs from input
     if all([isinstance(e, str) for e in env]) and all([e != "all" for e in env]) and len(env) > 0:
@@ -214,6 +223,12 @@ def main(env, alg, episodes, max_steps, seed=0,
                 env = U.TimeFeatureWrapper(env)
             if print_env:
                 get_env_info(env_name, env)
+            if record:
+                now = datetime.now()
+                dt_string = now.strftime("%d.%m.%Y-")
+                vidpath = f"videos/{alg}/{env.unwrapped.spec.id}/{dt_string+str(int(time.time()))}"
+                env = Monitor(env, vidpath)
+                print(f"Video saving to: {vidpath}")
 
             # Load model
             model_load_start = time.time()
