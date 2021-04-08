@@ -221,9 +221,9 @@ def main(env, alg, episodes, max_steps, seed=0,
             if record:
                 now = datetime.now()
                 dt_string = now.strftime("%d.%m.%Y-")+str(int(time.time()))
-                vidpath = f"videos/{alg}/{env.unwrapped.spec.id}/{dt_string}"
+                vidpath = "videos/{}/{}/{}".format(alg, env.unwrapped.spec.id, dt_string)
                 env = Monitor(env, vidpath)
-                print(f"Video saving to: {vidpath}")
+                print("Video saving to: {}".format(vidpath))
 
             # Load model
             model_load_start = time.time()
