@@ -35,7 +35,7 @@
    "training": {
       "logdir": "./log",
       "n_epochs": null,
-      "n_samples": 2000000,
+      "n_samples": 2000,
       "batch_size": 1000,
       "complexity": "length",
       "complexity_weight": 0.0,
@@ -59,7 +59,8 @@
       "memory_threshold": null,
       "save_positional_entropy": false,
       "pareto_front": true,
-      "save_cache": false
+      "save_cache": true,
+      "save_cache_r_min": 0.9
    },
    "controller": {
       "summary" : false,
