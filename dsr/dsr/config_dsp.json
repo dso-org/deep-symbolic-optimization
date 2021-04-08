@@ -5,7 +5,7 @@
       "action_spec" : [null],
       "n_episodes_train" : 5,
       "n_episodes_test" : 10,
-      "success_score": 200.0,
+      "success_score": 800.0,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
       "stochastic" : true,
       "protected" : false,
@@ -14,17 +14,30 @@
       "env_kwargs" : {"dt" : 0.02},
       "reward_scale" : true
    },
+   "postprocess": {
+      "method": "dsr",
+      "print": true,
+      "print_count": 5,
+      "save_plots": true
+   },
+   "prior": {
+      "length" : {"min_" : 4, "max_" : 30},
+      "inverse" : {},
+      "trig" : {},
+      "const" : {},
+      "no_inputs" : {}
+   },
    "training": {
       "logdir": "./log",
       "n_epochs": null,
-      "n_samples": 20,
-      "batch_size": 5,
+      "n_samples": 2000,
+      "batch_size": 20,
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
       "const_params": {},
       "alpha": 0.5,
-      "epsilon": 0.1,
+      "epsilon": 0.05,
       "verbose": true,
       "baseline": "R_e",
       "b_jumpstart": false,
@@ -34,7 +47,14 @@
       "output_file": null,
       "save_all_r": false,
       "early_stopping": true,
-      "hof" : 10
+      "hof": 100,
+      "use_memory": true,
+      "memory_capacity": 1e3,
+      "warm_start": null,
+      "memory_threshold": null,
+      "save_positional_entropy": false,
+      "pareto_front": false,
+      "save_cache": false
    },
    "controller": {
       "cell": "lstm",
@@ -48,7 +68,8 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.01,
+      "entropy_weight": 0.005,
+      "entropy_gamma": 1.0,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,
@@ -60,13 +81,6 @@
       "pqt_use_pg": false,
       "max_length": 30,
       "off_policy_stats": false
-   },
-   "prior": {
-      "length": {"min_": 4, "max_": 30},
-      "inverse": {},
-      "trig": {},
-      "const" : {},
-      "no_inputs" : {}
    },
    "gp": {
       "population_size": 1000,
