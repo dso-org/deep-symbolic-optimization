@@ -59,7 +59,7 @@
       "memory_threshold": null,
       "save_positional_entropy": false,
       "pareto_front": true,
-      "save_cache": true,
+      "save_cache": false,
       "save_cache_r_min": 0.9
    },
    "controller": {
