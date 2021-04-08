@@ -35,7 +35,6 @@ def make_prior(library, config_prior):
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:
-            print('single_prior_args: ', single_prior_args)
             # Attempt to build the Prior. Any Prior can fail if it references a
             # Token not in the Library.
             try:
@@ -621,13 +620,9 @@ class SequencePositionsConstraint(Constraint):
             # it's the "sequence ending" token - not going to be in the sample
             if seq_position >= len(self.allowed_mutations.keys()):
                 return prior
-            # print(seq_position)
-            # print(self.allowed_mutations.keys())
             items = list(self.allowed_mutations.items())
-            # print(type(items))
             actual_seq_position = items[seq_position][0]
-            mask = [False if aa in self.allowed_mutations[actual_seq_position] else True 
-                    for aa in constants.AMINO_ACIDS]
+            mask = np.isin(constants.AMINO_ACIDS, self.allowed_mutations[actual_seq_position], invert=True)
             prior[:, mask] = -np.inf
         else:
             # check if there is any restriction for this particular position
@@ -636,8 +631,7 @@ class SequencePositionsConstraint(Constraint):
                 if len(self.allowed_mutations[seq_position]) < len(constants.AMINO_ACIDS):
                     # False: allowed to mutate
                     # True: constrained - cannot be mutated
-                    mask = [False if aa in self.allowed_mutations[seq_position] else True 
-                            for aa in constants.AMINO_ACIDS]
+                    mask = np.isin(constants.AMINO_ACIDS, self.allowed_mutations[seq_position], invert=True)
                     prior[:, mask] = -np.inf
                 else:
                     # all AAs have the same chance, then no constraint imposed
