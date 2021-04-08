@@ -19,6 +19,45 @@ class LogEval():
     to analyze experiments."""
 
     PLOT_HELPER = {
+        "andre": {
+            "name": "Andre's special",
+            "x_label": [
+                "Batch",
+                "Batch",
+                "Batch",
+                "Batch",
+                "Batch",
+                "Batch",
+                "Batch",
+                "Batch"],
+            'y_label': [
+                'Reward Base Best',
+                'Reward Base Max',
+                'Reward Base Avg Full',
+                'Reward Base Avg Sub',
+                'Reward Best',
+                'Reward Max',
+                'Reward Base Avg Full',
+                'Reward Base Avg Sub'],
+            "x": [
+                "index",
+                "index",
+                "index",
+                "index",
+                "index",
+                "index",
+                "index",
+                "index"],
+            "y": [
+                "base_r_best",
+                "base_r_max",
+                "base_r_avg_full",
+                "base_r_avg_sub",
+                "r_best",
+                "r_max",
+                "r_avg_full",
+                "r_avg_sub"]
+        },
         "hof": {
             "name": "Hall of Fame",
             "x_label": [
@@ -82,6 +121,8 @@ class LogEval():
         self.hof_df = self._get_log(log_type="hof")
         # Load pareto front if available
         self.pf_df = self._get_log(log_type="pf")
+        # Load andre's hof if available
+        self.andre_df = self._get_log(log_type="andre")
 
         if len(self.warnings) > 0:
             print("### Experiment has warnings:")
@@ -96,8 +137,9 @@ class LogEval():
             tokens = cmd_content[0].split("--")
             params = {}
             for token in tokens[1:]:
-                setting = token.split("=")
-                params[setting[0]] = self._get_correct_type(setting[1].strip())
+                token = token.strip()
+                setting = token.split("=") if "=" in token else token.split(" ")
+                params[setting[0]] = self._get_correct_type(setting[1])
             if not "mc" in params:
                 params["mc"] = 1
         except:
@@ -162,8 +204,12 @@ class LogEval():
         log_not_found = []
         if "mc" in self.cmd_params:
             for seed in range(self.cmd_params["mc"]):
-                log_file = "{}_{}_{}_{}.csv".format(
-                    self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
+                if log_type == "andre":
+                    log_file = "{}_{}_{}.csv".format(
+                        self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed)
+                else:
+                    log_file = "{}_{}_{}_{}.csv".format(
+                        self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
                 try:
                     df = pd.read_csv(os.path.join(self.path["log"], log_file))
                     df.insert(0, "seed", seed)
@@ -177,6 +223,9 @@ class LogEval():
             try:
                 if log_type == "hof":
                     log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
+                if log_type == "andre":
+                    #log_df = log_df.sort_values(by=["r_best","seed"], ascending=False)
+                    pass
                 if log_type == "pf":
                     log_df = self._apply_pareto_filter(log_df)
                     log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
@@ -216,9 +265,19 @@ class LogEval():
                 _x_label.append(self.PLOT_HELPER[log_type]["x_label"][i])
                 _y_label.append(self.PLOT_HELPER[log_type]["y_label"][i])
         row_count = 2 if boxplot_on else 1
+        if log_type == "andre":
+            row_count = 2
+            col_count = 4
         fig, ax = plt.subplots(row_count, col_count, figsize=(8 * col_count, 4* row_count))
         for i in range(col_count):
-            if boxplot_on:
+            if log_type == "andre":
+                sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
+                ax[0, i].set_xlabel(_x_label[i])
+                ax[0, i].set_ylabel(_y_label[i])
+                sns.lineplot(data=results, x=_x[i+4], y=_y[i+4], ax=ax[1, i])
+                ax[1, i].set_xlabel(_x_label[i+4])
+                ax[1, i].set_ylabel(_y_label[i+4])
+            elif boxplot_on:
                 sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
                 ax[0, i].set_xlabel(_x_label[i])
                 ax[0, i].set_ylabel(_y_label[i])
@@ -274,6 +333,18 @@ class LogEval():
                 if show_plots or save_plots:
                     self.plot_results(
                         self.pf_df, log_type="pf",
+                        show_plots=show_plots, save_plots=save_plots)
+            if self.andre_df is not None:
+                print('Andre ({} of {})____'.format(min(show_count,len(self.andre_df.index)), len(self.andre_df.index)))
+                for i in range(min(show_count,len(self.andre_df.index))):
+                    data_index = len(self.andre_df.index) - 1 - i
+                    print('  {:3d}: S={:03d} R={:8.6f}'.format(
+                        data_index,
+                        int(self.andre_df.iloc[data_index]['seed']),
+                        self.andre_df.iloc[data_index]['r_best']))
+                if show_plots or save_plots:
+                    self.plot_results(
+                        self.andre_df, log_type="andre", boxplot_on=False,
                         show_plots=show_plots, save_plots=save_plots)
         except:
             print("Error when analyzing!")
