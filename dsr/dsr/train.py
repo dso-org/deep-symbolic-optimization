@@ -725,15 +725,12 @@ def learn(sess, controller, pool, gp_controller,
 
     # Save cache
     if save_cache and Program.cache:
-        print("Saving cache...")
+        print("Saving cache to {}".format(cache_output_file))
         cache_data = [(repr(p), p.count, p.r) for p in Program.cache.values()]
         df_cache = pd.DataFrame(cache_data)
         df_cache.columns = ["str", "count", "r"]
         if save_cache_r_min is not None:
             df_cache = df_cache[df_cache["r"] >= save_cache_r_min]
-        df_cache.sort_values(by=["r", "count", "str"],
-                             ascending=[False, False, True],
-                             inplace=True)
         df_cache.to_csv(cache_output_file, header=True, index=False)
 
     # Print error statistics of the cache
