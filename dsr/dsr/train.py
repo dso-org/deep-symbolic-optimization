@@ -9,7 +9,6 @@ from collections import defaultdict
 import tensorflow as tf
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 
 from dsr.program import Program, from_tokens
 from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
@@ -232,7 +231,7 @@ def learn(sess, controller, pool, gp_controller,
         priority_queue = make_queue(priority=True, capacity=k)
     else:
         priority_queue = None
-    # print('use_memory: ', use_memory)
+
     # Create the memory queue
     if use_memory:
         assert epsilon is not None and epsilon < 1.0, \
@@ -286,7 +285,7 @@ def learn(sess, controller, pool, gp_controller,
     nevals              = 0
     program_val_log     = []
 
-    for step in tqdm(range(n_epochs)):
+    for step in range(n_epochs):
 
         if gp_verbose:
             print("************************************************************************")
