@@ -133,7 +133,7 @@ class RenderEnv(gym.Wrapper):
         self.episode = 0
 
         self.directory = os.path.abspath(save_path)
-        if not os.path.exists(self.directory): os.mkdir(self.directory)
+        if not os.path.exists(self.directory): os.makedirs(self.directory, exist_ok=True)
 
     def reset(self, **kwargs):
         """Standard wrap of the reset function."""
