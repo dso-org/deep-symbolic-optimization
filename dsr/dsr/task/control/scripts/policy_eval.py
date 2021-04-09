@@ -16,8 +16,6 @@ import os
 import numpy as np
 import click
 import gym
-#from gym.wrappers import Monitor
-
 
 from datetime import datetime
 import time
