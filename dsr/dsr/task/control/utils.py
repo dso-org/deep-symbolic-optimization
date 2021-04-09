@@ -121,7 +121,7 @@ class TimeFeatureWrapper(gym.Wrapper):
 
 
 class RenderEnv(gym.Wrapper):
-    def __init__(self, env_name, env, alg, save_path):
+    def __init__(self, env, env_name, alg, save_path):
         """Recording wrapper to simply generate videos from gym environments."""
         super(RenderEnv, self).__init__(env)
 
