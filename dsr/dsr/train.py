@@ -49,7 +49,7 @@ def learn(sess, controller, pool, gp_controller,
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          n_objects=1, save_cache=False):
+          n_objects=1, save_cache=False, save_cache_r_min=0.9):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
@@ -168,6 +168,9 @@ def learn(sess, controller, pool, gp_controller,
 
     save_cache : bool
         Whether to save the str, count, and r of each Program in the cache.
+
+    save_cache_r_min : float or None
+        If not None, only keep Programs with r >= r_min when saving cache.
 
     Returns
     -------
@@ -722,13 +725,12 @@ def learn(sess, controller, pool, gp_controller,
 
     # Save cache
     if save_cache and Program.cache:
-        print("Saving cache...")
+        print("Saving cache to {}".format(cache_output_file))
         cache_data = [(repr(p), p.count, p.r) for p in Program.cache.values()]
         df_cache = pd.DataFrame(cache_data)
         df_cache.columns = ["str", "count", "r"]
-        df_cache.sort_values(by=["r", "count", "str"],
-                             ascending=[False, False, True],
-                             inplace=True)
+        if save_cache_r_min is not None:
+            df_cache = df_cache[df_cache["r"] >= save_cache_r_min]
         df_cache.to_csv(cache_output_file, header=True, index=False)
 
     # Print error statistics of the cache
