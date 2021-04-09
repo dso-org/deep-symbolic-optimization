@@ -3,8 +3,12 @@
 import os
 from pkg_resources import resource_filename
 
+from datetime import datetime
+from glob import glob
+
 import gym
 from gym.wrappers import TimeLimit
+from gym.wrappers.monitoring import video_recorder
 import numpy as np
 
 try:
@@ -31,7 +35,7 @@ ALGORITHMS = {
     'ppo2': PPO2,
     'trpo': TRPO,
     'td3': TD3
-}    
+}
 
 
 # NOTE: This does not load observation normalization
@@ -56,7 +60,7 @@ def load_default_model(env_name):
                 if f.endswith(ext):
                     algorithm = f.split("model-")[-1].split(ext)[0]
                     model_path = os.path.join(root, f)
-                    
+
                     # Load that model
                     load_model(algorithm, model_path)
 
@@ -114,3 +118,68 @@ class TimeFeatureWrapper(gym.Wrapper):
             time_feature = 1.0
         # Optionnaly: concatenate [time_feature, time_feature ** 2]
         return np.concatenate((obs, [time_feature]))
+
+
+class RenderEnv(gym.Wrapper):
+    def __init__(self, env_name, env, alg, save_path):
+        """Recording wrapper to simply generate videos from gym environments."""
+        super(RenderEnv, self).__init__(env)
+
+        self.env_name = env_name
+        self.alg = alg
+
+        self.videos = []
+        self.video_recorder = None
+        self.episode = 0
+
+        self.directory = os.path.abspath(save_path)
+        if not os.path.exists(self.directory): os.mkdir(self.directory)
+
+    def reset(self, **kwargs):
+        """Standard wrap of the reset function."""
+        obs = self.env.reset(**kwargs)
+        self.episode += 1
+        self.reset_video_recorder()
+        return obs
+
+    def step(self, action):
+        """Standard wrap of the step function."""
+        observation, reward, done, info = self.env.step(action)
+        self.video_recorder.capture_frame()
+        return observation, reward, done, info
+
+    def reset_video_recorder(self):
+        """Close any existing video recorder and start recording the next video."""
+        if self.video_recorder:
+            self._close_video_recorder()
+        self.video_recorder = video_recorder.VideoRecorder(
+            env=self.env,
+            base_path=os.path.join(
+                self.directory,
+                '{}.{}.{}'.format(self.env_name, self.alg, datetime.now().strftime("%Y-%m-%d-%H%M%S"))),
+            enabled=True,
+        )
+        self.video_recorder.capture_frame()
+
+    def _close_video_recorder(self):
+        """Cleaning up."""
+        self.video_recorder.close()
+        if self.video_recorder.functional:
+            self.videos.append((self.video_recorder.path, self.video_recorder.metadata_path))
+
+    def close(self):
+        """Flush all monitor data to disk and close any open rending windows."""
+        super(RenderEnv, self).close()
+        if self.video_recorder is not None:
+            self._close_video_recorder()
+        self._clean_up_metadata()
+
+    def __del__(self):
+        """Make sure we've closed up shop when garbage collecting."""
+        self.close()
+
+    def _clean_up_metadata(self):
+        """Deleting all metadata json files in the directory."""
+        metadata_files = glob(os.path.join(self.directory , "*.json"))
+        for metadata_file in metadata_files:
+            os.remove(metadata_file)
