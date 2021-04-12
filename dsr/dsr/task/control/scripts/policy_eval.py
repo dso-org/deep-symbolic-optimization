@@ -16,7 +16,6 @@ import os
 import numpy as np
 import click
 import gym
-from gym.wrappers import Monitor
 
 from datetime import datetime
 import time
@@ -212,18 +211,16 @@ def main(env, alg, episodes, max_steps, seed=0,
         csv_content= []
         text = []
         for env_name in exp_envs:
-            # Make gym environment
+            # Prepare the gym environment
             env = gym.make(env_name)
             if "Bullet" in env_name:
                 env = U.TimeFeatureWrapper(env)
             if print_env:
                 get_env_info(env_name, env)
             if record:
-                now = datetime.now()
-                dt_string = now.strftime("%d.%m.%Y-")+str(int(time.time()))
-                vidpath = "videos/{}/{}/{}".format(alg, env.unwrapped.spec.id, dt_string)
-                env = Monitor(env, vidpath)
-                print("Video saving to: {}".format(vidpath))
+                save_path = "videos/{}".format(env_name)
+                env = U.RenderEnv(env, env_name, alg, save_path)
+                text.append("Saving videos to: {}".format(save_path))
 
             # Load model
             model_load_start = time.time()
@@ -239,8 +236,8 @@ def main(env, alg, episodes, max_steps, seed=0,
             episode_steps = []
             for i in range(episodes):
                 episode_step = 1
-                env.seed(seed + i + REGRESSION_SEED_SHIFT)
-                obs = env.reset()
+                generated_seed = env.seed(seed + i + REGRESSION_SEED_SHIFT)
+                obs = env.reset(seed=generated_seed[0])
                 if print_state:
                     print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step - 1), ["{:.4f}".format(x) for x in obs])
                 done = False
