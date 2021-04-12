@@ -135,11 +135,11 @@ class RenderEnv(gym.Wrapper):
         self.directory = os.path.abspath(save_path)
         if not os.path.exists(self.directory): os.makedirs(self.directory, exist_ok=True)
 
-    def reset(self, **kwargs):
+    def reset(self, seed=None, **kwargs):
         """Standard wrap of the reset function."""
         obs = self.env.reset(**kwargs)
         self.episode += 1
-        self.reset_video_recorder()
+        self.reset_video_recorder(seed)
         return obs
 
     def step(self, action):
@@ -148,15 +148,16 @@ class RenderEnv(gym.Wrapper):
         self.video_recorder.capture_frame()
         return observation, reward, done, info
 
-    def reset_video_recorder(self):
+    def reset_video_recorder(self, seed):
         """Close any existing video recorder and start recording the next video."""
         if self.video_recorder:
             self._close_video_recorder()
+
         self.video_recorder = video_recorder.VideoRecorder(
             env=self.env,
             base_path=os.path.join(
                 self.directory,
-                '{}.{}.{}'.format(self.env_name, self.alg, datetime.now().strftime("%Y-%m-%d-%H%M%S"))),
+                '{}.{}.s{}.{}'.format(self.env_name, self.alg, seed, datetime.now().strftime("%Y-%m-%d-%H%M%S"))),
             enabled=True,
         )
         self.video_recorder.capture_frame()

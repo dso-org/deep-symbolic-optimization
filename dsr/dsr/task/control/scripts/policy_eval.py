@@ -236,8 +236,8 @@ def main(env, alg, episodes, max_steps, seed=0,
             episode_steps = []
             for i in range(episodes):
                 episode_step = 1
-                env.seed(seed + i + REGRESSION_SEED_SHIFT)
-                obs = env.reset()
+                generated_seed = env.seed(seed + i + REGRESSION_SEED_SHIFT)
+                obs = env.reset(seed=generated_seed[0])
                 if print_state:
                     print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step - 1), ["{:.4f}".format(x) for x in obs])
                 done = False
