@@ -57,8 +57,10 @@ ENVS = {
     "LunarLanderContinuous-v2" : {
         "n_actions" : 2,
         "symbolic" : [
-            "add,mul,10.0,x3,x4",
-            "add,mul,10.0,x3,x4"],
+            'add,add,mul,0.7624715039886016,sub,sin,x3,add,add,add,add,div,add,sin,add,0.09101695879983959,0.0922444066126055,' \
+                'add,x2,x4,0.11289444161591844,x4,x4,x4,x4,-0.0008359813574848967,-0.12271695008045375',
+            'add,add,mul,0.24326721693967257,div,div,x4,log,sin,1.019536868443063,sub,x6,x3,-0.07620830192712105,0.07787010100098943'
+            ],
     },
     "MountainCarContinuous-v0" : {
         "n_actions" : 1,
@@ -176,8 +178,9 @@ class Model():
 @click.option("--print_action", is_flag=True, help="Simple way to observe actions when stepping through an environment.")
 @click.option("--print_reward", is_flag=True, help="Simple way to observe rewards when stepping through an environment.")
 @click.option("--print_all", is_flag=True, help="Simple way to observe everything when stepping through an environment.")
+@click.option("--record", is_flag=True, help="Record the policy in the environment to an mp4.")
 def main(env, alg, episodes, max_steps, seed=0,
-        print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False):
+        print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False, record=False):
 
     # Preparing envs from input
     if all([isinstance(e, str) for e in env]) and all([e != "all" for e in env]) and len(env) > 0:
@@ -208,12 +211,16 @@ def main(env, alg, episodes, max_steps, seed=0,
         csv_content= []
         text = []
         for env_name in exp_envs:
-            # Make gym environment
+            # Prepare the gym environment
             env = gym.make(env_name)
             if "Bullet" in env_name:
                 env = U.TimeFeatureWrapper(env)
             if print_env:
                 get_env_info(env_name, env)
+            if record:
+                save_path = "videos/{}".format(env_name)
+                env = U.RenderEnv(env, env_name, alg, save_path)
+                text.append("Saving videos to: {}".format(save_path))
 
             # Load model
             model_load_start = time.time()
@@ -229,8 +236,8 @@ def main(env, alg, episodes, max_steps, seed=0,
             episode_steps = []
             for i in range(episodes):
                 episode_step = 1
-                env.seed(seed + i + REGRESSION_SEED_SHIFT)
-                obs = env.reset()
+                generated_seed = env.seed(seed + i + REGRESSION_SEED_SHIFT)
+                obs = env.reset(seed=generated_seed[0])
                 if print_state:
                     print("[E {:3d}/S {:3d}] S:".format(i + 1, episode_step - 1), ["{:.4f}".format(x) for x in obs])
                 done = False
