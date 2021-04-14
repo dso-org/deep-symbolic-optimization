@@ -13,7 +13,7 @@ import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 import abag_agent_setup.expand_allowed_mutant_menu as abag_agent_setup_eamm
 
 
-def make_binding_task(name, paths):
+def make_binding_task(name, paths, function_set):
     """
     Factory function for ab/ag binding affinity rewards. 
 
