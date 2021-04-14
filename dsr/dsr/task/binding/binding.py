@@ -13,36 +13,17 @@ import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 import abag_agent_setup.expand_allowed_mutant_menu as abag_agent_setup_eamm
 
 
-def make_binding_task(name, paths, reward_noise=0.0,
-                      reward_noise_type="r", threshold=1e-12,
-                      normalize_variance=False, protected=False):
+def make_binding_task(name, paths, function_set):
     """
     Factory function for ab/ag binding affinity rewards. 
 
     Parameters
     ----------
     name : str or None
-        Name of regression benchmark, if using benchmark dataset.
+        Name of AbAg study being performed.
 
     paths : dict
         Path to files used to run Gaussian Process-based binding environment
-
-    reward_noise : float
-        Noise level to use when computing reward.
-
-    reward_noise_type : "y_hat" or "r"
-        "y_hat" : N(0, reward_noise * y_rms_train) is added to y_hat values.
-        "r" : N(0, reward_noise) is added to r.
-
-    normalize_variance : bool
-        If True and reward_noise_type=="r", reward is multiplied by
-        1 / sqrt(1 + 12*reward_noise**2) (We assume r is U[0,1]).
-
-    protected : bool
-        Whether to use protected functions.
-
-    threshold : float
-        Threshold of NMSE on noiseless data used to determine success.
 
     Returns
     -------
@@ -60,15 +41,6 @@ def make_binding_task(name, paths, reward_noise=0.0,
     x = torch.load(os.path.join(paths['base_path'], paths['history_x_tensor']))
     i = torch.load(os.path.join(paths['base_path'], paths['history_i_tensor']))
     y = torch.load(os.path.join(paths['base_path'], paths['history_y_tensor']))
-
-    # sequence mutation mask
-    if 'sequence_mutation_mask' in paths.keys():
-        mask = pd.read_csv(os.path.join(paths['base_path'], paths['sequence_mutation_mask']))
-        assert mask.shape[0] == len(master_seqrecord)
-        mask = mask.values[:, 1]
-    else:
-        # allow mutation for all residues
-        mask = np.ones(len(master_seqrecord))
 
     env = rl_env_obj.GPModelEnvironment(
         os.path.join(paths['base_path'], paths['model_weights_pth']),
@@ -100,7 +72,8 @@ def make_binding_task(name, paths, reward_noise=0.0,
             rwd : Reward value
 
         """
-        rwd = env.reward(''.join([t.name for t in p.traversal]))
+        # rwd = env.reward(''.join([t.name for t in p.traversal]))
+        rwd = env.reward(''.join([t.name for t in p.assemble_sequence()]))
         rwd = rwd.item()
         
         return rwd
@@ -127,14 +100,12 @@ def make_binding_task(name, paths, reward_noise=0.0,
 
     library = Library(tokens)
 
-    stochastic = reward_noise > 0.0
-
     extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
                          evaluate=evaluate,
                          library=library,
-                         stochastic=stochastic,
+                         stochastic=False,
                          task_type='binding',
                          extra_info=extra_info)
 
