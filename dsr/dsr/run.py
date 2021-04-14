@@ -9,7 +9,6 @@ import os
 import sys
 import json
 import time
-#import cProfile
 from datetime import datetime
 import multiprocessing
 from functools import partial
@@ -308,5 +307,4 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
 
 if __name__ == "__main__":
-    
     main()
