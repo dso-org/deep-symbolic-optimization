@@ -19,6 +19,54 @@ class LogEval():
     to analyze experiments."""
 
     PLOT_HELPER = {
+        "binding": {
+            "name": "Binding Summary",
+            "x_label": ["Epoch"] * 19,
+            'y_label': [
+                'Reward Base Best',
+                'Reward Base Max',
+                'Reward Base Avg Full',
+                'Reward Base Avg Sub',
+                'Reward Best',
+                'Reward Max',
+                'Reward Base Avg Full',
+                'Reward Base Avg Sub',
+                'L Avg Full',
+                'L Avg Sub',
+                'EWMA',
+                'Unique Full',
+                'Unique Sub',
+                'Novel Full',
+                'Novel Sub',
+                'A Avg Full',
+                'A Avg Sub',
+                'Invalid Avg Full',
+                'Invalid Avg Sub',
+                ],
+            "x": ["index"] * 19,
+            "y": [
+                "base_r_best",
+                "base_r_max",
+                "base_r_avg_full",
+                "base_r_avg_sub",
+                "r_best",
+                "r_max",
+                "r_avg_full",
+                "r_avg_sub",
+                "l_avg_full",
+                "l_avg_sub",
+                "ewma",
+                "n_unique_full",
+                "n_unique_sub",
+                "n_novel_full",
+                "n_novel_sub",
+                "a_ent_full",
+                "a_ent_sub",
+                "invalid_avg_full",
+                "invalid_avg_sub"
+                ]
+        },
+        
         "hof": {
             "name": "Hall of Fame",
             "x_label": [
@@ -82,6 +130,8 @@ class LogEval():
         self.hof_df = self._get_log(log_type="hof")
         # Load pareto front if available
         self.pf_df = self._get_log(log_type="pf")
+        # Load binding's hof if available
+        self.binding_df = self._get_log(log_type="binding")
 
         if len(self.warnings) > 0:
             print("### Experiment has warnings:")
@@ -96,8 +146,9 @@ class LogEval():
             tokens = cmd_content[0].split("--")
             params = {}
             for token in tokens[1:]:
-                setting = token.split("=")
-                params[setting[0]] = self._get_correct_type(setting[1].strip())
+                token = token.strip()
+                setting = token.split("=") if "=" in token else token.split(" ")
+                params[setting[0]] = self._get_correct_type(setting[1])
             if not "mc" in params:
                 params["mc"] = 1
         except:
@@ -162,8 +213,12 @@ class LogEval():
         log_not_found = []
         if "mc" in self.cmd_params:
             for seed in range(self.cmd_params["mc"]):
-                log_file = "{}_{}_{}_{}.csv".format(
-                    self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
+                if log_type == "binding":
+                    log_file = "{}_{}_{}.csv".format(
+                        self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed+self.exp_config["training"]["seed_shift"])
+                else:
+                    log_file = "{}_{}_{}_{}.csv".format(
+                        self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
                 try:
                     df = pd.read_csv(os.path.join(self.path["log"], log_file))
                     df.insert(0, "seed", seed)
@@ -176,7 +231,13 @@ class LogEval():
                     log_not_found.append(seed)
             try:
                 if log_type == "hof":
-                    log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
+                    if self.exp_config["postprocess"]["method"] == "binding":
+                        log_df = log_df.sort_values(by=["r"], ascending=False)
+                    else:
+                        log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
+                if log_type == "binding":
+                    #log_df = log_df.sort_values(by=["r_best","seed"], ascending=False)
+                    pass
                 if log_type == "pf":
                     log_df = self._apply_pareto_filter(log_df)
                     log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
@@ -216,9 +277,19 @@ class LogEval():
                 _x_label.append(self.PLOT_HELPER[log_type]["x_label"][i])
                 _y_label.append(self.PLOT_HELPER[log_type]["y_label"][i])
         row_count = 2 if boxplot_on else 1
+        if log_type == "binding":
+            row_count = 5
+            col_count = 4
         fig, ax = plt.subplots(row_count, col_count, figsize=(8 * col_count, 4* row_count))
         for i in range(col_count):
-            if boxplot_on:
+            if log_type == "binding":
+                for row in range(row_count):
+                    data_id = i + row * col_count
+                    if data_id < len(_x):
+                        sns.lineplot(data=results, x=_x[data_id], y=_y[data_id], ax=ax[row, i])
+                        ax[row, i].set_xlabel(_x_label[data_id])
+                        ax[row, i].set_ylabel(_y_label[data_id])
+            elif boxplot_on:
                 sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
                 ax[0, i].set_xlabel(_x_label[i])
                 ax[0, i].set_ylabel(_y_label[i])
@@ -275,6 +346,18 @@ class LogEval():
                     self.plot_results(
                         self.pf_df, log_type="pf",
                         show_plots=show_plots, save_plots=save_plots)
+            if self.binding_df is not None:
+                print('Binding ({} of {})____'.format(min(show_count,len(self.binding_df.index)), len(self.binding_df.index)))
+                for i in range(min(show_count,len(self.binding_df.index))):
+                    data_index = len(self.binding_df.index) - 1 - i
+                    print('  {:3d}: S={:03d} R={:8.6f}'.format(
+                        data_index,
+                        int(self.binding_df.iloc[data_index]['seed']),
+                        self.binding_df.iloc[data_index]['r_best']))
+                if show_plots or save_plots:
+                    self.plot_results(
+                        self.binding_df, log_type="binding", boxplot_on=False,
+                        show_plots=show_plots, save_plots=save_plots)
         except:
             print("Error when analyzing!")
             [print("    --> {}".format(warning)) for warning in self.warnings]
@@ -283,13 +366,14 @@ class LogEval():
 
 @click.command()
 @click.argument('log_path', default=None)
+@click.option('--config_file', default="config.json", type=str, help="Name of the config file.")
 @click.option('--show_count', default=10, type=int, help="Number of results we want to see from each metric.")
 @click.option('--show_hof', is_flag=True, help='Show Hall of Fame results.')
 @click.option('--show_pf', is_flag=True, help='Show Pareto Front results.')
 @click.option('--show_plots', is_flag=True, help='Generate plots and show results as simple plots.')
 @click.option('--save_plots', is_flag=True, help='Generate plots and safe to log file as simple plots.')
-def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots):
-    log = LogEval(log_path)
+def main(log_path, config_file, show_count, show_hof, show_pf, show_plots, save_plots):
+    log = LogEval(log_path, config_file)
     log.analyze_log(
         show_count=show_count,
         show_hof=show_hof,

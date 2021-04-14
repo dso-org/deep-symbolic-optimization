@@ -587,16 +587,16 @@ class Program(object):
         This is actually a bit complicated because we have to go: traversal -->
         tree --> serialized tree --> SymPy expression
         """
-        
-        tree = self.traversal.copy()
-        tree = build_tree(tree)
-        tree = convert_to_sympy(tree)
-        try:
-            expr = parse_expr(tree.__repr__()) # SymPy expression
-        except:
-            expr = "N/A"
-
-        return expr
+        return None
+        # tree = self.traversal.copy()
+        # tree = build_tree(tree)
+        # tree = convert_to_sympy(tree)
+        # try:
+        #     expr = parse_expr(tree.__repr__()) # SymPy expression
+        # except:
+        #     expr = "N/A"
+            
+        # return expr
 
 
     def pretty(self):

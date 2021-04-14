@@ -128,7 +128,7 @@ def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
     return result, config["paths"]["summary_path"]
 
 
-def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
+def _set_benchmark_configs(arg_benchmark, config, method, output_filename, seed_shift):
     """Get all indivual benchmarks and generate their respective configs."""
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
@@ -160,6 +160,7 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         print(" ".join(sys.argv), file=f)
 
     # Update config where necessary
+    config["training"]["seed_shift"] = seed_shift
     config["training"]["logdir"] = paths["log_dir"]
     config["postprocess"]["method"] = method
 
@@ -241,7 +242,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
         config = json.load(f)
 
     # Load all benchmarks
-    unique_benchmark_configs = _set_benchmark_configs(b, config, method, output_filename)
+    unique_benchmark_configs = _set_benchmark_configs(b, config, method, output_filename, seed_shift)
 
     # Generate seeds for each run for each benchmark
     configs = []
