@@ -215,7 +215,7 @@ class LogEval():
             for seed in range(self.cmd_params["mc"]):
                 if log_type == "binding":
                     log_file = "{}_{}_{}.csv".format(
-                        self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed)
+                        self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed+self.exp_config["training"]["seed_shift"])
                 else:
                     log_file = "{}_{}_{}_{}.csv".format(
                         self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
@@ -358,7 +358,6 @@ class LogEval():
                     self.plot_results(
                         self.binding_df, log_type="binding", boxplot_on=False,
                         show_plots=show_plots, save_plots=save_plots)
-                    print('2')
         except:
             print("Error when analyzing!")
             [print("    --> {}".format(warning)) for warning in self.warnings]
@@ -367,13 +366,14 @@ class LogEval():
 
 @click.command()
 @click.argument('log_path', default=None)
+@click.option('--config_file', default="config.json", type=str, help="Name of the config file.")
 @click.option('--show_count', default=10, type=int, help="Number of results we want to see from each metric.")
 @click.option('--show_hof', is_flag=True, help='Show Hall of Fame results.')
 @click.option('--show_pf', is_flag=True, help='Show Pareto Front results.')
 @click.option('--show_plots', is_flag=True, help='Generate plots and show results as simple plots.')
 @click.option('--save_plots', is_flag=True, help='Generate plots and safe to log file as simple plots.')
-def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots):
-    log = LogEval(log_path)
+def main(log_path, config_file, show_count, show_hof, show_pf, show_plots, save_plots):
+    log = LogEval(log_path, config_file)
     log.analyze_log(
         show_count=show_count,
         show_hof=show_hof,
