@@ -25,7 +25,7 @@ from dsr.program import Program, from_tokens
 class GPController:
     
     def __init__(self, config_gp_meld, config_task, config_training, config_prior, 
-                 pset, eval_func, check_constraint, hof, gen_func=gp_base.GenWithRLIndividuals()):
+                 pset, eval_func, check_constraint, hof):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -60,7 +60,6 @@ class GPController:
         assert callable(eval_func)
         assert callable(check_constraint)
         assert isinstance(hof, tools.HallOfFame)
-        assert callable(gen_func)
                                         
         # Put the DSR tokens into DEAP format
         self.pset                   = pset
@@ -69,8 +68,6 @@ class GPController:
         self.hof                    = hof
         # Create the object/function that evaluates the population                                                      
         self.eval_func              = eval_func
-        # Use a generator we can access to plug in RL population
-        self.gen_func               = gen_func
         
         self.check_constraint       = check_constraint
         
@@ -85,7 +82,6 @@ class GPController:
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
-                                                           gen_func            = self.gen_func, 
                                                            parallel_eval       = config_gp_meld["parallel_eval"], 
                                                            max_len             = config_gp_meld["max_len"], 
                                                            min_len             = config_gp_meld["min_len"], 
@@ -98,8 +94,8 @@ class GPController:
         # Put the toolbox into the evaluation function  
         self.eval_func.set_toolbox(self.toolbox)    
                                                       
-        # create some random pops, the default is to use these if we run out of RL individuals. 
-        _pop                        = self.toolbox.population(n=config_gp_meld["init_population_size"])
+        # Population will be filled with RL individuals
+        _pop                        = []
         
         # create stats widget
         self.mstats                 = gp_base.create_stats_widget()
@@ -136,7 +132,7 @@ class GPController:
     
     def _base_create_toolbox(self, pset, eval_func, 
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
-                             gen_func=gp.genHalfAndHalf, mutate_tree_max=5,
+                             mutate_tree_max=5,
                              popConstraint=None, parallel_eval=True):
         r"""
             This creates a Deap toolbox with options we set.
@@ -144,7 +140,6 @@ class GPController:
         
         assert isinstance(pset, gp_tokens.PrimitiveSet),   "pset should be a PrimitiveSet"
         assert callable(eval_func),                 "evaluation function should be callable"
-        assert callable(gen_func),                  "gen_func should be callable"
         
         # NOTE from deap.creator.create: create(name, base, **kargs):
         # ALSO: Creates a new class named *name* inheriting from *base* 
@@ -158,16 +153,6 @@ class GPController:
     
         # Define the evolutionary operators
         toolbox = base.Toolbox()
-        toolbox.register("expr", gen_func, pset=pset, min_=1, max_=2)
-        toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
-        
-        # We can apply constraints when we generate fresh population. This is not %100 nessesary
-        # since we apply constraints when we evaluate them too. 
-        if callable(popConstraint):
-            print("Using Population Generation Constraint")
-            toolbox.decorate("individual", popConstraint(self.joint_prior_violation))
-        
-        toolbox.register("population",  tools.initRepeat, list, toolbox.individual)
         toolbox.register("compile",     gp.compile, pset=pset)
         toolbox.register("evaluate",    eval_func)
         toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
