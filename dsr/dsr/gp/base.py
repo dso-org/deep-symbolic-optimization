@@ -23,42 +23,6 @@ r"""
         
     It is mostly reserved for core DEAP items that are unrelated to any task.
 """
-
-class GenWithRLIndividuals:
-    """ Forces the generator to select a user provided member first, such as one
-        created by RL. Then, when we run out, create them in the usual manner with DEAP.
-    """
-    def __init__(self, gp_gen_function=gp.genHalfAndHalf):
-        
-        assert gp is not None, "Did not import gp. Is it installed?"
-        assert callable(gp_gen_function), "Generating function must be callable"
-        
-        self.individuals        = []
-        self.gp_gen_function    = gp_gen_function
-        
-    def __call__(self, pset, min_, max_, type_=None):
-        
-        if len(self.individuals) > 0:
-            return self.individuals.pop()
-        else:
-            return self.gp_gen_function(pset, min_, max_, type_)
-        
-    def insert_front(self, individuals):    
-        
-        assert isinstance(individuals, list), "Individuals must be a list"
-        
-        self.individuals = individuals + self.individuals
-    
-    def insert_back(self, individuals):    
-        
-        assert isinstance(individuals, list), "Individuals must be a list"
-        
-        self.individuals = self.individuals + individuals
-        
-    def clear(self):
-        
-        self.individuals = []
-        
         
 def multi_mutate(individual, expr, pset):   
     """ 
@@ -127,11 +91,11 @@ class GenericAlgorithm:
                 halloffame=None, verbose=__debug__):
         
         logbook                             = tools.Logbook()
-        logbook.header                      = ['gen', 'nevals', 'timer'] + (stats.fields if stats else [])
+        logbook.header                      = ['gen', 'nevals', 'timer'] + (stats.fields if stats and population else [])
     
         population, halloffame, invalid_ind = self._eval(population, halloffame, toolbox)
     
-        record                              = stats.compile(population) if stats else {}
+        record                              = stats.compile(population) if stats and population else {}
         logbook.record(gen=0, nevals=len(invalid_ind), **record)
         
         if verbose:
@@ -181,7 +145,7 @@ class GenericAlgorithm:
             population[:]                       = offspring
     
             # Append the current generation statistics to the logbook
-            record                              = stats.compile(population) if stats else {}
+            record                              = stats.compile(population) if stats and population else {}
             logbook.record(gen=gen, nevals=len(invalid_ind), **record)
             
             if verbose:
@@ -314,7 +278,7 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         self.population[:]                          = offspring
 
         # Append the current generation statistics to the logbook
-        record                                      = self.stats.compile(self.population) if self.stats else {}
+        record                                      = self.stats.compile(self.population) if self.stats and self.population else {}
         
         # number of evaluations
         nevals                                      = len(invalid_ind)
