@@ -39,10 +39,7 @@ class GPController:
         max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
         min_len                 = 4         # Min expression length for gp. Ideally should match RL max length
         steps                   = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
-        rand_pop_n              = 50        # Random population to append to RL actions for GP, 100 is a good number. 0 turns this off. (Bug: needs to be at least 1?)
-        pop_pad                 = 0         # We can add actions more than once exanding GP population x many times. Maybe try 3. 0 turns this off. 
         fitness_metric          = "nmse"    # nmse or nrmse
-        recycle_max_size        = 0         # If not zero, we hold over GP population from prior epochs. 1500 works well if we want to do this. 
         tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
         max_depth               = 30        # Defualt 17: This is mainly a widget to control memory usage. Python sets a hard limit of 90.
         train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
@@ -275,20 +272,7 @@ class GPController:
         
         # Get DSR generated batch members into Deap based "individuals" 
         individuals = [self.creator.Individual(self.tokens_to_DEAP(a, self.pset)) for a in actions]
-        
-        # Add in random population members?
-        if self.config_gp_meld["rand_pop_n"] > 0:
-            individuals += self.toolbox.population(n=self.config_gp_meld["rand_pop_n"])
-                
-        # we can recycle some of the old GP population. 
-        if self.config_gp_meld["recycle_max_size"] > 0:  
-            self.algorithms.append_population(individuals, max_size=self.config_gp_meld["recycle_max_size"])
-        else:
-            self.algorithms.set_population(individuals)
-        
-        # We can add actions more than once exanding GP population x many times
-        for i in range(self.config_gp_meld["pop_pad"]):
-            self.algorithms.append_population(individuals)
+        self.algorithms.set_population(individuals)
         
         if self.config_gp_meld["verbose"]:
             print(self.algorithms.str_logbook(header_only=True)) # print header
