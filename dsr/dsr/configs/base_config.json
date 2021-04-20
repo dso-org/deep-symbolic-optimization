@@ -32,7 +32,7 @@
       "trig" : {},
       "const" : {}
    },
-   "training": {
+   "training" : {
       "logdir" : "./log",
       "n_epochs" : null,
       "n_samples" : 2000000,
