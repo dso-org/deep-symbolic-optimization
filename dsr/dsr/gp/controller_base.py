@@ -213,11 +213,11 @@ class GPController:
         
         # Take each members and get the nesseasry DSR components such as siblings and observations. 
         for i,p in enumerate(population):
-            dt, oc, dexpl                   = DEAP_to_tokens(p, actions.shape[1])
+            dt                   = DEAP_to_tokens(p, actions.shape[1]) # tokens, optimized_constants, expression_length
             deap_obs_action[i,1:]           = dt[:-1]
             deap_action[i,:]                = dt
             
-            deap_program.append(from_tokens(dt, optimize=True, on_policy=False, optimized_consts=oc))
+            deap_program.append(from_tokens(dt, optimize=False, on_policy=False))
             
             deap_parent[i,:], deap_sibling[i,:] = jit_parents_siblings_at_once(np.expand_dims(dt, axis=0), 
                                                                                arities=Program.library.arities, 
