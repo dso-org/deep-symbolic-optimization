@@ -18,6 +18,8 @@ except ImportError:
     creator     = None
     algorithms  = None
 
+from dsr.program import from_tokens
+
 r"""
     This is the core base class for accessing DEAP and interfacing it with DSR. 
         
@@ -64,22 +66,17 @@ class GenericAlgorithm:
     def __init__(self):
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
-    # Would this benefit from using process pooling?
     def _eval(self, population, halloffame, toolbox):
         
         # Evaluate the individuals with an invalid fitness
         # This way we do not evaluate individuals that we have already seen.
         invalid_ind     = [ind for ind in population if not ind.fitness.valid]
-        # Toolbox.map is registered as the built in python map function.
-        # Note that registered functions are still wrapped. 
-        # Here we just iterate over all invalid_ind using the function in toolbox.evaluate
-        # SEE: toolbox in DEAP base.py
-        fitnesses       = toolbox.cmap(toolbox.evaluate, invalid_ind)
 
-        # If we get back a nan, set it to inf so we never pick it. 
-        # We will deal with inf later as needed
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit if np.isfinite(fit) else (np.inf,)
+        for ind in invalid_ind:
+            actions = [t.name for t in ind]
+            actions = np.array(actions, dtype=np.int32)
+            p = from_tokens(actions, optimize=True, n_objects=1, on_policy=False) # TBD: Support multi-objects
+            ind.fitness.values = (-p.r,)
     
         # Update the hall of fame with the generated individuals
         if halloffame is not None:
