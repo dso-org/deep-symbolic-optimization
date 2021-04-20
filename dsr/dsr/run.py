@@ -26,6 +26,7 @@ from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.logeval import LogEval
+from dsr.utils import safe_merge_dicts
 
 
 def train_dsr(seeded_benchmark):
@@ -224,9 +225,21 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
+def _load_config(config_template):
+    # Load base config
+    with open("configs/base_config.json", encoding='utf-8') as f:
+        base_config = json.load(f)
+    # Load personalized config
+    with open(config_template, encoding='utf-8') as f:
+        personal_config = json.load(f)
+    # Combine configs
+    config = safe_merge_dicts(base_config, personal_config)
+    return config
+
+
 
 @click.command()
-@click.argument('config_template', default="config.json")
+@click.argument('config_template', default="configs/base_config.json")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
@@ -236,9 +249,8 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
 def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
-    # Load the config file
-    with open(config_template, encoding='utf-8') as f:
-        config = json.load(f)
+    # Load the experiment config
+    config = _load_config(config_template)
 
     # Load all benchmarks
     unique_benchmark_configs = _set_benchmark_configs(b, config, method, output_filename)
