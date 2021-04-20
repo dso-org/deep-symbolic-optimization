@@ -10,6 +10,7 @@ from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
 from dsr.gp import generic_evaluate_base
+from dsr.program import Program
 
 try:
     from deap import gp
@@ -23,6 +24,7 @@ except ImportError:
     tools       = None
     creator     = None
     algorithms  = None
+
 
 
 # This is called when we mate or mutate and individual
@@ -87,17 +89,6 @@ def popConstraint(joint_prior_violation):
         return wrapper
 
     return decorator  
-
-
-def create_primitive_set(n_input_var):
-    
-    pset = gp_tokens.PrimitiveSet("MAIN", n_input_var)
-
-    # Add input variables
-    rename_kwargs = {"ARG{}".format(i) : "x{}".format(i + 1) for i in range(n_input_var)}
-    pset.renameArguments(**rename_kwargs)
-    
-    return pset
 
 
 def convert_inverse_prim(prim, args):
@@ -221,31 +212,24 @@ class GPController(controller_base.GPController):
     def _create_primitive_set(self, config_training, config_gp_meld, config_task, n_input_var, function_set=None):
         """Create a DEAP primitive set from DSR functions and consts
         """
-        
-        assert gp is not None,              "Did not import gp. Is it installed?"
-        
-        if 'function_set' in config_task and config_task['function_set'] is not None:
-            function_set                = config_task['function_set']
-            
-        assert function_set is not None,    "Must have a function set of tokens"
-        
-        const_params                = config_training['const_params']
-        max_const                   = config_gp_meld["max_const"]
-        
-        # Get user constants as well as mutable constants that we optimize (if any)
-        user_consts, mutable_consts = gp_const.get_consts()
-        
-        pset                        = create_primitive_set(n_input_var)
-        
-        # Add primitives
-        pset                        = self._add_primitives(pset, function_map, function_set) 
-        pset, const_opt             = gp_const.const_opt(pset, mutable_consts, max_const, user_consts, const_params, config_training)
+
+        assert Program.library is not None, "Library must be set first."
+
+        lib = Program.library
+        pset = gp.PrimitiveSet("MAIN", len(lib.input_tokens))
+        rename_kwargs = {"ARG{}".format(i) : i for i in range(len(lib.input_tokens))}
+        for k, v in rename_kwargs.items():
+            pset.mapping[k].name = v # pset.renameArguments doesn't actually rename the Primitive. It just affects the pset mapping
+        pset.renameArguments(**rename_kwargs)        
+
+        for i, token in enumerate(lib.tokens):
+            if token.input_var is None:
+                pset.addPrimitive(None, token.arity, name=i)
+
+        const_opt = None # Won't be used
         
         return pset, const_opt
 
     def _call_pre_process(self):
-        
-        if self.init_const_epoch:
-            # Reset all mutable constants when we call DEAP GP?
-            self.pset.mapping = gp_const.reset_consts(self.pset.mapping, 1.0)
 
+        pass
