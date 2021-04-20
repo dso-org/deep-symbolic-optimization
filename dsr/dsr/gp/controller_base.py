@@ -53,7 +53,7 @@ class GPController:
         assert isinstance(config_gp_meld,dict) 
         assert isinstance(config_task,dict) 
         assert isinstance(config_training,dict) 
-        assert isinstance(pset, gp_tokens.PrimitiveSetTyped)
+        assert isinstance(pset, gp.PrimitiveSet)
         assert callable(eval_func)
         assert callable(check_constraint)
         assert isinstance(hof, tools.HallOfFame)
@@ -135,7 +135,7 @@ class GPController:
             This creates a Deap toolbox with options we set.
         """
         
-        assert isinstance(pset, gp_tokens.PrimitiveSet),   "pset should be a PrimitiveSet"
+        assert isinstance(pset, gp.PrimitiveSet),   "pset should be a PrimitiveSet"
         assert callable(eval_func),                 "evaluation function should be callable"
         
         # NOTE from deap.creator.create: create(name, base, **kargs):
@@ -171,16 +171,6 @@ class GPController:
             
         # Create the training function
         return toolbox, creator
-    
-    def _add_primitives(self, pset, function_map, function_set):        
-        r"""
-            Add our basic primitives such as sin and mulitply
-        """
-        for k, v in function_map.items():
-            if k in function_set:
-                pset.addPrimitive(v.function, v.arity, name=v.name)   
-        
-        return pset
     
     def get_top_n_programs(self, population, actions, DEAP_to_tokens, priors_func=None):
         
