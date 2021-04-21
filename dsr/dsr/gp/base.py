@@ -18,7 +18,7 @@ except ImportError:
     creator     = None
     algorithms  = None
 
-from dsr.program import from_tokens
+from dsr.program import from_tokens, Program
 
 r"""
     This is the core base class for accessing DEAP and interfacing it with DSR. 
@@ -328,12 +328,24 @@ def tokens_to_DEAP(tokens, primitive_set):
     raise NotImplementedError
         
 
-def create_primitive_set(*args, **kwargs):
+def create_primitive_set():
+    """Create a DEAP primitive set
     """
-        This needs to be called in a derived task such as gp_regression
-    """
-    
-    raise NotImplementedError
+
+    assert Program.library is not None, "Library must be set first."
+
+    lib = Program.library
+    pset = gp.PrimitiveSet("MAIN", len(lib.input_tokens))
+    rename_kwargs = {"ARG{}".format(i) : i for i in range(len(lib.input_tokens))}
+    for k, v in rename_kwargs.items():
+        pset.mapping[k].name = v # pset.renameArguments doesn't actually rename the Primitive. It just affects the pset mapping
+    pset.renameArguments(**rename_kwargs)        
+
+    for i, token in enumerate(lib.tokens):
+        if token.input_var is None:
+            pset.addPrimitive(None, token.arity, name=i)
+
+    return pset
 
 
 def convert_inverse_prim(*args, **kwargs):

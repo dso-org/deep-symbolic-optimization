@@ -39,6 +39,10 @@ r"""
 """
 def DEAP_to_math_tokens(individual, tokens_size):
 
+    if len(individual) > tokens_size:
+        print(individual)
+        print([t.name for t in individual])
+
     # Compute unpadded actions
     actions = opt_DEAP_to_math_tokens(individual)
 
