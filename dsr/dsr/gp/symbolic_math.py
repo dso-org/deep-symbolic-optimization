@@ -6,7 +6,6 @@ import operator
 import warnings
 
 from dsr.functions import function_map
-from dsr.gp import const as gp_const
 from dsr.gp import controller_base
 
 try:
