@@ -6,7 +6,7 @@
       "dataset" : {
          "benchmark_source" : "benchmarks.csv",
          "name" : null,
-         "noise": null,
+         "noise" : null,
          "root" : null,
          "backup" : false
       },
