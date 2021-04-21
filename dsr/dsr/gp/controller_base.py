@@ -21,12 +21,11 @@ from dsr.gp import base as gp_base
 from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
 
-from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP
+from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set, check_constraint
 
 class GPController:
     
-    def __init__(self, config_gp_meld, config_task, config_training, config_prior, 
-                 pset, check_constraint, hof):
+    def __init__(self, config_gp_meld, config_task, config_training, config_prior):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -54,15 +53,12 @@ class GPController:
         assert isinstance(config_gp_meld,dict) 
         assert isinstance(config_task,dict) 
         assert isinstance(config_training,dict) 
-        assert isinstance(pset, gp.PrimitiveSet)
-        assert callable(check_constraint)
-        assert isinstance(hof, tools.HallOfFame)
                                         
         # Put the DSR tokens into DEAP format
-        self.pset                   = pset
+        self.pset = create_primitive_set()
 
         # Create a Hall of Fame object
-        self.hof                    = hof
+        self.hof = tools.HallOfFame(maxsize=1)
         
         self.check_constraint       = check_constraint
         
@@ -82,8 +78,6 @@ class GPController:
                                                            min_len             = config_gp_meld["min_len"], 
                                                            tournament_size     = config_gp_meld["tournament_size"], 
                                                            max_depth           = config_gp_meld["max_depth"], 
-                                                           max_const           = config_gp_meld["max_const"], 
-                                                           constrain_const     = config_gp_meld["constrain_const"],
                                                            mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
         
         # Population will be filled with RL individuals
@@ -113,7 +107,7 @@ class GPController:
                     
         self.train_n                = self.config_gp_meld["train_n"] 
         
-    def _base_create_toolbox(self, pset,
+    def _create_toolbox(self, pset,
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
                              mutate_tree_max=5,
                              popConstraint=None, parallel_eval=True):
@@ -135,14 +129,13 @@ class GPController:
     
         # Define the evolutionary operators
         toolbox = base.Toolbox()
-        toolbox.register("compile",     gp.compile, pset=pset)
         toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
         toolbox.register("mate",        gp.cxOnePoint)
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
         toolbox.register('mutate',      gp_base.multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
-        toolbox.decorate("mate",        self.check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
-        toolbox.decorate("mutate",      self.check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
+        toolbox.decorate("mate",        check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
+        toolbox.decorate("mutate",      check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
         
         #overide the built in map function in toolbox
         if parallel_eval:

@@ -2,8 +2,8 @@ import warnings
 from functools import partial
 import numpy as np
 
-from dsr.gp import symbolic_math as gp_symbolic_math
 from dsr.gp.base import create_primitive_set
+from dsr.gp import controller_base
 
 
 try:
@@ -20,18 +20,11 @@ except ImportError:
     algorithms  = None
 
         
-class GPController(gp_symbolic_math.GPController):
+class GPController(controller_base.GPController):
     
     def __init__(self, config_gp_meld, config_task, config_training, config_prior):
         
-        assert gp is not None, "Did not import gp. Is DEAP installed?"
-        
-        pset = create_primitive_set()
-        check_constraint            = gp_symbolic_math.checkConstraint
-        hof = tools.HallOfFame(maxsize=1) 
-        
-        super(GPController, self).__init__(config_gp_meld, config_task, config_training, config_prior, 
-                                           pset, check_constraint, hof)
+        super(GPController, self).__init__(config_gp_meld, config_task, config_training, config_prior)
         
 
 

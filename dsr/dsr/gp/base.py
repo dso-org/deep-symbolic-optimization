@@ -4,6 +4,8 @@ from itertools import chain
 from collections import defaultdict
 import numpy as np
 import time
+import copy
+import operator
 
 try:
     from deap import gp
@@ -421,6 +423,43 @@ def create_primitive_set():
             pset.addPrimitive(None, token.arity, name=i)
 
     return pset
+
+
+# This is called when we mate or mutate and individual
+def check_constraint(max_length, min_length, max_depth, joint_prior_violation):
+    """Check a varety of constraints on a memeber. These include:
+        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetse. 
+        
+        This is a decorator function that attaches to mutate or mate functions in
+        DEAP.
+                
+        >>> This has been tested and gives the same answer as the old constraint 
+            function given trig and inverse constraints. 
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
+            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
+                        
+            for i, ind in enumerate(new_inds):
+                
+                l = len(ind)
+                
+                if l > max_length:
+                    new_inds[i] = random.choice(keep_inds)
+                elif l < min_length:
+                    new_inds[i] = random.choice(keep_inds)
+                elif operator.attrgetter("height")(ind) > max_depth:
+                    new_inds[i] = random.choice(keep_inds)
+                else:  
+                    if joint_prior_violation(new_inds[i]):
+                        new_inds[i] = random.choice(keep_inds)                    
+            return new_inds
+
+        return wrapper
+
+    return decorator
 
 
 def convert_inverse_prim(*args, **kwargs):
