@@ -18,9 +18,10 @@ except ImportError:
 
 from dsr.subroutines import jit_parents_siblings_at_once
 from dsr.gp import base as gp_base
-from dsr.gp import tokens as gp_tokens
 from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
+
+from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP
 
 class GPController:
     
@@ -109,8 +110,6 @@ class GPController:
         self.return_gp_obs          = None
         
         self.get_top_program        = None
-        self.tokens_to_DEAP         = None
-        self.DEAP_to_tokens         = None
                     
         self.train_n                = self.config_gp_meld["train_n"] 
         
@@ -198,7 +197,7 @@ class GPController:
         
         # Take each members and get the nesseasry DSR components such as siblings and observations. 
         for i,p in enumerate(population):
-            tokens = self.DEAP_to_tokens(p, actions.shape[1])
+            tokens = DEAP_to_padded_tokens(p, actions.shape[1])
             deap_obs_action[i,1:] = tokens[:-1]
             deap_action[i,:] = tokens
             
@@ -238,8 +237,6 @@ class GPController:
     def __call__(self, actions):
         
         assert callable(self.get_top_n_programs)
-        assert callable(self.tokens_to_DEAP)
-        assert callable(self.DEAP_to_tokens)
         assert isinstance(actions, np.ndarray)
         
         # stuff for a derive class to run first. 
@@ -247,7 +244,7 @@ class GPController:
         
         # Get DSR generated batch members into Deap based "individuals" 
         # TBD: Can base class of Individual can be initialized with tokens and Program?
-        individuals = [self.creator.Individual(self.tokens_to_DEAP(a, self.pset)) for a in actions]
+        individuals = [self.creator.Individual(tokens_to_DEAP(a, self.pset)) for a in actions]
         self.algorithms.set_population(individuals)
         
         if self.config_gp_meld["verbose"]:
