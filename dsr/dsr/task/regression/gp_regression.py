@@ -2,7 +2,6 @@ import warnings
 from functools import partial
 import numpy as np
 
-from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.gp import symbolic_math as gp_symbolic_math
 from dsr.gp.base import create_primitive_set
 
@@ -27,8 +26,6 @@ class GPController(gp_symbolic_math.GPController):
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
-        config_dataset              = config_task["dataset"]
-        dataset                     = BenchmarkDataset(**config_dataset)
         pset = create_primitive_set()
         check_constraint            = gp_symbolic_math.checkConstraint
         hof = tools.HallOfFame(maxsize=1) 
