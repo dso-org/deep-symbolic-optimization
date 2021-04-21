@@ -172,7 +172,7 @@ class GPController:
         # Create the training function
         return toolbox, creator
     
-    def get_top_n_programs(self, population, actions, DEAP_to_tokens, priors_func=None):
+    def get_top_n_programs(self, population, actions, priors_func=None):
         
         """ Get the top n members of the population, We will also do some things like remove 
             redundant members of the population, which there tend to be a lot of.
@@ -213,13 +213,13 @@ class GPController:
         
         # Take each members and get the nesseasry DSR components such as siblings and observations. 
         for i,p in enumerate(population):
-            dt                   = DEAP_to_tokens(p, actions.shape[1]) # tokens, optimized_constants, expression_length
-            deap_obs_action[i,1:]           = dt[:-1]
-            deap_action[i,:]                = dt
+            tokens = self.DEAP_to_tokens(p, actions.shape[1])
+            deap_obs_action[i,1:] = tokens[:-1]
+            deap_action[i,:] = tokens
             
-            deap_program.append(from_tokens(dt, optimize=False, on_policy=False))
+            deap_program.append(from_tokens(tokens, optimize=False, on_policy=False))
             
-            deap_parent[i,:], deap_sibling[i,:] = jit_parents_siblings_at_once(np.expand_dims(dt, axis=0), 
+            deap_parent[i,:], deap_sibling[i,:] = jit_parents_siblings_at_once(np.expand_dims(tokens, axis=0), 
                                                                                arities=Program.library.arities, 
                                                                                parent_adjust=Program.library.parent_adjust)
                                
@@ -261,6 +261,7 @@ class GPController:
         self._call_pre_process()
         
         # Get DSR generated batch members into Deap based "individuals" 
+        # TBD: Can base class of Individual can be initialized with tokens and Program?
         individuals = [self.creator.Individual(self.tokens_to_DEAP(a, self.pset)) for a in actions]
         self.algorithms.set_population(individuals)
         
@@ -282,7 +283,7 @@ class GPController:
          
         # Get back the best n members. 
         if self.config_gp_meld["train_n"] > 0:
-            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.DEAP_to_tokens, self.prior_func)
+            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.prior_func)
             self.return_gp_obs                                      = True
         else:
             self.return_gp_obs                                      = False
