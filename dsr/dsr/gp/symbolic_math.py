@@ -6,7 +6,6 @@ import operator
 import warnings
 
 from dsr.functions import function_map
-from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
 
@@ -135,10 +134,6 @@ class GPController(controller_base.GPController):
         
         super(GPController, self).__init__(config_gp_meld, *args, **kwargs)
         
-        # Get a mapping to the conversion functions used to get Deap to tokens and back
-        # These are ones used in symbolic math. 
-        self.tokens_to_DEAP                             = gp_tokens.math_tokens_to_DEAP
-        self.DEAP_to_tokens                             = gp_tokens.DEAP_to_math_tokens
         self.init_const_epoch                           = config_gp_meld["init_const_epoch"]
             
     def _create_toolbox(self, pset, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):

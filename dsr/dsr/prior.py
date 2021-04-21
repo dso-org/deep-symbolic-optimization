@@ -7,7 +7,7 @@ import copy
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
-from dsr.gp.tokens import individual_to_dsr_aps
+from dsr.gp.base import individual_to_dsr_aps
 from dsr.subroutines import jit_check_constraint_violation, \
         jit_check_constraint_violation_descendant_with_target_tokens, \
         jit_check_constraint_violation_descendant_no_target_tokens, \

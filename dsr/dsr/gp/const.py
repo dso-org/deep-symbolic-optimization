@@ -1,7 +1,6 @@
 import numpy as np
 from dsr.const import make_const_optimizer
 from dsr.program import Program
-from dsr.gp import tokens as gp_tokens
 
 try:
     from deap import gp
