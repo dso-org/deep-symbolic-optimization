@@ -21,43 +21,11 @@ except ImportError:
         
 class GenericEvaluate(gp_symbolic_math.GenericEvaluate):
     
-    def __init__(self, const_opt, dataset, fitness_metric="nmse", early_stopping=False, threshold=1e-12):
+    def __init__(self, early_stopping=False, threshold=1e-12):
         
         super(GenericEvaluate, self).__init__(early_stopping=early_stopping, threshold=threshold)
 
-        self.fitness            = self._make_fitness(fitness_metric)
-        self.X_train            = dataset.X_train.T
-        self.X_test             = dataset.X_test.T
-        self.y_train            = dataset.y_train
-              
-        self.train_fitness      = partial(self.fitness, y=dataset.y_train, var_y=np.var(dataset.y_train))
-        self.test_fitness       = partial(self.fitness, y=dataset.y_test,  var_y=np.var(dataset.y_test)) # Function of y_hat
 
-        self.const_opt          = const_opt
-        if self.const_opt is not None:
-            self.optimize = True
-        else:
-            self.optimize = False
-    
-    # This should be replaced by the task provided metric    
-    def _make_fitness(self, metric):
-        """Generates a fitness function by name"""
-
-        if metric == "mse":
-            fitness = lambda y, y_hat, var_y : np.mean((y - y_hat)**2)
-
-        elif metric == "rmse":
-            fitness = lambda y, y_hat, var_y : np.sqrt(np.mean((y - y_hat)**2))
-
-        elif metric == "nmse":
-            fitness = lambda y, y_hat, var_y : np.mean((y - y_hat)**2 / var_y)
-
-        elif metric == "nrmse":
-            fitness = lambda y, y_hat, var_y : np.sqrt(np.mean((y - y_hat)**2 / var_y))
-        else:
-            raise ValueError("Metric not recognized.")
-
-        return fitness
             
     def reward(self, individual, X, fitness):
         
@@ -87,9 +55,8 @@ class GPController(gp_symbolic_math.GPController):
         
         config_dataset              = config_task["dataset"]
         dataset                     = BenchmarkDataset(**config_dataset)
-        pset, const_opt             = self._create_primitive_set(config_training, config_gp_meld, config_task, 
-                                                                 n_input_var=dataset.X_train.shape[1], function_set=dataset.function_set)                                         
-        eval_func                   = GenericEvaluate(const_opt, dataset, fitness_metric=config_gp_meld["fitness_metric"]) 
+        pset = self._create_primitive_set()
+        eval_func                   = GenericEvaluate() 
         check_constraint            = gp_symbolic_math.checkConstraint
         
         super(GPController, self).__init__(config_gp_meld, config_task, config_training, config_prior, 

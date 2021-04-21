@@ -390,7 +390,5 @@ def generic_train(toolbox, hof, algorithm,
     # Delete custom classes
     del creator.FitnessMin
     del creator.Individual
-    if "const" in dir(gp):
-        del gp.const
 
     return hof[0], logbook
