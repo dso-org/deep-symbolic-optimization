@@ -25,7 +25,7 @@ from dsr.program import Program, from_tokens
 class GPController:
     
     def __init__(self, config_gp_meld, config_task, config_training, config_prior, 
-                 pset, eval_func, check_constraint, hof):
+                 pset, check_constraint, hof):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -54,7 +54,6 @@ class GPController:
         assert isinstance(config_task,dict) 
         assert isinstance(config_training,dict) 
         assert isinstance(pset, gp.PrimitiveSet)
-        assert callable(eval_func)
         assert callable(check_constraint)
         assert isinstance(hof, tools.HallOfFame)
                                         
@@ -63,8 +62,6 @@ class GPController:
         #self.pset, self.const_opt   = create_primitive_set(dataset) ##, const_params=const_params, have_const=have_const)
         # Create a Hall of Fame object
         self.hof                    = hof
-        # Create the object/function that evaluates the population                                                      
-        self.eval_func              = eval_func
         
         self.check_constraint       = check_constraint
         
@@ -78,7 +75,7 @@ class GPController:
             self.prior_func             = None
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
-        self.toolbox, self.creator  = self._create_toolbox(self.pset, self.eval_func, 
+        self.toolbox, self.creator  = self._create_toolbox(self.pset,
                                                            parallel_eval       = config_gp_meld["parallel_eval"], 
                                                            max_len             = config_gp_meld["max_len"], 
                                                            min_len             = config_gp_meld["min_len"], 
@@ -88,9 +85,6 @@ class GPController:
                                                            constrain_const     = config_gp_meld["constrain_const"],
                                                            mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
         
-        # Put the toolbox into the evaluation function  
-        self.eval_func.set_toolbox(self.toolbox)    
-                                                      
         # Population will be filled with RL individuals
         _pop                        = []
         
@@ -127,7 +121,7 @@ class GPController:
     
         raise NotImplementedError
     
-    def _base_create_toolbox(self, pset, eval_func, 
+    def _base_create_toolbox(self, pset,
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
                              mutate_tree_max=5,
                              popConstraint=None, parallel_eval=True):
@@ -136,7 +130,6 @@ class GPController:
         """
         
         assert isinstance(pset, gp.PrimitiveSet),   "pset should be a PrimitiveSet"
-        assert callable(eval_func),                 "evaluation function should be callable"
         
         # NOTE from deap.creator.create: create(name, base, **kargs):
         # ALSO: Creates a new class named *name* inheriting from *base* 

@@ -9,7 +9,6 @@ from dsr.functions import function_map
 from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
-from dsr.gp import generic_evaluate_base
 from dsr.program import Program
 
 try:
@@ -131,13 +130,6 @@ def stringify_for_sympy(f):
     return string
 
 
-class GenericEvaluate(generic_evaluate_base.GenericEvaluate):
-    
-    def __init__(self, *args, **kwargs):
-        
-        super(GenericEvaluate, self).__init__(*args, **kwargs)
-                    
-
 class GPController(controller_base.GPController):
     
     def __init__(self, config_gp_meld, *args, **kwargs):
@@ -150,10 +142,10 @@ class GPController(controller_base.GPController):
         self.DEAP_to_tokens                             = gp_tokens.DEAP_to_math_tokens
         self.init_const_epoch                           = config_gp_meld["init_const_epoch"]
             
-    def _create_toolbox(self, pset, eval_func, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):
+    def _create_toolbox(self, pset, max_const=None, constrain_const=False, parallel_eval=False, **kwargs):
         
         # Call the base class toolbox creator then do some special case things needed for symbolic math
-        toolbox, creator    = self._base_create_toolbox(pset, eval_func, parallel_eval=parallel_eval, **kwargs) 
+        toolbox, creator    = self._base_create_toolbox(pset, parallel_eval=parallel_eval, **kwargs) 
         const               = "const" in pset.context
         toolbox             = self._create_toolbox_const(toolbox, const, max_const, constrain_const)
         
