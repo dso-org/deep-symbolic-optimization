@@ -9,7 +9,6 @@ from dsr.functions import function_map
 from dsr.gp import tokens as gp_tokens
 from dsr.gp import const as gp_const
 from dsr.gp import controller_base
-from dsr.program import Program
 
 try:
     from deap import gp
@@ -166,25 +165,7 @@ class GPController(controller_base.GPController):
             toolbox.decorate("mutate",      gp.staticLimit(key=self.check_constraint, max_value=0))
         
         return toolbox 
-    
-    def _create_primitive_set(self):
-        """Create a DEAP primitive set
-        """
 
-        assert Program.library is not None, "Library must be set first."
-
-        lib = Program.library
-        pset = gp.PrimitiveSet("MAIN", len(lib.input_tokens))
-        rename_kwargs = {"ARG{}".format(i) : i for i in range(len(lib.input_tokens))}
-        for k, v in rename_kwargs.items():
-            pset.mapping[k].name = v # pset.renameArguments doesn't actually rename the Primitive. It just affects the pset mapping
-        pset.renameArguments(**rename_kwargs)        
-
-        for i, token in enumerate(lib.tokens):
-            if token.input_var is None:
-                pset.addPrimitive(None, token.arity, name=i)
-
-        return pset
 
     def _call_pre_process(self):
 

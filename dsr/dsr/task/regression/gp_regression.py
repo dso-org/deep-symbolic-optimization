@@ -4,6 +4,7 @@ import numpy as np
 
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.gp import symbolic_math as gp_symbolic_math
+from dsr.gp.base import create_primitive_set
 
 
 try:
@@ -28,7 +29,7 @@ class GPController(gp_symbolic_math.GPController):
         
         config_dataset              = config_task["dataset"]
         dataset                     = BenchmarkDataset(**config_dataset)
-        pset = self._create_primitive_set()
+        pset = create_primitive_set()
         check_constraint            = gp_symbolic_math.checkConstraint
         hof = tools.HallOfFame(maxsize=1) 
         

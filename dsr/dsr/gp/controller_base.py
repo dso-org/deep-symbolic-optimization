@@ -59,7 +59,7 @@ class GPController:
                                         
         # Put the DSR tokens into DEAP format
         self.pset                   = pset
-        #self.pset, self.const_opt   = create_primitive_set(dataset) ##, const_params=const_params, have_const=have_const)
+
         # Create a Hall of Fame object
         self.hof                    = hof
         
@@ -114,13 +114,6 @@ class GPController:
                     
         self.train_n                = self.config_gp_meld["train_n"] 
         
-    def _create_primitive_set(self, *args, **kwargs):
-        """
-            This needs to be called in a derived task such as gp_regression
-        """
-    
-        raise NotImplementedError
-    
     def _base_create_toolbox(self, pset,
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
                              mutate_tree_max=5,
