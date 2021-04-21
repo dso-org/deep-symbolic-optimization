@@ -136,40 +136,6 @@ class GenericEvaluate(generic_evaluate_base.GenericEvaluate):
     def __init__(self, *args, **kwargs):
         
         super(GenericEvaluate, self).__init__(*args, **kwargs)
-    
-    def _optimize_individual(self, individual, eval_data_set):
-        
-        assert self.toolbox is not None, "Must set toolbox first."
-
-        if self.optimize:
-            
-            # HACK: If early stopping threshold has been reached, don't do training optimization
-            # Check if best individual has NMSE below threshold on test set
-            if self.early_stopping and len(self.hof) > 0 and self.reward(self.hof[0], eval_data_set, self.test_fitness)[0] < self.threshold:
-                return (1.0,)
-            
-            const_idxs = [i for i, node in enumerate(individual) if node.name.startswith("mutable_const_")] # optimze by chnaging to == with index values
-            
-            if len(const_idxs) > 0:
-                
-                # Objective function for evaluating constants
-                def obj(individual, consts):        
-                    individual  = gp_const.set_const_individuals(const_idxs, consts, individual)        
-    
-                    # Run the program and get result
-                    return self.reward(individual, eval_data_set, self.test_fitness)[0]
-                    
-                obj_call = partial(obj, individual)
-    
-                # Do the optimization and set the optimized constants
-                x0                  = np.ones(len(const_idxs))
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    optimized_consts    = self.const_opt(obj_call, x0)
-                
-                individual = gp_const.set_const_individuals(const_idxs, optimized_consts, individual) 
-
-        return individual
                     
 
 class GPController(controller_base.GPController):
@@ -209,8 +175,8 @@ class GPController(controller_base.GPController):
         
         return toolbox 
     
-    def _create_primitive_set(self, config_training, config_gp_meld, config_task, n_input_var, function_set=None):
-        """Create a DEAP primitive set from DSR functions and consts
+    def _create_primitive_set(self):
+        """Create a DEAP primitive set
         """
 
         assert Program.library is not None, "Library must be set first."
@@ -226,9 +192,7 @@ class GPController(controller_base.GPController):
             if token.input_var is None:
                 pset.addPrimitive(None, token.arity, name=i)
 
-        const_opt = None # Won't be used
-        
-        return pset, const_opt
+        return pset
 
     def _call_pre_process(self):
 

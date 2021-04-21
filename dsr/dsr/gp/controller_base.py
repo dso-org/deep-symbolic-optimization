@@ -151,7 +151,6 @@ class GPController:
         # Define the evolutionary operators
         toolbox = base.Toolbox()
         toolbox.register("compile",     gp.compile, pset=pset)
-        toolbox.register("evaluate",    eval_func)
         toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
         toolbox.register("mate",        gp.cxOnePoint)
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
