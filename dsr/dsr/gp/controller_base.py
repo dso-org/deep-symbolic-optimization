@@ -39,9 +39,7 @@ class GPController:
         max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
         min_len                 = 4         # Min expression length for gp. Ideally should match RL max length
         steps                   = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
-        fitness_metric          = "nmse"    # nmse or nrmse
         tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
-        max_depth               = 30        # Defualt 17: This is mainly a widget to control memory usage. Python sets a hard limit of 90.
         train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
         mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?
         max_const               = 3
@@ -60,13 +58,13 @@ class GPController:
         self.hof = tools.HallOfFame(maxsize=1)
         
         # Create widget for checking constraint violations inside Deap. 
-        self.joint_prior_violation  = make_prior(Program.library, config_prior, use_violation=True, use_deap=True)
+        self.joint_prior_violation = make_prior(Program.library, config_prior, use_violation=True, use_deap=True)
         
         # Create widget for creating priors to pass to DSR training.         
-        if config_gp_meld["compute_priors"]:
-            self.prior_func             = make_prior(Program.library, config_prior, use_at_once=True)
+        if config_gp_meld["train_n"] > 0:
+            self.prior = make_prior(Program.library, config_prior, use_at_once=True)
         else:
-            self.prior_func             = None
+            self.prior = None
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset,
@@ -74,7 +72,6 @@ class GPController:
                                                            max_len             = config_gp_meld["max_len"], 
                                                            min_len             = config_gp_meld["min_len"], 
                                                            tournament_size     = config_gp_meld["tournament_size"], 
-                                                           max_depth           = config_gp_meld["max_depth"], 
                                                            mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
         
         # Population will be filled with RL individuals
@@ -105,7 +102,7 @@ class GPController:
         self.train_n                = self.config_gp_meld["train_n"] 
         
     def _create_toolbox(self, pset,
-                             tournament_size=3, max_depth=17, max_len=30, min_len=4,
+                             tournament_size=3, max_len=30, min_len=4,
                              mutate_tree_max=5,
                              parallel_eval=True):
         r"""
@@ -146,7 +143,7 @@ class GPController:
         # Create the training function
         return toolbox, creator
     
-    def get_top_n_programs(self, population, actions, priors_func=None):
+    def get_top_n_programs(self, population, actions, prior):
         
         """ Get the top n members of the population, We will also do some things like remove 
             redundant members of the population, which there tend to be a lot of.
@@ -201,12 +198,12 @@ class GPController:
         deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
         
         # We can generate the priors needed for the update/training step of the DSR network. 
-        if priors_func is not None:
+        if prior is not None:
             dp                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
             ds                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
             dp[:,:-1]               = deap_parent[:,1:]
             ds[:,:-1]               = deap_sibling[:,1:]
-            deap_priors             = priors_func(deap_action, dp, ds)
+            deap_priors             = prior(deap_action, dp, ds)
         else:
             deap_priors             = np.zeros((len(deap_program), deap_action.shape[1], max_tok), dtype=np.float32)
                 
@@ -240,7 +237,7 @@ class GPController:
          
         # Get back the best n members. 
         if self.config_gp_meld["train_n"] > 0:
-            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.prior_func)
+            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.prior)
             self.return_gp_obs                                      = True
         else:
             self.return_gp_obs                                      = False
