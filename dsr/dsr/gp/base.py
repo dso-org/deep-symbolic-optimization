@@ -66,21 +66,6 @@ def multi_mutate(individual, expr, pset):
     return individual
 
 
-def popConstraint():
-    """
-        This needs to be called in a derived task such as gp_regression.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-
-            raise NotImplementedError
-
-        return wrapper
-
-    return decorator
-
-
 class GenericAlgorithm:
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
         more control over how it runs.
@@ -422,8 +407,7 @@ def individual_to_dsr_aps(individual, library):
         
 
 def create_primitive_set():
-    """Create a DEAP primitive set
-    """
+    """Create a DEAP primitive set from Program.library."""
 
     assert Program.library is not None, "Library must be set first."
 
@@ -431,67 +415,18 @@ def create_primitive_set():
     pset = gp.PrimitiveSet("MAIN", len(lib.input_tokens))
     rename_kwargs = {"ARG{}".format(i) : i for i in range(len(lib.input_tokens))}
     for k, v in rename_kwargs.items():
-        pset.mapping[k].name = v # pset.renameArguments doesn't actually rename the Primitive. It just affects the pset mapping
-    pset.renameArguments(**rename_kwargs)        
+
+        # pset.renameArguments doesn't actually rename the Primitive.
+        # It just affects the pset mapping. So, rename the primitive here.
+        pset.mapping[k].name = v
+
+    pset.renameArguments(**rename_kwargs)
 
     for i, token in enumerate(lib.tokens):
         if token.input_var is None:
             pset.addPrimitive(None, token.arity, name=i)
 
     return pset
-
-
-# This is called when we mate or mutate and individual
-def check_constraint(max_length, min_length, max_depth, joint_prior_violation):
-    """Check a varety of constraints on a memeber. These include:
-        Max Length, Min Length, Max Depth, Trig Ancestors and inversion repetse. 
-        
-        This is a decorator function that attaches to mutate or mate functions in
-        DEAP.
-                
-        >>> This has been tested and gives the same answer as the old constraint 
-            function given trig and inverse constraints. 
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            keep_inds   = [copy.deepcopy(ind) for ind in args]      # The input individual(s) before the wrapped function is called 
-            new_inds    = list(func(*args, **kwargs))               # Calls the wrapped function and returns results
-                        
-            for i, ind in enumerate(new_inds):
-                
-                l = len(ind)
-                
-                if l > max_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif l < min_length:
-                    new_inds[i] = random.choice(keep_inds)
-                elif operator.attrgetter("height")(ind) > max_depth:
-                    new_inds[i] = random.choice(keep_inds)
-                else:  
-                    if joint_prior_violation(new_inds[i]):
-                        new_inds[i] = random.choice(keep_inds)                    
-            return new_inds
-
-        return wrapper
-
-    return decorator
-
-
-def convert_inverse_prim(*args, **kwargs):
-    """
-        This needs to be called in a derived task such as gp_regression
-    """
-    
-    raise NotImplementedError
-
-
-def stringify_for_sympy(*args, **kwargs):
-    """
-        This needs to be called in a derived task such as gp_regression
-    """
-    
-    raise NotImplementedError
 
 
 def create_stats_widget():

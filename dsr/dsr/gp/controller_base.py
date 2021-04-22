@@ -21,11 +21,11 @@ from dsr.gp import base as gp_base
 from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
 
-from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set, check_constraint
+from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set
 
 class GPController:
     
-    def __init__(self, config_gp_meld, config_task, config_training, config_prior):
+    def __init__(self, config_gp_meld, config_prior):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -50,17 +50,14 @@ class GPController:
         
         assert gp is not None, "Did not import gp. Is DEAP installed?"
         
-        assert isinstance(config_gp_meld,dict) 
-        assert isinstance(config_task,dict) 
-        assert isinstance(config_training,dict) 
+        assert isinstance(config_gp_meld, dict)
+        assert isinstance(config_prior, dict)
                                         
         # Put the DSR tokens into DEAP format
         self.pset = create_primitive_set()
 
         # Create a Hall of Fame object
         self.hof = tools.HallOfFame(maxsize=1)
-        
-        self.check_constraint       = check_constraint
         
         # Create widget for checking constraint violations inside Deap. 
         self.joint_prior_violation  = make_prior(Program.library, config_prior, use_violation=True, use_deap=True)
@@ -110,7 +107,7 @@ class GPController:
     def _create_toolbox(self, pset,
                              tournament_size=3, max_depth=17, max_len=30, min_len=4,
                              mutate_tree_max=5,
-                             popConstraint=None, parallel_eval=True):
+                             parallel_eval=True):
         r"""
             This creates a Deap toolbox with options we set.
         """
@@ -214,26 +211,11 @@ class GPController:
             deap_priors             = np.zeros((len(deap_program), deap_action.shape[1], max_tok), dtype=np.float32)
                 
         return deap_program, deap_obs, deap_action, deap_priors
-    
-    def _call_pre_process(self):
-        r"""
-            For derived classes, we can run a preprocess before we do the __call__ items in the base class.
-        """
-        pass
-    
-    def _call_post_process(self):
-        r"""
-            For derived classes, we can run a post-process before we do the __call__ items in the base class.
-        """
-        pass
             
     def __call__(self, actions):
         
         assert callable(self.get_top_n_programs)
         assert isinstance(actions, np.ndarray)
-        
-        # stuff for a derive class to run first. 
-        self._call_pre_process()
         
         # Get DSR generated batch members into Deap based "individuals" 
         # TBD: Can base class of Individual can be initialized with tokens and Program?
@@ -262,13 +244,9 @@ class GPController:
             self.return_gp_obs                                      = True
         else:
             self.return_gp_obs                                      = False
-        
-        # derived classes can run extra post process items here.                 
-        self._call_post_process()
             
         return deap_programs, deap_obs, deap_actions, deap_priors
     
     def __del__(self):
         
         del self.creator.FitnessMin
-        ###del self.creator.Individual
