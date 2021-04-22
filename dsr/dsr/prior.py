@@ -23,7 +23,6 @@ def make_prior(library, config_prior,
         don't make sense when applying at_once constraint violations.
     '''
     violation_exempt    = ["no_inputs","soft_length","uniform_arity"]
-    deap_exampt         = ["length"]
     
     assert not use_at_once or not use_violation, "Cannot set both to be true"
 
@@ -38,12 +37,6 @@ def make_prior(library, config_prior,
         # This prior does not make sense to use with a final constraint
         if use_violation and prior_type in violation_exempt:
             warning = "Skipping '{}' with arguments {}. Reason: Constraint Violation Exempt" \
-                .format(prior_class.__name__, prior_args)
-            warnings.append(warning)
-            continue
-        # Deap does its own checking of some things. 
-        if use_deap and prior_type in deap_exampt:
-            warning = "Skipping '{}' with arguments {}. Reason: Deap Exempt ... it already does this." \
                 .format(prior_class.__name__, prior_args)
             warnings.append(warning)
             continue
@@ -803,9 +796,12 @@ class LengthConstraint(Constraint):
         return prior
     
     def is_violated(self, actions, parent, sibling):
-        
-        # Deap already does this, just return false. 
-        
+        l = len(actions[0])
+        if self.min is not None and l < self.min:
+            return True
+        if self.max is not None and l > self.max:
+            return True
+
         return False
 
     def describe(self):
