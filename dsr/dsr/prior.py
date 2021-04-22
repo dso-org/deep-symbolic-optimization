@@ -34,9 +34,8 @@ def make_prior(library, config_prior,
         
         prior_class = PRIOR_DICT[prior_type]
         
-        # This prior does not make sense to use with a final constraint
-        if use_violation and prior_type in violation_exempt:
-            warning = "Skipping '{}' with arguments {}. Reason: Constraint Violation Exempt" \
+        if use_violation and not issubclass(prior_class, Constraint):
+            warning = "Skipping '{}' because it is not a Constraint." \
                 .format(prior_class.__name__, prior_args)
             warnings.append(warning)
             continue
