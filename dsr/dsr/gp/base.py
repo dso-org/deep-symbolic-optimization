@@ -26,12 +26,28 @@ from dsr.program import from_tokens, Program, _finish_tokens
 from dsr.subroutines import jit_parents_siblings_at_once
 
 
-r"""
-    This is the core base class for accessing DEAP and interfacing it with DSR. 
-        
-    It is mostly reserved for core DEAP items that are unrelated to any task.
-"""
-        
+def staticLimit(key, max_value):
+    """A fixed version of deap.gp.staticLimit that samples without replacement.
+    This prevents returning identical objects, for example if both children of a
+    crossover operation are illegal."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            keep_inds = [copy.deepcopy(ind) for ind in args]
+            new_inds = list(func(*args, **kwargs))
+            for i, ind in enumerate(new_inds):
+                if key(ind) > max_value:
+
+                    # Make another deep copy of the sampled item. This ensures
+                    # we don't sample the same object twice.
+                    new_inds[i] = copy.deepcopy(random.choice(keep_inds))
+
+            return new_inds
+        return wrapper
+    return decorator
+
+
 def multi_mutate(individual, expr, pset):   
     """ 
         Randomly select one of four types of mutation with even odds for each.

@@ -134,8 +134,8 @@ class GPController:
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
         toolbox.register('mutate',      gp_base.multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
-        toolbox.decorate("mate",        check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
-        toolbox.decorate("mutate",      check_constraint(max_len, min_len, max_depth, self.joint_prior_violation))
+        toolbox.decorate("mate", gp_base.staticLimit(key=self.joint_prior_violation, max_value=0))
+        toolbox.decorate("mutate", gp_base.staticLimit(key=self.joint_prior_violation, max_value=0))
         
         #overide the built in map function in toolbox
         if parallel_eval:
