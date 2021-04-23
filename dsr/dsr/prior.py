@@ -454,10 +454,9 @@ class NoInputsConstraint(Constraint):
         return prior
 
     def is_violated(self, actions, parent, sibling):
-
-        # Doesn't make sense in this context, just return false. 
-        # Deap would check for this anyways.
-        return False
+        # Violated if not all input tokens are found in actions
+        tokens = self.library.input_tokens
+        return np.isin(tokens, actions) != len(tokens)
 
     def describe(self):
         message = "Sequences contain at least one input variable Token."
