@@ -18,10 +18,6 @@ def make_prior(library, config_prior,
                use_at_once=False, use_violation=False, use_deap=False):
     """Factory function for JointPrior object."""
 
-    '''
-        Prior functions which are either provided by Deap itself or 
-        don't make sense when applying at_once constraint violations.
-    '''
     assert not use_at_once or not use_violation, "Cannot set both to be true"
 
     priors = []
@@ -67,11 +63,6 @@ def make_prior(library, config_prior,
             joint_prior = JointPriorAtOnceDeap(library, priors)
         else:
             joint_prior = JointPriorAtOnce(library, priors)
-    elif use_violation:
-        if use_deap:
-            joint_prior = JointPriorViolationDeap(library, priors)
-        else:
-            joint_prior = JointPriorViolation(library, priors)
     else:
         joint_prior = JointPrior(library, priors)
 
@@ -130,6 +121,13 @@ class JointPrior():
         message = "\n".join(prior.describe() for prior in self.priors)
         return message
 
+    def is_violated(self, actions, parent, sibling):
+        for prior in self.priors:
+            if isinstance(prior, Constraint):
+                if prior.is_violated(actions, parent, sibling):
+                    return True
+        return False
+
 
 class JointPriorAtOnce(JointPrior):
         
@@ -163,26 +161,6 @@ class JointPriorAtOnceDeap(JointPriorAtOnce):
         
         return super(JointPriorAtOnceDeap, self).__call__(actions, parent, sibling)
 
-
-class JointPriorViolation(JointPrior):
-                  
-    def __call__(self, actions, parent, sibling):
-        
-        for p in self.priors:
-            if isinstance(p, Constraint) and p.is_violated(actions, parent, sibling):
-                return True
-        
-        return False
-
-
-class JointPriorViolationDeap(JointPriorViolation):
-    
-    def __call__(self, individual):
-        
-        actions, parent, sibling = individual_to_dsr_aps(individual, self.library)
-        
-        return super(JointPriorViolationDeap, self).__call__(actions, parent, sibling)
-    
 
 class Prior():
     """Abstract class whose call method return logits."""
@@ -722,14 +700,7 @@ class UniformArityPrior(Prior):
 class SoftLengthPrior(Prior):
     """Class the puts a soft prior on length. Before loc, terminal probabilities
     are scaled by exp(-(t - loc) ** 2 / (2 * scale)) where dangling == 1. After
-    loc, non-terminal probabilities are scaled by that number.
-    
-    
-    What is a good default?
-    
-        Maybe: "soft_length" : {"loc" : 15, "scale" : 1}
-    
-    """
+    loc, non-terminal probabilities are scaled by that number."""
 
     def __init__(self, library, loc, scale):
 
