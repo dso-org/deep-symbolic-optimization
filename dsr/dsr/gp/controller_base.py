@@ -44,14 +44,9 @@ class GPController:
         self.hof = tools.HallOfFame(maxsize=1)
         
         # Create widget for checking constraint violations inside Deap. 
-        # TBD: Use same prior
-        self.joint_prior_violation = make_prior(Program.library, config_prior)
-        
-        # Create widget for creating priors to pass to DSR training.         
-        if config_gp_meld["train_n"] > 0:
-            self.prior = make_prior(Program.library, config_prior, use_at_once=True)
-        else:
-            self.prior = None
+        self.prior = make_prior(Program.library, config_prior)
+
+        self.train_n = config_gp_meld["train_n"]
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset,
@@ -189,12 +184,12 @@ class GPController:
         deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
         
         # We can generate the priors needed for the update/training step of the DSR network. 
-        if prior is not None:
+        if self.train_n > 0:
             dp                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
             ds                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
             dp[:,:-1]               = deap_parent[:,1:]
             ds[:,:-1]               = deap_sibling[:,1:]
-            deap_priors             = prior(deap_action, dp, ds)
+            deap_priors             = prior.at_once(deap_action, dp, ds)
         else:
             deap_priors             = np.zeros((len(deap_program), deap_action.shape[1], max_tok), dtype=np.float32)
                 
