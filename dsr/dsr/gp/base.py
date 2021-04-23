@@ -34,14 +34,18 @@ def staticLimit(key, max_value):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+
+            # Copy args first in case func mutates them
             keep_inds = [copy.deepcopy(ind) for ind in args]
+
             new_inds = list(func(*args, **kwargs))
             for i, ind in enumerate(new_inds):
                 if key(ind) > max_value:
 
-                    # Make another deep copy of the sampled item. This ensures
-                    # we don't sample the same object twice.
-                    new_inds[i] = copy.deepcopy(random.choice(keep_inds))
+                    # Pop a random individual from keep_inds. This ensures we
+                    # don't sample the same object twice.
+                    pop_index = random.randint(0, len(keep_inds) - 1)
+                    new_inds[i] = keep_inds.pop(pop_index)
 
             return new_inds
         return wrapper
