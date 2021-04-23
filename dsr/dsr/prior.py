@@ -15,7 +15,7 @@ from dsr.subroutines import jit_check_constraint_violation, \
 
 
 def make_prior(library, config_prior, 
-               use_at_once=False, use_violation=False, use_deap=False):
+               use_at_once=False, use_violation=False):
     """Factory function for JointPrior object."""
 
     assert not use_at_once or not use_violation, "Cannot set both to be true"
@@ -59,18 +59,11 @@ def make_prior(library, config_prior,
                 priors.append(prior)
 
     if use_at_once:
-        if use_deap:
-            joint_prior = JointPriorAtOnceDeap(library, priors)
-        else:
-            joint_prior = JointPriorAtOnce(library, priors)
+        joint_prior = JointPriorAtOnce(library, priors)
     else:
         joint_prior = JointPrior(library, priors)
 
-    if use_deap:
-        print("-- Building Deap prior --------------")
-    else:
-        print("-- Building prior -------------------")
-    
+    print("-- Building prior -------------------")    
     print("\n".join(["WARNING: " + message for message in warnings]))
     print(joint_prior.describe())
     print("-------------------------------------")
@@ -151,15 +144,6 @@ class JointPriorAtOnce(JointPrior):
         combined_prior = sum(ind_priors) + zero_prior # TBD FIX HACK
         # TBD: Status report if any samples have no choices
         return combined_prior
-    
-
-class JointPriorAtOnceDeap(JointPriorAtOnce):
-    
-    def __call__(self, individual):
-        
-        actions, parent, sibling = individual_to_dsr_aps(individual, self.library)
-        
-        return super(JointPriorAtOnceDeap, self).__call__(actions, parent, sibling)
 
 
 class Prior():
