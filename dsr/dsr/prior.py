@@ -14,11 +14,8 @@ from dsr.subroutines import jit_check_constraint_violation, \
         jit_check_constraint_violation_uchild
 
 
-def make_prior(library, config_prior, 
-               use_at_once=False, use_violation=False):
+def make_prior(library, config_prior):
     """Factory function for JointPrior object."""
-
-    assert not use_at_once or not use_violation, "Cannot set both to be true"
 
     priors = []
     warnings = []
@@ -28,12 +25,6 @@ def make_prior(library, config_prior,
         
         prior_class = PRIOR_DICT[prior_type]
         
-        if use_violation and not issubclass(prior_class, Constraint):
-            warning = "Skipping '{}' because it is not a Constraint." \
-                .format(prior_class.__name__, prior_args)
-            warnings.append(warning)
-            continue
-            
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:
@@ -58,12 +49,9 @@ def make_prior(library, config_prior,
             if warning is None:
                 priors.append(prior)
 
-    if use_at_once:
-        joint_prior = JointPriorAtOnce(library, priors)
-    else:
-        joint_prior = JointPrior(library, priors)
+    joint_prior = JointPrior(library, priors)
 
-    print("-- Building prior -------------------")    
+    print("-- Building prior -------------------")
     print("\n".join(["WARNING: " + message for message in warnings]))
     print(joint_prior.describe())
     print("-------------------------------------")
@@ -120,9 +108,6 @@ class JointPrior():
                 if prior.is_violated(actions, parent, sibling):
                     return True
         return False
-
-
-class JointPriorAtOnce(JointPrior):
         
     def process(self, i, actions, parent, sibling):
     
@@ -136,7 +121,7 @@ class JointPriorAtOnce(JointPrior):
                 
         return priors
             
-    def __call__(self, actions, parent, sibling):
+    def at_once(self, actions, parent, sibling):
         zero_prior = np.zeros((actions.shape[0], actions.shape[1], self.L), dtype=np.float32)
         ind_priors = [zero_prior.copy() for _ in range(len(self.priors))]
         for i in range(len(self.priors)):
