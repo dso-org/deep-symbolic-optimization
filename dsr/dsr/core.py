@@ -108,8 +108,8 @@ class DeepSymbolicOptimizer():
             
             from dsr.gp.controller_base import GPController
             
-            gp_controller = GPController(self.config_gp_meld,
-                                         self.config_prior)
+            gp_controller = GPController(self.prior,
+                                         self.config_gp_meld)
         else:
             gp_controller = None
         return gp_controller

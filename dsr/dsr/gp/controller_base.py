@@ -16,7 +16,7 @@ from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_
 
 class GPController:
     
-    def __init__(self, config_gp_meld, config_prior):
+    def __init__(self, prior, config_gp_meld):
         
         '''    
         It would be nice if json supported comments, then we could put all this there. 
@@ -35,16 +35,14 @@ class GPController:
         '''
         
         assert isinstance(config_gp_meld, dict)
-        assert isinstance(config_prior, dict)
                                         
+        self.prior = prior
+
         # Put the DSR tokens into DEAP format
         self.pset = create_primitive_set()
 
         # Create a Hall of Fame object
-        self.hof = tools.HallOfFame(maxsize=1)
-        
-        # Create widget for checking constraint violations inside Deap. 
-        self.prior = make_prior(Program.library, config_prior)
+        self.hof = tools.HallOfFame(maxsize=1)        
 
         self.train_n = config_gp_meld["train_n"]
         
