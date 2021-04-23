@@ -14,9 +14,8 @@ from dsr.program import from_tokens, Program
 from dsr.memory import Batch
 from dsr.controller import parents_siblings
 from dsr.subroutines import jit_parents_siblings_at_once
-from dsr.prior import RepeatConstraint, DescendantRelationalConstraint, TrigConstraint, ChildRelationalConstraint,\
-                      SiblingRelationalConstraint, UChildRelationalConstraint, ConstConstraint, InverseUnaryConstraint,\
-                      LengthConstraint
+from dsr.prior import RepeatConstraint, RelationalConstraint, TrigConstraint, \
+                      ConstConstraint, InverseUnaryConstraint, LengthConstraint
 
 import numpy as np
 import inspect
@@ -255,7 +254,7 @@ def test_descendant(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
     
-    prior_class = DescendantRelationalConstraint(Program.library, **model.config_prior["relational"])
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     descendants = library.actionize(descendants)
     ancestors = library.actionize(ancestors)
@@ -346,7 +345,7 @@ def test_child(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = ChildRelationalConstraint(Program.library, **model.config_prior["relational"])
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     # For each parent-child pair, generate invalid cases where child is one of
     # parent's children.
@@ -382,7 +381,7 @@ def test_uchild(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
     
-    prior_class = UChildRelationalConstraint(Program.library, **model.config_prior["relational"])
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     # Generate valid test cases
     valid_cases = []
@@ -449,7 +448,7 @@ def test_sibling(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
     
-    prior_class = SiblingRelationalConstraint(Program.library, **model.config_prior["relational"])
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     # Generate valid test cases
     valid_cases = []
