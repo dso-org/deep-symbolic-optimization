@@ -100,10 +100,6 @@
         "train_n"                 	: 400,    
         "desc_mutate_tree_max" 		: "How deep can an inserted mutation tree be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?, Default: 2",
         "mutate_tree_max"         	: 3,        
-        "max_const"               	: 3,
-        "desc_init_const_epoch"		: "Each time we run a new epoch, init mutable/optimizable constants new?",
-        "init_const_epoch"			: true,
-        "constrain_const"         	: true,
         "desc_parallel_eval"		: "Evaluate GP population in parallel. Overhead makes this only good for expensive tasks like Controller.",
         "parallel_eval" 			: false
    },

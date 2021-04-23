@@ -22,7 +22,6 @@ class GPController:
         It would be nice if json supported comments, then we could put all this there. 
             
         # Constant for now, add to config later
-        init_population_size    = 1         # Put in some members to start?
         p_crossover             = 0.25      # Default 0.5: P of crossing two members
         p_mutate                = 0.5       # Default 0.1: P of mutating a member
         seed                    = 0         # Random number seed.
@@ -33,8 +32,6 @@ class GPController:
         tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
         train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
         mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?
-        max_const               = 3
-        constrain_const         = True
         '''
         
         assert isinstance(config_gp_meld, dict)

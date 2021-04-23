@@ -22,8 +22,6 @@ def make_prior(library, config_prior,
         Prior functions which are either provided by Deap itself or 
         don't make sense when applying at_once constraint violations.
     '''
-    violation_exempt    = ["no_inputs","soft_length","uniform_arity"]
-    
     assert not use_at_once or not use_violation, "Cannot set both to be true"
 
     priors = []
