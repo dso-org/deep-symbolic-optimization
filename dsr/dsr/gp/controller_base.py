@@ -1,26 +1,17 @@
-import numpy as np
 import multiprocessing
-from pathos.multiprocessing import ProcessPool
 from operator import attrgetter
 
-try:
-    from deap import gp
-    from deap import base
-    from deap import tools
-    from deap import creator
-    from deap import algorithms
-except ImportError:
-    gp          = None
-    base        = None
-    tools       = None
-    creator     = None
-    algorithms  = None
+import numpy as np
+from pathos.multiprocessing import ProcessPool
+from deap import gp
+from deap import base
+from deap import tools
+from deap import creator
 
 from dsr.subroutines import jit_parents_siblings_at_once
 from dsr.gp import base as gp_base
 from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
-
 from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set
 
 class GPController:
@@ -45,8 +36,6 @@ class GPController:
         max_const               = 3
         constrain_const         = True
         '''
-        
-        assert gp is not None, "Did not import gp. Is DEAP installed?"
         
         assert isinstance(config_gp_meld, dict)
         assert isinstance(config_prior, dict)
