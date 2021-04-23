@@ -106,7 +106,7 @@ class DeepSymbolicOptimizer():
         
         if self.config_gp_meld.get("run_gp_meld"): 
             
-            from dsr.gp.controller_base import GPController
+            from dsr.gp.gp_controller import GPController
             
             gp_controller = GPController(self.prior,
                                          self.config_gp_meld)
