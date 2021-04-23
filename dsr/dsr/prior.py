@@ -7,7 +7,6 @@ import copy
 
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError
-from dsr.gp.base import individual_to_dsr_aps
 from dsr.subroutines import jit_check_constraint_violation, \
         jit_check_constraint_violation_descendant_with_target_tokens, \
         jit_check_constraint_violation_descendant_no_target_tokens, \
@@ -544,16 +543,7 @@ class RepeatConstraint(Constraint):
         return prior
 
     def is_violated(self, actions, parent, sibling):
-
-        count = 0
-        for i, a in enumerate(actions[0,:]):
-            if a in self.tokens:
-                if count == self.max:
-                    return True
-                else:
-                    count += 1
-
-        return False
+        return np.isin(actions, self.tokens).sum() > self.max
 
     def describe(self):
         names = ", ".join([self.library.names[t] for t in self.tokens])
@@ -714,5 +704,3 @@ PRIOR_DICT = {
     "soft_length" : SoftLengthPrior,
     "uniform_arity" : UniformArityPrior,
 }
-
-
