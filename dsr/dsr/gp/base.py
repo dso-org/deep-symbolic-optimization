@@ -1,60 +1,12 @@
 import random
-from functools import wraps
 from itertools import chain
 from collections import defaultdict
 import time
-import copy
 
 import numpy as np
-from deap import gp
 from deap import tools
 
-from dsr.program import from_tokens, Program, _finish_tokens
-from dsr.subroutines import jit_parents_siblings_at_once
-
-
-def staticLimit(key, max_value):
-    """A fixed version of deap.gp.staticLimit that samples without replacement.
-    This prevents returning identical objects, for example if both children of a
-    crossover operation are illegal."""
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-
-            # Copy args first in case func mutates them
-            keep_inds = [copy.deepcopy(ind) for ind in args]
-
-            new_inds = list(func(*args, **kwargs))
-            for i, ind in enumerate(new_inds):
-                if key(ind) > max_value:
-
-                    # Pop a random individual from keep_inds. This ensures we
-                    # don't sample the same object twice.
-                    pop_index = random.randint(0, len(keep_inds) - 1)
-                    new_inds[i] = keep_inds.pop(pop_index)
-
-            return new_inds
-        return wrapper
-    return decorator
-
-
-def multi_mutate(individual, expr, pset):   
-    """ 
-        Randomly select one of four types of mutation with even odds for each.
-    """
-    v = np.random.randint(0,4)
-
-    if v == 0:
-        individual = gp.mutUniform(individual, expr, pset)
-    elif v == 1:     
-        individual = gp.mutNodeReplacement(individual, pset)
-    elif v == 2:    
-        individual = gp.mutInsert(individual, pset)
-    elif v == 3:
-        individual = gp.mutShrink(individual)
-        
-    return individual
+from dsr.program import from_tokens
 
 
 class GenericAlgorithm:
@@ -306,116 +258,7 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         if self.verbose:
             print('Population Size {}'.format(len(self.population)))
-
-
-r"""
-    Fast special case version of below. This is mainly used during constraint 
-    checking. 
-"""
-def DEAP_to_tokens(individual):
-
-    tokens = np.array([i.name for i in individual], dtype=np.int32)
-    
-    return tokens
-
-r"""
-    This is a base class for accessing DEAP and interfacing it with DSR. 
         
-    These are pure symblic components which relate to any symblic task. These are not purely task agnostic and
-    are kept seprate from core.
-"""
-def DEAP_to_padded_tokens(individual, tokens_size):
-
-    if len(individual) > tokens_size:
-        print(individual)
-        print([t.name for t in individual])
-
-    # Compute unpadded actions
-    actions = DEAP_to_tokens(individual)
-
-    actions_padded = np.zeros(tokens_size, dtype=np.int32)
-    actions_padded[:len(actions)] = actions
-
-    return actions_padded
-
-
-def tokens_to_DEAP(tokens, pset):
-    """
-    Transforms DSR standard tokens into DEAP format tokens.
-
-    DSR and DEAP format are very similar, but we need to translate it over. 
-
-    Parameters
-    ----------
-    tokens : list of integers
-        A list of integers corresponding to tokens in the library. The list
-        defines an expression's pre-order traversal. "Dangling" programs are
-        completed with repeated "x1" until the expression completes.
-
-    pset : gp.PrimitiveSet
-
-    Returns
-    _______
-    individual : gp.PrimitiveTree
-        This is a specialized list that contains points to element from pset that were mapped based 
-        on the translation of the tokens. 
-    """
-        
-    assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
-    assert isinstance(pset, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
-    assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
-    
-    '''
-        Truncate expressions that complete early; extend ones that don't complete
-    '''
-    tokens      = _finish_tokens(tokens)
-
-    plist = [pset.mapping[t] for t in tokens]
-
-    individual = gp.PrimitiveTree(plist)
-    
-    return individual
-
-
-def individual_to_dsr_aps(individual, library):
-    r"""
-        This will convert a deap individual to a DSR action, parent, sibling group.
-    """ 
-
-    # Get the action tokens from individuals 
-    actions = np.array([t.name for t in individual], dtype=np.int32)
-
-    # Add one dim at the front to be (1 x L)
-    actions = np.expand_dims(actions, axis=0) 
-
-    # Get the parent/siblings for 
-    parent, sibling     = jit_parents_siblings_at_once(actions, arities=library.arities, parent_adjust=library.parent_adjust)
-    
-    return actions, parent, sibling
-        
-
-def create_primitive_set():
-    """Create a DEAP primitive set from Program.library."""
-
-    assert Program.library is not None, "Library must be set first."
-
-    lib = Program.library
-    pset = gp.PrimitiveSet("MAIN", len(lib.input_tokens))
-    rename_kwargs = {"ARG{}".format(i) : i for i in range(len(lib.input_tokens))}
-    for k, v in rename_kwargs.items():
-
-        # pset.renameArguments doesn't actually rename the Primitive.
-        # It just affects the pset mapping. So, rename the primitive here.
-        pset.mapping[k].name = v
-
-    pset.renameArguments(**rename_kwargs)
-
-    for i, token in enumerate(lib.tokens):
-        if token.input_var is None:
-            pset.addPrimitive(None, token.arity, name=i)
-
-    return pset
-
 
 def create_stats_widget():
     

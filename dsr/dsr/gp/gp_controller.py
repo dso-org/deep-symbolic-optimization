@@ -10,15 +10,14 @@ from deap import creator
 
 from dsr.subroutines import jit_parents_siblings_at_once
 from dsr.gp import base as gp_base
-from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
-from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set, individual_to_dsr_aps
+import dsr.gp.utils as U
+
 
 class GPController:
-    
+
     def __init__(self, prior, config_gp_meld):
-        
-        '''    
+        '''
         It would be nice if json supported comments, then we could put all this there. 
             
         # Constant for now, add to config later
@@ -37,9 +36,7 @@ class GPController:
         assert isinstance(config_gp_meld, dict)
                                         
         self.prior = prior
-
-        # Put the DSR tokens into DEAP format
-        self.pset = create_primitive_set()
+        self.pset = U.create_primitive_set(Program.library)
 
         # Create a Hall of Fame object
         self.hof = tools.HallOfFame(maxsize=1)        
@@ -82,7 +79,7 @@ class GPController:
         self.train_n                = self.config_gp_meld["train_n"]
 
     def check_constraint(self, individual):
-        actions, parents, siblings = individual_to_dsr_aps(individual, Program.library)
+        actions, parents, siblings = U.individual_to_dsr_aps(individual, Program.library)
         return self.prior.is_violated(actions, parents, siblings)
         
     def _create_toolbox(self, pset,
@@ -110,10 +107,10 @@ class GPController:
         toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
         toolbox.register("mate",        gp.cxOnePoint)
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
-        toolbox.register('mutate',      gp_base.multi_mutate, expr=toolbox.expr_mut, pset=pset)
+        toolbox.register('mutate',      U.multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
-        toolbox.decorate("mate", gp_base.staticLimit(key=self.check_constraint, max_value=0))
-        toolbox.decorate("mutate", gp_base.staticLimit(key=self.check_constraint, max_value=0))
+        toolbox.decorate("mate", U.staticLimit(key=self.check_constraint, max_value=0))
+        toolbox.decorate("mutate", U.staticLimit(key=self.check_constraint, max_value=0))
         
         #overide the built in map function in toolbox
         if parallel_eval:
@@ -168,7 +165,7 @@ class GPController:
         
         # Take each members and get the nesseasry DSR components such as siblings and observations. 
         for i,p in enumerate(population):
-            tokens = DEAP_to_padded_tokens(p, actions.shape[1])
+            tokens = U.DEAP_to_padded_tokens(p, actions.shape[1])
             deap_obs_action[i,1:] = tokens[:-1]
             deap_action[i,:] = tokens
             
@@ -200,7 +197,7 @@ class GPController:
         
         # Get DSR generated batch members into Deap based "individuals" 
         # TBD: Can base class of Individual can be initialized with tokens and Program?
-        individuals = [self.creator.Individual(tokens_to_DEAP(a, self.pset)) for a in actions]
+        individuals = [self.creator.Individual(U.tokens_to_DEAP(a, self.pset)) for a in actions]
         self.algorithms.set_population(individuals)
         
         if self.config_gp_meld["verbose"]:
