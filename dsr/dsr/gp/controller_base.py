@@ -12,7 +12,7 @@ from dsr.subroutines import jit_parents_siblings_at_once
 from dsr.gp import base as gp_base
 from dsr.prior import make_prior
 from dsr.program import Program, from_tokens
-from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set
+from dsr.gp.base import DEAP_to_padded_tokens, tokens_to_DEAP, create_primitive_set, individual_to_dsr_aps
 
 class GPController:
     
@@ -44,7 +44,8 @@ class GPController:
         self.hof = tools.HallOfFame(maxsize=1)
         
         # Create widget for checking constraint violations inside Deap. 
-        self.joint_prior_violation = make_prior(Program.library, config_prior, use_violation=True, use_deap=True)
+        # TBD: Use same prior
+        self.joint_prior_violation = make_prior(Program.library, config_prior)
         
         # Create widget for creating priors to pass to DSR training.         
         if config_gp_meld["train_n"] > 0:
@@ -85,7 +86,11 @@ class GPController:
         
         self.get_top_program        = None
                     
-        self.train_n                = self.config_gp_meld["train_n"] 
+        self.train_n                = self.config_gp_meld["train_n"]
+
+    def check_constraint(self, individual):
+        actions, parents, siblings = individual_to_dsr_aps(individual, Program.library)
+        return self.prior.is_violated(actions, parents, siblings)
         
     def _create_toolbox(self, pset,
                              tournament_size=3, max_len=30, min_len=4,
@@ -114,8 +119,8 @@ class GPController:
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
         toolbox.register('mutate',      gp_base.multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
-        toolbox.decorate("mate", gp_base.staticLimit(key=self.joint_prior_violation, max_value=0))
-        toolbox.decorate("mutate", gp_base.staticLimit(key=self.joint_prior_violation, max_value=0))
+        toolbox.decorate("mate", gp_base.staticLimit(key=self.check_constraint, max_value=0))
+        toolbox.decorate("mutate", gp_base.staticLimit(key=self.check_constraint, max_value=0))
         
         #overide the built in map function in toolbox
         if parallel_eval:
