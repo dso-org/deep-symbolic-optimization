@@ -2,25 +2,12 @@ import random
 from functools import wraps
 from itertools import chain
 from collections import defaultdict
-import numpy as np
 import time
 import copy
-import operator
 
-try:
-    from deap import gp
-    from deap import base
-    from deap import tools
-    from deap import creator
-    from deap import algorithms
-except ImportError:
-    gp          = None
-    base        = None
-    tools       = None
-    creator     = None
-    algorithms  = None
-
-from deap.gp import PrimitiveSet
+import numpy as np
+from deap import gp
+from deap import tools
 
 from dsr.program import from_tokens, Program, _finish_tokens
 from dsr.subroutines import jit_parents_siblings_at_once
@@ -75,7 +62,7 @@ class GenericAlgorithm:
         more control over how it runs.
     """
     def __init__(self):
-        assert gp is not None, "Did not import gp. Is DEAP installed?"
+        pass
         
     def _eval(self, population, halloffame, toolbox):
         
@@ -253,8 +240,6 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         super(RunOneStepAlgorithm, self).__init__()
         
-        assert gp is not None, "Did not import gp. Is DEAP installed?"
-        
         self.logbook, self.halloffame, self.population = self._header(population, toolbox, stats, halloffame, verbose)
         
         self.toolbox        = toolbox
@@ -376,9 +361,8 @@ def tokens_to_DEAP(tokens, pset):
         on the translation of the tokens. 
     """
         
-    assert gp is not None, "Must import Deap GP library to use method. You may need to install it."
     assert isinstance(tokens, np.ndarray), "Raw tokens are supplied as a numpy array."
-    assert isinstance(pset, PrimitiveSet), "You need to supply a valid primitive set for translation."
+    assert isinstance(pset, gp.PrimitiveSet), "You need to supply a valid primitive set for translation."
     assert Program.library is not None, "You have to have an initial program class to supply library token conversions."
     
     '''
