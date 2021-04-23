@@ -169,7 +169,7 @@ class JointPriorViolation(JointPrior):
     def __call__(self, actions, parent, sibling):
         
         for p in self.priors:
-            if p.is_violated(actions, parent, sibling):
+            if isinstance(p, Constraint) and p.is_violated(actions, parent, sibling):
                 return True
         
         return False
@@ -237,18 +237,6 @@ class Prior():
             self.L).
         """
 
-        raise NotImplementedError
-    
-    def is_violated(self, actions, parent, sibling):
-        """
-        Given a set of actions, tells us if a prior constraint has been violated 
-        post hoc. 
-
-        Returns
-        -------
-        violated : Bool
-        """
-        
         raise NotImplementedError
         
     def describe(self):
@@ -340,14 +328,6 @@ class Constraint(Prior):
         """
         return Constraint.is_violated(self, actions, parent, sibling)
     
-    def check_constraint_violation(self, actions, actions_tokens, other, other_tokens):
-        r'''
-            Here we already have an action and want to know if it would have violated
-            a constraint. 
-        '''
-        
-        return jit_check_constraint_violation(actions, actions_tokens, other, other_tokens)
-    
 
 class RelationalConstraint(Constraint):
     """
@@ -425,7 +405,7 @@ class RelationalConstraint(Constraint):
             violated = jit_check_constraint_violation(actions, self.targets, parent, adj_parents)
 
         elif self.relationship == "sibling":
-            violated = self.check_constraint_violation(actions, self.targets, sibling, self.effectors)
+            violated = jit_check_constraint_violation(actions, self.targets, sibling, self.effectors)
             if not violated:
                 violated = jit_check_constraint_violation(actions, self.effectors, sibling, self.targets)
 
@@ -738,11 +718,6 @@ class UniformArityPrior(Prior):
         prior = self.logit_adjust
         return prior
 
-    def is_violated(self, actions, parent, sibling):
-
-        # Doesn't make sense in this context, just return false. 
-        return False
-
 
 class SoftLengthPrior(Prior):
     """Class the puts a soft prior on length. Before loc, terminal probabilities
@@ -786,13 +761,8 @@ class SoftLengthPrior(Prior):
             prior += self.nonterminal_mask * logit_adjust
 
         return prior
-    
-    def is_violated(self, actions, parent, sibling):
-        
-        # Doesn't make sense in this context, just return false. 
-        return False
-    
-    
+
+
 PRIOR_DICT = {
     "relational" : RelationalConstraint,
     "length" : LengthConstraint,
