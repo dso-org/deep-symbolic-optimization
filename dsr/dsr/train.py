@@ -343,7 +343,7 @@ def learn(sess, controller, pool, gp_controller,
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
-        actions, obs, priors                = controller.sample(batch_size)
+        actions, obs, priors = controller.sample(batch_size)
         
         nevals += batch_size
 
@@ -354,7 +354,7 @@ def learn(sess, controller, pool, gp_controller,
                 structures. It will return programs, observations, actions that are compat with 
                 the current way we do things in train.py.
             '''            
-            deap_programs, deap_obs, deap_actions, deap_priors = gp_controller(actions)
+            deap_programs, deap_actions, deap_obs, deap_priors = gp_controller(actions)
             
             nevals += gp_controller.nevals
             

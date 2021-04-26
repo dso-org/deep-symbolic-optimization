@@ -16,7 +16,7 @@ class GenericAlgorithm:
     def __init__(self):
         pass
         
-    def _eval(self, population, halloffame, toolbox):
+    def _eval(self, population, toolbox):
         
         # Evaluate the individuals with an invalid fitness
         # This way we do not evaluate individuals that we have already seen.
@@ -27,20 +27,16 @@ class GenericAlgorithm:
             actions = np.array(actions, dtype=np.int32)
             p = from_tokens(actions, optimize=True, n_objects=1, on_policy=False) # TBD: Support multi-objects
             ind.fitness.values = (-p.r,)
-    
-        # Update the hall of fame with the generated individuals
-        if halloffame is not None:
-            halloffame.update(population)
             
-        return population, halloffame, invalid_ind
+        return population, invalid_ind
             
     def _header(self, population, toolbox, stats=None,
-                halloffame=None, verbose=__debug__):
+                verbose=__debug__):
         
         logbook                             = tools.Logbook()
         logbook.header                      = ['gen', 'nevals', 'timer'] + (stats.fields if stats and population else [])
     
-        population, halloffame, invalid_ind = self._eval(population, halloffame, toolbox)
+        population, invalid_ind = self._eval(population, toolbox)
     
         record                              = stats.compile(population) if stats and population else {}
         logbook.record(gen=0, nevals=len(invalid_ind), **record)
@@ -48,7 +44,7 @@ class GenericAlgorithm:
         if verbose:
             print(logbook.stream)
             
-        return logbook, halloffame, population
+        return logbook, population
     
     # Would this benefit from using process pooling?
     def _var_and(self, population, toolbox, cxpb, mutpb):
@@ -72,9 +68,14 @@ class GenericAlgorithm:
         return offspring
     
     def __call__(self, population, toolbox, cxpb, mutpb, ngen, stats=None,
-                 halloffame=None, verbose=__debug__):
+                 hof=None, verbose=__debug__):
     
-        logbook, halloffame, population = self._header(population, toolbox, stats, halloffame, verbose)
+        logbook, population = self._header(population, toolbox, stats, hof, verbose)
+
+        # TBD NEEDED HERE?
+        # Update hall of fame
+        if hof is not None:
+            hof.update(population)
     
         # Begin the generational process
         for gen in range(1, ngen + 1):
@@ -86,7 +87,7 @@ class GenericAlgorithm:
             offspring                           = self._var_and(offspring, toolbox, cxpb, mutpb)
     
             # Evaluate the individuals with an invalid fitness
-            offspring, halloffame, invalid_ind  = self._eval(offspring, halloffame, toolbox)
+            offspring, invalid_ind  = self._eval(offspring, toolbox)
                
             # Replace the current population by the offspring
             population[:]                       = offspring
@@ -188,11 +189,11 @@ class RunOneStepAlgorithm(GenericAlgorithm):
     """ Top level class which runs the GP, this replaces classes like eaSimple since we need 
         more control over how it runs.
     """
-    def __init__(self, population, toolbox, cxpb, mutpb, stats=None, halloffame=None, verbose=__debug__):
+    def __init__(self, population, toolbox, cxpb, mutpb, stats=None, verbose=__debug__):
         
         super(RunOneStepAlgorithm, self).__init__()
         
-        self.logbook, self.halloffame, self.population = self._header(population, toolbox, stats, halloffame, verbose)
+        self.logbook, self.population = self._header(population, toolbox, stats, verbose)
         
         self.toolbox        = toolbox
         self.cxpb           = cxpb
@@ -202,12 +203,8 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         
         self.gen        = 0
         
-    def __call__(self, init_halloffame=False):
-    
-    
-        if init_halloffame:
-            self.halloffame = tools.HallOfFame(maxsize=1)
-            
+    def __call__(self, hof=None):
+
         t1                                          = time.perf_counter()
     
         # Select the next generation individuals
@@ -217,10 +214,14 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         offspring                                   = self._var_and(offspring, self.toolbox, self.cxpb, self.mutpb)
 
         # Evaluate the individuals with an invalid fitness
-        offspring, self.halloffame, invalid_ind     = self._eval(offspring, self.halloffame, self.toolbox)
+        offspring, invalid_ind = self._eval(offspring, self.toolbox)
            
         # Replace the current population by the offspring
         self.population[:]                          = offspring
+
+        # Update hall of fame
+        if hof is not None:
+            hof.update(self.population)
 
         # Append the current generation statistics to the logbook
         record                                      = self.stats.compile(self.population) if self.stats and self.population else {}
@@ -237,7 +238,7 @@ class RunOneStepAlgorithm(GenericAlgorithm):
             
         self.gen += 1
     
-        return self.population, self.logbook, self.halloffame, nevals
+        return nevals
     
     def set_population(self, population):
         
@@ -292,7 +293,7 @@ def generic_train(toolbox, hof, algorithm,
                              mutpb=p_mutate,
                              ngen=generations,
                              stats=mstats,
-                             halloffame=hof,
+                             hof=hof,
                              verbose=verbose)
 
     # Delete custom classes
