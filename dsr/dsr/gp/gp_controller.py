@@ -1,5 +1,4 @@
 import multiprocessing
-from operator import attrgetter
 
 import numpy as np
 from pathos.multiprocessing import ProcessPool
@@ -38,10 +37,12 @@ class GPController:
         self.prior = prior
         self.pset = U.create_primitive_set(Program.library)
 
-        # Create a Hall of Fame object
-        self.hof = tools.HallOfFame(maxsize=1)        
-
         self.train_n = config_gp_meld["train_n"]
+        self.return_gp_obs = self.train_n > 0
+
+        # Create a Hall of Fame object
+        if self.train_n > 0:
+            self.hof = tools.HallOfFame(maxsize=self.train_n)
         
         # Create a DEAP toolbox, use generator that takes in RL individuals  
         self.toolbox, self.creator  = self._create_toolbox(self.pset,
@@ -58,25 +59,16 @@ class GPController:
         self.mstats                 = gp_base.create_stats_widget()
         
         # Actual loop function that runs GP
-        self.algorithms             = gp_base.RunOneStepAlgorithm(population     = _pop,
+        self.algorithm = gp_base.RunOneStepAlgorithm(population     = _pop,
                                                                   toolbox        = self.toolbox,
                                                                   cxpb           = config_gp_meld["p_crossover"],
                                                                   mutpb          = config_gp_meld["p_mutate"],
                                                                   stats          = self.mstats,
-                                                                  halloffame     = self.hof,
                                                                   verbose        = config_gp_meld["verbose"]
                                                                   )   
         
         self.config_gp_meld         = config_gp_meld        
-        self.halloffame             = []
-        self.population             = []
-        self.logbook                = []
         self.nevals                 = 0
-        self.return_gp_obs          = None
-        
-        self.get_top_program        = None
-                    
-        self.train_n                = self.config_gp_meld["train_n"]
 
     def check_constraint(self, individual):
         actions, parents, siblings = U.individual_to_dsr_aps(individual, Program.library)
@@ -123,108 +115,77 @@ class GPController:
             
         # Create the training function
         return toolbox, creator
-    
-    def get_top_n_programs(self, population, actions, prior):
-        
-        """ Get the top n members of the population, We will also do some things like remove 
-            redundant members of the population, which there tend to be a lot of.
-            
-            Next we compute DSR compatible parents, siblings and actions.  
-        """  
 
-        
-        # Highest to lowest sorting.
-        population      = sorted(population, key=attrgetter('fitness'), reverse=True)
-        
-        p_items         = []
-        p_items_val     = []
-        tot             = 0
-        
-        # Get rid of duplicate members. Make sure these are all unique. 
-        for i,p in enumerate(population):
-            # we have to check because population members are not nessesarily unique
-            if str(p) not in p_items_val:
-                p_items.append(p)
-                p_items_val.append(str(p))
-                tot += 1
-                
-            if tot == self.train_n:
-                break
-            
-        population          = p_items    
-    
-        max_tok             = Program.library.L
-        
-        deap_parent         = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
-        deap_sibling        = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
-        deap_action         = np.empty((len(population),actions.shape[1]), dtype=np.int32)
-        deap_obs_action     = np.empty((len(population),actions.shape[1]), dtype=np.int32)
-        
-        deap_action[:,0]    = max_tok
-        deap_program        = []
-        
-        # Take each members and get the nesseasry DSR components such as siblings and observations. 
-        for i,p in enumerate(population):
-            tokens = U.DEAP_to_padded_tokens(p, actions.shape[1])
-            deap_obs_action[i,1:] = tokens[:-1]
-            deap_action[i,:] = tokens
-            
-            deap_program.append(from_tokens(tokens, optimize=False, on_policy=False))
-            
-            deap_parent[i,:], deap_sibling[i,:] = jit_parents_siblings_at_once(np.expand_dims(tokens, axis=0), 
-                                                                               arities=Program.library.arities, 
+    def get_hof_programs(self):
+        """Compute actions, parents, siblings, and priors of hall of fame."""
+
+        hof = self.hof
+        L = Program.library.L
+
+        actions = np.empty((len(hof), self.max_length), dtype=np.int32)
+        obs_action = np.empty((len(hof), self.max_length), dtype=np.int32)
+        obs_parent = np.zeros((len(hof), self.max_length), dtype=np.int32)
+        obs_sibling = np.zeros((len(hof), self.max_length), dtype=np.int32)
+
+        obs_action[:, 0] = L # TBD: EMPTY_ACTION
+        programs = []
+
+        # Compute actions, obs (action, parent, sibling), and programs
+        for i, ind in enumerate(hof):
+            tokens = U.DEAP_to_padded_tokens(ind, self.max_length)
+            actions[i, :] = tokens
+            obs_action[i, 1:] = tokens[:-1]
+            obs_parent[i, :], obs_sibling[i, :] = jit_parents_siblings_at_once(np.expand_dims(tokens, axis=0),
+                                                                               arities=Program.library.arities,
                                                                                parent_adjust=Program.library.parent_adjust)
-                               
-        deap_obs_action[:,0]    = max_tok
-        deap_obs                = [deap_obs_action, deap_parent, deap_sibling]
-        
-        # We can generate the priors needed for the update/training step of the DSR network. 
+            programs.append(from_tokens(tokens, optimize=False, on_policy=False))
+
+        # Compute priors
         if self.train_n > 0:
-            dp                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
-            ds                      = np.zeros((len(population),actions.shape[1]), dtype=np.int32) 
-            dp[:,:-1]               = deap_parent[:,1:]
-            ds[:,:-1]               = deap_sibling[:,1:]
-            deap_priors             = prior.at_once(deap_action, dp, ds)
+            # TBD: Off by one in time index? Need initial priors somewhere...
+            priors = self.prior.at_once(actions, obs_parent, obs_sibling)
         else:
-            deap_priors             = np.zeros((len(deap_program), deap_action.shape[1], max_tok), dtype=np.float32)
-                
-        return deap_program, deap_obs, deap_action, deap_priors
-            
+            priors = np.zeros((len(programs), self.max_length, L), dtype=np.float32)
+
+        obs = (obs_action, obs_parent, obs_sibling)
+
+        return programs, actions, obs, priors
+
     def __call__(self, actions):
-        
-        assert callable(self.get_top_n_programs)
-        assert isinstance(actions, np.ndarray)
-        
-        # Get DSR generated batch members into Deap based "individuals" 
+        """
+        Parameters
+        ----------
+
+        actions : np.ndarray
+            Actions to use as starting population.
+        """
+
+        # TBD: Fix hack
+        self.max_length = actions.shape[1]
+
+        # Reset the HOF
+        if self.hof is not None:
+            self.hof = tools.HallOfFame(maxsize=self.train_n)
+
+        # Get DSR generated batch members into Deap based "individuals"
         # TBD: Can base class of Individual can be initialized with tokens and Program?
         individuals = [self.creator.Individual(U.tokens_to_DEAP(a, self.pset)) for a in actions]
-        self.algorithms.set_population(individuals)
-        
+        self.algorithm.set_population(individuals)
+
         if self.config_gp_meld["verbose"]:
-            print(self.algorithms.str_logbook(header_only=True)) # print header
-            
-        self.halloffame  = []
-        self.population  = []
-        self.logbook     = []
-        self.nevals      = 0
-        
-        # RUN EACH GP STEP
-        for i in range(self.config_gp_meld["steps"]):    
-            p, l, h, n  = self.algorithms(init_halloffame=True) # Should probably store each HOF
-            self.population  = self.population + p
-            self.logbook.append(l)
-            self.halloffame.append(h)
-            self.nevals += n
-         
-        # Get back the best n members. 
-        if self.config_gp_meld["train_n"] > 0:
-            deap_programs, deap_obs, deap_actions, deap_priors      = self.get_top_n_programs(self.population, actions, self.prior)
-            self.return_gp_obs                                      = True
-        else:
-            self.return_gp_obs                                      = False
-            
-        return deap_programs, deap_obs, deap_actions, deap_priors
-    
+            print(self.algorithm.str_logbook(header_only=True))
+
+        # Run GP generations
+        self.nevals = 0
+        for i in range(self.config_gp_meld["steps"]):
+            nevals = self.algorithm(self.hof) # Run one generation
+            self.nevals += nevals
+
+        # Get the HOF batch
+        if self.train_n > 0:
+            programs, actions, obs, priors = self.get_hof_programs()
+
+        return programs, actions, obs, priors
+
     def __del__(self):
-        
         del self.creator.FitnessMin
