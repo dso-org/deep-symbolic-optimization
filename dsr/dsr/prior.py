@@ -107,26 +107,39 @@ class JointPrior():
                 if prior.is_violated(actions, parent, sibling):
                     return True
         return False
-        
-    def process(self, i, actions, parent, sibling):
-    
-        priors      = np.zeros((actions.shape[0], actions.shape[1], self.library.L), dtype=np.float32)
-        dangling    = np.ones((actions.shape[0]))
-        
-        # For each step in time                                  
-        for t in range(actions.shape[1]):
-            dangling        += self.library.arities[actions[:,t]] - 1   
-            priors[:,t,:]   = self.priors[i](actions[:,:t], parent[:,t], sibling[:,t], dangling)
-                
-        return priors
-            
+
     def at_once(self, actions, parent, sibling):
-        zero_prior = np.zeros((actions.shape[0], actions.shape[1], self.L), dtype=np.float32)
-        ind_priors = [zero_prior.copy() for _ in range(len(self.priors))]
-        for i in range(len(self.priors)):
-            ind_priors[i] += self.process(i, actions, parent, sibling)
-        combined_prior = sum(ind_priors) + zero_prior # TBD FIX HACK
-        # TBD: Status report if any samples have no choices
+        """
+        Given a full sequence of actions, parents, and siblings, each of shape
+        (batch, time), *retrospectively* compute what was the joint prior at all
+        time steps. The combined prior has shape (batch, time, L).
+        """
+
+        B, T = actions.shape
+        zero_prior = np.zeros((B, T, self.L), dtype=np.float32) # (batch, time, L)
+        ind_priors = [zero_prior.copy() for _ in range(len(self.priors))] # i x (batch, time, L)
+
+        # Set initial prior
+        # Note: intial_prior() is already a combined prior, so we just set the
+        # first individual prior, ind_priors[0].
+        initial_prior = self.initial_prior() # Shape (L,)
+        ind_priors[0][:, 0, :] = initial_prior # Broadcast to (batch, L)
+
+        dangling = np.ones(B)
+        for t in range(1, T): # For each time step
+            # Update dangling based on previously sampled token
+            dangling += self.library.arities[actions[:, (t - 1)]] - 1
+            for i in range(len(self.priors)): # For each Prior
+                # Compute the ith Prior at time step t
+                prior = self.priors[i](actions[:, :t],
+                                       parent[:, t],
+                                       sibling[:, t],
+                                       dangling) # Shape (batch, L)
+                ind_priors[i][:, t, :] += prior
+
+        # Combine all Priors
+        combined_prior = sum(ind_priors) + zero_prior
+
         return combined_prior
 
 

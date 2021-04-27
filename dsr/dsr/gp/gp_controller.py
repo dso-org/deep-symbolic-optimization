@@ -130,6 +130,9 @@ class GPController:
         obs_action[:, 0] = L # TBD: EMPTY_ACTION
         programs = []
 
+        # TBD: Utility function to go from actions -> (obs_actions, obs_parent, obs_sibling)
+        # (Similar to test_prior.py:make_batch)
+
         # Compute actions, obs (action, parent, sibling), and programs
         for i, ind in enumerate(hof):
             tokens = U.DEAP_to_padded_tokens(ind, self.max_length)
@@ -142,7 +145,6 @@ class GPController:
 
         # Compute priors
         if self.train_n > 0:
-            # TBD: Off by one in time index? Need initial priors somewhere...
             priors = self.prior.at_once(actions, obs_parent, obs_sibling)
         else:
             priors = np.zeros((len(programs), self.max_length, L), dtype=np.float32)
