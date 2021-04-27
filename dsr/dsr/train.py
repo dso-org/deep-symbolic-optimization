@@ -215,9 +215,9 @@ def learn(sess, controller, pool, gp_controller,
 
     if gp_controller is not None:
         run_gp_meld                 = True
-        gp_verbose                  = gp_controller.config_gp_meld["verbose"]
-        if gp_controller.config_gp_meld["train_n"]:
-            all_r_size              = batch_size+gp_controller.config_gp_meld["train_n"]
+        gp_verbose                  = gp_controller.verbose
+        if gp_controller.train_n:
+            all_r_size              = batch_size + gp_controller.train_n
         else:
             all_r_size              = batch_size+1
                         
@@ -534,7 +534,7 @@ def learn(sess, controller, pool, gp_controller,
                 programs            = _p
             else:
                 if run_gp_meld and gp_verbose:
-                    print("Up to {} GP solutions returned to controller".format(gp_controller.config_gp_meld["train_n"]))
+                    print("Up to {} GP solutions returned to controller".format(gp_controller.train_n))
                 '''
                     Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
                 '''
