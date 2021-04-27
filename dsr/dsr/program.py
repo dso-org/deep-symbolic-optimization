@@ -587,16 +587,17 @@ class Program(object):
         This is actually a bit complicated because we have to go: traversal -->
         tree --> serialized tree --> SymPy expression
         """
-        return None
-        # tree = self.traversal.copy()
-        # tree = build_tree(tree)
-        # tree = convert_to_sympy(tree)
-        # try:
-        #     expr = parse_expr(tree.__repr__()) # SymPy expression
-        # except:
-        #     expr = "N/A"
-            
-        # return expr
+        if self.task.task_type == 'binding':
+            return self.traversal
+        tree = self.traversal.copy()
+        tree = build_tree(tree)
+        tree = convert_to_sympy(tree)
+        try:
+            expr = parse_expr(tree.__repr__()) # SymPy expression
+        except:
+            expr = "N/A"
+
+        return expr
 
 
     def pretty(self):
@@ -614,8 +615,10 @@ class Program(object):
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        print("{}\n".format(indent(self.pretty(), '\t  ')))
+        if self.task.task_type != 'binding':
+            print("\tExpression:")
+            print("{}\n".format(indent(self.pretty(), '\t  ')))
+        
 
     def add_extra_info(self, extra_info):
         """ Append addition information to the program. """

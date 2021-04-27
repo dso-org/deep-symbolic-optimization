@@ -28,7 +28,6 @@ def work(p):
     optimized_constants = p.optimize()
     return optimized_constants, p.base_r
 
-
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
@@ -49,7 +48,7 @@ def learn(sess, controller, pool, gp_controller,
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          n_objects=1, save_cache=False, save_cache_r_min=0.9):
+          n_objects=1, save_cache=False, save_cache_r_min=0.9, seed_shift=0):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
