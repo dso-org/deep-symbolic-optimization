@@ -15,60 +15,70 @@ import dsr.gp.utils as U
 
 class GPController:
 
-    def __init__(self, prior, config_gp_meld):
-        '''
-        It would be nice if json supported comments, then we could put all this there. 
-            
-        # Constant for now, add to config later
-        p_crossover             = 0.25      # Default 0.5: P of crossing two members
-        p_mutate                = 0.5       # Default 0.1: P of mutating a member
-        seed                    = 0         # Random number seed.
-        verbose                 = True      # Print out stats and things.
-        max_len                 = 30        # Max expression length for gp. Ideally should match RL max length
-        min_len                 = 4         # Min expression length for gp. Ideally should match RL max length
-        steps                   = 20        # How many gp steps to do for each DSR epoch. 5 to 20 seems like a good range. 
-        tournament_size         = 5         # Default 3: A larger number can converge faster, but me be more biased?
-        train_n                 = 10        # How many GP observations to return with RL observations. These still get trimmed if scores are poor later on. 0 turns off return. 
-        mutate_tree_max         = 2         # Default 2: How deep can an inserted mutation try be? Deeper swings more wildly. 5 is kind of crazy. Turn up with frustration?
-        '''
-        
-        assert isinstance(config_gp_meld, dict)
-                                        
+    def __init__(self, prior, seed=0, verbose=False, generations=20,
+                 p_crossover=0.5, p_mutate=0.5, tournament_size=3,
+                 mutate_tree_max=2, train_n=50, parallel_eval=False):
+        """
+        Parameters
+        ----------
+        prior : dsr.prior.JointPrior
+            JointPrior used to determine whether constraints were violated.
+
+        seed : int
+            RNG seed used by GP.
+
+        verbose : bool
+            Whether to print GP diagnostics.
+
+        generations : int
+            Number of GP generations between each RL step.
+
+        p_crossover : float
+            Probability that a pair of individuals will undergo crossover.
+
+        p_mutate : float
+            Probability that an individual will undergo mutation.
+
+        tournament_size : int
+            Tournament size used for selection by tools.selTournament.
+
+        mutate_tree_max : int
+            Maximum tree depth for mutation insertions.
+
+        train_n : int
+            Number of GP individuals to return to RL.
+
+        parallel_eval : bool
+            Use multiprocessing to evaluate individuals?
+        """
+
         self.prior = prior
         self.pset = U.create_primitive_set(Program.library)
-
-        self.train_n = config_gp_meld["train_n"]
+        self.verbose = verbose
+        self.generations = generations
+        self.train_n = train_n
         self.return_gp_obs = self.train_n > 0
+        self.mstats = gp_base.create_stats_widget()
+        self.nevals = 0
 
         # Create a Hall of Fame object
         if self.train_n > 0:
             self.hof = tools.HallOfFame(maxsize=self.train_n)
-        
-        # Create a DEAP toolbox, use generator that takes in RL individuals  
+
+        # Create a DEAP toolbox
         self.toolbox, self.creator  = self._create_toolbox(self.pset,
-                                                           parallel_eval       = config_gp_meld["parallel_eval"], 
-                                                           max_len             = config_gp_meld["max_len"], 
-                                                           min_len             = config_gp_meld["min_len"], 
-                                                           tournament_size     = config_gp_meld["tournament_size"], 
-                                                           mutate_tree_max     = config_gp_meld["mutate_tree_max"]) 
-        
-        # Population will be filled with RL individuals
-        _pop                        = []
-        
-        # create stats widget
-        self.mstats                 = gp_base.create_stats_widget()
+                                                           parallel_eval=parallel_eval, 
+                                                           tournament_size=tournament_size,
+                                                           mutate_tree_max=mutate_tree_max)
         
         # Actual loop function that runs GP
-        self.algorithm = gp_base.RunOneStepAlgorithm(population     = _pop,
-                                                                  toolbox        = self.toolbox,
-                                                                  cxpb           = config_gp_meld["p_crossover"],
-                                                                  mutpb          = config_gp_meld["p_mutate"],
-                                                                  stats          = self.mstats,
-                                                                  verbose        = config_gp_meld["verbose"]
-                                                                  )   
-        
-        self.config_gp_meld         = config_gp_meld        
-        self.nevals                 = 0
+        pop = []
+        self.algorithm = gp_base.RunOneStepAlgorithm(population=pop,
+                                                     toolbox=self.toolbox,
+                                                     cxpb=p_crossover,
+                                                     mutpb=p_mutate,
+                                                     stats=self.mstats,
+                                                     verbose=verbose)        
 
     def check_constraint(self, individual):
         actions, parents, siblings = U.individual_to_dsr_aps(individual, Program.library)
@@ -101,6 +111,7 @@ class GPController:
         toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
         toolbox.register('mutate',      U.multi_mutate, expr=toolbox.expr_mut, pset=pset)
     
+        # Decorate mate and mutate by checking for constraint violation
         toolbox.decorate("mate", U.staticLimit(key=self.check_constraint, max_value=0))
         toolbox.decorate("mutate", U.staticLimit(key=self.check_constraint, max_value=0))
         
@@ -174,12 +185,12 @@ class GPController:
         individuals = [self.creator.Individual(U.tokens_to_DEAP(a, self.pset)) for a in actions]
         self.algorithm.set_population(individuals)
 
-        if self.config_gp_meld["verbose"]:
+        if self.verbose:
             print(self.algorithm.str_logbook(header_only=True))
 
         # Run GP generations
         self.nevals = 0
-        for i in range(self.config_gp_meld["steps"]):
+        for i in range(self.generations):
             nevals = self.algorithm(self.hof) # Run one generation
             self.nevals += nevals
 
