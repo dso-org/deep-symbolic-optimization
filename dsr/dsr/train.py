@@ -402,7 +402,6 @@ def learn(sess, controller, pool, gp_controller,
         l_full = l
         s_full = s
         actions_full = actions
-        s_full = s
         invalid_full = invalid
         #base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
@@ -586,8 +585,8 @@ def learn(sess, controller, pool, gp_controller,
         #     writer.flush()
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(base_r, r, r_full, base_r_full, l, l_full, empirical_entropy, actions, actions_full, s, s_full, invalid, invalid_full, base_r_best, base_r_max, r_best,
-                   r_max, ewma, summaries, epoch, s_history)
+        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
+                          invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history)
 
 
         # Update the memory queue
