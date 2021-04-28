@@ -284,9 +284,10 @@ def learn(sess, controller, pool, gp_controller,
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
-    logger = StatsLogger(sess,  logdir, summary, output_file, save_all_r, hof, pareto_front, save_positional_entropy, save_cache, save_cache_r_min)
+    logger = StatsLogger(sess,  logdir, summary, output_file, save_all_r, hof, pareto_front, save_positional_entropy,
+                         save_cache, save_cache_r_min)
     nevals              = 0
-    program_val_log     = []
+    #program_val_log     = []
 
     start_time = time.time()
     print("\n-- START TRAINING -------------------")
@@ -393,18 +394,25 @@ def learn(sess, controller, pool, gp_controller,
                 else:
                     base_r_history[key] = [p.base_r]
 
-        # Collect full-batch statistics
+        # Store in variables the values for the whole batch (those variables will be modified below)
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
-        base_r_avg_full = np.mean(base_r)
+        base_r_full = base_r
+        r_full = r
+        l_full = l
+        s_full = s
+        actions_full = actions
+        s_full = s
+        invalid_full = invalid
+        #base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
         r_best = max(r_max, r_best)
-        r_avg_full = np.mean(r)
-        l_avg_full = np.mean(l)
-        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-        n_unique_full = len(set(s))
-        n_novel_full = len(set(s).difference(s_history))
-        invalid_avg_full = np.mean(invalid)
+        #r_avg_full = np.mean(r)
+        #l_avg_full = np.mean(l)
+        #a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        #n_unique_full = len(set(s))
+        #n_novel_full = len(set(s).difference(s_history))
+        #invalid_avg_full = np.mean(invalid)
 
         '''
             Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
@@ -578,9 +586,8 @@ def learn(sess, controller, pool, gp_controller,
         #     writer.flush()
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(base_r, r, l, empirical_entropy, actions, s, invalid, base_r_best, base_r_max,
-                          base_r_avg_full, r_best, r_max, r_avg_full, l_avg_full, ewma, n_unique_full, n_novel_full,
-                          a_ent_full, invalid_avg_full, summaries, epoch, s_history)
+        logger.save_stats(base_r, r, r_full, base_r_full, l, l_full, empirical_entropy, actions, actions_full, s, s_full, invalid, invalid_full, base_r_best, base_r_max, r_best,
+                   r_max, ewma, summaries, epoch, s_history)
 
 
         # Update the memory queue

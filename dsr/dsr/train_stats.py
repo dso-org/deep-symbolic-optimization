@@ -4,12 +4,14 @@ import numpy as np
 import tensorflow as tf
 from datetime import datetime
 import pandas as pd
-from dsr.program import Program, from_tokens #check if it should be received as an argument
+from dsr.program import Program, from_tokens
 from dsr.utils import is_pareto_efficient
 from itertools import compress
 
 
 class StatsLogger():
+    """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
+    # Variables used as "Configurations". They will affect which files are saved
     sess = None
     logdir = None
     summary = None
@@ -21,7 +23,7 @@ class StatsLogger():
     hof = None
     pareto_front = None
 
-    # Variables to be initiated and used across this class
+    # Variables to be initiated and used across this class, most of them are pointers to files.
     summary_writer = None
     all_r_output_file = None
     hof_output_file = None
@@ -29,7 +31,8 @@ class StatsLogger():
     positional_entropy_output_file = None
     cache_output_file = None
 
-    def __init__(self, sess, logdir="./log", summary=True, output_file=None, save_all_r=False, hof=10, pareto_front=False,save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
+    def __init__(self, sess, logdir="./log", summary=True, output_file=None, save_all_r=False, hof=10,
+                 pareto_front=False,save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
         self.sess = sess
         self.logdir = logdir
         self.summary = summary
@@ -40,10 +43,13 @@ class StatsLogger():
         self.save_positional_entropy = save_positional_entropy
         self.save_cache = save_cache
         self.save_cache_r_min = save_cache_r_min
-        # Opens and prepares all output log files controlled by this class.
+
         self.setup_output_files()
 
     def setup_output_files(self):
+        """
+        Opens and prepares all output log files controlled by this class.
+        """
         # Creates the summary writer
         if self.summary:
             timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -92,10 +98,18 @@ class StatsLogger():
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
                 self.cache_output_file = None
 
-    def save_stats(self, base_r, r, l, empirical_entropy, actions, s, invalid, base_r_best, base_r_max,
-                   base_r_avg_full, r_best, r_max, r_avg_full, l_avg_full, ewma, n_unique_full, n_novel_full,
-                   a_ent_full, invalid_avg_full, summaries, epoch, s_history):
+    def save_stats(self, base_r, r, r_full, base_r_full, l, l_full, empirical_entropy, actions, actions_full, s, s_full, invalid, invalid_full, base_r_best, base_r_max, r_best,
+                    r_max,ewma, summaries, epoch, s_history):
         """Computes and saves all statistics"""
+        base_r_avg_full = np.mean(base_r_full)
+        r_avg_full = np.mean(r_full)
+
+        l_avg_full = np.mean(l_full)
+        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions_full))
+        n_unique_full = len(set(s_full))
+        n_novel_full = len(set(s_full).difference(s_history))
+        invalid_avg_full = np.mean(invalid_full)
+
         if self.output_file is not None:
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
