@@ -4,7 +4,9 @@ import json
 import zlib
 from collections import defaultdict
 from multiprocessing import Pool
+import random
 
+import numpy as np
 import tensorflow as tf
 
 from dsr.task import set_task
@@ -89,6 +91,8 @@ class DeepSymbolicOptimizer():
             task_name = ""
         seed_ += zlib.adler32(task_name.encode("utf-8"))
         tf.set_random_seed(seed_)
+        np.random.seed(seed_)
+        random.seed(seed_)
 
         return seed_
 
