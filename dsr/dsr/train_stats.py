@@ -5,7 +5,7 @@ import tensorflow as tf
 from datetime import datetime
 import pandas as pd
 from dsr.program import Program, from_tokens
-from dsr.utils import is_pareto_efficient
+from dsr.utils import is_pareto_efficient, empirical_entropy
 from itertools import compress
 
 
@@ -32,7 +32,38 @@ class StatsLogger():
     cache_output_file = None
 
     def __init__(self, sess, logdir="./log", summary=True, output_file=None, save_all_r=False, hof=10,
-                 pareto_front=False,save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
+                 pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
+        """"
+        sess : tf.Session
+            TenorFlow Session object (used for generating summary files)
+
+        logdir : str, optional
+            Name of log directory.
+
+        summary : bool, optional
+            Whether to write TensorFlow summaries.
+
+        output_file : str, optional
+            Filename to write results for each iteration.
+
+        save_all_r : bool, optional
+            Whether to save all rewards for each iteration.
+
+        hof : int or None, optional
+            Number of top Programs to evaluate after training.
+
+        pareto_front : bool, optional
+            If True, compute and save the Pareto front at the end of training.
+
+        save_positional_entropy : bool, optional
+            Whether to save evolution of positional entropy for each iteration.
+
+        save_cache : bool
+            Whether to save the str, count, and r of each Program in the cache.
+
+        save_cache_r_min : float or None
+            If not None, only keep Programs with r >= r_min when saving cache.
+        """
         self.sess = sess
         self.logdir = logdir
         self.summary = summary
@@ -98,19 +129,42 @@ class StatsLogger():
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
                 self.cache_output_file = None
 
-    def save_stats(self, base_r, r, r_full, base_r_full, l, l_full, empirical_entropy, actions, actions_full, s, s_full, invalid, invalid_full, base_r_best, base_r_max, r_best,
-                    r_max,ewma, summaries, epoch, s_history):
-        """Computes and saves all statistics"""
-        base_r_avg_full = np.mean(base_r_full)
-        r_avg_full = np.mean(r_full)
-
-        l_avg_full = np.mean(l_full)
-        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions_full))
-        n_unique_full = len(set(s_full))
-        n_novel_full = len(set(s_full).difference(s_history))
-        invalid_avg_full = np.mean(invalid_full)
-
+    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
+                   invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
+        """
+        Computes and saves all statistics that are computed for every time step
+        :param base_r_full: The reward regardless of complexity penalty. It should be a list having all computed
+            programs in this time step
+        :param r_full: The reward with complexity subtracted.
+        :param l_full: The length of all programs
+        :param actions_full: all actions sampled this step
+        :param s_full: String representation of all programs sampled this step.
+        :param invalid_full: boolean for all programs sampled showing if they are invalid
+        :param base_r: base_r_full excluding programs not sent to the controller (keep variable)
+        :param r: r_full excluding the ones where keep=false
+        :param l: l_full excluding the ones where keep=false
+        :param actions: actions_full excluding the ones where keep=false
+        :param s: s_full excluding the ones where keep=false
+        :param invalid: invalid_full excluding the ones where keep=false
+        :param base_r_best: base reward from the all time best program so far
+        :param base_r_max: base reward from the best program in this epoch
+        :param r_best: reward from the all time best program so far
+        :param r_max: reward from the best program in this epoch
+        :param ewma: Exponentially Weighted Moving Average weight that might be used for baseline computation
+        :param summaries: Sumarries returned by the Controller this step
+        :param epoch: This epoch id
+        :param s_history: all programs ever seen in string format.
+        """
         if self.output_file is not None:
+            base_r_avg_full = np.mean(base_r_full)
+            r_avg_full = np.mean(r_full)
+
+            l_avg_full = np.mean(l_full)
+            a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions_full))
+            n_unique_full = len(set(s_full))
+            n_novel_full = len(set(s_full).difference(s_history))
+            invalid_avg_full = np.mean(invalid_full)
+
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
@@ -146,7 +200,13 @@ class StatsLogger():
             self.summary_writer.flush()
 
     def save_results(self, all_r, positional_entropy, base_r_history, pool):
-        """ Saves stats that are available only after all epochs are finished"""
+        """
+        Saves stats that are available only after all epochs are finished
+        :param all_r: all rewards for all epochs
+        :param positional_entropy: evolution of positional_entropy for all epochs
+        :param base_r_history: reward for each unique program found during training
+        :param pool: Pool used to parallelize reward computation
+        """
         if self.save_all_r:
             with open(self.all_r_output_file, 'ab') as f:
                 np.save(f, all_r)
