@@ -4,6 +4,7 @@ import random
 import copy
 from functools import wraps
 from collections import defaultdict
+from itertools import chain
 
 import numpy as np
 from deap import gp
@@ -38,7 +39,7 @@ def cxOnePoint(ind1, ind2):
             types1[node.ret].append(idx)
         common_types = []
         for idx, node in enumerate(ind2[1:], 1):
-            if node.ret in types1 and not node.ret in types2:
+            if node.ret in types1 and node.ret not in types2:
                 common_types.append(node.ret)
             types2[node.ret].append(idx)
         # common_types = set(types1.keys()).intersection(set(types2.keys()))
@@ -104,7 +105,7 @@ def create_primitive_set(lib):
     """Create a DEAP primitive set from a dsr.libraryLibrary."""
 
     pset = gp.PrimitiveSet("MAIN", len(lib.input_tokens))
-    rename_kwargs = {"ARG{}".format(i) : i for i in range(len(lib.input_tokens))}
+    rename_kwargs = {"ARG{}".format(i): i for i in range(len(lib.input_tokens))}
     for k, v in rename_kwargs.items():
 
         # pset.renameArguments doesn't actually rename the Primitive.
@@ -124,7 +125,8 @@ def individual_to_dsr_aps(individual, library):
     """Convert an individual to actions, parents, siblings."""
 
     actions = np.array([[t.name for t in individual]], dtype=np.int32)
-    parent, sibling = jit_parents_siblings_at_once(actions, arities=library.arities, parent_adjust=library.parent_adjust)
+    parent, sibling = jit_parents_siblings_at_once(
+        actions, arities=library.arities, parent_adjust=library.parent_adjust)
     return actions, parent, sibling
 
 
@@ -198,20 +200,20 @@ def tokens_to_DEAP(tokens, pset):
 
 def str_logbook(logbook, header_only=False, startindex=0):
     """
-    Pretty print a deap.tools.Logbook. 
+    Pretty print a deap.tools.Logbook.
     """
-    
+
     if header_only:
-        startindex  = 0
-        endindex    = 1
+        startindex = 0
+        endindex = 1
     else:
-        endindex    = -1
-    
+        endindex = -1
+
     columns = logbook.header
-    
+
     if not columns:
         columns = sorted(logbook[0].keys()) + sorted(logbook.chapters.keys())
-                            
+
     if not logbook.columns_len or len(logbook.columns_len) != len(columns):
         logbook.columns_len = map(len, columns)
 
@@ -225,13 +227,13 @@ def str_logbook(logbook, header_only=False, startindex=0):
             offsets[name] = len(chapters_txt[name]) - len(logbook)
 
     str_matrix = []
-    
+
     for i, line in enumerate(logbook[startindex:endindex]):
         str_line = []
         for j, name in enumerate(columns):
             if name in chapters_txt:
                 # Put Chapter over the column label line
-                column = chapters_txt[name][i+offsets[name]]
+                column = chapters_txt[name][i + offsets[name]]
             else:
                 # Put the column label
                 value = line.get(name, "")
@@ -240,17 +242,18 @@ def str_logbook(logbook, header_only=False, startindex=0):
             logbook.columns_len[j] = max(logbook.columns_len[j], len(column))
             str_line.append(column)
         str_matrix.append(str_line)
-                
+
     if startindex == 0 and logbook.log_header:
         header = []
         nlines = 1
         if len(logbook.chapters) > 0:
             nlines += max(map(len, chapters_txt.values())) - len(logbook) + 1
         header = [[] for i in range(nlines)]
-        
+
         for j, name in enumerate(columns):
             if name in chapters_txt:
-                length = max(len(line.expandtabs()) for line in chapters_txt[name])
+                length = max(len(line.expandtabs())
+                             for line in chapters_txt[name])
                 blanks = nlines - 2 - offsets[name]
                 for i in range(blanks):
                     header[i].append(" " * length)
@@ -263,13 +266,14 @@ def str_logbook(logbook, header_only=False, startindex=0):
                 for line in header[:-1]:
                     line.append(" " * length)
                 header[-1].append(name)
-        
+
         if header_only:
-            str_matrix = header  
+            str_matrix = header
         else:
             str_matrix = chain(header, str_matrix)
-        
-    template    = "\t".join("{%i:<%i}" % (i, l) for i, l in enumerate(logbook.columns_len))
-    text        = [template.format(*line) for line in str_matrix]
-    
+
+    template = "\t".join("{%i:<%i}" % (i, l)
+                         for i, l in enumerate(logbook.columns_len))
+    text = [template.format(*line) for line in str_matrix]
+
     return "\n".join(text)

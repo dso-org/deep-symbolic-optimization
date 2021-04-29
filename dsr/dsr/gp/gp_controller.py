@@ -62,63 +62,61 @@ class GPController:
             self.hof = tools.HallOfFame(maxsize=self.train_n)
 
         # Create a DEAP toolbox
-        self.toolbox, self.creator  = self._create_toolbox(self.pset,
-                                                           parallel_eval=parallel_eval, 
-                                                           tournament_size=tournament_size,
-                                                           mutate_tree_max=mutate_tree_max)
-        
+        self.toolbox, self.creator = self._create_toolbox(self.pset,
+                                                          parallel_eval=parallel_eval,
+                                                          tournament_size=tournament_size,
+                                                          mutate_tree_max=mutate_tree_max)
+
         # Actual loop function that runs GP
         pop = []
         self.algorithm = gp_base.RunOneStepAlgorithm(population=pop,
                                                      toolbox=self.toolbox,
                                                      cxpb=p_crossover,
                                                      mutpb=p_mutate,
-                                                     verbose=verbose)        
+                                                     verbose=verbose)
 
     def check_constraint(self, individual):
         actions, parents, siblings = U.individual_to_dsr_aps(individual, Program.library)
         return self.prior.is_violated(actions, parents, siblings)
-        
-    def _create_toolbox(self, pset,
-                             tournament_size=3, max_len=30, min_len=4,
-                             mutate_tree_max=5,
-                             parallel_eval=True):
-        r"""
-            This creates a Deap toolbox with options we set.
+
+    def _create_toolbox(self, pset, tournament_size=3, mutate_tree_max=5,
+                        parallel_eval=True):
         """
-        
-        assert isinstance(pset, gp.PrimitiveSet),   "pset should be a PrimitiveSet"
-        
+        Create a deap.base.Toolbox.
+        """
+
+        assert isinstance(pset, gp.PrimitiveSet), "pset should be a PrimitiveSet"
+
         # NOTE from deap.creator.create: create(name, base, **kargs):
-        # ALSO: Creates a new class named *name* inheriting from *base* 
-        
+        # ALSO: Creates a new class named *name* inheriting from *base*
+
         # Create custom fitness and individual classes
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin) # Adds fitness into PrimitiveTree
-    
+
         # NOTE from deap.base.Toolbox:  def register(self, alias, function, *args, **kargs):
         # ALSO the function in toolbox is defined as: partial(function, *args, **kargs)
-    
+
         # Define the evolutionary operators
         toolbox = base.Toolbox()
-        toolbox.register("select",      tools.selTournament, tournsize=tournament_size)
-        toolbox.register("mate",        gp.cxOnePoint)
-        toolbox.register("expr_mut",    gp.genFull, min_=0, max_=mutate_tree_max)
-        toolbox.register('mutate',      U.multi_mutate, expr=toolbox.expr_mut, pset=pset)
-    
+        toolbox.register("select", tools.selTournament, tournsize=tournament_size)
+        toolbox.register("mate", gp.cxOnePoint)
+        toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
+        toolbox.register('mutate', U.multi_mutate, expr=toolbox.expr_mut, pset=pset)
+
         # Decorate mate and mutate by checking for constraint violation
         toolbox.decorate("mate", U.staticLimit(key=self.check_constraint, max_value=0))
         toolbox.decorate("mutate", U.staticLimit(key=self.check_constraint, max_value=0))
-        
-        #overide the built in map function in toolbox
+
+        # Overide the built-in map function
         if parallel_eval:
             print("GP Controller using parallel evaluation via Pathos")
-            pool = ProcessPool(nodes = multiprocessing.cpu_count())
+            pool = ProcessPool(nodes=multiprocessing.cpu_count())
             print("\t>>> Using {} processes".format(pool.ncpus))
-            toolbox.register("cmap", pool.map)   
+            toolbox.register("cmap", pool.map)
         else:
-            toolbox.register("cmap", map) 
-            
+            toolbox.register("cmap", map)
+
         # Create the training function
         return toolbox, creator
 
