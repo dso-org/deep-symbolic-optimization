@@ -40,10 +40,10 @@ def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
-          epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
+          epsilon=0.01, n_cores_batch=1, verbose=True, save_summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
+          save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           n_objects=1, save_cache=False, save_cache_r_min=0.9):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
@@ -104,7 +104,7 @@ def learn(sess, controller, pool, gp_controller,
     verbose : bool, optional
         Whether to print progress.
 
-    summary : bool, optional
+    save_summary : bool, optional
         Whether to write TensorFlow summaries.
 
     output_file : str, optional
@@ -138,7 +138,7 @@ def learn(sess, controller, pool, gp_controller,
         noisy data when you can't be certain of success solely based on reward.
         If False, only the top Program is evaluated each iteration.
 
-    pareto_front : bool, optional
+    save_pareto_front : bool, optional
         If True, compute and save the Pareto front at the end of training.
 
     debug : int, optional
@@ -254,7 +254,7 @@ def learn(sess, controller, pool, gp_controller,
         # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
         assert Program.library.const_token is None, \
             "Constant tokens not yet supported with stochastic Tasks."
-        assert not pareto_front, "Pareto front not supported with stochastic Tasks."
+        assert not save_pareto_front, "Pareto front not supported with stochastic Tasks."
     else:
         base_r_history = None
 
@@ -270,8 +270,8 @@ def learn(sess, controller, pool, gp_controller,
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
-    logger = StatsLogger(sess,  logdir, summary, output_file, save_all_r, hof, pareto_front, save_positional_entropy,
-                         save_cache, save_cache_r_min)
+    logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_r, hof, save_pareto_front,
+                         save_positional_entropy, save_cache, save_cache_r_min)
     nevals              = 0
     #program_val_log     = []
 

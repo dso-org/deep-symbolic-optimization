@@ -23,7 +23,7 @@
       "baseline": "R_e",
       "b_jumpstart": false,
       "n_cores_batch": 4,
-      "summary": false,
+      "save_summary": false,
       "debug": 0,
       "output_file": null,
       "save_all_r": false,

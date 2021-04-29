@@ -31,8 +31,8 @@ class StatsLogger():
     positional_entropy_output_file = None
     cache_output_file = None
 
-    def __init__(self, sess, logdir="./log", summary=True, output_file=None, save_all_r=False, hof=10,
-                 pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
+    def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_r=False, hof=10,
+                 save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
@@ -40,7 +40,7 @@ class StatsLogger():
         logdir : str, optional
             Name of log directory.
 
-        summary : bool, optional
+        save_summary : bool, optional
             Whether to write TensorFlow summaries.
 
         output_file : str, optional
@@ -52,7 +52,7 @@ class StatsLogger():
         hof : int or None, optional
             Number of top Programs to evaluate after training.
 
-        pareto_front : bool, optional
+        save_pareto_front : bool, optional
             If True, compute and save the Pareto front at the end of training.
 
         save_positional_entropy : bool, optional
@@ -66,11 +66,11 @@ class StatsLogger():
         """
         self.sess = sess
         self.logdir = logdir
-        self.summary = summary
+        self.save_summary = save_summary
         self.output_file = output_file
         self.save_all_r = save_all_r
         self.hof = hof
-        self.pareto_front = pareto_front
+        self.save_pareto_front = save_pareto_front
         self.save_positional_entropy = save_positional_entropy
         self.save_cache = save_cache
         self.save_cache_r_min = save_cache_r_min
@@ -82,7 +82,7 @@ class StatsLogger():
         Opens and prepares all output log files controlled by this class.
         """
         # Creates the summary writer
-        if self.summary:
+        if self.save_summary:
             timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
             summary_dir = os.path.join("summary", timestamp)
             self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
@@ -286,7 +286,7 @@ class StatsLogger():
                 df_cache.to_csv(self.cache_output_file, header=True, index=False)
 
             # Compute the pareto front
-            if self.pareto_front:
+            if self.save_pareto_front:
                 def pf_work(p):
                     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
                 #if verbose:
