@@ -183,7 +183,7 @@ class GPController:
         self.algorithm.set_population(individuals)
 
         if self.verbose:
-            print(self.algorithm.str_logbook(header_only=True))
+            print(U.str_logbook(self.algorithm.logbook, header_only=True))
 
         # Run GP generations
         self.nevals = 0
