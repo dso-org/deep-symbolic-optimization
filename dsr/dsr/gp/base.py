@@ -13,25 +13,20 @@ class RunOneStepAlgorithm:
     classes like eaSimple since we need more control over how it runs.
     """
 
-    def __init__(self, population, toolbox, cxpb, mutpb, verbose=__debug__):
-
-        # Create stats widget
-        stats_fit = tools.Statistics(lambda p: p.fitness.values)
-        stats_fit.register("avg", lambda x: np.ma.masked_invalid(x).mean())
-        stats_fit.register("min", np.min)
-        stats_size = tools.Statistics(len)
-        stats_size.register("avg", lambda x: np.ma.masked_invalid(x).mean())
-        self.stats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
+    def __init__(self, toolbox, cxpb, mutpb, verbose=__debug__):
 
         self.toolbox = toolbox
         self.cxpb = cxpb
         self.mutpb = mutpb
         self.verbose = verbose
+
+        self.logbook = tools.Logbook()
+        self.logbook.header = ['gen', 'nevals', 'timer']
+
+        self.population = None # Must be explicitly set
         self.gen = 0
 
-        self.logbook, self.population = self._header(population, toolbox)
-
-    def _eval(self, population, toolbox):
+    def _eval(self, population):
 
         # Evaluate the individuals with an invalid fitness
         # This way we do not evaluate individuals that we have already seen.
@@ -46,39 +41,22 @@ class RunOneStepAlgorithm:
 
         return population, invalid_ind
 
-    def _header(self, population, toolbox):
-
-        stats = self.stats
-        logbook = tools.Logbook()
-        logbook.header = ['gen', 'nevals', 'timer'] + \
-            (stats.fields if population else [])
-
-        population, invalid_ind = self._eval(population, toolbox)
-
-        record = stats.compile(population) if population else {}
-        logbook.record(gen=0, nevals=len(invalid_ind), **record)
-
-        if self.verbose:
-            print(logbook.stream)
-
-        return logbook, population
-
     # Would this benefit from using process pooling?
-    def _var_and(self, population, toolbox, cxpb, mutpb):
+    def _var_and(self, population):
 
-        offspring = [toolbox.clone(ind) for ind in population]
+        offspring = [self.toolbox.clone(ind) for ind in population]
 
         # Apply crossover on the offspring
         for i in range(1, len(offspring), 2):
-            if random.random() < cxpb:
-                offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i])
+            if random.random() < self.cxpb:
+                offspring[i - 1], offspring[i] = self.toolbox.mate(offspring[i - 1], offspring[i])
 
                 del offspring[i - 1].fitness.values, offspring[i].fitness.values
 
         # Apply mutation on the offspring
         for i in range(len(offspring)):
-            if random.random() < mutpb:
-                offspring[i], = toolbox.mutate(offspring[i])
+            if random.random() < self.mutpb:
+                offspring[i], = self.toolbox.mutate(offspring[i])
 
                 del offspring[i].fitness.values
 
@@ -92,11 +70,10 @@ class RunOneStepAlgorithm:
         offspring = self.toolbox.select(self.population, len(self.population))
 
         # Vary the pool of individuals
-        offspring = self._var_and(
-            offspring, self.toolbox, self.cxpb, self.mutpb)
+        offspring = self._var_and(offspring)
 
         # Evaluate the individuals with an invalid fitness
-        offspring, invalid_ind = self._eval(offspring, self.toolbox)
+        offspring, invalid_ind = self._eval(offspring)
 
         # Replace the current population by the offspring
         self.population[:] = offspring
@@ -105,15 +82,12 @@ class RunOneStepAlgorithm:
         if hof is not None:
             hof.update(self.population)
 
-        # Append the current generation statistics to the logbook
-        record = self.stats.compile(self.population) if self.population else {}
-
         # number of evaluations
         nevals = len(invalid_ind)
 
         timer = time.perf_counter() - t1
 
-        self.logbook.record(gen=self.gen, nevals=nevals, timer=timer, **record)
+        self.logbook.record(gen=self.gen, nevals=nevals, timer=timer)
 
         if self.verbose:
             print(self.logbook.stream)
