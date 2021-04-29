@@ -247,19 +247,6 @@ class RunOneStepAlgorithm(GenericAlgorithm):
         if self.verbose:
             print('Population Size {}'.format(len(self.population)))
     
-    def append_population(self, population, max_size=None):
-        
-        if max_size is not None:
-            r = len(self.population)-max_size
-            if r > 0:
-                for i in range(0,r):
-                    self.population.pop(random.randrange(len(self.population)))
-                
-        self.population += population
-        
-        if self.verbose:
-            print('Population Size {}'.format(len(self.population)))
-        
 
 def create_stats_widget():
     
