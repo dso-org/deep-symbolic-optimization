@@ -11,25 +11,6 @@ from itertools import compress
 
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
-    # Variables used as "Configurations". They will affect which files are saved
-    sess = None
-    logdir = None
-    save_summary = None
-    output_file = None
-    save_all_r = None
-    save_positional_entropy = None
-    save_cache = None
-    save_cache_r_min = None
-    hof = None
-    save_pareto_front = None
-
-    # Variables to be initiated and used across this class, most of them are pointers to files.
-    summary_writer = None
-    all_r_output_file = None
-    hof_output_file = None
-    pf_output_file = None
-    positional_entropy_output_file = None
-    cache_output_file = None
 
     def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_r=False, hof=10,
                  save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
