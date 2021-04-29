@@ -55,7 +55,6 @@ class GPController:
         self.generations = generations
         self.train_n = train_n
         self.return_gp_obs = self.train_n > 0
-        self.mstats = gp_base.create_stats_widget()
         self.nevals = 0
 
         # Create a Hall of Fame object
@@ -74,7 +73,6 @@ class GPController:
                                                      toolbox=self.toolbox,
                                                      cxpb=p_crossover,
                                                      mutpb=p_mutate,
-                                                     stats=self.mstats,
                                                      verbose=verbose)        
 
     def check_constraint(self, individual):
