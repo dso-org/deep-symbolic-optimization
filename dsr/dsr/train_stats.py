@@ -14,14 +14,14 @@ class StatsLogger():
     # Variables used as "Configurations". They will affect which files are saved
     sess = None
     logdir = None
-    summary = None
+    save_summary = None
     output_file = None
     save_all_r = None
     save_positional_entropy = None
     save_cache = None
     save_cache_r_min = None
     hof = None
-    pareto_front = None
+    save_pareto_front = None
 
     # Variables to be initiated and used across this class, most of them are pointers to files.
     summary_writer = None
@@ -81,12 +81,6 @@ class StatsLogger():
         """
         Opens and prepares all output log files controlled by this class.
         """
-        # Creates the summary writer
-        if self.save_summary:
-            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            summary_dir = os.path.join("summary", timestamp)
-            self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
-
         if self.output_file is not None:
             os.makedirs(self.logdir, exist_ok=True)
             self.output_file = os.path.join(self.logdir, self.output_file)
@@ -128,6 +122,14 @@ class StatsLogger():
         else:
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
                 self.cache_output_file = None
+        # Creates the summary writer
+        if self.save_summary:
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            if self.output_file is not None:
+                summary_dir = os.path.join(self.logdir, "summary_" + timestamp)
+            else:
+                summary_dir = os.path.join("summary", timestamp)
+            self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
 
     def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
                    invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
