@@ -301,7 +301,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
         log.analyze_log(
             show_count=config["postprocess"]["show_count"],
             show_hof=config["training"]["hof"] != None and config["training"]["hof"] > 0,
-            show_pf=config["training"]["pareto_front"],
+            show_pf=config["training"]["save_pareto_front"],
             save_plots=config["postprocess"]["save_plots"])
 
 
