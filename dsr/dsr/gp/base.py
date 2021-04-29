@@ -15,23 +15,21 @@ class RunOneStepAlgorithm:
     """
     def __init__(self, population, toolbox, cxpb, mutpb, verbose=__debug__):
         
-        super(RunOneStepAlgorithm, self).__init__()
-        
         # Create stats widget
         stats_fit = tools.Statistics(lambda p : p.fitness.values)
         stats_fit.register("avg", lambda x : np.ma.masked_invalid(x).mean())
         stats_fit.register("min", np.min)
         stats_size = tools.Statistics(len)
         stats_size.register("avg", lambda x : np.ma.masked_invalid(x).mean())
-        self.stats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
-
-        self.logbook, self.population = self._header(population, toolbox, verbose)
+        self.stats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)        
 
         self.toolbox        = toolbox
         self.cxpb           = cxpb
         self.mutpb          = mutpb
         self.verbose        = verbose
         self.gen        = 0
+
+        self.logbook, self.population = self._header(population, toolbox)
 
     def _eval(self, population, toolbox):
         
@@ -47,7 +45,7 @@ class RunOneStepAlgorithm:
 
         return population, invalid_ind
 
-    def _header(self, population, toolbox, verbose=__debug__):
+    def _header(self, population, toolbox):
         
         stats = self.stats
         logbook = tools.Logbook()
@@ -58,7 +56,7 @@ class RunOneStepAlgorithm:
         record = stats.compile(population) if population else {}
         logbook.record(gen=0, nevals=len(invalid_ind), **record)
         
-        if verbose:
+        if self.verbose:
             print(logbook.stream)
             
         return logbook, population
