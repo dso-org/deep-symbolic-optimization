@@ -68,9 +68,7 @@ class GPController:
                                                           mutate_tree_max=mutate_tree_max)
 
         # Actual loop function that runs GP
-        pop = []
-        self.algorithm = gp_base.RunOneStepAlgorithm(population=pop,
-                                                     toolbox=self.toolbox,
+        self.algorithm = gp_base.RunOneStepAlgorithm(toolbox=self.toolbox,
                                                      cxpb=p_crossover,
                                                      mutpb=p_mutate,
                                                      verbose=verbose)
@@ -177,9 +175,6 @@ class GPController:
         # TBD: Can base class of Individual can be initialized with tokens and Program?
         individuals = [self.creator.Individual(U.tokens_to_DEAP(a, self.pset)) for a in actions]
         self.algorithm.set_population(individuals)
-
-        if self.verbose:
-            print(U.str_logbook(self.algorithm.logbook, header_only=True))
 
         # Run GP generations
         self.nevals = 0
