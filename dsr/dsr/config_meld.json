@@ -82,7 +82,6 @@
         "verbose" : false,     
         "p_crossover" : 0.5,    
         "p_mutate" : 0.5,    
-        "seed" : 0,        
         "tournament_size" : 5,   
         "train_n" : 50,
         "mutate_tree_max" : 3,
