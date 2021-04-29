@@ -80,7 +80,6 @@
       "run_gp_meld" : true,
       "p_crossover" : 0.5,    
       "p_mutate" : 0.5,    
-      "seed" : 0,        
       "verbose" : true,      
       "generations" : 30,        
       "tournament_size" : 5,   

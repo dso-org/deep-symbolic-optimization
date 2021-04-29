@@ -15,17 +15,14 @@ import dsr.gp.utils as U
 
 class GPController:
 
-    def __init__(self, prior, seed=0, verbose=False, generations=20,
-                 p_crossover=0.5, p_mutate=0.5, tournament_size=3,
-                 mutate_tree_max=2, train_n=50, parallel_eval=False):
+    def __init__(self, prior, verbose=False, generations=20, p_crossover=0.5,
+                 p_mutate=0.5, tournament_size=3, mutate_tree_max=2, train_n=50,
+                 parallel_eval=False):
         """
         Parameters
         ----------
         prior : dsr.prior.JointPrior
             JointPrior used to determine whether constraints were violated.
-
-        seed : int
-            RNG seed used by GP.
 
         verbose : bool
             Whether to print GP diagnostics.
