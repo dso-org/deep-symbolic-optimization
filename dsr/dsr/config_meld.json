@@ -78,8 +78,9 @@
       "off_policy_stats": false
    },
    "gp_meld": {
-   		"run_gp_meld" : true,
+   	"run_gp_meld" : true,
         "verbose" : false,     
+        "generations" : 20,
         "p_crossover" : 0.5,    
         "p_mutate" : 0.5,    
         "tournament_size" : 5,   
