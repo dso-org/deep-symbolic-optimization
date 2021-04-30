@@ -149,6 +149,9 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
 
     #If summaries are being saved on "training", summaries must be turned on under controller
     if config["training"].get("save_summary", True):
+        if not config["controller"].get("summary", False):
+            print('WARNING: When config["training"]["save_summary"] is true or absent, config["controller"]["summary"] '
+                  'must be true. The summary recording will be turned on.')
         config["controller"]["summary"] = True
 
     # set common paths
