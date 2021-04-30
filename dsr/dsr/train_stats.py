@@ -111,6 +111,8 @@ class StatsLogger():
             else:
                 summary_dir = os.path.join("summary", timestamp)
             self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
+        else:
+            self.summary_writer = None
 
     def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
                    invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
@@ -178,7 +180,7 @@ class StatsLogger():
             ]], dtype=np.float32)
             with open(self.output_file, 'ab') as f:
                 np.savetxt(f, stats, delimiter=',')
-        if self.summary_writer:
+        if self.save_summary:
             self.summary_writer.add_summary(summaries, epoch)
             self.summary_writer.flush()
 

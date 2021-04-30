@@ -147,6 +147,10 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     else:
         log_appendix = original_benchmarks[0]
 
+    #If summaries are being saved on "training", summaries must be turned on under controller
+    if config["training"].get("save_summary", True):
+        config["controller"]["summary"] = True
+
     # set common paths
     paths = {}
     paths["log_dir"] = os.path.join(
