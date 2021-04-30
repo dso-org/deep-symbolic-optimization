@@ -81,7 +81,7 @@ ALGORITHMS = [
 @click.option("--alg", multiple=True, type=str, help="Which algorithms to run (default: all).")
 @click.option("--env", multiple=True, type=str, help="Which environments to run (default: all).")
 @click.option("--n_episodes", type=int, default=100, help="Number of evaluation episodes.")
-@click.option("--output_filename", type=str, default="benchmark_zoo.csv", help="Filename to output results.")
+@click.option("--output_filename", type=str, default="benchmark_zoo_results.csv", help="Filename to output results.")
 @click.option("--robustness", is_flag=True, default=False, help="Sweep across env kwargs.")
 def main(zoo_root, alg, env, n_episodes, output_filename, robustness):
 
