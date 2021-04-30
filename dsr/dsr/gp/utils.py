@@ -15,6 +15,8 @@ from dsr.subroutines import jit_parents_siblings_at_once
 __type__ = object
 
 
+# Fix for https://github.com/DEAP/deap/issues/190
+# Proposed by https://github.com/EpistasisLab/tpot/pull/412/files
 def cxOnePoint(ind1, ind2):
     """Randomly select crossover point in each individual and exchange each
     subtree with the point as root between each individual.
