@@ -97,9 +97,9 @@ class TimeFeatureWrapper(gym.Wrapper):
         self._current_step = 0
         self._test_mode = test_mode
 
-    def reset(self):
+    def reset(self, **kwargs):
         self._current_step = 0
-        return self._get_obs(self.env.reset())
+        return self._get_obs(self.env.reset(**kwargs))
 
     def step(self, action):
         self._current_step += 1
@@ -135,8 +135,9 @@ class RenderEnv(gym.Wrapper):
         self.directory = os.path.abspath(save_path)
         if not os.path.exists(self.directory): os.makedirs(self.directory, exist_ok=True)
 
-    def reset(self, seed=None, **kwargs):
+    def reset(self, **kwargs):
         """Standard wrap of the reset function."""
+        seed = kwargs.pop('seed', None)
         obs = self.env.reset(**kwargs)
         self.episode += 1
         self.reset_video_recorder(seed)
