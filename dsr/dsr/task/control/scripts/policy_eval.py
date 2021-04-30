@@ -16,6 +16,7 @@ import os
 import numpy as np
 import click
 import gym
+import subprocess
 
 from datetime import datetime
 import time
@@ -182,6 +183,9 @@ class Model():
 def main(env, alg, episodes, max_steps, seed=0,
         print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False, record=False):
 
+    # Get commit label
+    commit_label = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
     # Preparing envs from input
     if all([isinstance(e, str) for e in env]) and all([e != "all" for e in env]) and len(env) > 0:
         #assert all([e in ENVS for e in env]), "ERROR: Environment '{}' unknown!".format(env)
@@ -262,7 +266,7 @@ def main(env, alg, episodes, max_steps, seed=0,
                 env_name, action.shape, np.mean(episode_rewards), int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
             csv_content.append([env_name, alg, episodes, int(np.mean(episode_steps)),
                 np.mean(episode_rewards), model_load_duration, np.mean(action_durations)*1000.,
-                datetime.now()])
+                datetime.now(), commit_label])
 
         # Print summary
         print("=== {} === Averages over {} episodes =========================".format(alg, episodes))
@@ -275,7 +279,7 @@ def main(env, alg, episodes, max_steps, seed=0,
                     file_pointer = csv.writer(result_file, dialect='excel')
                     file_pointer.writerow(
                         ["environment", "algorithm", "episodes", "avg_steps_episode",
-                        "avg_rewards_episode", "model_load_s", "action_latency_ms", "date"])
+                        "avg_rewards_episode", "model_load_s", "action_latency_ms", "date", "commit"])
             with open(file_name,'a') as result_file:
                 file_pointer = csv.writer(result_file, dialect='excel')
                 file_pointer.writerows(csv_content)
