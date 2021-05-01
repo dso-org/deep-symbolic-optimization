@@ -48,7 +48,7 @@ def is_pareto_efficient(costs):
     return is_efficient_mask
 
 
-def setup_output_files(logdir, output_file):
+#def setup_output_files(logdir, output_file):
     """
     Writes the main output file header and returns the reward, hall of fame, and Pareto front config filenames.
 
@@ -79,15 +79,15 @@ def setup_output_files(logdir, output_file):
     cache_output_file : str
         cache output filename
     """
-    os.makedirs(logdir, exist_ok=True)
-    output_file = os.path.join(logdir, output_file)
-    prefix, _ = os.path.splitext(output_file)
-    all_r_output_file = "{}_all_r.npy".format(prefix)
-    hof_output_file = "{}_hof.csv".format(prefix)
-    pf_output_file = "{}_pf.csv".format(prefix)
-    positional_entropy_output_file = "{}_positional_entropy.npy".format(prefix)
-    cache_output_file = "{}_cache.csv".format(prefix)
-    with open(output_file, 'w') as f:
+#    os.makedirs(logdir, exist_ok=True)
+#    output_file = os.path.join(logdir, output_file)
+#    prefix, _ = os.path.splitext(output_file)
+#    all_r_output_file = "{}_all_r.npy".format(prefix)
+#    hof_output_file = "{}_hof.csv".format(prefix)
+#    pf_output_file = "{}_pf.csv".format(prefix)
+#    positional_entropy_output_file = "{}_positional_entropy.npy".format(prefix)
+#    cache_output_file = "{}_cache.csv".format(prefix)
+#    with open(output_file, 'w') as f:
         # r_best : Maximum across all iterations so far
         # r_max : Maximum across this iteration's batch
         # r_avg_full : Average across this iteration's full batch (before taking epsilon subset)
@@ -96,28 +96,28 @@ def setup_output_files(logdir, output_file):
         # n_novel_* : Number of never-before-seen Programs per batch
         # a_ent_* : Empirical positional entropy across sequences averaged over positions
         # invalid_avg_* : Fraction of invalid Programs per batch
-        headers = ["base_r_best",
-                    "base_r_max",
-                    "base_r_avg_full",
-                    "base_r_avg_sub",
-                    "r_best",
-                    "r_max",
-                    "r_avg_full",
-                    "r_avg_sub",
-                    "l_avg_full",
-                    "l_avg_sub",
-                    "ewma",
-                    "n_unique_full",
-                    "n_unique_sub",
-                    "n_novel_full",
-                    "n_novel_sub",
-                    "a_ent_full",
-                    "a_ent_sub",
-                    "invalid_avg_full",
-                    "invalid_avg_sub"]
-        f.write("{}\n".format(",".join(headers)))
-
-    return all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file, cache_output_file
+#        headers = ["base_r_best",
+#                     "base_r_max",
+#                     "base_r_avg_full",
+#                     "base_r_avg_sub",
+#                     "r_best",
+#                     "r_max",
+#                     "r_avg_full",
+#                     "r_avg_sub",
+#                     "l_avg_full",
+#                     "l_avg_sub",
+#                     "ewma",
+#                     "n_unique_full",
+#                     "n_unique_sub",
+#                     "n_novel_full",
+#                     "n_novel_sub",
+#                     "a_ent_full",
+#                     "a_ent_sub",
+#                     "invalid_avg_full",
+#                     "invalid_avg_sub"]
+#         f.write("{}\n".format(",".join(headers)))
+#
+#     return all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file, cache_output_file
 
 
 class cached_property(object):
