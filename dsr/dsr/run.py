@@ -147,6 +147,13 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     else:
         log_appendix = original_benchmarks[0]
 
+    #If summaries are being saved on "training", summaries must be turned on under controller
+    if config["training"].get("save_summary", True):
+        if not config["controller"].get("summary", False):
+            print('WARNING: When config["training"]["save_summary"] is true or absent, config["controller"]["summary"] '
+                  'must be true. The summary recording will be turned on.')
+        config["controller"]["summary"] = True
+
     # set common paths
     paths = {}
     paths["log_dir"] = os.path.join(
@@ -301,7 +308,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
         log.analyze_log(
             show_count=config["postprocess"]["show_count"],
             show_hof=config["training"]["hof"] != None and config["training"]["hof"] > 0,
-            show_pf=config["training"]["pareto_front"],
+            show_pf=config["training"]["save_pareto_front"],
             save_plots=config["postprocess"]["save_plots"])
 
 
