@@ -42,7 +42,7 @@
       "baseline": "R_e",
       "b_jumpstart": false,
       "n_cores_batch": 1,
-      "summary": false,
+      "save_summary": false,
       "debug": 0,
       "output_file": null,
       "save_all_r": false,
@@ -53,7 +53,7 @@
       "warm_start": null,
       "memory_threshold": null,
       "save_positional_entropy": false,
-      "pareto_front": false,
+      "save_pareto_front": false,
       "save_cache": false
    },
    "controller": {

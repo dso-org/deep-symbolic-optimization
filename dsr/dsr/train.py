@@ -4,17 +4,16 @@ import os
 import multiprocessing
 import time
 from itertools import compress
-from datetime import datetime
 from collections import defaultdict
 
 import tensorflow as tf
-import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, get_duration, is_pareto_efficient, setup_output_files, weighted_quantile
+from dsr.utils import empirical_entropy, get_duration, weighted_quantile
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
+from train_stats import StatsLogger
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -29,11 +28,8 @@ def work(p):
     return optimized_constants, p.base_r
 
 
-def hof_work(p):
-    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
 
 # def sympy_work(p):
 #     sympy_expr = p.sympy_expr
@@ -44,10 +40,10 @@ def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
-          epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
+          epsilon=0.01, n_cores_batch=1, verbose=True, save_summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
+          save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           n_objects=1, save_cache=False, save_cache_r_min=0.9):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
@@ -108,7 +104,7 @@ def learn(sess, controller, pool, gp_controller,
     verbose : bool, optional
         Whether to print progress.
 
-    summary : bool, optional
+    save_summary : bool, optional
         Whether to write TensorFlow summaries.
 
     output_file : str, optional
@@ -142,7 +138,7 @@ def learn(sess, controller, pool, gp_controller,
         noisy data when you can't be certain of success solely based on reward.
         If False, only the top Program is evaluated each iteration.
 
-    pareto_front : bool, optional
+    save_pareto_front : bool, optional
         If True, compute and save the Pareto front at the end of training.
 
     debug : int, optional
@@ -193,18 +189,6 @@ def learn(sess, controller, pool, gp_controller,
 
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
-
-    # Create the summary writer
-    if summary:
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        summary_dir = os.path.join("summary", timestamp)
-        writer = tf.summary.FileWriter(summary_dir, sess.graph)
-
-    # Create log file
-    if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file, positional_entropy_output_file, cache_output_file = setup_output_files(logdir, output_file)
-    else:
-        all_r_output_file = hof_output_file = pf_output_file = positional_entropy_output_file = cache_output_file = None
 
     # TBD: REFACTOR
     # Set the complexity functions
@@ -270,7 +254,7 @@ def learn(sess, controller, pool, gp_controller,
         # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
         assert Program.library.const_token is None, \
             "Constant tokens not yet supported with stochastic Tasks."
-        assert not pareto_front, "Pareto front not supported with stochastic Tasks."
+        assert not save_pareto_front, "Pareto front not supported with stochastic Tasks."
     else:
         base_r_history = None
 
@@ -286,8 +270,10 @@ def learn(sess, controller, pool, gp_controller,
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
+    logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_r, hof, save_pareto_front,
+                         save_positional_entropy, save_cache, save_cache_r_min)
     nevals              = 0
-    program_val_log     = []
+    #program_val_log     = []
 
     start_time = time.time()
     print("\n-- START TRAINING -------------------")
@@ -394,18 +380,17 @@ def learn(sess, controller, pool, gp_controller,
                 else:
                     base_r_history[key] = [p.base_r]
 
-        # Collect full-batch statistics
+        # Store in variables the values for the whole batch (those variables will be modified below)
         base_r_max = np.max(base_r)
         base_r_best = max(base_r_max, base_r_best)
-        base_r_avg_full = np.mean(base_r)
+        base_r_full = base_r
+        r_full = r
+        l_full = l
+        s_full = s
+        actions_full = actions
+        invalid_full = invalid
         r_max = np.max(r)
         r_best = max(r_max, r_best)
-        r_avg_full = np.mean(r)
-        l_avg_full = np.mean(l)
-        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-        n_unique_full = len(set(s))
-        n_novel_full = len(set(s).difference(s_history))
-        invalid_avg_full = np.mean(invalid)
 
         '''
             Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
@@ -524,39 +509,6 @@ def learn(sess, controller, pool, gp_controller,
             ewma = np.mean(r_train) - quantile if ewma is None else alpha*(np.mean(r_train) - quantile) + (1 - alpha)*ewma
             b_train = quantile + ewma
 
-        # Collect sub-batch statistics and write output
-        if output_file is not None:
-            base_r_avg_sub = np.mean(base_r)
-            r_avg_sub = np.mean(r)
-            l_avg_sub = np.mean(l)
-            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-            n_unique_sub = len(set(s))
-            n_novel_sub = len(set(s).difference(s_history))
-            invalid_avg_sub = np.mean(invalid)
-            stats = np.array([[
-                         base_r_best,
-                         base_r_max,
-                         base_r_avg_full,
-                         base_r_avg_sub,
-                         r_best,
-                         r_max,
-                         r_avg_full,
-                         r_avg_sub,
-                         l_avg_full,
-                         l_avg_sub,
-                         ewma,
-                         n_unique_full,
-                         n_unique_sub,
-                         n_novel_full,
-                         n_novel_sub,
-                         a_ent_full,
-                         a_ent_sub,
-                         invalid_avg_full,
-                         invalid_avg_sub
-                         ]], dtype=np.float32)
-            with open(os.path.join(logdir, output_file), 'ab') as f:
-                np.savetxt(f, stats, delimiter=',')
-
         # Compute sequence lengths
         lengths = np.array([min(len(p.traversal), controller.max_length)
                             for p in p_train], dtype=np.int32)
@@ -574,9 +526,10 @@ def learn(sess, controller, pool, gp_controller,
 
         # Train the controller
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
-        if summary:
-            writer.add_summary(summaries, epoch)
-            writer.flush()
+
+        # Collect sub-batch statistics and write output
+        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
+                          invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history)
 
         # Update the memory queue
         if memory_queue is not None:
@@ -645,6 +598,8 @@ def learn(sess, controller, pool, gp_controller,
             print("\nParameter means after epoch {} of {}:".format(epoch+1, n_epochs))
             print_var_means()
 
+
+
         if run_gp_meld:
             if nevals > n_samples:
                 print("************************")
@@ -656,82 +611,11 @@ def learn(sess, controller, pool, gp_controller,
     print("-------------------------------------")
 
     print("\n-- PROCESSING RESULTS ---------------")
-    if save_all_r:
-        with open(all_r_output_file, 'ab') as f:
-            np.save(f, all_r)
 
-    if save_positional_entropy and positional_entropy_output_file is not None:
-        with open(positional_entropy_output_file, 'ab') as f:
-            np.save(f, positional_entropy)
-
-
-    # Save the hall of fame
-    if hof is not None and hof > 0:
-        # For stochastic Tasks, average each unique Program's base_r_history,
-        if Program.task.stochastic:
-
-            # Define a helper function to generate a Program from its tostring() value
-            def from_token_string(str_tokens, optimize):
-                tokens = np.fromstring(str_tokens, dtype=np.int32)
-                return from_tokens(tokens, optimize=optimize)
-
-            # Generate each unique Program and manually set its base_r to the average of its base_r_history
-            keys = base_r_history.keys() # str_tokens for each unique Program
-            vals = base_r_history.values() # base_r histories for each unique Program
-            programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
-            for p, base_r in zip(programs, vals):
-                p.base_r = np.mean(base_r)
-                p.count = len(base_r) # HACK
-                _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
-
-        # For deterministic Programs, just use the cache
-        else:
-            programs = list(Program.cache.values()) # All unique Programs found during training
-
-            """
-            NOTE: Equivalence class computation is too expensive.
-            Refactor later based on reward and/or semantics.
-            """
-            # # Filter out symbolically unique Programs. Assume N/A expressions are unique.
-            # if pool is not None:
-            #     results = pool.map(sympy_work, programs)
-            #     for p, result in zip(programs, results):
-            #         p.sympy_expr = result[0]
-            # else:
-            #     results = list(map(sympy_work, programs))
-            # str_sympy_exprs = [result[1] for result in results]
-            # unique_ids = np.unique(str_sympy_exprs, return_index=True)[1].tolist()
-            # na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
-            # programs = list(map(programs.__getitem__, unique_ids + na_ids))
-
-        base_r = [p.base_r for p in programs]
-        i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
-        hof = [programs[i] for i in i_hof]
-
-        if verbose:
-            print("Evaluating the hall of fame...")
-        if pool is not None:
-            results = pool.map(hof_work, hof)
-        else:
-            results = list(map(hof_work, hof))
-
-        eval_keys = list(results[0][-1].keys())
-        columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
-        hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
-        df = pd.DataFrame(hof_results, columns=columns)
-        if hof_output_file is not None:
-            print("Saving Hall of Fame to {}".format(hof_output_file))
-            df.to_csv(hof_output_file, header=True, index=False)
-
-    # Save cache
-    if save_cache and Program.cache:
-        print("Saving cache to {}".format(cache_output_file))
-        cache_data = [(repr(p), p.count, p.r) for p in Program.cache.values()]
-        df_cache = pd.DataFrame(cache_data)
-        df_cache.columns = ["str", "count", "r"]
-        if save_cache_r_min is not None:
-            df_cache = df_cache[df_cache["r"] >= save_cache_r_min]
-        df_cache.to_csv(cache_output_file, header=True, index=False)
+    if verbose:
+        print("Evaluating the hall of fame...")
+    #Save all results available only after all epochs are finished.
+    logger.save_results(all_r, positional_entropy, base_r_history, pool)
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -758,35 +642,6 @@ def learn(sess, controller, pool, gp_controller,
             print("\nPriority queue entry {}:".format(i))
             p = Program.cache[item[0]]
             p.print_stats()
-
-    # Compute the pareto front
-    if pareto_front:
-        if verbose:
-            print("Evaluating the pareto front...")
-        all_programs = list(Program.cache.values())
-        costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
-        pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
-        pf = list(compress(all_programs, pareto_efficient_mask))
-        pf.sort(key=lambda p : p.complexity_eureqa) # Sort by complexity
-
-        if pool is not None:
-            results = pool.map(pf_work, pf)
-        else:
-            results = list(map(pf_work, pf))
-
-        eval_keys = list(results[0][-1].keys())
-        columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
-        pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
-        df = pd.DataFrame(pf_results, columns=columns)
-        if pf_output_file is not None:
-            print("Saving Pareto Front to {}".format(pf_output_file))
-            df.to_csv(pf_output_file, header=True, index=False)
-
-        # Look for a success=True case within the Pareto front
-        for p in pf:
-            if p.evaluate.get("success"):
-                p_final = p
-                break
 
     # Close the pool
     if pool is not None:
