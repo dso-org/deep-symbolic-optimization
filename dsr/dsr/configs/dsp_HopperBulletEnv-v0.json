@@ -8,11 +8,14 @@
       "success_score": 99999999,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
    },
+   "postprocess" : {
+      "method" : "dsp"
+   },
    "training": {
       "n_samples": 64,
       "batch_size": 8,
       "complexity": "length",
       "n_cores_batch": 4,
-      "pareto_front" : false
+      "save_pareto_front" : false
    }
 }
