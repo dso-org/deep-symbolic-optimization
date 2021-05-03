@@ -45,7 +45,7 @@ def learn(sess, controller, pool, gp_controller,
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          n_objects=1, save_cache=False, save_cache_r_min=0.9):
+          n_objects=1, save_cache=False, save_cache_r_min=0.9, save_buffered=None):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
@@ -168,6 +168,12 @@ def learn(sess, controller, pool, gp_controller,
     save_cache_r_min : float or None
         If not None, only keep Programs with r >= r_min when saving cache.
 
+    save_buffered : int or None
+            If None, statistics per epoch are saved immediately after computed.
+            If an int number, the statistics will be kept in a buffer (in memory) and will be only saved in disk with
+            frequency defined by save_buffered (a zero or negative number means that the statistics will be kept in the
+            buffer until the training ends)
+
     Returns
     -------
     result : dict
@@ -271,7 +277,7 @@ def learn(sess, controller, pool, gp_controller,
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
     logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_r, hof, save_pareto_front,
-                         save_positional_entropy, save_cache, save_cache_r_min)
+                         save_positional_entropy, save_cache, save_cache_r_min, save_buffered)
     nevals              = 0
     #program_val_log     = []
 
