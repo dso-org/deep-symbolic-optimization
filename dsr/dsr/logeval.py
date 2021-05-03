@@ -5,6 +5,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 import click
+import glob
 import json
 import os
 import pandas as pd
@@ -57,7 +58,7 @@ class LogEval():
 
     def __init__(self,
                  log_path,
-                 config_file="config.json"):
+                 config_file=""):
         """Loads all files from log path."""
         # Prepare variable to store warnings when reading the log
         self.warnings = []
@@ -67,7 +68,15 @@ class LogEval():
         # define paths
         self.path = {}
         self.path["log"] = log_path
-        self.path["config"] = os.path.join(log_path, config_file)
+        if config_file == "":
+            # Look up available config files and take the first one
+            configs = glob.glob("{}/*config.json".format(log_path))
+            assert len(configs) > 0, "*** ERROR: No experiments found!"
+            if len(configs) > 1:
+                print("*** WARNING: Several experiments found, continuing using the first one:\n{}\n".format(configs))
+            self.path["config"] = configs[0]
+        else:
+            self.path["config"] = os.path.join(log_path, config_file)
         self.path["cmd"] = os.path.join(log_path, "cmd.out")
 
         # Get information about the command line arguments
@@ -84,7 +93,7 @@ class LogEval():
         self.pf_df = self._get_log(log_type="pf")
 
         if len(self.warnings) > 0:
-            print("### Experiment has warnings:")
+            print("*** WARNING:")
             [print("    --> {}".format(warning)) for warning in self.warnings]
 
     def _get_cmd(self):
