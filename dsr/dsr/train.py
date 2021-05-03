@@ -13,7 +13,7 @@ from dsr.program import Program, from_tokens
 from dsr.utils import empirical_entropy, get_duration, weighted_quantile
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
-from train_stats import StatsLogger
+from dsr.train_stats import StatsLogger
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -41,7 +41,7 @@ def learn(sess, controller, pool, gp_controller,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, save_summary=True,
-          output_file=None, save_all_r=False, baseline="ewma_R",
+          output_file=None, save_all_epoch=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
@@ -272,11 +272,11 @@ def learn(sess, controller, pool, gp_controller,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    all_r = np.zeros(shape=(n_epochs, all_r_size), dtype=np.float32)
+    all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
-    logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_r, hof, save_pareto_front,
+    logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_cache, save_cache_r_min, save_buffered)
     nevals              = 0
     #program_val_log     = []
@@ -366,7 +366,7 @@ def learn(sess, controller, pool, gp_controller,
         s           = [p.str for p in programs] # Str representations of Programs
         on_policy   = np.array([p.on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
-        all_r[epoch] = base_r
+        #all_r[epoch] = base_r
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -397,6 +397,8 @@ def learn(sess, controller, pool, gp_controller,
         invalid_full = invalid
         r_max = np.max(r)
         r_best = max(r_max, r_best)
+        traversals_full = [str(p.traversal) for p in programs]
+
 
         '''
             Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
@@ -534,8 +536,9 @@ def learn(sess, controller, pool, gp_controller,
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
-                          invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history)
+        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, traversals_full,  base_r, r,
+                          l, actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch,
+                          s_history)
 
         # Update the memory queue
         if memory_queue is not None:
@@ -589,11 +592,11 @@ def learn(sess, controller, pool, gp_controller,
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
-            all_r = all_r[:(epoch + 1)]
+            #all_r = all_r[:(epoch + 1)]
             print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
         if early_stopping and p_base_r_best.evaluate.get("success"):
-            all_r = all_r[:(epoch + 1)]
+            #all_r = all_r[:(epoch + 1)]
             print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
 
@@ -621,7 +624,7 @@ def learn(sess, controller, pool, gp_controller,
     if verbose:
         print("Evaluating the hall of fame...")
     #Save all results available only after all epochs are finished.
-    logger.save_results(all_r, positional_entropy, base_r_history, pool)
+    logger.save_results(positional_entropy, base_r_history, pool)
 
     # Print error statistics of the cache
     n_invalid = 0
