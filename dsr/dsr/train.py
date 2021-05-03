@@ -13,7 +13,7 @@ from dsr.program import Program, from_tokens
 from dsr.utils import empirical_entropy, get_duration, weighted_quantile
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
-from train_stats import StatsLogger
+from dsr.train_stats import StatsLogger
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
