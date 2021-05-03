@@ -14,7 +14,7 @@ import shutil
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
-    def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_r=False, hof=10,
+    def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_epoch=False, hof=10,
                  save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9, save_buffered = None):
         """"
         sess : tf.Session
@@ -29,8 +29,8 @@ class StatsLogger():
         output_file : str, optional
             Filename to write results for each iteration.
 
-        save_all_r : bool, optional
-            Whether to save all rewards for each iteration.
+        save_all_epoch : bool, optional
+            Whether to save statistics for all programs for each iteration.
 
         hof : int or None, optional
             Number of top Programs to evaluate after training.
@@ -57,12 +57,13 @@ class StatsLogger():
         self.logdir = logdir
         self.save_summary = save_summary
         self.output_file = output_file
-        self.save_all_r = save_all_r
+        self.save_all_epoch = save_all_epoch
         self.hof = hof
         self.save_pareto_front = save_pareto_front
         self.save_positional_entropy = save_positional_entropy
         self.save_cache = save_cache
         self.save_cache_r_min = save_cache_r_min
+        self.all_r = []   # save all R separately to keep backward compatibility with a generated file.
 
         if save_buffered is None:
             self.buffer_frequency = 1
@@ -73,6 +74,7 @@ class StatsLogger():
         #If the buffer will be needed, instantiates it
         if self.buffer_frequency != 1:
             self.buffer_epoch_stats = StringIO()
+            self.buffer_all_programs = StringIO()  #Buffer for the statistics for all programs.
 
         self.setup_output_files()
 
@@ -85,6 +87,7 @@ class StatsLogger():
             self.output_file = os.path.join(self.logdir, self.output_file)
             prefix, _ = os.path.splitext(self.output_file)
             self.all_r_output_file = "{}_all_r.npy".format(prefix)
+            self.all_info_output_file = "{}_all_info.csv".format(prefix)
             self.hof_output_file = "{}_hof.csv".format(prefix)
             self.pf_output_file = "{}_pf.csv".format(prefix)
             self.positional_entropy_output_file = "{}_positional_entropy.npy".format(prefix)
@@ -118,9 +121,25 @@ class StatsLogger():
                            "invalid_avg_full",
                            "invalid_avg_sub"]
                 f.write("{}\n".format(",".join(headers)))
+
+                if self.save_all_epoch:
+                    with open(self.all_info_output_file, 'w') as f:
+                        # epoch : The epoch in which this line was saved
+                        # base_r : reward for this program (before complexity)
+                        # r : reward for this program (after complexity)
+                        # l : length of the program
+                        # invalid : if the program is invalid
+                        # traversal : traversal of all programs
+                        headers = ["epoch",
+                                    "base_r",
+                                    "r",
+                                    "l",
+                                    "invalid",
+                                    "traversal"]
+                        f.write("{}\n".format(",".join(headers)))
         else:
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
-                self.cache_output_file = None
+                self.cache_output_file = self.all_info_output_file = None
         # Creates the summary writer
         if self.save_summary:
             timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -132,8 +151,8 @@ class StatsLogger():
         else:
             self.summary_writer = None
 
-    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
-                   invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
+    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, traversals_full, base_r, r, l,
+                   actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
         """
         Computes and saves all statistics that are computed for every time step. Depending on the value of
             self.buffer_frequency, the statistics might be instead saved in a buffer before going to disk.
@@ -144,6 +163,7 @@ class StatsLogger():
         :param actions_full: all actions sampled this step
         :param s_full: String representation of all programs sampled this step.
         :param invalid_full: boolean for all programs sampled showing if they are invalid
+        :param traversals_full: traversals for all programs
         :param base_r: base_r_full excluding programs not sent to the controller (keep variable)
         :param r: r_full excluding the ones where keep=false
         :param l: l_full excluding the ones where keep=false
@@ -197,44 +217,61 @@ class StatsLogger():
                 invalid_avg_full,
                 invalid_avg_sub
             ]], dtype=np.float32)
+            np.savetxt(self.buffer_epoch_stats, stats, delimiter=',')
+        if self.save_all_epoch:
+            all_epoch_stats = np.array([
+                              [epoch]*len(base_r_full),
+                              base_r_full,
+                              r_full,
+                              l_full,
+                              invalid_full,
+                              traversals_full
+                              ]).transpose()
+            df = pd.DataFrame(all_epoch_stats)
+            df.to_csv(self.all_info_output_file, mode='a', header=False, index=False)
 
-            # Check whether the buffer is needed
-            if self.buffer_frequency == 1:
-                with open(self.output_file, 'ab') as f:
-                    np.savetxt(f, stats, delimiter=',')
-                if self.summary_writer:
-                    self.summary_writer.flush()
-            else:
-                np.savetxt(self.buffer_epoch_stats, stats, delimiter=',')
 
-            # Should the buffer be saved now?
-            if self.buffer_frequency > 1 and (epoch + 1) % self.buffer_frequency == 0:
-                self.flush_buffer()
-                if self.summary_writer:
-                    self.summary_writer.flush()
+
 
         # summary writers have their own buffer
         if self.save_summary:
             self.summary_writer.add_summary(summaries, epoch)
 
+        # Should the buffer be saved now?
+        if self.buffer_frequency > 0 and (epoch + 1) % self.buffer_frequency == 0:
+            if self.output_file is not None:
+                self.flush_buffer(False)
+            if self.save_all_epoch:
+                self.flush_buffer(True)
+            if self.summary_writer:
+                self.summary_writer.flush()
+
+        #Backwards compatibility of all_r numpy file
+        if self.save_all_epoch:
+            self.all_r.append(base_r_full)
 
 
-    def save_results(self, all_r, positional_entropy, base_r_history, pool):
+
+    def save_results(self, positional_entropy, base_r_history, pool):
         """
         Saves stats that are available only after all epochs are finished
-        :param all_r: all rewards for all epochs
         :param positional_entropy: evolution of positional_entropy for all epochs
         :param base_r_history: reward for each unique program found during training
         :param pool: Pool used to parallelize reward computation
         """
-        # First of all, check if there is a pending buffer to be saved
-        if self.buffer_frequency != 1 and self.buffer_epoch_stats.getvalue():
-            self.flush_buffer()
-            if self.summary_writer:
-                self.summary_writer.flush()
+        # First of all, saves any pending buffer
+        if self.output_file is not None:
+            self.flush_buffer(False)
+        if self.save_all_epoch:
+            self.flush_buffer(True)
 
-        if self.save_all_r:
+        if self.summary_writer:
+            self.summary_writer.flush()
+
+        if self.save_all_epoch:
+            #Kept all_r numpy file for backwards compatibility.
             with open(self.all_r_output_file, 'ab') as f:
+                all_r = np.array(self.all_r)
                 np.save(f, all_r)
 
         if self.save_positional_entropy:
@@ -342,9 +379,20 @@ class StatsLogger():
                         p_final = p
                         break
 
-    def flush_buffer(self):
-        """write buffer to output file"""
-        with open(self.output_file, 'a') as f:
-            self.buffer_epoch_stats.seek(0)
-            shutil.copyfileobj(self.buffer_epoch_stats, f, -1)
-            self.buffer_epoch_stats = StringIO()  # clear buffer
+    def flush_buffer(self, all_info_buffer=False):
+        """write buffer to output file
+        @:param all_info_buffer: should self.buffer_epoch_stats (False) or self.buffer_all_programs (True) be flushed?
+
+        """
+        output = self.all_info_output_file if all_info_buffer else self.output_file
+        buffer = self.buffer_all_programs if all_info_buffer else self.buffer_epoch_stats
+
+        with open(output, 'a') as f:
+            buffer.seek(0)
+            shutil.copyfileobj(buffer, f, -1)
+
+        # clear buffer
+        if all_info_buffer:
+            self.all_info_output_file = StringIO()
+        else:
+            self.buffer_epoch_stats = StringIO()
