@@ -27,6 +27,7 @@ from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.logeval import LogEval
 from dsr.utils import safe_merge_dicts
+from dsr.configs import get_base_config
 
 
 def train_dsr(seeded_benchmark):
@@ -133,6 +134,8 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     """Get all indivual benchmarks and generate their respective configs."""
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
+        assert config["task"]["name"] is not None, "Task set to 'None' in config! Use the -b argument: python dsr.run config_file.json -b your_task"
+        print(config["task"]["name"])
         if isinstance(config["task"]["name"], str):
             benchmarks = (config["task"]["name"],)
         elif isinstance(config["task"]["name"], list):
@@ -232,13 +235,14 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
-def _load_config(config_template):
+def _load_config(config_template=""):
     # Load base config
-    with open("configs/base_config.json", encoding='utf-8') as f:
-        base_config = json.load(f)
-    # Load personalized config
-    with open(config_template, encoding='utf-8') as f:
-        personal_config = json.load(f)
+    base_config = get_base_config()
+    personal_config = {}
+    if config_template != "":
+        # Load personalized config
+        with open(config_template, encoding='utf-8') as f:
+            personal_config = json.load(f)
     # Combine configs
     config = safe_merge_dicts(base_config, personal_config)
     return config
@@ -246,7 +250,7 @@ def _load_config(config_template):
 
 
 @click.command()
-@click.argument('config_template', default="configs/base_config.json")
+@click.argument('config_template', default="")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
