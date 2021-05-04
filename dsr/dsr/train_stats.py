@@ -72,9 +72,8 @@ class StatsLogger():
         else:
             self.buffer_frequency = save_buffered
         #If the buffer will be needed, instantiates it
-        if self.buffer_frequency != 1:
-            self.buffer_epoch_stats = StringIO()
-            self.buffer_all_programs = StringIO()  #Buffer for the statistics for all programs.
+        self.buffer_epoch_stats = StringIO()
+        self.buffer_all_programs = StringIO()  #Buffer for the statistics for all programs.
 
         self.setup_output_files()
 
@@ -228,7 +227,7 @@ class StatsLogger():
                               traversals_full
                               ]).transpose()
             df = pd.DataFrame(all_epoch_stats)
-            df.to_csv(self.all_info_output_file, mode='a', header=False, index=False)
+            df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
 
 
 
@@ -238,7 +237,7 @@ class StatsLogger():
             self.summary_writer.add_summary(summaries, epoch)
 
         # Should the buffer be saved now?
-        if self.buffer_frequency > 0 and (epoch + 1) % self.buffer_frequency == 0:
+        if (epoch + 1) % self.buffer_frequency == 0:
             if self.output_file is not None:
                 self.flush_buffer(False)
             if self.save_all_epoch:
@@ -248,7 +247,7 @@ class StatsLogger():
 
         #Backwards compatibility of all_r numpy file
         if self.save_all_epoch:
-            self.all_r.append(base_r_full)
+            self.all_r.append(r_full)
 
 
 
@@ -271,7 +270,7 @@ class StatsLogger():
         if self.save_all_epoch:
             #Kept all_r numpy file for backwards compatibility.
             with open(self.all_r_output_file, 'ab') as f:
-                all_r = np.array(self.all_r)
+                all_r = np.array(self.all_r, dtype=np.float32)
                 np.save(f, all_r)
 
         if self.save_positional_entropy:
@@ -393,6 +392,6 @@ class StatsLogger():
 
         # clear buffer
         if all_info_buffer:
-            self.all_info_output_file = StringIO()
+            self.buffer_all_programs = StringIO()
         else:
             self.buffer_epoch_stats = StringIO()
