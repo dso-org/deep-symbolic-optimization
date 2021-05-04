@@ -368,7 +368,6 @@ def learn(sess, controller, pool, gp_controller,
         s           = [p.str for p in programs] # Str representations of Programs
         on_policy   = np.array([p.on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
-        #all_r[epoch] = base_r
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -597,11 +596,9 @@ def learn(sess, controller, pool, gp_controller,
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
-            #all_r = all_r[:(epoch + 1)]
             print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
         if early_stopping and p_base_r_best.evaluate.get("success"):
-            #all_r = all_r[:(epoch + 1)]
             print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
 

@@ -15,7 +15,8 @@ class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
     def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_epoch=False, hof=10,
-                 save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9, save_buffered = None):
+                 save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9,
+                 save_buffered = None):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
@@ -71,8 +72,8 @@ class StatsLogger():
             self.buffer_frequency = float('inf')
         else:
             self.buffer_frequency = save_buffered
-        #If the buffer will be needed, instantiates it
-        self.buffer_epoch_stats = StringIO()
+
+        self.buffer_epoch_stats = StringIO() #Buffer for epoch statistics
         self.buffer_all_programs = StringIO()  #Buffer for the statistics for all programs.
 
         self.setup_output_files()
@@ -100,6 +101,8 @@ class StatsLogger():
                 # n_novel_* : Number of never-before-seen Programs per batch
                 # a_ent_* : Empirical positional entropy across sequences averaged over positions
                 # invalid_avg_* : Fraction of invalid Programs per batch
+                # baseline: Baseline value used for training
+                # time: time used to learn in this epoch (in seconds)
                 headers = ["base_r_best",
                            "base_r_max",
                            "base_r_avg_full",
@@ -235,9 +238,6 @@ class StatsLogger():
                               ]).transpose()
             df = pd.DataFrame(all_epoch_stats)
             df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
-
-
-
 
         # summary writers have their own buffer
         if self.save_summary:
