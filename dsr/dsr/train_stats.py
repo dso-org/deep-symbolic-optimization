@@ -118,7 +118,9 @@ class StatsLogger():
                            "a_ent_full",
                            "a_ent_sub",
                            "invalid_avg_full",
-                           "invalid_avg_sub"]
+                           "invalid_avg_sub",
+                           "baseline",
+                           "time"]
                 f.write("{}\n".format(",".join(headers)))
 
                 if self.save_all_epoch:
@@ -151,7 +153,8 @@ class StatsLogger():
             self.summary_writer = None
 
     def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, traversals_full, base_r, r, l,
-                   actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
+                   actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history,
+                   baseline, epoch_walltime):
         """
         Computes and saves all statistics that are computed for every time step. Depending on the value of
             self.buffer_frequency, the statistics might be instead saved in a buffer before going to disk.
@@ -177,6 +180,8 @@ class StatsLogger():
         :param summaries: Sumarries returned by the Controller this step
         :param epoch: This epoch id
         :param s_history: all programs ever seen in string format.
+        :param baseline: baseline value used for training
+        :param epoch_walltime: time taken to process this epoch
         """
         if self.output_file is not None:
             base_r_avg_full = np.mean(base_r_full)
@@ -214,7 +219,9 @@ class StatsLogger():
                 a_ent_full,
                 a_ent_sub,
                 invalid_avg_full,
-                invalid_avg_sub
+                invalid_avg_sub,
+                baseline,
+                epoch_walltime
             ]], dtype=np.float32)
             np.savetxt(self.buffer_epoch_stats, stats, delimiter=',')
         if self.save_all_epoch:

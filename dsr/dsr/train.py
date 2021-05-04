@@ -285,6 +285,8 @@ def learn(sess, controller, pool, gp_controller,
     print("\n-- START TRAINING -------------------")
     for epoch in range(n_epochs):
 
+        epoch_start_time = time.time()
+
         if gp_verbose:
             print("************************************************************************")
             print("EPOCH {}".format(epoch))
@@ -535,10 +537,13 @@ def learn(sess, controller, pool, gp_controller,
         # Train the controller
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
 
+        #wall time calculation for the epoch
+        epoch_walltime = time.time() - epoch_start_time
+
         # Collect sub-batch statistics and write output
         logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, traversals_full,  base_r, r,
                           l, actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch,
-                          s_history)
+                          s_history, b_train, epoch_walltime)
 
         # Update the memory queue
         if memory_queue is not None:
