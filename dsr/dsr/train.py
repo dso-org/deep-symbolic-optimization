@@ -45,7 +45,7 @@ def learn(sess, controller, pool, gp_controller,
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          n_objects=1, save_cache=False, save_cache_r_min=0.9, save_buffered=None):
+          n_objects=1, save_cache=False, save_cache_r_min=0.9, save_freq=None):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
 
 
@@ -168,11 +168,8 @@ def learn(sess, controller, pool, gp_controller,
     save_cache_r_min : float or None
         If not None, only keep Programs with r >= r_min when saving cache.
 
-    save_buffered : int or None
-            If None, statistics per epoch are saved immediately after computed.
-            If an int number, the statistics will be kept in a buffer (in memory) and will be only saved in disk with
-            frequency defined by save_buffered (a zero or negative number means that the statistics will be kept in the
-            buffer until the training ends)
+    save_freq : int or None
+            Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
 
     Returns
     -------
@@ -277,7 +274,7 @@ def learn(sess, controller, pool, gp_controller,
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
     logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
-                         save_positional_entropy, save_cache, save_cache_r_min, save_buffered)
+                         save_positional_entropy, save_cache, save_cache_r_min, save_freq)
     nevals              = 0
     #program_val_log     = []
 
@@ -398,7 +395,6 @@ def learn(sess, controller, pool, gp_controller,
         invalid_full = invalid
         r_max = np.max(r)
         r_best = max(r_max, r_best)
-        traversals_full = [str(p.traversal) for p in programs]
 
 
         '''
@@ -540,7 +536,7 @@ def learn(sess, controller, pool, gp_controller,
         epoch_walltime = time.time() - epoch_start_time
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, traversals_full,  base_r, r,
+        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r,
                           l, actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch,
                           s_history, b_train, epoch_walltime)
 

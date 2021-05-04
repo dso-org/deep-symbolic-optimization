@@ -16,7 +16,7 @@ class StatsLogger():
 
     def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_epoch=False, hof=10,
                  save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9,
-                 save_buffered = None):
+                 save_freq = None):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
@@ -48,11 +48,8 @@ class StatsLogger():
         save_cache_r_min : float or None
             If not None, only keep Programs with r >= r_min when saving cache.
 
-        save_buffered : int or None
-            If None, statistics per epoch are saved immediately after computed.
-            If an int number, the statistics will be kept in a buffer (in memory) and will be only saved in disk with
-            frequency defined by save_buffered (a zero or negative number means that the statistics will be kept in the
-            buffer until the training ends)
+        save_freq : int or None
+            Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
         """
         self.sess = sess
         self.logdir = logdir
@@ -66,12 +63,12 @@ class StatsLogger():
         self.save_cache_r_min = save_cache_r_min
         self.all_r = []   # save all R separately to keep backward compatibility with a generated file.
 
-        if save_buffered is None:
+        if save_freq is None:
             self.buffer_frequency = 1
-        elif save_buffered < 1:
+        elif save_freq < 1:
             self.buffer_frequency = float('inf')
         else:
-            self.buffer_frequency = save_buffered
+            self.buffer_frequency = save_freq
 
         self.buffer_epoch_stats = StringIO() #Buffer for epoch statistics
         self.buffer_all_programs = StringIO()  #Buffer for the statistics for all programs.
@@ -133,13 +130,11 @@ class StatsLogger():
                         # r : reward for this program (after complexity)
                         # l : length of the program
                         # invalid : if the program is invalid
-                        # traversal : traversal of all programs
                         headers = ["epoch",
                                     "base_r",
                                     "r",
                                     "l",
-                                    "invalid",
-                                    "traversal"]
+                                    "invalid"]
                         f.write("{}\n".format(",".join(headers)))
         else:
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
@@ -155,7 +150,7 @@ class StatsLogger():
         else:
             self.summary_writer = None
 
-    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, traversals_full, base_r, r, l,
+    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l,
                    actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history,
                    baseline, epoch_walltime):
         """
@@ -168,7 +163,6 @@ class StatsLogger():
         :param actions_full: all actions sampled this step
         :param s_full: String representation of all programs sampled this step.
         :param invalid_full: boolean for all programs sampled showing if they are invalid
-        :param traversals_full: traversals for all programs
         :param base_r: base_r_full excluding programs not sent to the controller (keep variable)
         :param r: r_full excluding the ones where keep=false
         :param l: l_full excluding the ones where keep=false
@@ -233,8 +227,7 @@ class StatsLogger():
                               base_r_full,
                               r_full,
                               l_full,
-                              invalid_full,
-                              traversals_full
+                              invalid_full
                               ]).transpose()
             df = pd.DataFrame(all_epoch_stats)
             df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
