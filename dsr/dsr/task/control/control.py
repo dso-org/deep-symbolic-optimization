@@ -159,9 +159,9 @@ class pool_wrapper:
 
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
-    anchor=None, n_episodes_slice=None, n_episodes_train=5, n_episodes_validate=100, n_episodes_long_validate=1000, n_episodes_test=1000, 
-    success_score=None, stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0, do_validate=False, do_long_validate=False, long_validation_finalists=3, slice_optimize_stat="min"):
+                      anchor=None, n_episodes_train=5, n_episodes_test=1000,
+                      success_score=None, stochastic=True, protected=False,
+                      env_kwargs=None, fix_seeds=False, episode_seed_shift=0):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -240,7 +240,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     model                   = create_model(action_spec, algorithm, anchor, anchor_path=None)
     gym_pool                = pool_wrapper()
-    #val_extra_seed_shift    = 0
 
     # Generate symbolic policies and determine action dimension
     symbolic_actions, action_dim    = create_symbolic_actions(action_spec)
@@ -293,34 +292,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         
         return r_avg
 
-    def validate(p):
-
-        # Use new seeds never in reward
-        # Add in a random number so we are not ALWAYS using the same seed numbers. Only evaluate should do this. 
-        extra_seed_shift    = n_episodes_train + random.randint(0,1e9)
-
-        # Run the episodes
-        r_episodes          = par_run_episodes(p, n_episodes_validate, evaluate=False, extra_seed_shift=extra_seed_shift)
-
-        # Compute val statistics
-        v_r_avg = np.mean(r_episodes)
-
-        return v_r_avg
-    
-    def long_validate(p):
-
-        # Use new seeds never in reward or short validate
-        # Add in a random number so we are not ALWAYS using the same seed numbers. Only evaluate should do this. 
-        extra_seed_shift    = n_episodes_train + n_episodes_validate + int(1e9) + random.randint(0,1e9)
-
-        # Run the episodes        
-        r_episodes          = par_run_episodes(p, n_episodes_long_validate, evaluate=False, extra_seed_shift=extra_seed_shift)
-        
-        # Compute val statistics
-        lv_r_avg = np.mean(r_episodes)
-
-        return lv_r_avg
-
     def evaluate(p):
 
         # Run the episodes
@@ -340,16 +311,11 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         return info
 
     extra_info = {
-        "symbolic_actions"          : symbolic_actions,
-        "do_validate"               : do_validate,
-        "do_long_validate"          : do_long_validate,
-        "long_validation_finalists" : long_validation_finalists
+        "symbolic_actions" : symbolic_actions,
     }
     
 
     task = dsr.task.Task(reward_function=reward,
-                         validate_function=validate,
-                         long_validate_function=long_validate,
                          evaluate=evaluate,
                          library=library,
                          stochastic=stochastic,
