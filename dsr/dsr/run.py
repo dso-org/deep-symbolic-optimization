@@ -134,7 +134,7 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     """Get all indivual benchmarks and generate their respective configs."""
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
-        assert config["task"]["name"] is not None, "Task set to 'None' in config! Use the -b argument: python dsr.run config_file.json -b your_task"
+        assert config["task"]["name"] is not None, "Task set to 'None' in config! Use the --b argument: python dsr.run config_file.json --b your_task"
         print(config["task"]["name"])
         if isinstance(config["task"]["name"], str):
             benchmarks = (config["task"]["name"],)
