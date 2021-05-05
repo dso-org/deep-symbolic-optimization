@@ -215,7 +215,6 @@ def learn(sess, controller, pool, gp_controller,
 
     if gp_controller is not None:
         run_gp_meld                 = True
-        gp_verbose                  = gp_controller.verbose
         if gp_controller.train_n:
             all_r_size              = batch_size + gp_controller.train_n
         else:
@@ -224,7 +223,6 @@ def learn(sess, controller, pool, gp_controller,
     else:
         gp_controller               = None
         run_gp_meld                 = False                         
-        gp_verbose                  = False
     
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -331,11 +329,6 @@ def learn(sess, controller, pool, gp_controller,
 
     for step in range(n_epochs):
 
-        if gp_verbose:
-            print("************************************************************************")
-            print("STEP {}".format(step))
-            print("************************")
-
         # Set of str representations for all Programs ever seen
         s_history = set(base_r_history.keys() if Program.task.stochastic else Program.cache.keys())
 
@@ -358,15 +351,6 @@ def learn(sess, controller, pool, gp_controller,
             
             nevals += gp_controller.nevals
             
-            if gp_verbose:           
-                print("************************")
-                print("Number of Evaluations: {}".format(nevals))
-                print("Returned {} Prograns".format(len(deap_programs)))
-                print("************************")
-                print("Best New Deap Program:")
-                deap_programs[0].print_stats()
-                print("************************")
-                                               
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
             programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
@@ -511,8 +495,6 @@ def learn(sess, controller, pool, gp_controller,
             
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not gp_controller.return_gp_obs:
-                if gp_verbose:
-                    print("GP solutions NOT returned to controller")
                 '''
                     If we are not returning the GP components to the controller, we will remove them from
                     r_train and p_train by augmenting 'keep'. We just chop off the GP elements which are indexed
@@ -533,8 +515,6 @@ def learn(sess, controller, pool, gp_controller,
                 r                   = _r
                 programs            = _p
             else:
-                if run_gp_meld and gp_verbose:
-                    print("Up to {} GP solutions returned to controller".format(gp_controller.train_n))
                 '''
                     Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
                 '''
@@ -551,8 +531,6 @@ def learn(sess, controller, pool, gp_controller,
 
         # For things like the control task, we can run the epsilon subset a little more to get a better estimate of r
         if "do_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_validate"]:
-            if gp_verbose:
-                print("Validating {} Rewards".format(len(programs)))
   
             base_r          = [p.base_validate  for p in programs] # base_r Needs to be done before r
             r               = [p.validate       for p in programs]
@@ -574,15 +552,6 @@ def learn(sess, controller, pool, gp_controller,
         r       = np.clip(r,        -1e6, 1e6)
         r_train = np.clip(r_train,  -1e6, 1e6)
         
-        # Optionally, we can reduce the strength of the GP sample rewards so they are more in line with RL
-        if gp_verbose:            
-            print("initial Samples: {}".format(initial_pop))
-            print("Training Samples: {}".format(len(p_train)))
-            print("Quantile: {}".format(quantile))
-
-            policy_stats(p_train, is_on_policy=True)
-            policy_stats(p_train, is_on_policy=False)
-            
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
@@ -711,20 +680,6 @@ def learn(sess, controller, pool, gp_controller,
             
         prev_r_best = r_best
         prev_base_r_best = base_r_best
-
-        if gp_verbose:
-            print("************************")
-            print("Best step Program:")
-            programs[np.argmax(base_r)].print_stats()
-            print("************************")
-            print("All time best Program:")
-            p_base_r_best.print_stats(print_test=True)
-            print("************************")
-            if "do_long_validate" in programs[0].task.extra_info:
-                print("All time best Evaluation:")
-                p_base_eval_best.print_stats(print_test=True)
-                print("************************")
-        # Print new best expression
 
         if verbose:
             def print_best(cond, new_best, new_base_best, p_best, p_base_best):
