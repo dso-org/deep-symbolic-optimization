@@ -613,42 +613,6 @@ class Program(object):
             warnings.simplefilter("ignore")
             
             return self.base_r - self.complexity
-
-    @cached_property
-    def base_validate(self):
-        """Evaluates and returns the base reward of the program on the training
-        set"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            
-            return self.task.validate_function(self)
-
-    @cached_property
-    def validate(self):
-        """Evaluates and returns the reward of the program on the training
-        set"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            
-            return self.base_validate - self.complexity
-        
-    @cached_property
-    def base_long_validate(self):
-        """Evaluates and returns the base reward of the program on the training
-        set"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-     
-            return self.task.long_validate_function(self)
-
-    @cached_property
-    def long_validate(self):
-        """Evaluates and returns the reward of the program on the training
-        set"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            
-            return self.base_long_validate - self.complexity
                 
     @cached_property
     def evaluate(self):

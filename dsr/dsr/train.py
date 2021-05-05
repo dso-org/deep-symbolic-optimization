@@ -35,50 +35,6 @@ def hof_work(p):
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-# This is probably better to use an internal pool since we have so
-# few p left here. 
-def long_validate_and_get_best_p(r, programs, is_base):
-    
-    # How many finalists will we test?
-    lvf         = programs[0].task.extra_info["long_validation_finalists"]
-    # Gives us the N maximum r values
-    r_ind       = np.argpartition(r, -lvf)[-lvf:]
-    # Translate from list by index values
-    p_finals    = itemgetter(*r_ind)(programs)
-    # Do a long validation on the N finalists
-    # Unless you are doing something that makes r and base_r
-    # different, these are identical and once you have computed one,
-    # the other is free. 
-    if is_base:
-        r_finals    = [p.base_long_validate for p in p_finals]
-    else:
-        r_finals    = [p.long_validate for p in p_finals]   
-
-    # pick the finalist with the best long validation
-    p_best      = programs[r_ind[np.argmax(r_finals)]] 
-        
-    return p_best
-
-
-def policy_stats(p_train, is_on_policy):
-    
-    # Show on v off policy stats over programs
-    if is_on_policy:
-        pr          = [p.validate       for p in p_train if p.on_policy]
-        ps          = "on"
-    else:
-        pr          = [p.validate       for p in p_train if not p.on_policy]
-        ps          = "off"
-        
-    pr_N = len(pr)
-    
-    if pr_N > 0:
-        policy_r    = np.array(pr)
-        max_pr      = np.amax(policy_r)
-        min_pr      = np.amin(policy_r)
-        mean_pr     = np.mean(policy_r)
-        print("Max {} policy R {} Min {} Mean {} N {}".format(ps, max_pr, min_pr, mean_pr, pr_N))
-
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -90,7 +46,6 @@ def learn(sess, controller, pool, gp_controller,
           pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False, n_objects=1):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
-
 
     """
     Executes the main training loop.
@@ -408,10 +363,10 @@ def learn(sess, controller, pool, gp_controller,
 
         # Collect full-batch statistics
         base_r_max = np.max(base_r)
-        all_base_r_best = max(base_r_max, base_r_best)
+        base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
         r_max = np.max(r)
-        all_r_best = max(r_max, r_best)
+        r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
@@ -508,25 +463,6 @@ def learn(sess, controller, pool, gp_controller,
             obs         = [o[keep, :] for o in obs]
             priors      = priors[keep, :, :]
             on_policy   = on_policy[keep]
-
-        # For things like the control task, we can run the epsilon subset a little more to get a better estimate of r
-        if "do_validate" in programs[0].task.extra_info and programs[0].task.extra_info["do_validate"]:
-  
-            base_r          = [p.base_validate  for p in programs] # base_r Needs to be done before r
-            r               = [p.validate       for p in programs]
-            r_train         = [p.validate       for p in p_train]
-
-            base_r_max      = np.max(base_r)
-            base_r_best     = max(base_r_max, base_r_best)
-            base_r_avg_full = np.mean(base_r)
-            # The best are only taken from samples that have been validated
-            r_max           = np.max(r)
-            r_best          = max(r_max, r_best)
-        else:
-            # The best are taken from all samples created this step
-            base_r_best     = all_base_r_best
-            r_best          = all_r_best
-            
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r       = np.clip(r,        -1e6, 1e6)
@@ -652,9 +588,6 @@ def learn(sess, controller, pool, gp_controller,
             all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
             break
-
-        if verbose and step > 0 and step % 10 == 0:
-            print("Completed {} steps".format(step))
 
         if debug >= 2:
             print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
