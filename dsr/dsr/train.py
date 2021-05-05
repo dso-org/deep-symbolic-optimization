@@ -320,12 +320,9 @@ def learn(sess, controller, pool, gp_controller,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-        
     all_r = np.zeros(shape=(n_epochs, all_r_size), dtype=np.float32)
-    
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
-    
-    nevals              = 0
+    nevals = 0 # Total number of sampled expressions (from RL or GP)
 
     for step in range(n_epochs):
 
@@ -337,18 +334,11 @@ def learn(sess, controller, pool, gp_controller,
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors = controller.sample(batch_size)
-        
         nevals += batch_size
 
         if run_gp_meld:
-            '''
-                Given the set of 'actions' we have so far, we will use them as a prior seed into 
-                the GP controller. It will take care of conversion to its own population data
-                structures. It will return programs, observations, actions that are compat with 
-                the current way we do things in train.py.
-            '''            
+            # Run GP seeded with the current batch, returning elite samples
             deap_programs, deap_actions, deap_obs, deap_priors = gp_controller(actions)
-            
             nevals += gp_controller.nevals
             
         # Instantiate, optimize, and evaluate expressions
@@ -383,12 +373,7 @@ def learn(sess, controller, pool, gp_controller,
             actions     = np.append(actions, deap_actions, axis=0) 
             priors      = np.append(priors, deap_priors, axis=0)
 
-        initial_pop     = len(programs)
         # Retrieve metrics
-        '''
-            base_r:   is the reward regardless of complexity penalty.
-            r:        is reward with complexity subtracted. Note, if complexity_weight is 0 in the config, base_r = r
-        '''
         base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
         r_train     = r
@@ -433,16 +418,11 @@ def learn(sess, controller, pool, gp_controller,
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
-        
-        '''
-            Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
-            Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
-        
-            GP Integration note:
-            
-            For the moment, GP samples get added on top of the epsilon samples making it slightly larger. 
-            This will be changed in the future when we integrate off policy support.
-        '''
+
+        """
+        Apply risk-seeking policy gradient: compute the empirical quantile of
+        rewards and filter out programs with lesser reward.
+        """
         if epsilon is not None and epsilon < 1.0:
             # Compute reward quantile estimate
             if use_memory: # Memory-augmented quantile
@@ -738,9 +718,7 @@ def learn(sess, controller, pool, gp_controller,
         with open(positional_entropy_output_file, 'ab') as f:
             np.save(f, positional_entropy)
 
-    
     # Save the hall of fame
-    
     if hof is not None and hof > 0:
         # For stochastic Tasks, average each unique Program's base_r_history,
         if Program.task.stochastic:
@@ -759,7 +737,6 @@ def learn(sess, controller, pool, gp_controller,
                 p.count = len(base_r) # HACK
                 _ = p.r # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
 
-        
         # For deterministic Programs, just use the cache
         else:
             programs = list(Program.cache.values()) # All unique Programs found during training
