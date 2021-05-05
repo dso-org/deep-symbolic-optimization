@@ -660,6 +660,9 @@ def learn(sess, controller, pool, gp_controller,
             print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
             print_var_means()
 
+        if nevals >= n_samples:
+            break
+
     if save_all_r:
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
