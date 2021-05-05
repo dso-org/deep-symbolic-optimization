@@ -27,7 +27,7 @@ from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.logeval import LogEval
 from dsr.utils import safe_merge_dicts
-from dsr.configs import get_base_config
+from dsr.config import get_base_config
 
 
 def train_dsr(seeded_benchmark):
