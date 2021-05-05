@@ -58,7 +58,7 @@ class LogEval():
 
     def __init__(self,
                  log_path,
-                 config_file=""):
+                 config_file=None):
         """Loads all files from log path."""
         # Prepare variable to store warnings when reading the log
         self.warnings = []
@@ -68,7 +68,7 @@ class LogEval():
         # define paths
         self.path = {}
         self.path["log"] = log_path
-        if config_file == "":
+        if config_file is None:
             # Look up available config files and take the first one
             configs = glob.glob("{}/*config.json".format(log_path))
             assert len(configs) > 0, "*** ERROR: No experiments found!"
