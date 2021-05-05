@@ -31,7 +31,7 @@
       "logdir": "./log",
       "n_epochs": null,
       "n_samples": 2000000,
-      "batch_size": 10,
+      "batch_size": 1000,
       "complexity": "length",
       "complexity_weight": 0.0,
       "const_optimizer": "scipy",
