@@ -99,6 +99,3 @@ class RunOneStepAlgorithm:
     def set_population(self, population):
 
         self.population = population
-
-        if self.verbose:
-            print('Population Size {}'.format(len(self.population)))
