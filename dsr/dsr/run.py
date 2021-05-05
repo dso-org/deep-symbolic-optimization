@@ -235,11 +235,11 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
-def _load_config(config_template=""):
+def _load_config(config_template):
     # Load base config
     base_config = get_base_config()
     personal_config = {}
-    if config_template != "":
+    if config_template is not None:
         # Load personalized config
         with open(config_template, encoding='utf-8') as f:
             personal_config = json.load(f)
@@ -261,6 +261,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
     # Load the experiment config
+    config_template = config_template if config_template != "" else None
     config = _load_config(config_template)
 
     # Load all benchmarks
