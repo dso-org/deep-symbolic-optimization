@@ -10,7 +10,6 @@ from itertools import compress
 from io import StringIO
 import shutil
 
-
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
@@ -316,8 +315,6 @@ class StatsLogger():
                 # na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
                 # programs = list(map(programs.__getitem__, unique_ids + na_ids))
 
-            def hof_work(p):
-                return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
             base_r = [p.base_r for p in programs]
             i_hof = np.argsort(base_r)[-self.hof:][::-1]  # Indices of top hof Programs
@@ -349,8 +346,6 @@ class StatsLogger():
 
             # Compute the pareto front
             if self.save_pareto_front:
-                def pf_work(p):
-                    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
                 #if verbose:
                 #    print("Evaluating the pareto front...")
                 all_programs = list(Program.cache.values())
@@ -395,3 +390,10 @@ class StatsLogger():
             self.buffer_all_programs = StringIO()
         else:
             self.buffer_epoch_stats = StringIO()
+
+#Those functions have to be defined outside the class, otherwise it results in an error in pool.map
+def hof_work(p):
+    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+def pf_work(p):
+    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
