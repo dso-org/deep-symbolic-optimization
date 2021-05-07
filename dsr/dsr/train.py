@@ -667,5 +667,8 @@ def learn(sess, controller, pool, gp_controller,
         "traversal" : repr(p),
         "program" : p
         })
+    result['n_epochs'] = epoch
+    result['n_samples'] = nevals
+    result['n_cached'] = len(Program.cache)
 
     return result
