@@ -168,7 +168,7 @@ class Prior():
     def describe(self):
         """Describe the Prior."""
 
-        return "{}: No description.".format(self.__class__.__name__)
+        return "{}: No description available.".format(self.__class__.__name__)
 
 
 class Constraint(Prior):
@@ -409,13 +409,13 @@ class RepeatConstraint(Constraint):
 
         Prior.__init__(self, library)
         assert min_ is not None or max_ is not None, \
-            "At least one of (min_, max_) must not be None."
+            "{}: At least one of (min_, max_) must not be None.".format(self.__class__.__name__)
         self.min = min_
         self.max = max_
         self.tokens = library.actionize(tokens)
 
-        assert min_ is None, "Repeat minimum constraints are not yet " \
-            "supported. This requires knowledge of length constraints."
+        assert min_ is None, "{}: Repeat minimum constraints are not yet " \
+            "supported. This requires knowledge of length constraints.".format(self.__class__.__name__)
 
     def __call__(self, actions, parent, sibling, dangling):
         counts = np.sum(np.isin(actions, self.tokens), axis=1)
@@ -527,6 +527,11 @@ class UniformArityPrior(Prior):
         # This will be broadcast when added to the joint prior
         prior = self.logit_adjust
         return prior
+
+    def describe(self):
+        """Describe the Prior."""
+
+        return "{}: Activated.".format(self.__class__.__name__)
 
 
 class SoftLengthPrior(Prior):
