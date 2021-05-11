@@ -35,12 +35,16 @@ def make_prior(library, config_prior):
 
             # Attempt to build the Prior. Any Prior can fail if it references a
             # Token not in the Library.
-            try:
-                prior = prior_class(library, **single_prior_args)
-                warning = prior.validate()
-            except TokenNotFoundError:
+            if single_prior_args.pop('on', False):
+                try:
+                    prior = prior_class(library, **single_prior_args)
+                    warning = prior.validate()
+                except TokenNotFoundError:
+                    prior = None
+                    warning = "Uses Tokens not in the Library."
+            else:
                 prior = None
-                warning = "Uses Tokens not in the Library."
+                warning = "Prior disabled."
 
             # Add warning context
             if warning is not None:
@@ -164,8 +168,7 @@ class Prior():
     def describe(self):
         """Describe the Prior."""
 
-        message = "No description."
-        return message
+        return "{}: No description.".format(self.__class__.__name__)
 
 
 class Constraint(Prior):
@@ -292,8 +295,8 @@ class RelationalConstraint(Constraint):
             "descendant" : "a descendant",
             "uchild" : "the only unique child"
         }[self.relationship]
-        message = "[{}] cannot be {} of [{}]." \
-                  .format(targets, relationship, effectors)
+        message = "{}: [{}] cannot be {} of [{}]." \
+                  .format(self.__class__.__name__, targets, relationship, effectors)
         return message
 
 
@@ -350,7 +353,7 @@ class NoInputsConstraint(Constraint):
         return prior
 
     def describe(self):
-        message = "Sequences contain at least one input variable Token."
+        message = "{}: Sequences contain at least one input variable Token.".format(self.__class__.__name__)
         return message
 
 
@@ -383,7 +386,7 @@ class InverseUnaryConstraint(Constraint):
 
     def describe(self):
         message = [prior.describe() for prior in self.priors]
-        return "\n".join(message)
+        return "\n{}: ".format(self.__class__.__name__).join(message)
 
 
 class RepeatConstraint(Constraint):
@@ -427,14 +430,14 @@ class RepeatConstraint(Constraint):
     def describe(self):
         names = ", ".join([self.library.names[t] for t in self.tokens])
         if self.min is None:
-            message = "[{}] cannot occur more than {} times."\
-                .format(names, self.max)
+            message = "{}: [{}] cannot occur more than {} times."\
+                .format(self.__class__.__name__, names, self.max)
         elif self.max is None:
-            message = "[{}] must occur at least {} times."\
-                .format(names, self.min)
+            message = "{}: [{}] must occur at least {} times."\
+                .format(self.__class__.__name__, names, self.min)
         else:
-            message = "[{}] must occur between {} and {} times."\
-                .format(names, self.min, self.max)
+            message = "{}: [{}] must occur between {} and {} times."\
+                .format(self.__class__.__name__, names, self.min, self.max)
         return message
 
 
@@ -493,9 +496,9 @@ class LengthConstraint(Constraint):
     def describe(self):
         message = []
         if self.min is not None:
-            message.append("Sequences have minimum length {}.".format(self.min))
+            message.append("{}: Sequences have minimum length {}.".format(self.__class__.__name__, self.min))
         if self.max is not None:
-            message.append("Sequences have maximum length {}.".format(self.max))
+            message.append("{}: Sequences have maximum length {}.".format(self.__class__.__name__, self.max))
         message = "\n".join(message)
         return message
 
@@ -562,6 +565,12 @@ class SoftLengthPrior(Prior):
 
         return prior
 
+    def validate(self):
+        if self.loc is None or self.scale is None:
+            message = "'scale' and 'loc' arguments must be specified!"
+            return message
+        return None
+
 
 class LanguageModelPrior(Prior):
     """Class that applies a prior based on a pre-trained language model."""
@@ -592,3 +601,9 @@ class LanguageModelPrior(Prior):
         prior *= self.weight
 
         return prior
+
+    def validate(self):
+        if self.weight is None:
+            message = "Need to specify language model arguments."
+            return message
+        return None

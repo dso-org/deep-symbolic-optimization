@@ -25,11 +25,47 @@
       "save_plots" : true
    },
    "prior": {
-      "length" : {"min_" : 4, "max_" : 30},
-      "repeat" : {"tokens" : "const", "max_" : 3},
-      "inverse" : {},
-      "trig" : {},
-      "const" : {}
+      "relational" : {
+         "targets" : [],
+         "effectors" : [],
+         "relationship" : null,
+         "on" : true
+      },
+      "length" : {
+         "min_" : 4,
+         "max_" : 30,
+         "on" : true
+      },
+      "repeat" : {
+         "tokens" : "const",
+         "min_" : null,
+         "max_" : 3,
+         "on" : true
+      },
+      "inverse" : {
+         "on" : true
+      },
+      "trig" : {
+         "on" : true
+      },
+      "const" : {
+         "on" : false
+      },
+      "no_inputs" : {
+         "on" : false
+      },
+      "soft_length" : {
+         "loc" : null,
+         "scale" : null,
+         "on" : false
+      },
+      "uniform_arity" : {
+         "on" : true
+      },
+      "language_model" : {
+         "weight" : null,
+         "on" : false
+      }
    },
    "training" : {
       "logdir" : "./log",
