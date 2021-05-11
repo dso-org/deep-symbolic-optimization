@@ -21,8 +21,7 @@
       "normalize_variance" : false
    },
    "postprocess" : {
-      "show_count" : 5,
-      "save_plots" : true
+      "method" : "dsr"
    },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},
