@@ -242,14 +242,20 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
-def _load_config(config_template):
-    # Load base config
-    base_config = get_base_config()
+def _load_config(config_template, method):
+    # Load personal config file
+    task = "regression"
     personal_config = {}
     if config_template is not None:
         # Load personalized config
         with open(config_template, encoding='utf-8') as f:
             personal_config = json.load(f)
+        task = personal_config["task"]["task_type"]
+
+
+    # Load base config
+    base_config = get_base_config(task)
+
     # Combine configs
     config = safe_merge_dicts(base_config, personal_config)
     return config
@@ -269,7 +275,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # Load the experiment config
     config_template = config_template if config_template != "" else None
-    config = _load_config(config_template)
+    config = _load_config(config_template, method)
 
     # Load all benchmarks
     unique_benchmark_configs = _set_benchmark_configs(b, config, method, output_filename)
@@ -305,26 +311,22 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # Define the work
     if method == "dsr":
-        #work = partial(train_dsr, config=config)
         work = partial(train_dsr)
     elif method == "gp":
         work = partial(train_gp)
-            #, logdir=config["paths"]["log_dir"], config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
-    write_header = True
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
         for result, summary_path in pool.imap_unordered(work, seeded_benchmarks):
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
-            write_header = False
     else:
         for seeded_benchmark in seeded_benchmarks:
             result, summary_path = work(seeded_benchmark)
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
-            write_header = False
 
+    # Evaluate the log files
     for config in unique_benchmark_configs.values():
         log = LogEval(
             config["paths"]["log_dir"],
