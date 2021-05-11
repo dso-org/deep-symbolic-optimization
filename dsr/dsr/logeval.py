@@ -179,7 +179,7 @@ class LogEval():
         if "mc" in self.cmd_params:
             for seed in range(self.cmd_params["mc"]):
                 log_file = "{}_{}_{}_{}.csv".format(
-                    self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
+                    self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
                 try:
                     df = pd.read_csv(os.path.join(self.path["log"], log_file))
                     df.insert(0, "seed", seed)
@@ -249,7 +249,7 @@ class LogEval():
             fontsize=14)
         plt.tight_layout()
         if save_plots:
-            save_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], log_type))
+            save_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["task"]["method"], self.exp_config["task"]["name"], log_type))
             print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], save_path))
             plt.savefig(save_path)
         if show_plots:
@@ -337,6 +337,10 @@ def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots, eval_a
                 show_pf=show_pf,
                 show_plots=show_plots,
                 save_plots=save_plots)
+            if not all([show_hof, show_pf, save_plots]):
+                print("-- BEST USE -------------------------")
+                print("    --> python -m dsr.logeval {} --show_hof --show_pf --save_plots".format(config))
+                print("-------------------------------------\n")
 
 if __name__ == "__main__":
     main()
