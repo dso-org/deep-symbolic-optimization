@@ -252,7 +252,6 @@ def _load_config(config_template, method):
             personal_config = json.load(f)
         task = personal_config["task"]["task_type"]
 
-
     # Load base config
     base_config = get_base_config(task)
 
