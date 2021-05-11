@@ -1,5 +1,7 @@
 {
    "task" : {
+      "task_type" : "regression",
+      "method" : "dsr",
       "name" : "Nguyen-2"
    }
 }
