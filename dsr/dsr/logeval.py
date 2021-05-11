@@ -72,8 +72,9 @@ class LogEval():
             # Look up available config files and take the first one
             configs = glob.glob("{}/*config.json".format(log_path))
             assert len(configs) > 0, "*** ERROR: No experiments found!"
-            if len(configs) > 1:
-                print("*** WARNING: Several experiments found, continuing using the first one:\n{}\n".format(configs))
+            assert len(configs) == 1, "*** ERROR: Cannot handle multiple configurations at once."
+            #if len(configs) > 1:
+            #    print("*** WARNING: Several experiments found, continuing using the first one:\n{}\n".format(configs))
             self.path["config"] = configs[0]
         else:
             self.path["config"] = os.path.join(log_path, config_file)
@@ -105,7 +106,13 @@ class LogEval():
             tokens = cmd_content[0].split("--")
             params = {}
             for token in tokens[1:]:
-                setting = token.split("=")
+                if "=" in token:
+                    setting = token.split("=")
+                elif " " in token:
+                    setting = token.split(" ")
+                else:
+                    self.warnings.append("Can't interpret command line argument: {}".format(token))
+                    continue
                 params[setting[0]] = self._get_correct_type(setting[1].strip())
             if not "mc" in params:
                 params["mc"] = 1
@@ -289,6 +296,12 @@ class LogEval():
             [print("    --> {}".format(warning)) for warning in self.warnings]
         print("-------------------------------------\n")
 
+def get_config_files(log_path):
+    # check if config file provided
+    if ".json" in log_path:
+        return [log_path]
+    return glob.glob("{}/*config.json".format(log_path))
+
 
 @click.command()
 @click.argument('log_path', default=None)
@@ -297,14 +310,33 @@ class LogEval():
 @click.option('--show_pf', is_flag=True, help='Show Pareto Front results.')
 @click.option('--show_plots', is_flag=True, help='Generate plots and show results as simple plots.')
 @click.option('--save_plots', is_flag=True, help='Generate plots and safe to log file as simple plots.')
-def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots):
-    log = LogEval(log_path)
-    log.analyze_log(
-        show_count=show_count,
-        show_hof=show_hof,
-        show_pf=show_pf,
-        show_plots=show_plots,
-        save_plots=save_plots)
+@click.option('--eval_all', is_flag=True, help='Evaluate all tasks in log directory.')
+def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots, eval_all):
+    # Get config files of tasks
+    configs = get_config_files(log_path)
+    # Check if several tasks exist in log directory
+    if len(configs) > 1 and not eval_all:
+        info_text = ""
+        info_text += "--show_count {}".format(show_count)
+        info_text += " --show_hof" if show_hof else ""
+        info_text += " --show_pf" if show_pf else ""
+        info_text += " --show_plots" if show_plots else ""
+        info_text += " --save_plots" if save_plots else ""
+        print("*** WARNING: Several tasks found! Please indicate how to evaluate:")
+        print("      python -m dsr.logeval {} --eval_all {}".format(log_path, info_text))
+        for config in configs:
+            print("      python -m dsr.logeval {} {}".format(config, info_text))
+        print("***")
+    else:
+        for config in configs:
+            config_file = config.split("/")
+            log = LogEval('/'.join(str(t) for t in config_file[:-1]), config_file[-1])
+            log.analyze_log(
+                show_count=show_count,
+                show_hof=show_hof,
+                show_pf=show_pf,
+                show_plots=show_plots,
+                save_plots=save_plots)
 
 if __name__ == "__main__":
     main()

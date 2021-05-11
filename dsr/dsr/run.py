@@ -170,6 +170,11 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
     with open(os.path.join(paths["log_dir"], "cmd.out"), 'w') as f:
         print(" ".join(sys.argv), file=f)
 
+    # Save config for complete experiment
+    config["task"]["name"] = original_benchmarks
+    with open(os.path.join(paths["log_dir"], "config_all.json"), 'w') as f:
+        json.dump(config, f, indent=4)
+
     # Update config where necessary
     config["training"]["logdir"] = paths["log_dir"]
     config["postprocess"]["method"] = method
@@ -205,9 +210,11 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         new_paths["config_path"] = os.path.join(
             paths["log_dir"], new_paths["config_file"])
         if output_filename is None:
+            new_paths["summary_file"] = "{}_{}_summary.csv".format(method, benchmark)
             new_paths["summary_path"] = os.path.join(
-                paths["log_dir"], "{}_{}_summary.csv".format(method, benchmark))
+                paths["log_dir"], new_paths["summary_file"])
         else:
+            new_paths["summary_file"] = output_filename.split("/")[-1]
             new_paths["summary_path"] = output_filename
         return new_paths
 
