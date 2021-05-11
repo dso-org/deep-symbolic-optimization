@@ -165,6 +165,7 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         "log_{}_{}".format(
             datetime.now().strftime("%Y-%m-%d-%H%M%S"),
             log_appendix))
+
     # Create log dir and save commandline arguments
     os.makedirs(paths["log_dir"], exist_ok=True)
     with open(os.path.join(paths["log_dir"], "cmd.out"), 'w') as f:
@@ -177,7 +178,6 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
 
     # Update config where necessary
     config["training"]["logdir"] = paths["log_dir"]
-    config["postprocess"]["method"] = method
 
     benchmark_df = None
     if config["task"]["task_type"] == "regression":
@@ -229,6 +229,7 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         new_config["paths"] = _set_individual_paths(benchmark)
         with open(new_config["paths"]["config_path"], 'w') as f:
             json.dump(new_config, f, indent=4)
+        new_config["task"].pop("method")
         return new_config
 
     # make sure we get the right benchmarks
@@ -242,18 +243,24 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename):
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
-def _load_config(config_template, method):
+def _load_config(config_template, method, task="regression", language_prior=False):
     # Load personal config file
-    task = "regression"
     personal_config = {}
     if config_template is not None:
         # Load personalized config
         with open(config_template, encoding='utf-8') as f:
             personal_config = json.load(f)
-        task = personal_config["task"]["task_type"]
+        try:
+            task = personal_config["task"]["task_type"]
+        except KeyError:
+            pass
+        try:
+            language_prior = personal_config["prior"]["language_model"]["on"]
+        except KeyError:
+            pass
 
     # Load base config
-    base_config = get_base_config(task)
+    base_config = get_base_config(task, method, language_prior)
 
     # Return combined configs
     return safe_merge_dicts(base_config, personal_config)

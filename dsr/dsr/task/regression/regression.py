@@ -10,7 +10,7 @@ from dsr.task.regression.dataset import BenchmarkDataset
 def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
     metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
     reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
-    normalize_variance=False, protected=False, **kwargs):
+    normalize_variance=False, protected=False):
     """
     Factory function for regression rewards. This includes closures for a
     dataset and regression metric (e.g. inverse NRMSE). Also sets regression-

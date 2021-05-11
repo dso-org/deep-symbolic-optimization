@@ -1,0 +1,10 @@
+{
+   "language_model_prior" : {
+        "saved_language_model_path" : "./language_model/model/saved_model",
+        "saved_language_model_lib" : "./language_model/model/saved_model/word_dict.pkl",
+        "embedding_size" : 32,
+        "num_layers" : 1,
+        "num_hidden" : 256,
+        "prob_sharing" : true
+   }
+}

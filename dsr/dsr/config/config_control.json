@@ -1,26 +1,6 @@
 {
    "task" : {
-      "task_type" : "regression",
-      "name" : "Nguyen-1",
-      "function_set" : null,
-      "dataset" : {
-         "benchmark_source" : "benchmarks.csv",
-         "name" : null,
-         "noise" : null,
-         "root" : null,
-         "backup" : false
-      },
-      "metric" : "inv_nrmse",
-      "metric_params" : [1.0],
-      "extra_metric_test" : null,
-      "extra_metric_test_params" : [1.0],
-      "threshold" : 1e-12,
-      "protected" : false,
-      "reward_noise" : 0.0,
-      "reward_noise_type" : "r",
-      "normalize_variance" : false
-   },
-   "postprocess" : {
+      "task_type" : "control",
       "method" : "dsr"
    },
    "training" : {
