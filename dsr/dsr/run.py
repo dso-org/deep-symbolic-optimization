@@ -255,9 +255,8 @@ def _load_config(config_template, method):
     # Load base config
     base_config = get_base_config(task)
 
-    # Combine configs
-    config = safe_merge_dicts(base_config, personal_config)
-    return config
+    # Return combined configs
+    return safe_merge_dicts(base_config, personal_config)
 
 
 
