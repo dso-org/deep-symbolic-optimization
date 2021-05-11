@@ -187,12 +187,16 @@ Can be changed in `config.json`:
 ### Commandline usage
 
 ```
-python -m dsr.logeval path_to_log_directory --show_count 10 --show_hof --show_pf --save_plots --show_plots
+python -m dsr.logeval path_to_log_directory --show_count 10 --show_hof --show_pf --save_plots --show_plots --eval_all
+```
+or
+```
+python -m dsr.logeval path_to_log_config_file --show_count 10 --show_hof --show_pf --save_plots --show_plots
 ```
 ### Jupyter notebook usage
 ```
 from dsr.logeval import LogEval
-log = LogEval(path_to_log_directory)
+log = LogEval(path_to_log_directory, config_file)
 log.analyze_log(show_count=10, show_hof=True, show_pf=True, show_plots=True)
 ```
 
