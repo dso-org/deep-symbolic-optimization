@@ -9,6 +9,7 @@ from dsr.utils import is_pareto_efficient, empirical_entropy
 from itertools import compress
 from io import StringIO
 import shutil
+from collections import defaultdict
 
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
@@ -250,12 +251,14 @@ class StatsLogger():
 
 
 
-    def save_results(self, positional_entropy, base_r_history, pool):
+    def save_results(self, positional_entropy, base_r_history, pool, n_epochs, n_samples):
         """
         Saves stats that are available only after all epochs are finished
         :param positional_entropy: evolution of positional_entropy for all epochs
         :param base_r_history: reward for each unique program found during training
         :param pool: Pool used to parallelize reward computation
+        :param n_epochs: total number of epochs
+        :param n_samples: Total number of samples
         """
         # First of all, saves any pending buffer
         if self.output_file is not None:
@@ -372,7 +375,34 @@ class StatsLogger():
                     if p.evaluate.get("success"):
                         p_final = p
                         break
+            #Save error summaries
+            # Print error statistics of the cache
+            n_invalid = 0
+            error_types = defaultdict(lambda: 0)
+            error_nodes = defaultdict(lambda: 0)
 
+            result = {}
+            for p in Program.cache.values():
+                if p.invalid:
+                    n_invalid += p.count
+                    error_types[p.error_type] += p.count
+                    error_nodes[p.error_node] += p.count
+            if n_invalid > 0:
+                print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, n_samples,
+                                                                       n_invalid / n_samples))
+                print("Error type counts:")
+                for error_type, count in error_types.items():
+                    print("  {}: {} ({:.1%})".format(error_type, count, count / n_invalid))
+                    result["error_"+error_type] = count
+                print("Error node counts:")
+                for error_node, count in error_nodes.items():
+                    print("  {}: {} ({:.1%})".format(error_node, count, count / n_invalid))
+                    result["error_node_" + error_type] = count
+
+            result['n_epochs'] = n_epochs
+            result['n_samples'] = n_samples
+            result['n_cached'] = len(Program.cache)
+            return result
     def flush_buffer(self, all_info_buffer=False):
         """write buffer to output file
         @:param all_info_buffer: should self.buffer_epoch_stats (False) or self.buffer_all_programs (True) be flushed?

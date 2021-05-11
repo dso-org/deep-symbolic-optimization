@@ -4,7 +4,6 @@ import os
 import multiprocessing
 import time
 from itertools import compress
-from collections import defaultdict
 
 import tensorflow as tf
 import numpy as np
@@ -621,27 +620,8 @@ def learn(sess, controller, pool, gp_controller,
 
     if verbose:
         print("Evaluating the hall of fame...")
-    #Save all results available only after all epochs are finished.
-    logger.save_results(positional_entropy, base_r_history, pool)
-
-    # Print error statistics of the cache
-    n_invalid = 0
-    error_types = defaultdict(lambda : 0)
-    error_nodes = defaultdict(lambda : 0)
-    for p in Program.cache.values():
-        if p.invalid:
-            n_invalid += p.count
-            error_types[p.error_type] += p.count
-            error_nodes[p.error_node] += p.count
-    if n_invalid > 0:
-        total_samples = (epoch + 1)*batch_size # May be less than n_samples if breaking early
-        print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
-        print("Error type counts:")
-        for error_type, count in error_types.items():
-            print("  {}: {} ({:.1%})".format(error_type, count, count/n_invalid))
-        print("Error node counts:")
-        for error_node, count in error_nodes.items():
-            print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
+    #Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
+    results_add = logger.save_results(positional_entropy, base_r_history, pool, epoch, nevals)
 
     # Print the priority queue at the end of training
     if verbose and priority_queue is not None:
@@ -667,8 +647,5 @@ def learn(sess, controller, pool, gp_controller,
         "traversal" : repr(p),
         "program" : p
         })
-    result['n_epochs'] = epoch
-    result['n_samples'] = nevals
-    result['n_cached'] = len(Program.cache)
-
+    result.update(results_add)
     return result
