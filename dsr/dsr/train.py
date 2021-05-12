@@ -109,7 +109,7 @@ def learn(sess, controller, pool, gp_controller,
     output_file : str, optional
         Filename to write results for each iteration.
 
-    save_all_r : bool, optional
+    save_all_epoch : bool, optional
         Whether to save all rewards for each iteration.
 
     baseline : str, optional
@@ -239,7 +239,7 @@ def learn(sess, controller, pool, gp_controller,
         programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
-        on_policy = np.array([p.on_policy for p in programs])
+        on_policy = np.array([p.originally_on_policy for p in programs])
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=l, rewards=r, on_policy=on_policy)
         memory_queue.push_batch(sampled_batch, programs)
@@ -268,7 +268,7 @@ def learn(sess, controller, pool, gp_controller,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
+    #all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
@@ -362,7 +362,7 @@ def learn(sess, controller, pool, gp_controller,
 
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
-        on_policy   = np.array([p.on_policy for p in programs])
+        on_policy   = np.array([p.originally_on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
 
         if save_positional_entropy:

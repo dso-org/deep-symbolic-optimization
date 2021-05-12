@@ -22,7 +22,6 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import srepr
 
 from dsr import DeepSymbolicOptimizer
-from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.logeval import LogEval
