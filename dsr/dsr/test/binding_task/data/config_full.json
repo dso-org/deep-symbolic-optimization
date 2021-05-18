@@ -2,6 +2,7 @@
     "task" : {
        "task_type" : "binding",
        "name" : "AbAg_binding_affinity_optimization",
+       "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
        "paths" : {
            "base_path": "test/binding_task/data/",
            "model_weights_pth": "model_20190812_165712.pth",
@@ -18,7 +19,8 @@
     },
     "prior": {
        "seq_positions": {"yaml_file" : "./test/binding_task/data/positions_prior.yaml",
-                         "use_context": true}
+                         "use_context": true,
+                         "biasing_factor": 0}
     },
     "training": {
        "logdir": "./log/Binding",
