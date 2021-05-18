@@ -568,13 +568,18 @@ class SoftLengthPrior(Prior):
 class SequencePositionsConstraint(Constraint):
     """Class that constrains Tokens to follow the constraints defined in the YAML file. """
 
-    def __init__(self, library, yaml_file, use_context):
+    def __init__(self, library, yaml_file, use_context, biasing_factor):
         """
         Parameters
         ----------
         yaml_file : str
             YAML file containing sequence positions constraints.
 
+        use_context : bool
+            Whether or not to use the fixed part of the master sequence.
+        
+        biasing_factor : float
+            Increment factor in the prior vector pushing it towards master sequence.
         """
 
         Prior.__init__(self, library)
@@ -595,6 +600,7 @@ class SequencePositionsConstraint(Constraint):
             # Per Tom: positions in the yaml file starts from 1 and not 0
             self.allowed_mutations[p[0] - 1] = p[1]
         self.use_context = use_context
+        self.biasing_factor = float(biasing_factor)
 
     def initial_prior(self):
         """ Prior for time step 0 """
@@ -616,14 +622,23 @@ class SequencePositionsConstraint(Constraint):
         # it's the "sequence ending" token - not going to be in the sample
         if seq_position >= len(self.master_seq):
             return prior
+
+        # bias sequence towards master sequence
+        if self.biasing_factor > 0:
+            idx = constants.AMINO_ACIDS.index(self.master_seq[seq_position])
+            prior[:, idx] = np.log(self.biasing_factor)
+
         if not self.use_context:
             # it's the "sequence ending" token - not going to be in the sample
             if seq_position >= len(self.allowed_mutations.keys()):
                 return prior
             items = list(self.allowed_mutations.items())
             actual_seq_position = items[seq_position][0]
-            mask = np.isin(constants.AMINO_ACIDS, self.allowed_mutations[actual_seq_position], invert=True)
+            mask = np.isin(constants.AMINO_ACIDS,
+                           self.allowed_mutations[actual_seq_position],
+                           invert=True)
             prior[:, mask] = -np.inf
+
         else:
             # check if there is any restriction for this particular position
             if seq_position in self.allowed_mutations:  # allowed to mutate
@@ -631,15 +646,19 @@ class SequencePositionsConstraint(Constraint):
                 if len(self.allowed_mutations[seq_position]) < len(constants.AMINO_ACIDS):
                     # False: allowed to mutate
                     # True: constrained - cannot be mutated
-                    mask = np.isin(constants.AMINO_ACIDS, self.allowed_mutations[seq_position], invert=True)
+                    mask = np.isin(constants.AMINO_ACIDS,
+                                   self.allowed_mutations[seq_position],
+                                   invert=True)
                     prior[:, mask] = -np.inf
                 else:
                     # all AAs have the same chance, then no constraint imposed
                     pass
+
             else: # mutation is not allowed
                 mask = [True] * len(constants.AMINO_ACIDS)
                 mask[constants.AMINO_ACIDS.index(self.master_seq[seq_position])] = False
                 prior[:, mask] = -np.inf
+
         return prior
 
     def describe(self):
