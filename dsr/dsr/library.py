@@ -53,6 +53,29 @@ class Token():
         return self.name
 
 
+class Constant(Token):
+    """
+    A Token with a "value" attribute, whose function returns the value.
+
+    Parameters
+    ----------
+    value : float
+        Value of the constant.
+    """
+
+    def __init__(self, value=None):
+        if value is not None:
+            value = np.atleast_1d(value)
+        self.value = value
+
+        def function():
+            assert self.value is not None, \
+                "Constant is not callable with value None."
+            return self.value
+
+        super().__init__(function=function, name="const", arity=0, complexity=1)
+
+
 class PlaceholderConstant(Token):
     """
     A Token for placeholder constants that will be optimized with respect to
