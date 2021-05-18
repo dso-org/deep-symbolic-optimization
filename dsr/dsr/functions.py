@@ -181,7 +181,9 @@ def create_tokens(n_input_var, function_set, protected):
         elif isinstance(op, float) or isinstance(op, int):
             name = str(op)
             value = np.atleast_1d(np.float32(op))
-            function = lambda : value
+            #function = lambda : value
+            def function():
+                return value
             token = Token(name=name, arity=0, complexity=1, function=function)
 
         # Constant placeholder (to-be-optimized)
