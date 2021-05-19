@@ -63,17 +63,18 @@ class Constant(Token):
         Value of the constant.
     """
 
-    def __init__(self, value=None):
+    def __init__(self, value=None, name=None):
         if value is not None:
             value = np.atleast_1d(value)
         self.value = value
+        if name is None:
+            name = "sconst"
+        super().__init__(function=self.function, name=name, arity=0, complexity=1)
 
-        def function():
-            assert self.value is not None, \
-                "Constant is not callable with value None."
-            return self.value
-
-        super().__init__(function=function, name="const", arity=0, complexity=1)
+    def function(self):
+        assert self.value is not None, \
+            "Constant is not callable with value None."
+        return self.value
 
 
 class PlaceholderConstant(Token):
@@ -91,13 +92,12 @@ class PlaceholderConstant(Token):
         if value is not None:
             value = np.atleast_1d(value)
         self.value = value
+        super().__init__(function=self.function, name="const", arity=0, complexity=1)
 
-        def function():
-            assert self.value is not None, \
-                "Constant is not callable with value None."
-            return self.value
-
-        super().__init__(function=function, name="const", arity=0, complexity=1)
+    def function(self):
+        assert self.value is not None, \
+            "Constant is not callable with value None."
+        return self.value
 
     def __repr__(self):
         if self.value is None:
