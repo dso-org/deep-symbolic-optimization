@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile, join_obs
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, weighted_quantile
 from dsr.memory import Batch, make_queue
 from dsr.variance import quantile_variance
 
@@ -321,12 +321,12 @@ def learn(sess, controller, pool, gp_controller,
                 p.base_r = base_r
 
         # If we run GP, insert GP Program, actions, priors (blank) and obs.
-        # We may option later to return these to the controller.  
+        # We may option later to return these to the controller.
         if run_gp_meld:
-            programs    = programs + deap_programs
-            obs         = join_obs(obs, deap_obs)
-            actions     = np.append(actions, deap_actions, axis=0) 
-            priors      = np.append(priors, deap_priors, axis=0)
+            programs = programs + deap_programs
+            obs = [np.append(o1, o2, axis=0) for o1, o2 in zip(obs, deap_obs)]
+            actions = np.append(actions, deap_actions, axis=0) 
+            priors = np.append(priors, deap_priors, axis=0)
 
         # Retrieve metrics
         base_r      = np.array([p.base_r for p in programs])
