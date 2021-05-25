@@ -13,10 +13,10 @@ from collections import defaultdict
 
 #These functions are defined globally so they are pickleable and can be used by Pool.map
 def hof_work(p):
-    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.r, p.base_r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.complexity_eureqa, p.r, p.base_r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 class StatsLogger():
