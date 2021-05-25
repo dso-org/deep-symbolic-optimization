@@ -202,6 +202,8 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     if method == "dsr":
         work = partial(train_dsr, config=config)
     elif method == "gp":
+        assert config_task["task_type"] == "regression", \
+            "Pure GP currently only supports the regression task."
         work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
     # Farm out the work

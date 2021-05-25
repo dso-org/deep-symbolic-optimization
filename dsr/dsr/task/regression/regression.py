@@ -156,14 +156,6 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
         return r
 
-    def validate(p):
-        
-        return reward(p)
-    
-    def long_validate(p):
-        
-        return reward(p)
-
     def evaluate(p):
 
         # Compute predictions on test data
@@ -214,11 +206,9 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
     stochastic = reward_noise > 0.0
 
-    extra_info = {"do_validate"         : False}
+    extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
-                         validate_function=validate,
-                         long_validate_function=long_validate,
                          evaluate=evaluate,
                          library=library,
                          stochastic=stochastic,
