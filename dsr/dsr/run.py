@@ -40,8 +40,6 @@ def train_dsr(seeded_benchmark):
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         import tensorflow as tf
         tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-        ###from dsr.controller import Controller
-        ###from dsr.train import learn
     except ModuleNotFoundError: # Specific subclass of ImportError for when module is not found, probably needs to be excepted first
         print("One or more libraries not found")
         raise ModuleNotFoundError

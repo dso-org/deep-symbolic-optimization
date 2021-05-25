@@ -446,7 +446,7 @@ def learn(sess, controller, pool, gp_controller,
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r       = np.clip(r,        -1e6, 1e6)
         r_train = np.clip(r_train,  -1e6, 1e6)
-        
+
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
