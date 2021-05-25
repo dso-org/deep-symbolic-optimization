@@ -10,6 +10,14 @@ from itertools import compress
 from io import StringIO
 import shutil
 
+#These functions are defined globally so they are pickleable and can be used by Pool.map
+def hof_work(p):
+    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+def pf_work(p):
+    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
@@ -390,10 +398,3 @@ class StatsLogger():
             self.buffer_all_programs = StringIO()
         else:
             self.buffer_epoch_stats = StringIO()
-
-#Those functions have to be defined outside the class, otherwise it results in an error in pool.map
-def hof_work(p):
-    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
-
-def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
