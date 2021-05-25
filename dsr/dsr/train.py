@@ -5,7 +5,6 @@ import multiprocessing
 import time
 from itertools import compress
 from collections import defaultdict
-from operator import itemgetter
 from pathos.multiprocessing import ProcessPool
 
 import tensorflow as tf
@@ -23,6 +22,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 # Set TensorFlow seed
 tf.random.set_random_seed(0)
+
 
 # Work for multiprocessing pool: optimize constants and compute reward
 def work(p):
@@ -169,18 +169,8 @@ def learn(sess, controller, pool, gp_controller,
     result : dict
         A dict describing the best-fit expression (determined by base_r).
     """
-    all_r_size              = batch_size
 
-    if gp_controller is not None:
-        run_gp_meld                 = True
-        if gp_controller.train_n:
-            all_r_size              = batch_size + gp_controller.train_n
-        else:
-            all_r_size              = batch_size+1
-                        
-    else:
-        gp_controller = None
-        run_gp_meld = False
+    run_gp_meld = gp_controller is not None
 
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -211,8 +201,8 @@ def learn(sess, controller, pool, gp_controller,
         if n_cores_batch > 1:
             # Use a Pathos pool since newer versions of Program 
             # give a pickling error
-            pool = ProcessPool(nodes = n_cores_batch)
-            #pool = multiprocessing.Pool(n_cores_batch)
+            # pool = multiprocessing.Pool(n_cores_batch)
+            pool = ProcessPool(nodes = n_cores_batch)            
 
     # Create the priority queue
     k = controller.pqt_k
@@ -258,20 +248,15 @@ def learn(sess, controller, pool, gp_controller,
 
     # Main training loop
     p_final = None
-    p_eval_best = None
     base_r_best = -np.inf
-    p_base_eval_best = None
     r_best = -np.inf
     prev_r_best = None
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     nevals = 0 # Total number of sampled expressions (from RL or GP)
-
-    all_r = np.zeros(shape=(all_r_size), dtype=np.float32) # Is this needed?
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
-
-    logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
+    logger = StatsLogger(sess, logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_cache, save_cache_r_min, save_freq)
 
     for epoch in range(n_epochs):
@@ -306,10 +291,10 @@ def learn(sess, controller, pool, gp_controller,
 
             # Filter programs that have not yet computed base_r
             # TBD: Refactor with needs_optimizing flag or similar?
-            
+
             # First get a dict of all programs without a reward. The dict will force
             # the set to have unique members
-            programs_to_optimize    = [p for p in programs if "base_r" not in p.__dict__]
+            programs_to_optimize = [p for p in programs if "base_r" not in p.__dict__]
 
             # Optimize and compute base_r
             results = pool.map(work, programs_to_optimize)
@@ -524,8 +509,6 @@ def learn(sess, controller, pool, gp_controller,
 
         # Print new best expression
         if verbose:
-            if new_r_best or new_base_r_best:
-                print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch, n_epochs, prev_r_best))
             if new_r_best and new_base_r_best:
                 if p_r_best == p_base_r_best:
                     print("\n\t** New best overall")
@@ -564,7 +547,8 @@ def learn(sess, controller, pool, gp_controller,
 
     if verbose:
         print("Evaluating the hall of fame...")
-    #Save all results available only after all epochs are finished.
+
+    # Save all results available only after all epochs are finished.
     logger.save_results(positional_entropy, base_r_history, pool)
 
     # Print error statistics of the cache
@@ -596,7 +580,6 @@ def learn(sess, controller, pool, gp_controller,
     # Close the pool
     if pool is not None:
         pool.close()
-    print("-------------------------------------")
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
