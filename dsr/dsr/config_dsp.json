@@ -54,7 +54,8 @@
       "memory_threshold": null,
       "save_positional_entropy": false,
       "save_pareto_front": false,
-      "save_cache": false
+      "save_cache": false,
+      "save_freq": 1
    },
    "controller": {
       "cell": "lstm",

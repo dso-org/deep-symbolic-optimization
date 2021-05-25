@@ -50,7 +50,8 @@
       "hof": 100,
       "eval_all": false,
       "save_pareto_front": false,
-      "save_cache": false
+      "save_cache": false,
+      "save_freq": 1
    },
    "controller": {
       "cell": "lstm",

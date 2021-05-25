@@ -28,7 +28,8 @@
       "output_file": null,
       "save_all_epoch": false,
       "early_stopping": true,
-      "hof" : 10
+      "hof" : 10,
+      "save_freq": 1
    },
    "controller": {
       "cell": "lstm",
