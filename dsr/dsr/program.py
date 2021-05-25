@@ -182,44 +182,6 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1,
     return p
 
 
-def get_best_r(p):
-    """ Get the best R we already have. This is to avoid computing
-        expensive validation Rs if we want to avoid it.
-        
-        Ww ask the local dict if we have a value in decending order
-        of goodness. If we call the cached property it would compute it.
-        So, we avoid that.
-        
-        This function is detached from the class so the cached property 
-        is activated when we need it. 
-    """ 
-    if "long_validate" in p.__dict__:
-        return p.long_validate
-    elif "validate" in p.__dict__: 
-        return p.validate
-    else:
-        return p.r
-
-
-def get_best_base_r(p):
-    """ Get the best base R we already have. This is to avoid computing
-        expensive validation Rs if we want to avoid it.
-        
-        Ww ask the local dict if we have a value in decending order
-        of goodness. If we call the cached property it would compute it.
-        So, we avoid that.
-        
-        This function is detached from the class so the cached property 
-        is activated when we need it.
-    """ 
-    if "base_long_validate" in p.__dict__:
-        return p.base_long_validate
-    elif "base_validate" in p.__dict__: 
-        return p.base_validate
-    else:
-        return p.base_r
-
-
 class Program(object):
     """
     The executable program representing the symbolic expression.
@@ -655,16 +617,14 @@ class Program(object):
         return pretty(self.sympy_expr)
 
 
-    def print_stats(self, print_test=False):
+    def print_stats(self):
         """Prints the statistics of the program
         
             We will print the most honest reward possible when using validation.
         """
         
-        print("\tReward: {}".format(get_best_r(self)))
-        print("\tBase reward: {}".format(get_best_base_r(self)))
-        if print_test:
-            print("\tTest val: {}".format(self.evaluate['test_val']))
+        print("\tReward: {}".format(self.r))
+        print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
