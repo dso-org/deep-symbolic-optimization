@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import scipy
 
 import dsr
 from dsr.library import Library
@@ -156,6 +155,7 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
         return r
 
+
     def evaluate(p):
 
         # Compute predictions on test data
@@ -178,8 +178,7 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
         info = {
             "nmse_test" : nmse_test,
             "nmse_test_noiseless" : nmse_test_noiseless,
-            "success" : success,
-            "test_val" : nmse_test
+            "success" : success
         }
 
         if extra_metric_test is not None:
@@ -209,10 +208,10 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
     extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
-                         evaluate=evaluate,
-                         library=library,
-                         stochastic=stochastic,
-                         extra_info=extra_info)
+                evaluate=evaluate,
+                library=library,
+                stochastic=stochastic,
+                extra_info=extra_info)
 
     return task
 

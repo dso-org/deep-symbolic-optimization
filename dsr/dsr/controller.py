@@ -221,9 +221,6 @@ class Controller(object):
             entropy_gamma = 1.0
         entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
         
-        if entropy_gamma != 1.0:
-            print("Controller Using Hierarchical Entropy")
-        
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
 
@@ -329,7 +326,7 @@ class Controller(object):
             # Applies constraints
             def get_action_parent_sibling_prior_dangling(actions, dangling):
                 n = actions.shape[0] # Batch size
-                ###i = actions.shape[1] - 1 # Current index (unused?)
+                i = actions.shape[1] - 1 # Current index
                 action = actions[:, -1] # Current action
 
                 # Depending on the constraints, may need to compute parents and siblings
@@ -373,7 +370,7 @@ class Controller(object):
 
 
             # Define loop function to be used by tf.nn.raw_rnn.
-            ###initial_cell_input = get_input(initial_obs) # (unused?)
+            initial_cell_input = get_input(initial_obs)
             def loop_fn(time, cell_output, cell_state, loop_state):
 
                 if cell_output is None: # time == 0
@@ -479,7 +476,6 @@ class Controller(object):
                                               inputs=get_input(B.obs),
                                               sequence_length=B.lengths, # Backpropagates only through sequence length
                                               dtype=tf.float32)
-                
             logits += B.priors
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
@@ -552,9 +548,6 @@ class Controller(object):
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
-            
-            if self.off_policy_stats:
-                loss                 = tf.Print(loss, [loss],   "INIT Loss as Entropy Loss ",  summarize=100)
 
             # PPO loss
             if ppo:
@@ -577,7 +570,6 @@ class Controller(object):
                     # Baseline is the worst of the current samples r
                     pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")        
                     # Loss already is set to entropy loss
-                    
                     loss += pg_loss
 
             # Priority queue training loss
@@ -586,14 +578,9 @@ class Controller(object):
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
 
-            if self.off_policy_stats:
-                loss                 = tf.Print(loss, [loss],   "FINAL Loss ",  summarize=100)
-
             self.loss = loss
 
         def make_optimizer(name, learning_rate):
-            self.global_step = tf.Variable(0, trainable=False)
-
             if name == "adam":
                 return tf.train.AdamOptimizer(learning_rate=learning_rate)
             if name == "rmsprop":
@@ -603,10 +590,10 @@ class Controller(object):
             raise ValueError("Did not recognize optimizer '{}'".format(name))
 
         # Create training op
-        self.optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
+        optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
         with tf.name_scope("train"):
-            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
-            self.train_op = self.optimizer.apply_gradients(self.grads_and_vars, global_step=self.global_step)
+            self.grads_and_vars = optimizer.compute_gradients(self.loss)
+            self.train_op = optimizer.apply_gradients(self.grads_and_vars)
             # The two lines above are equivalent to:
             # self.train_op = optimizer.minimize(self.loss)
         with tf.name_scope("grad_norm"):
@@ -699,7 +686,7 @@ class Controller(object):
 
             # Perform multiple epochs of minibatch training
             feed_dict[self.old_neglogp_ph] = old_neglogp
-            indices = np.arange(len(r)) # <---- r is undefined
+            indices = np.arange(len(r))
             for epoch in range(self.ppo_n_iters):
                 self.rng.shuffle(indices)
                 minibatches = np.array_split(indices, self.ppo_n_mb)
