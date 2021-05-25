@@ -7,13 +7,23 @@ import pandas as pd
 from dsr.program import Program, from_tokens
 from dsr.utils import is_pareto_efficient, empirical_entropy
 from itertools import compress
+from io import StringIO
+import shutil
+
+#These functions are defined globally so they are pickleable and can be used by Pool.map
+def hof_work(p):
+    return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+
+def pf_work(p):
+    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
-    def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_r=False, hof=10,
-                 save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9):
+    def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_epoch=False, hof=10,
+                 save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9,
+                 save_freq = None):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
@@ -27,8 +37,8 @@ class StatsLogger():
         output_file : str, optional
             Filename to write results for each iteration.
 
-        save_all_r : bool, optional
-            Whether to save all rewards for each iteration.
+        save_all_epoch : bool, optional
+            Whether to save statistics for all programs for each iteration.
 
         hof : int or None, optional
             Number of top Programs to evaluate after training.
@@ -44,17 +54,31 @@ class StatsLogger():
 
         save_cache_r_min : float or None
             If not None, only keep Programs with r >= r_min when saving cache.
+
+        save_freq : int or None
+            Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
         """
         self.sess = sess
         self.logdir = logdir
         self.save_summary = save_summary
         self.output_file = output_file
-        self.save_all_r = save_all_r
+        self.save_all_epoch = save_all_epoch
         self.hof = hof
         self.save_pareto_front = save_pareto_front
         self.save_positional_entropy = save_positional_entropy
         self.save_cache = save_cache
         self.save_cache_r_min = save_cache_r_min
+        self.all_r = []   # save all R separately to keep backward compatibility with a generated file.
+
+        if save_freq is None:
+            self.buffer_frequency = 1
+        elif save_freq < 1:
+            self.buffer_frequency = float('inf')
+        else:
+            self.buffer_frequency = save_freq
+
+        self.buffer_epoch_stats = StringIO() #Buffer for epoch statistics
+        self.buffer_all_programs = StringIO()  #Buffer for the statistics for all programs.
 
         self.setup_output_files()
 
@@ -67,6 +91,7 @@ class StatsLogger():
             self.output_file = os.path.join(self.logdir, self.output_file)
             prefix, _ = os.path.splitext(self.output_file)
             self.all_r_output_file = "{}_all_r.npy".format(prefix)
+            self.all_info_output_file = "{}_all_info.csv".format(prefix)
             self.hof_output_file = "{}_hof.csv".format(prefix)
             self.pf_output_file = "{}_pf.csv".format(prefix)
             self.positional_entropy_output_file = "{}_positional_entropy.npy".format(prefix)
@@ -80,6 +105,8 @@ class StatsLogger():
                 # n_novel_* : Number of never-before-seen Programs per batch
                 # a_ent_* : Empirical positional entropy across sequences averaged over positions
                 # invalid_avg_* : Fraction of invalid Programs per batch
+                # baseline: Baseline value used for training
+                # time: time used to learn in this epoch (in seconds)
                 headers = ["base_r_best",
                            "base_r_max",
                            "base_r_avg_full",
@@ -98,11 +125,27 @@ class StatsLogger():
                            "a_ent_full",
                            "a_ent_sub",
                            "invalid_avg_full",
-                           "invalid_avg_sub"]
+                           "invalid_avg_sub",
+                           "baseline",
+                           "time"]
                 f.write("{}\n".format(",".join(headers)))
+
+                if self.save_all_epoch:
+                    with open(self.all_info_output_file, 'w') as f:
+                        # epoch : The epoch in which this line was saved
+                        # base_r : reward for this program (before complexity)
+                        # r : reward for this program (after complexity)
+                        # l : length of the program
+                        # invalid : if the program is invalid
+                        headers = ["epoch",
+                                    "base_r",
+                                    "r",
+                                    "l",
+                                    "invalid"]
+                        f.write("{}\n".format(",".join(headers)))
         else:
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
-                self.cache_output_file = None
+                self.cache_output_file = self.all_info_output_file = None
         # Creates the summary writer
         if self.save_summary:
             timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -114,10 +157,12 @@ class StatsLogger():
         else:
             self.summary_writer = None
 
-    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l, actions, s,
-                   invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history):
+    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l,
+                   actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history,
+                   baseline, epoch_walltime):
         """
-        Computes and saves all statistics that are computed for every time step
+        Computes and saves all statistics that are computed for every time step. Depending on the value of
+            self.buffer_frequency, the statistics might be instead saved in a buffer before going to disk.
         :param base_r_full: The reward regardless of complexity penalty. It should be a list having all computed
             programs in this time step
         :param r_full: The reward with complexity subtracted.
@@ -139,6 +184,8 @@ class StatsLogger():
         :param summaries: Sumarries returned by the Controller this step
         :param epoch: This epoch id
         :param s_history: all programs ever seen in string format.
+        :param baseline: baseline value used for training
+        :param epoch_walltime: time taken to process this epoch
         """
         if self.output_file is not None:
             base_r_avg_full = np.mean(base_r_full)
@@ -176,24 +223,61 @@ class StatsLogger():
                 a_ent_full,
                 a_ent_sub,
                 invalid_avg_full,
-                invalid_avg_sub
+                invalid_avg_sub,
+                baseline,
+                epoch_walltime
             ]], dtype=np.float32)
-            with open(self.output_file, 'ab') as f:
-                np.savetxt(f, stats, delimiter=',')
+            np.savetxt(self.buffer_epoch_stats, stats, delimiter=',')
+        if self.save_all_epoch:
+            all_epoch_stats = np.array([
+                              [epoch]*len(base_r_full),
+                              base_r_full,
+                              r_full,
+                              l_full,
+                              invalid_full
+                              ]).transpose()
+            df = pd.DataFrame(all_epoch_stats)
+            df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
+
+        # summary writers have their own buffer
         if self.save_summary:
             self.summary_writer.add_summary(summaries, epoch)
-            self.summary_writer.flush()
 
-    def save_results(self, all_r, positional_entropy, base_r_history, pool):
+        # Should the buffer be saved now?
+        if (epoch + 1) % self.buffer_frequency == 0:
+            if self.output_file is not None:
+                self.flush_buffer(False)
+            if self.save_all_epoch:
+                self.flush_buffer(True)
+            if self.summary_writer:
+                self.summary_writer.flush()
+
+        #Backwards compatibility of all_r numpy file
+        if self.save_all_epoch:
+            self.all_r.append(r_full)
+
+
+
+    def save_results(self, positional_entropy, base_r_history, pool):
         """
         Saves stats that are available only after all epochs are finished
-        :param all_r: all rewards for all epochs
         :param positional_entropy: evolution of positional_entropy for all epochs
         :param base_r_history: reward for each unique program found during training
         :param pool: Pool used to parallelize reward computation
         """
-        if self.save_all_r:
+        # First of all, saves any pending buffer
+        if self.output_file is not None:
+            self.flush_buffer(False)
+        if self.save_all_epoch:
+            self.flush_buffer(True)
+
+        if self.summary_writer:
+            self.summary_writer.flush()
+
+        if self.save_all_epoch:
+            #Kept all_r numpy file for backwards compatibility.
             with open(self.all_r_output_file, 'ab') as f:
+                all_r = np.array(self.all_r, dtype=np.float32)
                 np.save(f, all_r)
 
         if self.save_positional_entropy:
@@ -239,8 +323,6 @@ class StatsLogger():
                 # na_ids = [i for i in range(len(str_sympy_exprs)) if str_sympy_exprs[i] == "N/A"]
                 # programs = list(map(programs.__getitem__, unique_ids + na_ids))
 
-            def hof_work(p):
-                return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
             base_r = [p.base_r for p in programs]
             i_hof = np.argsort(base_r)[-self.hof:][::-1]  # Indices of top hof Programs
@@ -272,8 +354,6 @@ class StatsLogger():
 
             # Compute the pareto front
             if self.save_pareto_front:
-                def pf_work(p):
-                    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
                 #if verbose:
                 #    print("Evaluating the pareto front...")
                 all_programs = list(Program.cache.values())
@@ -300,3 +380,21 @@ class StatsLogger():
                     if p.evaluate.get("success"):
                         p_final = p
                         break
+
+    def flush_buffer(self, all_info_buffer=False):
+        """write buffer to output file
+        @:param all_info_buffer: should self.buffer_epoch_stats (False) or self.buffer_all_programs (True) be flushed?
+
+        """
+        output = self.all_info_output_file if all_info_buffer else self.output_file
+        buffer = self.buffer_all_programs if all_info_buffer else self.buffer_epoch_stats
+
+        with open(output, 'a') as f:
+            buffer.seek(0)
+            shutil.copyfileobj(buffer, f, -1)
+
+        # clear buffer
+        if all_info_buffer:
+            self.buffer_all_programs = StringIO()
+        else:
+            self.buffer_epoch_stats = StringIO()

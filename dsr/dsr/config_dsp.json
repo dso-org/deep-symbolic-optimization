@@ -45,7 +45,7 @@
       "save_summary": false,
       "debug": 0,
       "output_file": null,
-      "save_all_r": false,
+      "save_all_epoch": false,
       "early_stopping": true,
       "hof": 100,
       "use_memory": true,
@@ -54,7 +54,8 @@
       "memory_threshold": null,
       "save_positional_entropy": false,
       "save_pareto_front": false,
-      "save_cache": false
+      "save_cache": false,
+      "save_freq": 1
    },
    "controller": {
       "cell": "lstm",
