@@ -138,7 +138,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     config = load_config(config_template, method)
 
     # Load all benchmarks
-    unique_benchmark_configs = set_benchmark_configs(b, config, method, output_filename)
+    unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename)
 
     # Generate seeds for each run for each benchmark
     configs = []

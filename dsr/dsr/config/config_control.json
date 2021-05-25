@@ -1,7 +1,11 @@
 {
    "task" : {
       "task_type" : "control",
-      "method" : "dsr"
+      "method" : "dsr",
+      "name" : "CustomCartPoleContinuous-v0",
+      "action_spec" : [null],
+      "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
+      "success_score": 800.0
    },
    "training" : {
       "logdir" : "./log",
@@ -29,7 +33,7 @@
       "save_all_r" : false,
       "save_summary" : false,
       "save_positional_entropy" : false,
-      "save_pareto_front" : true,
+      "save_pareto_front" : false,
       "save_cache" : false,
       "save_cache_r_min" : 0.9
    }

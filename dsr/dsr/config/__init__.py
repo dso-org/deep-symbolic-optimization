@@ -46,7 +46,7 @@ def get_base_config(task, method, language_prior):
 
     return safe_merge_dicts(base_config, task_config)
 
-def set_benchmark_configs(arg_benchmark, config, method, output_filename):
+def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None):
     """Get all indivual benchmarks and generate their respective configs."""
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
@@ -159,7 +159,7 @@ def set_benchmark_configs(arg_benchmark, config, method, output_filename):
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
-def load_config(config_template, method, task="regression", language_prior=False):
+def load_config(config_template=None, method="dsr", task="regression", language_prior=False):
     # Load personal config file
     personal_config = {}
     if config_template is not None:
