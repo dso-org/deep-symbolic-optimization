@@ -322,7 +322,7 @@ class RelationalConstraint(Constraint):
         The type of relationship to constrain.
     """
 
-    def __init__(self, library, targets, effectors, relationship, base=False):
+    def __init__(self, library, targets, effectors, relationship):
         Prior.__init__(self, library)
         self.targets = library.actionize(targets)
         self.effectors = library.actionize(effectors)
