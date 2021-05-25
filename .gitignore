@@ -11,3 +11,7 @@ dsr/dsr/summary*
 dsr/build
 dsr/dsr/cyfunc*
 **/log/
+/tmp
+/demo-web/user
+/demo-web/static/image/user/
+*videos
