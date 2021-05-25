@@ -162,7 +162,10 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
         key = tokens.tostring()
         if key in Program.cache:
             p = Program.cache[key]
-            p.count += 1
+            if on_policy:
+                p.on_policy_count += 1
+            else:
+                p.off_policy_count += 1
         else:
             p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
             Program.cache[key] = p
@@ -255,9 +258,11 @@ class Program(object):
         
         if optimize:
             _ = self.optimize()
-            
-        self.count      = 1
-        self.on_policy  = on_policy # Note if a program was created on policy
+
+        self.on_policy_count = 1 if on_policy else 0
+        self.off_policy_count = 0 if on_policy else 1
+
+        self.originally_on_policy = on_policy # Note if a program was created on policy
 
         if self.n_objects > 1:
             # Fill list of multi-traversals
@@ -602,8 +607,9 @@ class Program(object):
         """Prints the statistics of the program"""
         print("\tReward: {}".format(self.r))
         print("\tBase reward: {}".format(self.base_r))
-        print("\tCount: {}".format(self.count))
-        print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
+        print("\tCount Off-policy: {}".format(self.off_policy_count))
+        print("\tCount On-policy: {}".format(self.on_policy_count))
+        print("\tInvalid: {} On Policy: {}".format(self.invalid, self.originally_on_policy))
         print("\tTraversal: {}".format(self))
         print("\tExpression:")
         print("{}\n".format(indent(self.pretty(), '\t  ')))

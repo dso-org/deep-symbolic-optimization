@@ -4,7 +4,6 @@ import os
 import multiprocessing
 import time
 from itertools import compress
-from collections import defaultdict
 
 import tensorflow as tf
 import numpy as np
@@ -110,7 +109,7 @@ def learn(sess, controller, pool, gp_controller,
     output_file : str, optional
         Filename to write results for each iteration.
 
-    save_all_r : bool, optional
+    save_all_epoch : bool, optional
         Whether to save all rewards for each iteration.
 
     baseline : str, optional
@@ -240,7 +239,7 @@ def learn(sess, controller, pool, gp_controller,
         programs = [from_tokens(a, optimize=True, n_objects=n_objects) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
-        on_policy = np.array([p.on_policy for p in programs])
+        on_policy = np.array([p.originally_on_policy for p in programs])
         sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                               lengths=l, rewards=r, on_policy=on_policy)
         memory_queue.push_batch(sampled_batch, programs)
@@ -269,7 +268,7 @@ def learn(sess, controller, pool, gp_controller,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
+    #all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
@@ -363,7 +362,7 @@ def learn(sess, controller, pool, gp_controller,
 
         l           = np.array([len(p.traversal) for p in programs])
         s           = [p.str for p in programs] # Str representations of Programs
-        on_policy   = np.array([p.on_policy for p in programs])
+        on_policy   = np.array([p.originally_on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
 
         if save_positional_entropy:
@@ -621,27 +620,8 @@ def learn(sess, controller, pool, gp_controller,
 
     if verbose:
         print("Evaluating the hall of fame...")
-    #Save all results available only after all epochs are finished.
-    logger.save_results(positional_entropy, base_r_history, pool)
-
-    # Print error statistics of the cache
-    n_invalid = 0
-    error_types = defaultdict(lambda : 0)
-    error_nodes = defaultdict(lambda : 0)
-    for p in Program.cache.values():
-        if p.invalid:
-            n_invalid += p.count
-            error_types[p.error_type] += p.count
-            error_nodes[p.error_node] += p.count
-    if n_invalid > 0:
-        total_samples = (epoch + 1)*batch_size # May be less than n_samples if breaking early
-        print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
-        print("Error type counts:")
-        for error_type, count in error_types.items():
-            print("  {}: {} ({:.1%})".format(error_type, count, count/n_invalid))
-        print("Error node counts:")
-        for error_node, count in error_nodes.items():
-            print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
+    #Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
+    results_add = logger.save_results(positional_entropy, base_r_history, pool, epoch, nevals)
 
     # Print the priority queue at the end of training
     if verbose and priority_queue is not None:
@@ -667,5 +647,5 @@ def learn(sess, controller, pool, gp_controller,
         "traversal" : repr(p),
         "program" : p
         })
-
+    result.update(results_add)
     return result
