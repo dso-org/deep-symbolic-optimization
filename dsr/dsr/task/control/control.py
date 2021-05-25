@@ -1,7 +1,4 @@
 import gym
-import multiprocessing
-from multiprocessing import Pool
-import random
 
 try:
     import pybullet_envs
@@ -17,151 +14,27 @@ from dsr.functions import create_tokens
 from . import utils as U
 
 
-REWARD_SEED_SHIFT   = int(1e6) # Reserve the first million seeds for evaluation
+REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
-
-def _get_action(p, obs):
-    """Helper function to get an action from Program p according to obs,
-    since Program.execute() requires 2D arrays but we only want 1D."""
-
-    action = p.execute(np.array([obs]))[0]
-
-    return action
-
-
-def episode(p_input, action_dim, evaluate, fix_seeds, model, episode_seed_shift,  symbolic_actions, env, seed,
-            reward_seed_shift=REWARD_SEED_SHIFT, get_action=_get_action, get_fixed_action=_get_action):
-
-    r_episode   = 0.0
-
-    assert callable(get_action)
-    assert callable(get_fixed_action)
-    assert seed is not None
-    
-    # When we use the parallel version, we have to copy the program over the hard way because 
-    # Python has trouble pickling an existing program. This gets thrown away at the end of the 
-    # run here, so we don't effect the actually orignal program.
-    if action_dim is not None:
-        if isinstance(p_input,dsr.program.Program):
-            p = p_input
-        elif callable(p_input):
-            p = p_input
-        else:
-            p = Program(p_input, False)
-
-    # During evaluation, always use the same seeds
-    if evaluate:
-        env.seed(seed)
-    elif fix_seeds:
-        env.seed(seed + (episode_seed_shift * 100) + reward_seed_shift)
-        
-    obs = env.reset()
-    done = False
-    while not done:
-
-        # Compute anchor actions
-        if model is not None:
-            action, _ = model.predict(obs)
-        else:
-            action = np.zeros(env.action_space.shape, dtype=np.float32)
-
-        # Replace fixed symbolic actions
-        for j, fixed_p in symbolic_actions.items():
-            action[j] = get_fixed_action(fixed_p, obs)
-
-        # Replace symbolic action with current program
-        if action_dim is not None:
-            action[action_dim] = get_action(p, obs)
-        
-        # Replace NaNs and clip infinites
-        action[np.isnan(action)] = 0.0 # Replace NaNs with zero
-        action = np.clip(action, env.action_space.low, env.action_space.high)
-
-        obs, r, done, _ = env.step(action)
-        r_episode += r
-    
-    return r_episode
-
-
-def create_model(action_spec, algorithm, anchor, anchor_path=None):
-    
-    # Load the anchor model (if applicable)
-    if "anchor" in action_spec:
-        # Load custom anchor, if provided, otherwise load default
-        if algorithm is not None and anchor is not None:
-            U.load_model(algorithm, anchor_path)
-        else:
-            U.load_default_model(name)
-        model = U.model
-    else:
-        model = None
-
-    return model
-
-
-def create_symbolic_actions(action_spec):
-    
-    symbolic_actions = {}
-    action_dim = None
-    for i, spec in enumerate(action_spec):
-
-        # Action taken from anchor policy
-        if spec == "anchor":
-            continue
-
-        # Action dimnension being learned
-        if spec is None:
-            action_dim = i
-
-        # Pre-specified symbolic policy
-        elif isinstance(spec, list) or isinstance(spec, str):
-            str_tokens = spec
-            symbolic_actions[i] = from_str_tokens(str_tokens, optimize=False, skip_cache=True)
-        else:
-            assert False, "Action specifications must be None, a str/list of tokens, or 'anchor'."
-
-    return symbolic_actions, action_dim
-
-
-def make_env(name, env_kwargs):
-    
-    assert "Bullet" not in name or pybullet_envs is not None, "Must install pybullet_envs."
-    if env_kwargs is None:
-        env_kwargs = {}
-
-    # Define closures for environment and anchor model
-    env = gym.make(name, **env_kwargs)
-
-    # HACK: Wrap pybullet envs in TimeFeatureWrapper
-    # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
-    # Note Zoo is not implemented as a package, which might make this tedious
-    if "Bullet" in name:
-        env = U.TimeFeatureWrapper(env)
-        
-    return env, env_kwargs
-
-'''
-    We need a wrapper since if the pool is inside the control task itself, Python gets upset when 
-    we use n_cores_batch since it sees a pool of processes within a pool. This tucks it aside. 
-    so we can parallelize gym runs for long validation and evaluation, but use batch pooling
-    for shorter tests.
-'''
-class pool_wrapper:
-
-    def __init__(self):
-        self.pool = None
-        
-    def __call__(self):
-        if self.pool is None:
-            self.pool = Pool(processes = multiprocessing.cpu_count())
-            
-        return self.pool
+# This is a dictionary with  "NameEnv" : [minR, maxR].
+# The reward scaling is given by r_scaled = minR/(minR-maxR) - r/(minR-maxR) 
+REWARD_SCALE = {
+    "CustomCartPoleContinuous-v0" : [0.0,1000.0],
+    "MountainCarContinuous-v0" : [0.0,93.95],
+    "Pendulum-v0" : [-1300.0,-147.56],
+    "InvertedDoublePendulumBulletEnv-v0" : [0.0,9357.77],
+    "InvertedPendulumSwingupBulletEnv-v0" : [0.0,891.34],
+    "LunarLanderContinuous-v2" : [0.0,272.65],
+    "HopperBulletEnv-v0" : [0.0,2741.86],
+    "ReacherBulletEnv-v0" : [-5.0, 19.05],
+    "BipedalWalker-v2" : [-60.0, 312.0]
+}
 
 
 def make_control_task(function_set, name, action_spec, algorithm=None,
-                      anchor=None, n_episodes_train=5, n_episodes_test=1000,
-                      success_score=None, stochastic=True, protected=False,
-                      env_kwargs=None, fix_seeds=False, episode_seed_shift=0):
+    anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
+    stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
+    episode_seed_shift=0, reward_scale=True):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -181,7 +54,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     algorithm : str or None
         Name of algorithm corresponding to anchor path, or None to use default
-        anchor for given environment. For example see "stable-baselines".
+        anchor for given environment.
 
     anchor : str or None
         Path to anchor model, or None to use default anchor for given
@@ -213,13 +86,32 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         Training episode seeds start at episode_seed_shift * 100 +
         REWARD_SEED_SHIFT. This has no effect if fix_seeds == False.
 
+    reward_scale : bool
+        Whether to scale rewards by top Zoo evaluation score.
+
     Returns
     -------
 
     See dsr.task.task.make_task().
     """
 
-    env, env_kwargs = make_env(name, env_kwargs)
+    assert "Bullet" not in name or pybullet_envs is not None, "Must install pybullet_envs."
+    if env_kwargs is None:
+        env_kwargs = {}
+
+    # Define closures for environment and anchor model
+    env = gym.make(name, **env_kwargs)
+
+    if reward_scale:
+        [minR, maxR] = REWARD_SCALE[name]
+    else:
+        reward_scale = None
+
+    # HACK: Wrap pybullet envs in TimeFeatureWrapper
+    # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
+    # Note Zoo is not implemented as a package, which might make this tedious
+    if "Bullet" in name:
+        env = U.TimeFeatureWrapper(env)
 
     # Set the library (need to do this now in case there are symbolic actions)
     if fix_seeds and stochastic:
@@ -238,50 +130,89 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     assert len([v for v in action_spec if v is None]) <= 1, "No more than 1 action_spec element can be None."
     assert int(algorithm is None) + int(anchor is None) in [0, 2], "Either none or both of (algorithm, anchor) must be None."
 
-    model                   = create_model(action_spec, algorithm, anchor, anchor_path=None)
-    gym_pool                = pool_wrapper()
+    # Load the anchor model (if applicable)
+    if "anchor" in action_spec:
+        # Load custom anchor, if provided, otherwise load default
+        if algorithm is not None and anchor is not None:
+            U.load_model(algorithm, anchor_path)
+        else:
+            U.load_default_model(name)
+        model = U.model
+    else:
+        model = None
 
     # Generate symbolic policies and determine action dimension
-    symbolic_actions, action_dim    = create_symbolic_actions(action_spec)
+    symbolic_actions = {}
+    action_dim = None
+    for i, spec in enumerate(action_spec):
+
+        # Action taken from anchor policy
+        if spec == "anchor":
+            continue
+
+        # Action dimnension being learned
+        if spec is None:
+            action_dim = i
+
+        # Pre-specified symbolic policy
+        elif isinstance(spec, list) or isinstance(spec, str):
+            str_tokens = spec
+            p = from_str_tokens(str_tokens, optimize=False, skip_cache=True)
+            symbolic_actions[i] = p
+
+        else:
+            assert False, "Action specifications must be None, a str/list of tokens, or 'anchor'."
+
 
     def get_action(p, obs):
         """Helper function to get an action from Program p according to obs,
         since Program.execute() requires 2D arrays but we only want 1D."""
 
-        action = _get_action(p, obs)
+        action = p.execute(np.array([obs]))[0]
 
         return action
 
-    def run_episodes(p, n_episodes, evaluate, extra_seed_shift=0):
+
+    def run_episodes(p, n_episodes, evaluate):
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
         r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
-        
         for i in range(n_episodes):
-            r_episodes[i] = episode(p, action_dim, evaluate, fix_seeds, model, episode_seed_shift+extra_seed_shift, symbolic_actions, env, seed=i)
 
-        return r_episodes
+            # During evaluation, always use the same seeds
+            if evaluate:
+                env.seed(i)
+            elif fix_seeds:
+                env.seed(i + (episode_seed_shift * 100) + REWARD_SEED_SHIFT)
+            obs = env.reset()
+            done = False
+            while not done:
 
-    def par_run_episodes(p, n_episodes, evaluate, extra_seed_shift=0):
-        """Runs n_episodes episodes and returns each episodic reward.
-        
-        Parallel version for when we have just a few individuals, but lots of test oer. Thus we don't have batch or task paralellization. 
-        """       
-        r_episodes          = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
-        
-        seed_shift          = episode_seed_shift+extra_seed_shift
-        par_fix_seeds       = True      # We alllllways need to seed here otherwise each process runs just like the other. 
-        
-        multiple_results    = [gym_pool().apply_async(episode, (p.tokens, action_dim, evaluate, par_fix_seeds, model, seed_shift, 
-                                                               symbolic_actions, env, seed)) for seed in range(n_episodes)]
+                # Compute anchor actions
+                if model is not None:
+                    action, _ = model.predict(obs)
+                else:
+                    action = np.zeros(env.action_space.shape, dtype=np.float32)
+
+                # Replace fixed symbolic actions
+                for j, fixed_p in symbolic_actions.items():
+                    action[j] = get_action(fixed_p, obs)
+
+                # Replace symbolic action with current program
+                if action_dim is not None:
+                    action[action_dim] = get_action(p, obs)
                 
-        vals                = [res.get() for res in multiple_results]
-        for i,v in enumerate(vals):
-            r_episodes[i]   = v  # Ordering probably does not matter here. 
-            
+                # Replace NaNs and clip infinites
+                action[np.isnan(action)] = 0.0 # Replace NaNs with zero
+                action = np.clip(action, env.action_space.low, env.action_space.high)
+
+                obs, r, done, _ = env.step(action)
+                r_episodes[i] += r
+
         return r_episodes
-        
+
+
     def reward(p):
 
         # Run the episodes
@@ -289,36 +220,40 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
         # Return the mean
         r_avg = np.mean(r_episodes)
-        
+
+        # Scale rewards
+        if reward_scale is not None:
+            r_avg = minR/(minR-maxR) - r_avg/(minR-maxR)
+
         return r_avg
+
 
     def evaluate(p):
 
         # Run the episodes
-        r_episodes = par_run_episodes(p, n_episodes_test, evaluate=True)
+        r_episodes = run_episodes(p, n_episodes_test, evaluate=True)
 
         # Compute eval statistics
         r_avg_test = np.mean(r_episodes)
         success_rate = np.mean(r_episodes >= success_score)
         success = success_rate == 1.0
-        
+
         info = {
             "r_avg_test" : r_avg_test,
             "success_rate" : success_rate,
-            "success" : success,
-            "test_val" : r_avg_test
+            "success" : success
         }
         return info
 
     extra_info = {
-        "symbolic_actions" : symbolic_actions,
+        "symbolic_actions" : symbolic_actions
     }
     
 
     task = dsr.task.Task(reward_function=reward,
-                         evaluate=evaluate,
-                         library=library,
-                         stochastic=stochastic,
-                         extra_info=extra_info)
+                evaluate=evaluate,
+                library=library,
+                stochastic=stochastic,
+                extra_info=extra_info)
 
     return task
