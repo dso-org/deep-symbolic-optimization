@@ -121,19 +121,19 @@ python -m dsr.run --help
 ### Train 2 indepdent runs of DSR on Nguyen-1 using 2 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen-1 --mc=2 --num_cores=2
+python -m dsr.run config.json --b=Nguyen-1 --mc=2 --n_cores_task=2
 ```
 
 ### Train DSR on all Nguyen benchmarks using 12 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen --num_cores=12
+python -m dsr.run config.json --b=Nguyen... --n_cores_task=12
 ```
 
 ### Train 2 independent runs of GP on Nguyen-1
 
 ```
-python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --num_cores=2
+python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --n_cores_task=2
 ```
 
 ### Train DSR on Nguyen-1 and Nguyen-4
@@ -163,6 +163,73 @@ python -m dsr.run config.json --b=Nguyen-1 --b=Nguyen-4
 ```
 python -m dsr.run base.json --method=dsr --mc=50 --n_cores_task=24 --b=Dataset1 --output_filename run_stats_Nguyen-12_mp.1.csv
 ```
-Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv` 
+Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv`
 
 
+## Summary and evaluation of a log path
+
+With this tool one can easily get a summary of the executed experiment that is generated from the log files.
+If plots are generated they will be placed in the same log directory.
+### Program integration
+Printing the summary is automatically turned on as well as plotting the curves for HoF and PF if they are logged.
+Can be changed in `config.json`:
+```
+{
+   ...
+   "postprocess": {
+      "method": "dsr",
+      "print": true,
+      "print_count": 5,
+      "save_plots": true
+   },
+   ...
+}
+```
+### Commandline usage
+
+```
+python -m dsr.logeval path_to_log_directory --log_count 10 --show_hof --show_pf --save_plots --show_plots
+```
+### Jupyter notebook usage
+```
+from dsr.logeval import LogEval
+log = LogEval(path_to_log_directory)
+log.analyze_log(log_count=10, show_hof=True, show_pf=True, show_plots=True)
+```
+
+# Generating log files
+
+You can turn on/off the generation of log files through `config.json`:
+```
+{
+   ...
+   "training": {
+      "logdir": "./log",
+      "hof": 100,
+      "save_summary": true,
+      "save_all_r": true,
+      "save_positional_entropy": true,
+      "save_pareto_front": true,
+      "save_cache": true,
+      "save_cache_r_min": 0.9
+   },
+   ...
+}
+```
+`logdir`: folder where the log files are saved.
+
+`hof`: Number of programs from the "Hall of fame" (best all times programs) to be included in the log file.
+
+`save_summary`: Whether to store Tensorflow [summaries](https://www.tensorflow.org/api_docs/python/tf/summary)
+
+`save_all_r`: Whether to store a `.npy` file dumping the rewards from all programs sampled throughout the training process (might result in huge files). 
+
+`save_positional_entropy`: Whether to save the evolution of positional entropy for each iteration into a `.npy` dump file.
+
+`save_pareto_front`: Whether to save a file listing all the programs in the pareto front.
+
+`save_cache`: Whether to save the str, count, and r of each program in the cache.
+
+`save_cache_r_min`: If not null, only keep Programs with r >= r_min when saving cache.
+
+For explanations of specific fields inside those files, read the comments in `dsr/dsr/train_stats.py`

@@ -608,7 +608,7 @@ class Program(object):
             expr = parse_expr(tree.__repr__()) # SymPy expression
         except:
             expr = "N/A"
-            
+
         return expr
 
 
@@ -702,22 +702,20 @@ def convert_to_sympy(node):
     elif node.val == "neg":
         node.val = Node("Mul")
         node.children.append(Node("-1"))
-        
+
     elif node.val == "n2":
         node.val = "Pow"
         node.children.append(Node("2"))
-        
+
     elif node.val == "n3":
         node.val = "Pow"
         node.children.append(Node("3"))
-        
+
     elif node.val == "n4":
         node.val = "Pow"
         node.children.append(Node("4"))
-        
+
     for child in node.children:
         convert_to_sympy(child)
-        
 
-        
     return node
