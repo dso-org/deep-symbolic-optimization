@@ -55,12 +55,13 @@
       "memory_capacity": 1e3,
       "warm_start": null,
       "memory_threshold": null,
-      "save_all_r": false,
+      "save_all_epoch": false,
       "save_summary": false,
       "save_positional_entropy": false,
       "save_pareto_front": true,
       "save_cache": false,
-      "save_cache_r_min": 0.9
+      "save_cache_r_min": 0.9,
+      "save_freq": 1
    },
    "controller": {
       "summary" : false,
