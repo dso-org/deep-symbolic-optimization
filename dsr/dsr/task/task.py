@@ -1,7 +1,7 @@
 """Factory functions for generating symbolic search tasks."""
 
 from dataclasses import dataclass
-from typing import Callable, Dict, Any
+from typing import Callable, List, Dict, Any
 
 from dsr.task.regression.regression import make_regression_task
 from dsr.task.control.control import make_control_task
