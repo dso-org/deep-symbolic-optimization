@@ -83,32 +83,15 @@
       "max_length": 30,
       "off_policy_stats": false
    },
-   "gp": {
-      "population_size": 1000,
-      "generations": null,
-      "n_samples" : 2000000,
-      "tournament_size": 2,
-      "metric": "nmse",
-      "const_range": [
-         -1.0,
-         1.0
-      ],
-      "p_crossover": 0.95,
-      "p_mutate": 0.03,
-      "max_depth": null,
-      "max_len": 30,
-      "max_const": 3,
-      "seed": 0,
-      "early_stopping": true,
-      "threshold": 1e-12,
-      "verbose": false
-   },
-   "language_model_prior": {
-        "saved_language_model_path": "./language_model/model/saved_model",
-        "saved_language_model_lib" : "./language_model/model/saved_model/word_dict.pkl",
-        "embedding_size":32, 
-        "num_layers":1, 
-        "num_hidden":256,
-        "prob_sharing": true
-    }
+   "gp_meld": {
+        "run_gp_meld" : false,
+        "verbose" : false,
+        "generations" : 20,
+        "p_crossover" : 0.5,
+        "p_mutate" : 0.5,
+        "tournament_size" : 5,
+        "train_n" : 50,
+        "mutate_tree_max" : 3,
+        "parallel_eval" : false
+   }
 }
