@@ -4,7 +4,9 @@ import json
 import zlib
 from collections import defaultdict
 from multiprocessing import Pool
+import random
 
+import numpy as np
 import tensorflow as tf
 
 from dsr.task import set_task
@@ -89,6 +91,8 @@ class DeepSymbolicOptimizer():
             task_name = ""
         seed_ += zlib.adler32(task_name.encode("utf-8"))
         tf.set_random_seed(seed_)
+        np.random.seed(seed_)
+        random.seed(seed_)
 
         return seed_
 
@@ -103,20 +107,10 @@ class DeepSymbolicOptimizer():
         return controller
 
     def make_gp_controller(self):
-        
-        if self.config_gp_meld.get("run_gp_meld"): 
-            
-            if self.config_task["task_type"] == "regression":
-                from dsr.task.regression.gp_regression import GPController
-            elif self.config_task["task_type"] == "control":
-                from dsr.task.control.gp_control import GPController
-            else:
-                raise NotImplementedError
-            
-            gp_controller = GPController(self.config_gp_meld,
-                                         self.config_task,
-                                         self.config_training,
-                                         self.config_prior)
+        if self.config_gp_meld.pop("run_gp_meld", False): 
+            from dsr.gp.gp_controller import GPController
+            gp_controller = GPController(self.prior,
+                                         **self.config_gp_meld)
         else:
             gp_controller = None
         return gp_controller
