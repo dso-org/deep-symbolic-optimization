@@ -15,7 +15,7 @@
          "targets" : [],
          "effectors" : [],
          "relationship" : null,
-         "on" : true
+         "on" : false
       },
       "length" : {
          "min_" : 4,
@@ -35,7 +35,7 @@
          "on" : true
       },
       "const" : {
-         "on" : false
+         "on" : true
       },
       "no_inputs" : {
          "on" : false
@@ -46,7 +46,7 @@
          "on" : false
       },
       "uniform_arity" : {
-         "on" : true
+         "on" : false
       },
       "language_model" : {
          "weight" : null,
