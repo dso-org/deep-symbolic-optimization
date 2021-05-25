@@ -1,6 +1,10 @@
 {
+   "training" : {
+      "batch_size" : 500,
+      "epsilon": 0.1
+   },
    "gp_meld" : {
-   	"run_gp_meld" : false,
+   	"run_gp_meld" : true,
       "init_population_size" : 1,
       "p_crossover" : 0.5,
       "p_mutate" : 0.5,
