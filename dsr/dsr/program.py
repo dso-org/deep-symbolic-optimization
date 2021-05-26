@@ -15,40 +15,29 @@ from dsr.utils import cached_property
 import dsr.utils as U
 
 
-def _finish_tokens(tokens, n_objects: int = 1):
-
+def _finish_tokens(tokens, n_objects=1):
     """
-    Finish the token strings to make sure they are a valid program. 
-    
-    We know we have a valid program if all arities a cancled out by 
-    a the same number of terminals. Once we reach a point in the string
-    where these aq equal, we cut the string of tokens. Otherwise, the 
-    tokens are not yet a valid program. The solution is to keep adding 
-    terminals until they fully counterweight the arities. 
-    
-    We have to do this since we emit programs as strings which can leave
-    them over or under complete. 
-    
+    Complete a possibly unfinished string of tokens.
+
     Parameters
     ----------
     tokens : list of integers
         A list of integers corresponding to tokens in the library. The list
-        defines an expression's pre-order traversal. 
-        
+        defines an expression's pre-order traversal.
+
     Returns
     _______
-    tokens : list of integers
+    tokens : list of ints
         A list of integers corresponding to tokens in the library. The list
         defines an expression's pre-order traversal. "Dangling" programs are
         completed with repeated "x1" until the expression completes.
-        
     """
-    
+
     arities = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
-    dangling = 1 + np.cumsum(arities - 1) 
-    
+    dangling = 1 + np.cumsum(arities - 1)
+
     if -n_objects in (dangling - 1):
         # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
         expr_length = 1 + np.argmax((dangling - 1) == -n_objects)
@@ -114,21 +103,8 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False, n_objects=1):
 
     return p
 
-def _set_optimized_consts(p, optimized_consts):
-    """
-        Sometimes things need to be imported over from places like GP/DEAP in a way that the
-        standard integer tokens do not support. An example is optimized constants from a prior 
-        DEAP run.
-        
-        Otherwise, leave it alone. 
-    """
-    if optimized_consts is not None:
-        p.set_constants(optimized_consts)
-        
-    return p
 
-
-def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1, optimized_consts=None):
+def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1):
 
     """
     Memoized function to generate a Program from a list of tokens.
@@ -166,17 +142,15 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1,
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
-    if skip_cache:
-        p = _set_optimized_consts(Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects), optimized_consts)
-    elif Program.task.stochastic:
-        p = _set_optimized_consts(Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects), optimized_consts)
+    if skip_cache or Program.task.stochastic:
+        p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
     else:
         key = tokens.tostring() 
         if key in Program.cache:
             p = Program.cache[key]
             p.count += 1
         else:
-            p = _set_optimized_consts(Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects), optimized_consts)
+            p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
             Program.cache[key] = p
 
     return p
