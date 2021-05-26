@@ -28,13 +28,6 @@ def work(p):
 
 
 
-
-
-# def sympy_work(p):
-#     sympy_expr = p.sympy_expr
-#     str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
-#     return sympy_expr, str_sympy_expr
-
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
@@ -175,15 +168,10 @@ def learn(sess, controller, pool, gp_controller,
     result : dict
         A dict describing the best-fit expression (determined by base_r).
     """
-    all_r_size              = batch_size
 
     if gp_controller is not None:
         run_gp_meld             = True
         gp_verbose              = gp_controller.config_gp_meld["verbose"]
-        if gp_controller.config_gp_meld["train_n"]:
-            all_r_size              = batch_size+gp_controller.config_gp_meld["train_n"]
-        else:
-            all_r_size              = batch_size+1
     else:
         gp_controller           = None
         run_gp_meld             = False
@@ -268,14 +256,12 @@ def learn(sess, controller, pool, gp_controller,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    #all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
     logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_cache, save_cache_r_min, save_freq)
     nevals              = 0
-    #program_val_log     = []
 
     start_time = time.time()
     print("\n-- START TRAINING -------------------")
