@@ -39,9 +39,13 @@ def test_task(model, config):
     model.train()
 
 
-def test_model_parity(model, cached_results):
+@pytest.mark.parametrize("config", ["config/config_regression.json"])
+def test_model_parity(model, cached_results, config):
     """Compare results to last"""
 
+    config = load_config(config)
+    config["task"].pop("method")
+    model.update_config(config)
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
     results = model.sess.run(tf.trainable_variables())
