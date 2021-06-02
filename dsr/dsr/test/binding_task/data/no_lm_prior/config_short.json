@@ -1,10 +1,9 @@
 {
     "task" : {
        "task_type" : "binding",
-       "name" : "AbAg_binding_affinity_optimization",
        "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
        "paths" : {
-           "base_path": "test/binding_task/data/",
+           "base_path": "test/binding_task/data/no_lm_prior",
            "model_weights_pth": "model_20190812_165712.pth",
            "master_seqrecord_fasta": "nCoV/80R/80R_2ghw.fasta",
            "master_structure": "nCoV/80R/RBD_FAB.15.2ghw_A.2ghw_B.80R.pdb.minimized.pdb.final.pdb", 
@@ -18,8 +17,8 @@
           }
     },
     "prior": {
-       "seq_positions": {"yaml_file" : "./test/binding_task/data/positions_prior.yaml",
-                         "use_context": true,
+       "seq_positions": {"yaml_file" : "./test/binding_task/data/no_lm_prior/positions_prior.yaml",
+                         "use_context": false,
                          "biasing_factor": 0}
     },
     "training": {
@@ -37,10 +36,10 @@
        "baseline": "R_e",
        "b_jumpstart": false,
        "n_cores_batch": 1,
-       "summary": false,
+       "save_summary": false,
        "debug": 0,
        "output_file": null,
-       "save_all_r": false,
+       "save_all_epoch": false,
        "early_stopping": true,
        "hof" : 10
     },
@@ -56,7 +55,7 @@
        "observe_action": true,
        "observe_parent": false,
        "observe_sibling": false,
-       "max_length": 247,
+       "max_length": 10,
        "entropy_weight": 0.01,
        "ppo": false,
        "ppo_clip_ratio": 0.2,

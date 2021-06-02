@@ -263,14 +263,14 @@ def create_base(bp,nm,
     default["training"]["b_jumpstart"] = False
     
     default["training"]["n_cores_batch"] = 1
-    default["training"]["summary"] = False
+    default["training"]["save_summary"] = False
     default["training"]["debug"] = 0
     default["training"]["output_file"] = None
     default["training"]["save_all_r"] = sar
     default["training"]["early_stopping"] = es
     default["training"]["hof"] = None
     default["training"]["eval_all"] = eva
-    default["training"]["pareto_front"] = pf
+    default["training"]["save_pareto_front"] = pf
 
     default["controller"]["cell"] = "lstm"
     default["controller"]["num_layers"] = 1
