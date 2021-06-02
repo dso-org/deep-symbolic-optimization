@@ -266,7 +266,7 @@ class StatsLogger():
         :param positional_entropy: evolution of positional_entropy for all epochs
         :param base_r_history: reward for each unique program found during training
         :param pool: Pool used to parallelize reward computation
-        :param n_epochs: total number of epochs
+        :param n_epochs: index of last epoch
         :param n_samples: Total number of samples
         """
         n_epochs = n_epochs + 1
