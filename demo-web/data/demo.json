@@ -24,7 +24,7 @@
         "baseline": "R_e",
         "b_jumpstart": false,
         "num_cores": 1,
-        "summary": false,
+        "save_summary": false,
         "debug": 0,
         "output_file": null,
         "save_all_r": true,

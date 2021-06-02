@@ -568,7 +568,7 @@ class SoftLengthPrior(Prior):
 class SequencePositionsConstraint(Constraint):
     """Class that constrains Tokens to follow the constraints defined in the YAML file. """
 
-    def __init__(self, library, yaml_file, use_context, biasing_factor):
+    def __init__(self, library, menu_file, use_context, biasing_factor):
         """
         Parameters
         ----------
@@ -586,13 +586,13 @@ class SequencePositionsConstraint(Constraint):
 
         # read in constraint YAML file
         try:
-            with open(yaml_file) as fh:
+            with open(menu_file) as fh:
                 self.config = yaml.full_load(fh)
         except FileNotFoundError:
-            print("Could not open/read file:", yaml_file)
+            print("Could not open/read file:", menu_file)
 
         # load master sequence - new samples will be based on it
-        self.master_seq = self.config['description']['master_seq']
+        self.master_seq = self.config['Sequence']['master_sequence']
 
         # store allowed mutation in a dict for faster access
         self.allowed_mutations = OrderedDict()

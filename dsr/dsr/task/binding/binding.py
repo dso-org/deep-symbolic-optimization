@@ -19,11 +19,14 @@ def make_binding_task(name, paths, function_set):
 
     Parameters
     ----------
-    name : str or None
-        Name of AbAg study being performed.
 
+    name : str
+        Experiment name.
     paths : dict
         Path to files used to run Gaussian Process-based binding environment
+    
+    function_set : list
+        List of possible discrete symbols that can be allocated.
 
     Returns
     -------
@@ -97,11 +100,8 @@ def make_binding_task(name, paths, function_set):
 
     # define amino acids as tokens
     tokens = [Token(None, aa, arity=1, complexity=1) for aa in constants.AMINO_ACIDS]
-
     library = Library(tokens)
-
     extra_info = {}
-
     task = dsr.task.Task(reward_function=reward,
                          evaluate=evaluate,
                          library=library,

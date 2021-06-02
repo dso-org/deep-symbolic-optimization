@@ -196,3 +196,40 @@ from dsr.logeval import LogEval
 log = LogEval(path_to_log_directory)
 log.analyze_log(log_count=10, show_hof=True, show_pf=True, show_plots=True)
 ```
+
+# Generating log files
+
+You can turn on/off the generation of log files through `config.json`:
+```
+{
+   ...
+   "training": {
+      "logdir": "./log",
+      "hof": 100,
+      "save_summary": true,
+      "save_all_r": true,
+      "save_positional_entropy": true,
+      "save_pareto_front": true,
+      "save_cache": true,
+      "save_cache_r_min": 0.9
+   },
+   ...
+}
+```
+`logdir`: folder where the log files are saved.
+
+`hof`: Number of programs from the "Hall of fame" (best all times programs) to be included in the log file.
+
+`save_summary`: Whether to store Tensorflow [summaries](https://www.tensorflow.org/api_docs/python/tf/summary)
+
+`save_all_r`: Whether to store a `.npy` file dumping the rewards from all programs sampled throughout the training process (might result in huge files). 
+
+`save_positional_entropy`: Whether to save the evolution of positional entropy for each iteration into a `.npy` dump file.
+
+`save_pareto_front`: Whether to save a file listing all the programs in the pareto front.
+
+`save_cache`: Whether to save the str, count, and r of each program in the cache.
+
+`save_cache_r_min`: If not null, only keep Programs with r >= r_min when saving cache.
+
+For explanations of specific fields inside those files, read the comments in `dsr/dsr/train_stats.py`
