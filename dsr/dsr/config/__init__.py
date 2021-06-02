@@ -29,11 +29,8 @@ def get_base_config(task, method, language_prior):
 
     # Load method specific config
     task_config["task"]["method"] = method
-    if method in ["gp", "gp_meld"]:
-        if method in ["gp"]:
-            method_file = "config_gp.json"
-        else:
-            method_file = "config_gp_meld.json"
+    if method in ["gp"]:
+        method_file = "config_gp.json"
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), method_file), encoding='utf-8') as f:
             gp_config = json.load(f)
         task_config = safe_merge_dicts(task_config, gp_config)
