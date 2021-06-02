@@ -188,6 +188,7 @@ class StatsLogger():
         :param baseline: baseline value used for training
         :param epoch_walltime: time taken to process this epoch
         """
+        epoch = epoch + 1 #changing from 0-based index to 1-based
         if self.output_file is not None:
             base_r_avg_full = np.mean(base_r_full)
             r_avg_full = np.mean(r_full)
@@ -245,7 +246,7 @@ class StatsLogger():
             self.summary_writer.add_summary(summaries, epoch)
 
         # Should the buffer be saved now?
-        if (epoch + 1) % self.buffer_frequency == 0:
+        if epoch % self.buffer_frequency == 0:
             if self.output_file is not None:
                 self.flush_buffer(False)
             if self.save_all_epoch:
@@ -268,6 +269,7 @@ class StatsLogger():
         :param n_epochs: total number of epochs
         :param n_samples: Total number of samples
         """
+        n_epochs = n_epochs + 1
         # First of all, saves any pending buffer
         if self.output_file is not None:
             self.flush_buffer(False)
