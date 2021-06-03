@@ -141,6 +141,7 @@ class LogEval():
             self.warnings.append("Missing config file!")
         if exp_config["task"]["function_set"] is None:
             exp_config["task"]["function_set"] = self._get_tokenset(exp_config["task"])
+        print("THIS IS IT:", exp_config["task"]["seed"])
         return exp_config
 
     def _get_tokenset(self, task_config):
@@ -176,34 +177,32 @@ class LogEval():
         log_df = None
         log_exists = False
         log_not_found = []
-        if "mc" in self.cmd_params:
-            for seed in range(self.cmd_params["mc"]):
-                log_file = "{}_{}_{}_{}.csv".format(
-                    self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
-                try:
-                    df = pd.read_csv(os.path.join(self.path["log"], log_file))
-                    df.insert(0, "seed", seed)
-                    if log_exists:
-                        log_df = pd.concat([log_df, df])
-                    else:
-                        log_df = df.copy()
-                        log_exists = True
-                except:
-                    log_not_found.append(seed)
+        for seed in range(self.exp_config["task"]["seed"], self.exp_config["task"]["seed"] + self.exp_config["task"]["runs"]):
+            print('**** SEED:', seed)
+            log_file = "{}_{}_{}_{}.csv".format(
+                self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
             try:
-                if log_type == "hof":
-                    log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
-                if log_type == "pf":
-                    log_df = self._apply_pareto_filter(log_df)
-                    log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
-                log_df = log_df.reset_index(drop=True)
-                log_df["index"] = log_df.index
+                df = pd.read_csv(os.path.join(self.path["log"], log_file))
+                df.insert(0, "seed", seed)
+                if log_exists:
+                    log_df = pd.concat([log_df, df])
+                else:
+                    log_df = df.copy()
+                    log_exists = True
             except:
-                self.warnings.append("No data for {}!".format(log_type))
-            if len(log_not_found) > 0:
-                self.warnings.append("Missing {} files for seeds: {}".format(log_type, log_not_found))
-        else:
-            self.warnings.append("Cannot read {} files!".format(log_type))
+                log_not_found.append(seed)
+        try:
+            if log_type == "hof":
+                log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
+            if log_type == "pf":
+                log_df = self._apply_pareto_filter(log_df)
+                log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
+            log_df = log_df.reset_index(drop=True)
+            log_df["index"] = log_df.index
+        except:
+            self.warnings.append("No data for {}!".format(log_type))
+        if len(log_not_found) > 0:
+            self.warnings.append("Missing {} files for seeds: {}".format(log_type, log_not_found))
         return log_df
 
     def _apply_pareto_filter(self, df):
