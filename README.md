@@ -172,12 +172,11 @@ With this tool one can easily get a summary of the executed experiment that is g
 If plots are generated they will be placed in the same log directory.
 ### Program integration
 Printing the summary is automatically turned on as well as plotting the curves for HoF and PF if they are logged.
-Can be changed in `config.json`:
+Can be changed in your config file:
 ```
 {
    ...
    "postprocess": {
-      "method" : "dsr",
       "show_count" : 5,
       "save_plots" : true
    },
