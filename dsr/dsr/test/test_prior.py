@@ -19,6 +19,8 @@ BATCH_SIZE = 1000
 def model():
     config = load_config()
     config["task"].pop("method")
+    config["task"].pop("seed")
+    config["task"].pop("runs")
     return DeepSymbolicOptimizer(config)
 
 
