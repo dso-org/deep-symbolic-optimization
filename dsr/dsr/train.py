@@ -255,7 +255,7 @@ def learn(sess, controller, pool, gp_controller,
     prev_r_best = None
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
-        n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
+    n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
 
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
