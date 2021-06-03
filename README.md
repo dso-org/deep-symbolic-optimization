@@ -34,6 +34,8 @@ python -m dsr.run
 
 This runs the solver on the `Nguyen-1` task and solves quickly in under 100 training epochs (~60 seconds on a laptop).
 
+Additional examples and how to define individual configurations can be found in `./dsr/dsr/config/examples/`.
+
 # Reproducing paper results
 
 Results from the paper can be exactly reproduced using the following commands. First, `cd` into the `paper` directory.
