@@ -22,8 +22,9 @@ def make_binding_task(name, paths, function_set):
 
     name : str
         Experiment name.
+
     paths : dict
-        Path to files used to run Gaussian Process-based binding environment
+        Path to files used to run Gaussian Process-based binding environment.
     
     function_set : list
         List of possible discrete symbols that can be allocated.

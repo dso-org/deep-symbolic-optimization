@@ -28,12 +28,11 @@ def work(p):
     return optimized_constants, p.base_r
 
 
-
-
 # def sympy_work(p):
 #     sympy_expr = p.sympy_expr
 #     str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
 #     return sympy_expr, str_sympy_expr
+
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
