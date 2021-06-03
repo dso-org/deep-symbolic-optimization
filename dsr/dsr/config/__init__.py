@@ -37,8 +37,12 @@ def get_base_config(task, method):
 
     return safe_merge_dicts(base_config, task_config)
 
-def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None, seed=0):
+def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None, seed=None):
     """Get all indivual benchmarks and generate their respective configs."""
+    # Set seed properly
+    if seed is not None:
+        config["task"]["seed"] = int(seed)
+
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
         assert config["task"]["name"] is not None, "Task set to 'None' in config! Use the --b argument: python dsr.run config_file.json --b your_task"
@@ -125,10 +129,9 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
             new_paths["summary_path"] = output_filename
         return new_paths
 
-    def _set_individual_config(benchmark, seed):
+    def _set_individual_config(benchmark):
         new_config = copy.deepcopy(config)
         new_config["task"]["name"] = benchmark
-        new_config["task"]["seed"] = seed
         if not isinstance(config["task"]["function_set"], list):
             tokenset_name = benchmark_df[
                 benchmark_df["name"]==benchmark]["function_set"].item()
@@ -147,9 +150,9 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
         if benchmark[-3:] == "...":
             benchmark_list = list(benchmark_df['name'].loc[benchmark_df['name'].str.startswith(benchmark[:-3])])
             for each_benchmark in benchmark_list:
-                benchmarks[each_benchmark] = _set_individual_config(each_benchmark, seed)
+                benchmarks[each_benchmark] = _set_individual_config(each_benchmark)
             continue
-        benchmarks[benchmark] = _set_individual_config(benchmark, seed)
+        benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
 def load_config(config_template=None, method="dsr", runs=None):
