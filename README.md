@@ -26,13 +26,15 @@ pip install -r requirements_plots.txt
 
 # Example usage
 
-To try out `dsr`, use the following command from the repository root:
+To try out `dsr` after installing the package use the following command from anywhere:
 
 ```
-python -m dsr.run ./paper/config/test.json --b=Nguyen-6
+python -m dsr.run
 ```
 
-This should solve in around 50 training steps (~30 seconds on a laptop).
+This runs the solver on the `Nguyen-1` task and solves quickly in under 100 training epochs (~60 seconds on a laptop).
+
+Additional examples and how to define individual configurations can be found in `./dsr/dsr/config/examples/`.
 
 # Reproducing paper results
 
@@ -121,25 +123,25 @@ python -m dsr.run --help
 ### Train 2 indepdent runs of DSR on Nguyen-1 using 2 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen-1 --mc=2 --n_cores_task=2
+python -m dsr.run --b=Nguyen-1 --mc=2 --n_cores_task=2
 ```
 
 ### Train DSR on all Nguyen benchmarks using 12 cores
 
 ```
-python -m dsr.run config.json --b=Nguyen... --n_cores_task=12
+python -m dsr.run --b=Nguyen... --n_cores_task=12
 ```
 
 ### Train 2 independent runs of GP on Nguyen-1
 
 ```
-python -m dsr.run config.json --method=gp --b=Nguyen-1 --mc=2 --n_cores_task=2
+python -m dsr.run --method=gp --b=Nguyen-1 --mc=2 --n_cores_task=2
 ```
 
 ### Train DSR on Nguyen-1 and Nguyen-4
 
 ```
-python -m dsr.run config.json --b=Nguyen-1 --b=Nguyen-4
+python -m dsr.run --b=Nguyen-1 --b=Nguyen-4
 ```
 
 ## Using an external dataset
@@ -172,15 +174,13 @@ With this tool one can easily get a summary of the executed experiment that is g
 If plots are generated they will be placed in the same log directory.
 ### Program integration
 Printing the summary is automatically turned on as well as plotting the curves for HoF and PF if they are logged.
-Can be changed in `config.json`:
+Can be changed in your config file:
 ```
 {
    ...
    "postprocess": {
-      "method": "dsr",
-      "print": true,
-      "print_count": 5,
-      "save_plots": true
+      "show_count" : 5,
+      "save_plots" : true
    },
    ...
 }
@@ -188,13 +188,17 @@ Can be changed in `config.json`:
 ### Commandline usage
 
 ```
-python -m dsr.logeval path_to_log_directory --log_count 10 --show_hof --show_pf --save_plots --show_plots
+python -m dsr.logeval path_to_log_directory --show_count 10 --show_hof --show_pf --save_plots --show_plots --eval_all
+```
+or
+```
+python -m dsr.logeval path_to_log_config_file --show_count 10 --show_hof --show_pf --save_plots --show_plots
 ```
 ### Jupyter notebook usage
 ```
 from dsr.logeval import LogEval
-log = LogEval(path_to_log_directory)
-log.analyze_log(log_count=10, show_hof=True, show_pf=True, show_plots=True)
+log = LogEval(path_to_log_directory, config_file)
+log.analyze_log(show_count=10, show_hof=True, show_pf=True, show_plots=True)
 ```
 
 # Generating log files

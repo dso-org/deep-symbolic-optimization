@@ -18,7 +18,7 @@ def test_task_execution(config_file):
     model.config_training.update({"n_samples" : 10,
                                   "batch_size" : 5
                                   })
-    model.config_prior["seq_positions"]["yaml_file"] = 'test/binding_task/data/no_lm_prior/positions_prior.yaml'
+    model.config_prior["seq_positions"]["menu_file"] = 'test/binding_task/data/no_lm_prior/positions_prior.yaml'
     model.config_task['paths']['use_gpu'] = False
     model.train()
 
