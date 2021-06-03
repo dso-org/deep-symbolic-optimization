@@ -11,14 +11,14 @@ from pkg_resources import resource_filename
 from dsr.utils import safe_merge_dicts
 
 
-def get_base_config(task, method, language_prior):
+def get_base_config(task, method):
     # Load base config
     with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_common.json"), encoding='utf-8') as f:
         base_config = json.load(f)
 
     # Load task specific config
     task_config_file = None
-    if task in ["regression"]:
+    if task in ["regression", None]:
         task_config_file = "config_regression.json"
     elif task in ["control"]:
         task_config_file = "config_control.json"
@@ -35,15 +35,9 @@ def get_base_config(task, method, language_prior):
             gp_config = json.load(f)
         task_config = safe_merge_dicts(task_config, gp_config)
 
-    # Load language prior config
-    if language_prior:
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_language.json"), encoding='utf-8') as f:
-            language_config = json.load(f)
-        task_config = safe_merge_dicts(task_config, language_config)
-
     return safe_merge_dicts(base_config, task_config)
 
-def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None):
+def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None, seed=0):
     """Get all indivual benchmarks and generate their respective configs."""
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
@@ -131,9 +125,10 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
             new_paths["summary_path"] = output_filename
         return new_paths
 
-    def _set_individual_config(benchmark):
+    def _set_individual_config(benchmark, seed):
         new_config = copy.deepcopy(config)
         new_config["task"]["name"] = benchmark
+        new_config["task"]["seed"] = seed
         if not isinstance(config["task"]["function_set"], list):
             tokenset_name = benchmark_df[
                 benchmark_df["name"]==benchmark]["function_set"].item()
@@ -143,6 +138,7 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
         with open(new_config["paths"]["config_path"], 'w') as f:
             json.dump(new_config, f, indent=4)
         new_config["task"].pop("method")
+        new_config["task"].pop("runs")
         return new_config
 
     # make sure we get the right benchmarks
@@ -151,14 +147,15 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
         if benchmark[-3:] == "...":
             benchmark_list = list(benchmark_df['name'].loc[benchmark_df['name'].str.startswith(benchmark[:-3])])
             for each_benchmark in benchmark_list:
-                benchmarks[each_benchmark] = _set_individual_config(each_benchmark)
+                benchmarks[each_benchmark] = _set_individual_config(each_benchmark, seed)
             continue
-        benchmarks[benchmark] = _set_individual_config(benchmark)
+        benchmarks[benchmark] = _set_individual_config(benchmark, seed)
     return benchmarks
 
-def load_config(config_template=None, method="dsr", task="regression", language_prior=False):
+def load_config(config_template=None, method="dsr", runs=None):
     # Load personal config file
     personal_config = {}
+    task = None
     if config_template is not None:
         # Load personalized config
         with open(config_template, encoding='utf-8') as f:
@@ -167,13 +164,11 @@ def load_config(config_template=None, method="dsr", task="regression", language_
             task = personal_config["task"]["task_type"]
         except KeyError:
             pass
-        try:
-            language_prior = personal_config["prior"]["language_model"]["on"]
-        except KeyError:
-            pass
 
     # Load base config
-    base_config = get_base_config(task, method, language_prior)
+    base_config = get_base_config(task, method)
+    if runs is not None:
+        base_config["task"]["runs"] = int(runs)
 
     # Return combined configs
     return safe_merge_dicts(base_config, personal_config)
