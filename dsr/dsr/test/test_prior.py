@@ -7,6 +7,7 @@ from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dsr.program import from_tokens, Program
 from dsr.memory import Batch
 from dsr.controller import parents_siblings
+from dsr.config import load_config
 
 import numpy as np
 
@@ -16,7 +17,9 @@ BATCH_SIZE = 1000
 
 @pytest.fixture
 def model():
-    return DeepSymbolicOptimizer("config.json")
+    config = load_config()
+    config["task"].pop("method")
+    return DeepSymbolicOptimizer(config)
 
 
 def assert_invalid(model, cases):
@@ -124,7 +127,8 @@ def test_repeat(model):
     model.config_prior["repeat"] = {
         "tokens" : ["sin", "cos"],
         "min_" : None, # Not yet supported
-        "max_" : 2
+        "max_" : 2,
+        "on" : True
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
@@ -151,7 +155,7 @@ def test_no_inputs(model):
     model.pool = model.make_pool() # Resets Program.task with new Task
 
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["no_inputs"] = {}
+    model.config_prior["no_inputs"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -181,7 +185,8 @@ def test_descendant(model):
     model.config_prior["relational"] = {
         "targets" : descendants,
         "effectors" : ancestors,
-        "relationship" : "descendant"
+        "relationship" : "descendant",
+        "on" : True
     }
 
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
@@ -220,7 +225,7 @@ def test_trig(model):
 
     library = Program.library
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["trig"] = {}
+    model.config_prior["trig"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -262,7 +267,8 @@ def test_child(model):
     model.config_prior["relational"] = {
         "targets" : children,
         "effectors" : parents,
-        "relationship" : "child"
+        "relationship" : "child",
+        "on" : True
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
@@ -294,7 +300,8 @@ def test_uchild(model):
     model.config_prior["relational"] = {
         "targets" : targets,
         "effectors" : effectors,
-        "relationship" : "uchild"
+        "relationship" : "uchild",
+        "on" : True
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
@@ -324,7 +331,7 @@ def test_const(model):
 
     library = Program.library
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["const"] = {}
+    model.config_prior["const"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -353,7 +360,8 @@ def test_sibling(model):
     model.config_prior["relational"] = {
         "targets" : targets,
         "effectors" : effectors,
-        "relationship" : "sibling"
+        "relationship" : "sibling",
+        "on" : True
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
@@ -378,7 +386,7 @@ def test_inverse(model):
 
     library = Program.library
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["inverse"] = {}
+    model.config_prior["inverse"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -403,7 +411,7 @@ def test_length(model, minmax):
 
     min_, max_ = minmax
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["length"] = {"min_" : min_, "max_" : max_}
+    model.config_prior["length"] = {"min_" : min_, "max_" : max_, "on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
