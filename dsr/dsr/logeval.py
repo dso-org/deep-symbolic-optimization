@@ -5,6 +5,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 import click
+import glob
 import json
 import os
 import pandas as pd
@@ -57,7 +58,7 @@ class LogEval():
 
     def __init__(self,
                  log_path,
-                 config_file="config.json"):
+                 config_file=None):
         """Loads all files from log path."""
         # Prepare variable to store warnings when reading the log
         self.warnings = []
@@ -67,7 +68,16 @@ class LogEval():
         # define paths
         self.path = {}
         self.path["log"] = log_path
-        self.path["config"] = os.path.join(log_path, config_file)
+        if config_file is None:
+            # Look up available config files and take the first one
+            configs = glob.glob("{}/*config.json".format(log_path))
+            assert len(configs) > 0, "*** ERROR: No experiments found!"
+            assert len(configs) == 1, "*** ERROR: Cannot handle multiple configurations at once."
+            #if len(configs) > 1:
+            #    print("*** WARNING: Several experiments found, continuing using the first one:\n{}\n".format(configs))
+            self.path["config"] = configs[0]
+        else:
+            self.path["config"] = os.path.join(log_path, config_file)
         self.path["cmd"] = os.path.join(log_path, "cmd.out")
 
         # Get information about the command line arguments
@@ -84,7 +94,7 @@ class LogEval():
         self.pf_df = self._get_log(log_type="pf")
 
         if len(self.warnings) > 0:
-            print("### Experiment has warnings:")
+            print("*** WARNING:")
             [print("    --> {}".format(warning)) for warning in self.warnings]
 
     def _get_cmd(self):
@@ -96,7 +106,13 @@ class LogEval():
             tokens = cmd_content[0].split("--")
             params = {}
             for token in tokens[1:]:
-                setting = token.split("=")
+                if "=" in token:
+                    setting = token.split("=")
+                elif " " in token:
+                    setting = token.split(" ")
+                else:
+                    self.warnings.append("Can't interpret command line argument: {}".format(token))
+                    continue
                 params[setting[0]] = self._get_correct_type(setting[1].strip())
             if not "mc" in params:
                 params["mc"] = 1
@@ -163,7 +179,7 @@ class LogEval():
         if "mc" in self.cmd_params:
             for seed in range(self.cmd_params["mc"]):
                 log_file = "{}_{}_{}_{}.csv".format(
-                    self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], seed, log_type)
+                    self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
                 try:
                     df = pd.read_csv(os.path.join(self.path["log"], log_file))
                     df.insert(0, "seed", seed)
@@ -233,7 +249,7 @@ class LogEval():
             fontsize=14)
         plt.tight_layout()
         if save_plots:
-            save_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["postprocess"]["method"], self.exp_config["task"]["name"], log_type))
+            save_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["task"]["method"], self.exp_config["task"]["name"], log_type))
             print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], save_path))
             plt.savefig(save_path)
         if show_plots:
@@ -280,6 +296,12 @@ class LogEval():
             [print("    --> {}".format(warning)) for warning in self.warnings]
         print("-------------------------------------\n")
 
+def get_config_files(log_path):
+    # check if config file provided
+    if ".json" in log_path:
+        return [log_path]
+    return glob.glob("{}/*config.json".format(log_path))
+
 
 @click.command()
 @click.argument('log_path', default=None)
@@ -288,14 +310,37 @@ class LogEval():
 @click.option('--show_pf', is_flag=True, help='Show Pareto Front results.')
 @click.option('--show_plots', is_flag=True, help='Generate plots and show results as simple plots.')
 @click.option('--save_plots', is_flag=True, help='Generate plots and safe to log file as simple plots.')
-def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots):
-    log = LogEval(log_path)
-    log.analyze_log(
-        show_count=show_count,
-        show_hof=show_hof,
-        show_pf=show_pf,
-        show_plots=show_plots,
-        save_plots=save_plots)
+@click.option('--eval_all', is_flag=True, help='Evaluate all tasks in log directory.')
+def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots, eval_all):
+    # Get config files of tasks
+    configs = get_config_files(log_path)
+    # Check if several tasks exist in log directory
+    if len(configs) > 1 and not eval_all:
+        info_text = ""
+        info_text += "--show_count {}".format(show_count)
+        info_text += " --show_hof" if show_hof else ""
+        info_text += " --show_pf" if show_pf else ""
+        info_text += " --show_plots" if show_plots else ""
+        info_text += " --save_plots" if save_plots else ""
+        print("*** WARNING: Several tasks found! Please indicate how to evaluate:")
+        print("      python -m dsr.logeval {} --eval_all {}".format(log_path, info_text))
+        for config in configs:
+            print("      python -m dsr.logeval {} {}".format(config, info_text))
+        print("***")
+    else:
+        for config in configs:
+            config_file = config.split("/")
+            log = LogEval('/'.join(str(t) for t in config_file[:-1]), config_file[-1])
+            log.analyze_log(
+                show_count=show_count,
+                show_hof=show_hof,
+                show_pf=show_pf,
+                show_plots=show_plots,
+                save_plots=save_plots)
+            if not all([show_hof, show_pf, save_plots]):
+                print("-- BEST USE -------------------------")
+                print("    --> python -m dsr.logeval {} --show_hof --show_pf --save_plots".format(config))
+                print("-------------------------------------\n")
 
 if __name__ == "__main__":
     main()
