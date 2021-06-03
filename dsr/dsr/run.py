@@ -130,7 +130,7 @@ def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
 @click.option('--mc', default=None, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
-@click.option('--seed', default=0, type=int, help="First seed when running multiple experiments (increments by 1 for following experiments)")
+@click.option('--seed', default=None, help="First seed when running multiple experiments (increments by 1 for following experiments)")
 @click.option('--b', multiple=True, type=str, help="Name of benchmark or benchmark prefix")
 def main(config_template, method, mc, output_filename, n_cores_task, seed, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
@@ -142,6 +142,10 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed, b):
 
     # Load all benchmarks
     unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename, seed)
+
+    # Set seed properly
+    seed = config["task"]["seed"] if seed is None else int(seed)
+
 
     # Generate seeds for each run for each benchmark
     configs = []
