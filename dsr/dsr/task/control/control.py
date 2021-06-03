@@ -34,7 +34,7 @@ REWARD_SCALE = {
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
     stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0, reward_scale=True):
+    episode_seed_shift=0, reward_scale=True, seed=0):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -88,6 +88,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     reward_scale : bool
         Whether to scale rewards by top Zoo evaluation score.
+
+    seed : int
+        Seed for random number generator
 
     Returns
     -------
