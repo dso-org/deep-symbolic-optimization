@@ -228,10 +228,6 @@ class Controller(object):
                                              self.observe_sibling,
                                              self.prior.requires_parents_siblings])
 
-        # if self.use_language_model_prior and language_model_prior is None:
-        #     print("Warning: use_language_model_prior=True will be ignored because LanguageModelPrior is not configured (null).")
-        #     self.use_language_model_prior = False
-
         # Build controller RNN
         with tf.name_scope("controller"):
 
@@ -643,10 +639,6 @@ class Controller(object):
 
     def sample(self, n):
         """Sample batch of n expressions"""
-        
-        # initialize language_model_prior
-        # if self.use_language_model_prior and self.language_model_prior is not None:
-        #     self.language_model_prior.next_state = None
 
         feed_dict = {self.batch_size : n}
 

@@ -4,28 +4,22 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-import copy
 import os
-import sys
-import json
 import time
-from datetime import datetime
 import multiprocessing
 from functools import partial
-from pkg_resources import resource_filename
 import zlib
 
 import click
 import numpy as np
 import pandas as pd
 from sympy.parsing.sympy_parser import parse_expr
-from sympy import srepr
 
 from dsr import DeepSymbolicOptimizer
-from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.logeval import LogEval
+from dsr.config import load_config, set_benchmark_configs
 
 
 def train_dsr(seeded_benchmark):
@@ -128,113 +122,8 @@ def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
     return result, config["paths"]["summary_path"]
 
 
-def _set_benchmark_configs(arg_benchmark, config, method, output_filename, seed_shift):
-    """Get all indivual benchmarks and generate their respective configs."""
-    # Use benchmark name from config if not specified as command-line arg
-    if len(arg_benchmark) == 0:
-        if isinstance(config["task"]["name"], str):
-            benchmarks = (config["task"]["name"],)
-        elif isinstance(config["task"]["name"], list):
-            benchmarks = tuple(config["task"]["name"])
-    else:
-        benchmarks = arg_benchmark
-    original_benchmarks = list(benchmarks)
-
-    # Get log folder naming
-    if any("..." in benchmark for benchmark in original_benchmarks) \
-            or len(original_benchmarks) > 1:
-        log_appendix = "Mixed"
-    else:
-        log_appendix = original_benchmarks[0]
-
-    #If summaries are being saved on "training", summaries must be turned on under controller
-    if config["training"].get("save_summary", True):
-        if not config["controller"].get("summary", False):
-            print('WARNING: When config["training"]["save_summary"] is true or absent, config["controller"]["summary"] '
-                  'must be true. The summary recording will be turned on.')
-        config["controller"]["summary"] = True
-
-    # set common paths
-    paths = {}
-    paths["log_dir"] = os.path.join(
-        config["training"]["logdir"],
-        "log_{}_{}".format(
-            datetime.now().strftime("%Y-%m-%d-%H%M%S"),
-            log_appendix))
-    # Create log dir and save commandline arguments
-    os.makedirs(paths["log_dir"], exist_ok=True)
-    with open(os.path.join(paths["log_dir"], "cmd.out"), 'w') as f:
-        print(" ".join(sys.argv), file=f)
-
-    # Update config where necessary
-    config["training"]["seed_shift"] = seed_shift
-    config["training"]["logdir"] = paths["log_dir"]
-    config["postprocess"]["method"] = method
-
-    benchmark_df = None
-    if config["task"]["task_type"] == "regression":
-        paths["root_dir"] = resource_filename("dsr.task", "regression") \
-            if config["task"]["dataset"]["root"] is None \
-                else config["task"]["dataset"]["root"]
-        paths["benchmark_file"] = "benchmarks.csv" \
-            if config["task"]["dataset"]["benchmark_source"] is None \
-                else config["task"]["dataset"]["benchmark_source"]
-        paths["tokenset_path"] = os.path.join(
-            paths["root_dir"], "function_sets.csv")
-        if "dataset" in config["task"] \
-                and "backup" in config["task"]["dataset"] \
-                and config["task"]["dataset"]["backup"]:
-            config["task"]["dataset"]["logdir"] = paths["log_dir"]
-        # load all available benchmarks
-        benchmark_df = pd.read_csv(
-            os.path.join(paths["root_dir"], paths["benchmark_file"]),
-            index_col=None, encoding="ISO-8859-1")
-        # load available token sets
-        if config["task"]["function_set"] is None:
-            tokenset_df = pd.read_csv(
-                paths["tokenset_path"],
-                index_col=None, encoding="ISO-8859-1")
-
-    # Helper functions
-    def _set_individual_paths(benchmark):
-        new_paths = copy.deepcopy(paths)
-        new_paths["config_file"] = "{}_{}_config.json".format(method, benchmark)
-        new_paths["config_path"] = os.path.join(
-            paths["log_dir"], new_paths["config_file"])
-        if output_filename is None:
-            new_paths["summary_path"] = os.path.join(
-                paths["log_dir"], "{}_{}_summary.csv".format(method, benchmark))
-        else:
-            new_paths["summary_path"] = output_filename
-        return new_paths
-
-    def _set_individual_config(benchmark):
-        new_config = copy.deepcopy(config)
-        new_config["task"]["name"] = benchmark
-        if not isinstance(config["task"]["function_set"], list):
-            tokenset_name = benchmark_df[
-                benchmark_df["name"]==benchmark]["function_set"].item()
-            new_config["task"]["function_set"] = tokenset_df[
-                tokenset_df["name"]==tokenset_name]["function_set"].item().split(',')
-        new_config["paths"] = _set_individual_paths(benchmark)
-        with open(new_config["paths"]["config_path"], 'w') as f:
-            json.dump(new_config, f, indent=4)
-        return new_config
-
-    # make sure we get the right benchmarks
-    benchmarks = {}
-    for benchmark in original_benchmarks:
-        if benchmark[-3:] == "...":
-            benchmark_list = list(benchmark_df['name'].loc[benchmark_df['name'].str.startswith(benchmark[:-3])])
-            for each_benchmark in benchmark_list:
-                benchmarks[each_benchmark] = _set_individual_config(each_benchmark)
-            continue
-        benchmarks[benchmark] = _set_individual_config(benchmark)
-    return benchmarks
-
-
 @click.command()
-@click.argument('config_template', default="config.json")
+@click.argument('config_template', default="")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
@@ -244,12 +133,12 @@ def _set_benchmark_configs(arg_benchmark, config, method, output_filename, seed_
 def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
-    # Load the config file
-    with open(config_template, encoding='utf-8') as f:
-        config = json.load(f)
+    # Load the experiment config
+    config_template = config_template if config_template != "" else None
+    config = load_config(config_template, method)
 
     # Load all benchmarks
-    unique_benchmark_configs = _set_benchmark_configs(b, config, method, output_filename, seed_shift)
+    unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename)
 
     # Generate seeds for each run for each benchmark
     configs = []
@@ -282,26 +171,22 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
 
     # Define the work
     if method == "dsr":
-        #work = partial(train_dsr, config=config)
         work = partial(train_dsr)
     elif method == "gp":
         work = partial(train_gp)
-            #, logdir=config["paths"]["log_dir"], config_task=config_task, config_gp=config_gp)
 
     # Farm out the work
-    write_header = True
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
         for result, summary_path in pool.imap_unordered(work, seeded_benchmarks):
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
             print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
-            write_header = False
     else:
         for seeded_benchmark in seeded_benchmarks:
             result, summary_path = work(seeded_benchmark)
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
-            write_header = False
 
+    # Evaluate the log files
     for config in unique_benchmark_configs.values():
         log = LogEval(
             config["paths"]["log_dir"],
