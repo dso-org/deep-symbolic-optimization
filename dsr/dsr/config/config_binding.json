@@ -18,10 +18,7 @@
           }
     },
     "prior": {
-       "seq_positions": {"menu_file" : "",
-                         "use_context": false,
-                         "biasing_factor": "0",
-                         "on": true}
+       "seq_positions": {}
     }
  }
  

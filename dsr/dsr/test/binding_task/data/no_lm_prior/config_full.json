@@ -3,7 +3,9 @@
        "task_type" : "binding",
        "name" : "AbAg_binding_affinity_optimization",
        "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
+       "mode": "full",
        "paths" : {
+           "menu_file" : "./test/binding_task/data/no_lm_prior/positions_prior.yaml",
            "base_path": "test/binding_task/data/no_lm_prior",
            "model_weights_pth": "model_20190812_165712.pth",
            "master_seqrecord_fasta": "nCoV/80R/80R_2ghw.fasta",
@@ -19,7 +21,7 @@
     },
     "prior": {
        "seq_positions": {"menu_file" : "./test/binding_task/data/no_lm_prior/positions_prior.yaml",
-                         "use_context": true,
+                         "mode": "full",
                          "biasing_factor": 0,
                          "on": true}
     },
@@ -57,7 +59,7 @@
        "observe_action": true,
        "observe_parent": false,
        "observe_sibling": false,
-       "max_length": 247,
+       "max_length": null,
        "entropy_weight": 0.01,
        "ppo": false,
        "ppo_clip_ratio": 0.2,
