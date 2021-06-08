@@ -305,7 +305,10 @@ class StatsLogger():
                 programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
                 for p, base_r in zip(programs, vals):
                     p.base_r = np.mean(base_r)
-                    #p.count = len(base_r)  # HACK not doing this anymore because it will mess up the on/off policy counter
+                    #It is not possible to tell if each program was sampled on- or off-policy at this point.
+                    # -1 on off_policy_count signals that we can't distinguish the counters in this task.
+                    p.on_policy_count = len(base_r)
+                    p.off_policy_count = -1
                     _ = p.r  # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
 
             # For deterministic Programs, just use the cache
