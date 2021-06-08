@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from typing import Callable, List, Dict, Any
 
-from dsr.task.regression.regression import make_regression_task
-from dsr.task.control.control import make_control_task
 from dsr.program import Program
 from dsr.library import Library
 
@@ -31,6 +29,9 @@ class Task:
     stochastic : bool
         Whether the reward function of the task is stochastic.
 
+    task_type : str
+        Task type: regression, control or binding
+
     extra_info : dict
         Extra task-specific info, e.g. reference to symbolic policies for
         control task.
@@ -40,6 +41,7 @@ class Task:
     evaluate: Callable[[Program], float]
     library: Library
     stochastic: bool
+    task_type: str
     extra_info: Dict[str, Any]
 
 
@@ -54,6 +56,7 @@ def make_task(task_type, **config_task):
         Type of task:
         "regression" : Symbolic regression task.
         "control" : Episodic reinforcement learning task.
+        "binding": AbAg binding affinity optimization task.
 
     config_task : kwargs
         Task-specific arguments. See specifications of task_dict. Special key
@@ -66,12 +69,19 @@ def make_task(task_type, **config_task):
     task : Task
         Task object.
     """
-
-    # Dictionary from task name to task factory function
-    task_dict = {
-        "regression" : make_regression_task,
-        "control" : make_control_task
-    }
+    # lazy import of task factory functions
+    if task_type != 'binding':
+        from dsr.task.regression.regression import make_regression_task
+        from dsr.task.control.control import make_control_task
+        # Dictionary from task name to task factory function
+        task_dict = {
+            "regression" : make_regression_task,
+            "control" : make_control_task
+        }
+    else:
+        # Dictionary from task name to task factory function
+        from dsr.task.binding.binding import make_binding_task
+        task_dict = {"binding": make_binding_task}
 
     task = task_dict[task_type](**config_task)
     return task

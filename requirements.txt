@@ -16,3 +16,4 @@ stable-baselines[mpi]
 datarobot
 dataclasses
 seaborn
+tqdm

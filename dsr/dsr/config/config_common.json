@@ -19,22 +19,22 @@
       "length" : {
          "min_" : 4,
          "max_" : 30,
-         "on" : true
+         "on" : false
       },
       "repeat" : {
          "tokens" : "const",
          "min_" : null,
          "max_" : 3,
-         "on" : true
+         "on" : false
       },
       "inverse" : {
-         "on" : true
+         "on" : false
       },
       "trig" : {
-         "on" : true
+         "on" : false
       },
       "const" : {
-         "on" : true
+         "on" : false
       },
       "no_inputs" : {
          "on" : false
