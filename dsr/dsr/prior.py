@@ -579,25 +579,10 @@ class SoftLengthPrior(Prior):
         return None
 
 
-class SequencePositionsConstraint(Constraint):
-    """Class that constrains Tokens to follow the constraints defined in the YAML file. """
+class BindingPrior(Constraint):
 
-    def __init__(self, library, menu_file, use_context, biasing_factor):
-        """
-        Parameters
-        ----------
-        yaml_file : str
-            YAML file containing sequence positions constraints.
-
-        use_context : bool
-            Whether or not to use the fixed part of the master sequence.
-        
-        biasing_factor : float
-            Increment factor in the prior vector pushing it towards master sequence.
-        """
-
+    def __init__(self, library, menu_file):
         Prior.__init__(self, library)
-
         # read in constraint YAML file
         try:
             with open(menu_file) as fh:
@@ -606,15 +591,35 @@ class SequencePositionsConstraint(Constraint):
             print("Could not open/read file:", menu_file)
 
         # load master sequence - new samples will be based on it
-        self.master_seq = self.config['Sequence']['master_sequence']
+        self.master_sequence = self.config['Sequence']['master_sequence']
 
         # store allowed mutation in a dict for faster access
         self.allowed_mutations = OrderedDict()
         for p in self.config['AllowedMutations']:
             # Per Tom: positions in the yaml file starts from 1 and not 0
-            self.allowed_mutations[p[0] - 1] = p[1]
-        self.use_context = use_context
+            self.allowed_mutations[p[0] - 1] = p[2]
+
+
+class SequencePositionsConstraint(BindingPrior):
+    """Class that constrains Tokens to follow the constraints defined in the YAML file. """
+
+    def __init__(self, library, menu_file, mode, biasing_factor):
+        """
+        Parameters
+        ----------
+        menu_file : str
+            YAML file containing sequence positions constraints.
+
+        mode : str
+            Whether prior will be for a full or short sequence generation.
+        
+        biasing_factor : float
+            Increment factor in the prior vector pushing it towards master sequence.
+        """
+        BindingPrior.__init__(self, library, menu_file)
+        self.mode = mode
         self.biasing_factor = float(biasing_factor)
+        assert mode in ['full', 'short'], "Mode should be either full or short."
 
     def initial_prior(self):
         """ Prior for time step 0 """
@@ -632,17 +637,16 @@ class SequencePositionsConstraint(Constraint):
 
     def __calculate_prior(self, prior, seq_position):
         """ Calculate prior logits based on the information in the yaml file. """
-
         # it's the "sequence ending" token - not going to be in the sample
-        if seq_position >= len(self.master_seq):
+        if seq_position >= len(self.master_sequence):
             return prior
 
         # bias sequence towards master sequence
         if self.biasing_factor > 0:
-            idx = constants.AMINO_ACIDS.index(self.master_seq[seq_position])
+            idx = constants.AMINO_ACIDS.index(self.master_sequence[seq_position])
             prior[:, idx] = np.log(self.biasing_factor)
 
-        if not self.use_context:
+        if self.mode == 'short':
             # it's the "sequence ending" token - not going to be in the sample
             if seq_position >= len(self.allowed_mutations.keys()):
                 return prior
@@ -670,13 +674,12 @@ class SequencePositionsConstraint(Constraint):
 
             else: # mutation is not allowed
                 mask = [True] * len(constants.AMINO_ACIDS)
-                mask[constants.AMINO_ACIDS.index(self.master_seq[seq_position])] = False
+                mask[constants.AMINO_ACIDS.index(self.master_sequence[seq_position])] = False
                 prior[:, mask] = -np.inf
-
         return prior
 
     def describe(self):
-        message = "Sequence positions constraint description"
+        message = "Sequence positions constraint: {} mode.".format(self.mode)
         return message
 
 
