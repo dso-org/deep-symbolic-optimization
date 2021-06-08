@@ -28,13 +28,11 @@ def work(p):
     return optimized_constants, p.base_r
 
 
-
-
-
 # def sympy_work(p):
 #     sympy_expr = p.sympy_expr
 #     str_sympy_expr = repr(p.sympy_expr) if sympy_expr != "N/A" else repr(p)
 #     return sympy_expr, str_sympy_expr
+
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -55,7 +53,7 @@ def learn(sess, controller, pool, gp_controller,
     Parameters
     ----------
     sess : tf.Session
-        TenorFlow Session object.
+        TensorFlow Session object.
 
     controller : dsr.controller.Controller
         Controller object used to generate Programs.
@@ -324,7 +322,7 @@ def learn(sess, controller, pool, gp_controller,
         else:
             # To prevent interfering with the cache, un-optimized programs are
             # first generated serially. Programs that need optimizing are
-            # optimized optimized in parallel. Since multiprocessing operates on
+            # optimized in parallel. Since multiprocessing operates on
             # copies of programs, we manually set the optimized constants and
             # base reward after the pool joins.
             programs = [from_tokens(a, optimize=False, n_objects=n_objects) for a in actions]

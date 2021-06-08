@@ -22,6 +22,8 @@ def get_base_config(task, method, language_prior):
         task_config_file = "config_regression.json"
     elif task in ["control"]:
         task_config_file = "config_control.json"
+    elif task in ["binding"]:
+        task_config_file = "config_binding.json"
     else:
         assert False, "*** ERROR: Unknown task type: {}".format(task)
     with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), task_config_file), encoding='utf-8') as f:
