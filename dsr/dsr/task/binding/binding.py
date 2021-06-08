@@ -89,20 +89,32 @@ def make_binding_task(name, paths, mode, function_set):
     allowed_mutations = OrderedDict()
     for p in menu_config['AllowedMutations']:
         # Per Tom: positions in the yaml file starts from 1 and not 0
-        allowed_mutations[p[0] - 1] = p[1]
+        allowed_mutations[p[0] - 1] = p[2]
 
 
     def assemble_sequence(p):
-        ''' Create full sequence from the master sequence and generated mutations
-            from the RL controller. This is needed when no neighborhood
-            info is used by the RL agent (use_context=False). '''
+        """ Create full sequence from the master sequence and generated mutations
+            from the RL agent. If mode "full", it returns traversal order,
+            if "short", it takes master sequence as reference and fill
+            the blanks with mutations proposed by the RL agent.
+
+            Parameters
+            ----------
+            p : Program
+                A program that contains a single sequence.
+            
+            Returns:
+            ----------
+            new_sequence : New sequence with mutations chosen by RL agent.
+
+        """
         # full mode: just get the traversal
         if mode == 'full':
             return p.traversal
 
         # short mode: get master sequence and fill the blanks with RL's proposed mutations
         short_seq = p.traversal
-        for idx, aa in zip(allowed_mutations, short_seq):
+        for idx, aa in zip(allowed_mutations.keys(), short_seq):
             new_sequence[idx] = aa
         return new_sequence
 
