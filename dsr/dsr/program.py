@@ -10,7 +10,8 @@ from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 import gym
 
-from dsr.functions import Token, PlaceholderConstant, function_map
+from dsr.library import Token
+from dsr.functions import PlaceholderConstant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -35,7 +36,7 @@ def _finish_tokens(tokens, n_objects: int = 1):
     tokens : list of integers
         A list of integers corresponding to tokens in the library. The list
         defines an expression's pre-order traversal. 
-        
+       
     Returns
     _______
     tokens : list of integers
@@ -56,7 +57,8 @@ def _finish_tokens(tokens, n_objects: int = 1):
         tokens          = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
-        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        if Program.task.task_type != 'binding':
+            tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
 
     return tokens
 
@@ -581,7 +583,8 @@ class Program(object):
         This is actually a bit complicated because we have to go: traversal -->
         tree --> serialized tree --> SymPy expression
         """
-
+        if self.task.task_type == 'binding':
+            return self.traversal
         tree = self.traversal.copy()
         tree = build_tree(tree)
         tree = convert_to_sympy(tree)
@@ -595,7 +598,10 @@ class Program(object):
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-        return pretty(self.sympy_expr)
+        if self.task.task_type != 'binding':
+            return pretty(self.sympy_expr)
+        else:
+            return None
 
 
     def print_stats(self):
@@ -605,13 +611,13 @@ class Program(object):
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        print("{}\n".format(indent(self.pretty(), '\t  ')))
-
+        if self.task.task_type != 'binding':
+            print("\tExpression:")
+            print("{}\n".format(indent(self.pretty(), '\t  ')))
+        
 
     def __repr__(self):
         """Prints the program's traversal"""
-
         return ','.join([repr(t) for t in self.traversal])
 
 

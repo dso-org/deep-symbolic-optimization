@@ -1,0 +1,26 @@
+{
+    "task" : {
+       "task_type" : "binding",
+       "name" : "AbAg_binding_affinity_optimization",
+       "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
+       "mode": "",
+       "paths" : {
+           "menu_file": "",
+           "base_path": "",
+           "master_seqrecord_fasta": "",
+           "master_structure": "",
+           "history_yaml": "",
+           "history_x_tensor": "",
+           "history_i_tensor": "",
+           "history_y_tensor": "",
+           "model_weights_pth": "",
+           "model_is_sparse": false,
+           "model_is_mtl": false,
+           "use_gpu": false
+          }
+    },
+    "prior": {
+       "seq_positions": {}
+    }
+ }
+ 

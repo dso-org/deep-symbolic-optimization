@@ -1,10 +1,14 @@
 """Class for Prior object."""
 
 import numpy as np
+import yaml
+from collections import OrderedDict
 
+from dsr.program import Program
 from dsr.subroutines import ancestors
-from dsr.library import TokenNotFoundError
+from dsr.library import TokenNotFoundError, Token
 from dsr.language_model import LanguageModelPrior as LM
+import dsr.constants as constants
 
 def make_prior(library, config_prior):
     """Factory function for JointPrior object."""
@@ -19,6 +23,7 @@ def make_prior(library, config_prior):
         "no_inputs" : NoInputsConstraint,
         "soft_length" : SoftLengthPrior,
         "uniform_arity" : UniformArityPrior,
+        "seq_positions": SequencePositionsConstraint,
         "language_model" : LanguageModelPrior
     }
 
@@ -28,11 +33,9 @@ def make_prior(library, config_prior):
         assert prior_type in prior_dict, \
             "Unrecognized prior type: {}.".format(prior_type)
         prior_class = prior_dict[prior_type]
-
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:
-
             # Attempt to build the Prior. Any Prior can fail if it references a
             # Token not in the Library.
             if single_prior_args.pop('on', False):
@@ -301,7 +304,7 @@ class RelationalConstraint(Constraint):
 
 
 class TrigConstraint(RelationalConstraint):
-    """Class that constrains trig Tokens from being the desendants of trig
+    """Class that constrains trig Tokens from being the descendants of trig
     Tokens."""
 
     def __init__(self, library):
@@ -575,6 +578,113 @@ class SoftLengthPrior(Prior):
             message = "'scale' and 'loc' arguments must be specified!"
             return message
         return None
+
+
+class BindingPrior(Constraint):
+    """ Super class that contains shared information for both 
+    SequencePositionsConstraint and Language Model-based priors. """
+
+    def __init__(self, library, menu_file):
+        """
+        Parameters
+        ----------       
+        menu_file : str
+            YAML file containing sequence positions constraints.
+        """
+        Prior.__init__(self, library)
+        # read in constraint YAML file
+        try:
+            with open(menu_file) as fh:
+                self.config = yaml.full_load(fh)
+        except FileNotFoundError:
+            print("Could not open/read file:", menu_file)
+
+        # load master sequence - new samples will be based on it
+        self.master_sequence = self.config['Sequence']['master_sequence']
+
+        # store allowed mutation in a dict for faster access
+        self.allowed_mutations = OrderedDict()
+        for p in self.config['AllowedMutations']:
+            # Per Tom: positions in the yaml file starts from 1 and not 0
+            self.allowed_mutations[p[0] - 1] = p[2]
+
+
+class SequencePositionsConstraint(BindingPrior):
+    """Class that constrains Tokens to follow the constraints defined in the YAML file. """
+
+    def __init__(self, library, biasing_factor):
+        """
+        Parameters
+        ----------       
+        biasing_factor : float
+            Increment factor in the prior vector pushing it towards master sequence.
+
+        """
+        BindingPrior.__init__(self, library, Program.task.extra_info["menu_file"])
+        self.mode = Program.task.extra_info["mode"]
+        self.biasing_factor = float(biasing_factor)
+
+    def initial_prior(self):
+        """ Prior for time step 0 """
+        prior = np.zeros((1, self.L), dtype=np.float32)
+        prior = self.__calculate_prior(prior, 0)[0, :]
+        return prior
+
+    def __call__(self, actions, parent, sibling, dangling):
+        """ Prior for time-step > 0. """
+        # Initialize the prior
+        prior = self.init_zeros(actions)
+        seq_position = actions.shape[1]
+        prior = self.__calculate_prior(prior, seq_position)
+        return prior
+
+    def __calculate_prior(self, prior, seq_position):
+        """ Calculate prior logits based on the information in the yaml file. """
+        # it's the "sequence ending" token - not going to be in the sample
+        if seq_position >= len(self.master_sequence):
+            return prior
+
+        # bias sequence towards master sequence
+        if self.biasing_factor > 0:
+            idx = constants.AMINO_ACIDS.index(self.master_sequence[seq_position])
+            prior[:, idx] = np.log(self.biasing_factor)
+
+        if self.mode == 'short':
+            # it's the "sequence ending" token - not going to be in the sample
+            if seq_position >= len(self.allowed_mutations.keys()):
+                return prior
+            items = list(self.allowed_mutations.items())
+            actual_seq_position = items[seq_position][0]
+            mask = np.isin(constants.AMINO_ACIDS,
+                           self.allowed_mutations[actual_seq_position],
+                           invert=True)
+            prior[:, mask] = -np.inf
+
+        else:
+            # check if there is any restriction for this particular position
+            if seq_position in self.allowed_mutations:  # allowed to mutate
+                # not all AA are allowed, but some
+                if len(self.allowed_mutations[seq_position]) < len(constants.AMINO_ACIDS):
+                    # False: allowed to mutate
+                    # True: constrained - cannot be mutated
+                    mask = np.isin(constants.AMINO_ACIDS,
+                                   self.allowed_mutations[seq_position],
+                                   invert=True)
+                    prior[:, mask] = -np.inf
+                else:
+                    # all AAs have the same chance, then no constraint imposed
+                    pass
+
+            else: # mutation is not allowed
+                mask = [True] * len(constants.AMINO_ACIDS)
+                mask[constants.AMINO_ACIDS.index(self.master_sequence[seq_position])] = False
+                prior[:, mask] = -np.inf
+        return prior
+
+    def describe(self):
+        message = "Impose positional constraints (mutation allowance) in the sequence based "
+        message += "on YAML file definition. Using {} sequence generation mode.".format(self.mode)
+        return message
 
 
 class LanguageModelPrior(Prior):
