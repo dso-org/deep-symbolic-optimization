@@ -181,6 +181,7 @@ class Controller(object):
 
         # Find max_length from the LengthConstraint prior, if it exists
         # For binding task, max_length is # of allowed mutations or master-seq length
+        # Both priors will never happen in the same experiment
         prior_max_length = None
         for single_prior in self.prior.priors:
             if isinstance(single_prior, LengthConstraint):
@@ -188,6 +189,7 @@ class Controller(object):
                     prior_max_length = single_prior.max
                     self.max_length = prior_max_length
                 break
+            # automatically sets max_length based on task mode
             if isinstance(single_prior, BindingPrior):
                 if single_prior.mode == "full":
                     prior_max_length = len(single_prior.master_sequence)

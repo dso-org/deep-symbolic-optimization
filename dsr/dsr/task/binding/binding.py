@@ -16,10 +16,6 @@ import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 import abag_agent_setup.expand_allowed_mutant_menu as abag_agent_setup_eamm
 
 
-def diff_letters(a, b):
-    return sum ( a[i] != b[i] for i in range(len(a)) )
-
-
 def make_binding_task(name, paths, mode, function_set):
     """
     Factory function for ab/ag binding affinity rewards. 
@@ -32,6 +28,10 @@ def make_binding_task(name, paths, mode, function_set):
 
     paths : dict
         Path to files used to run Gaussian Process-based binding environment.
+    
+    mode : str
+        Task mode: full or short. Sample the entire sequence = full,
+        or sample only the positions that are allowed to mutate = short.
     
     function_set : list
         List of possible discrete symbols that can be allocated.
