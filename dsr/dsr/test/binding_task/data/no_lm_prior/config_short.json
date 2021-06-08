@@ -20,9 +20,7 @@
           }
     },
     "prior": {
-       "seq_positions": {"menu_file" : "./test/binding_task/data/no_lm_prior/positions_prior.yaml",
-                         "mode": "short",
-                         "biasing_factor": 0,
+       "seq_positions": {"biasing_factor": 0,
                          "on": true}
     },
     "training": {

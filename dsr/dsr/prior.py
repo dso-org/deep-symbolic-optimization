@@ -4,6 +4,7 @@ import numpy as np
 import yaml
 from collections import OrderedDict
 
+from dsr.program import Program
 from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError, Token
 from dsr.language_model import LanguageModelPrior as LM
@@ -580,8 +581,16 @@ class SoftLengthPrior(Prior):
 
 
 class BindingPrior(Constraint):
+    """ Super class that contains shared information for both 
+    SequencePositionsConstraint and Language Model-based priors. """
 
     def __init__(self, library, menu_file):
+        """
+        Parameters
+        ----------       
+        menu_file : str
+            YAML file containing sequence positions constraints.
+        """
         Prior.__init__(self, library)
         # read in constraint YAML file
         try:
@@ -603,23 +612,17 @@ class BindingPrior(Constraint):
 class SequencePositionsConstraint(BindingPrior):
     """Class that constrains Tokens to follow the constraints defined in the YAML file. """
 
-    def __init__(self, library, menu_file, mode, biasing_factor):
+    def __init__(self, library, biasing_factor):
         """
         Parameters
-        ----------
-        menu_file : str
-            YAML file containing sequence positions constraints.
-
-        mode : str
-            Whether prior will be for a full or short sequence generation.
-        
+        ----------       
         biasing_factor : float
             Increment factor in the prior vector pushing it towards master sequence.
+
         """
-        BindingPrior.__init__(self, library, menu_file)
-        self.mode = mode
+        BindingPrior.__init__(self, library, Program.task.extra_info["menu_file"])
+        self.mode = Program.task.extra_info["mode"]
         self.biasing_factor = float(biasing_factor)
-        assert mode in ['full', 'short'], "Mode should be either full or short."
 
     def initial_prior(self):
         """ Prior for time step 0 """
@@ -679,7 +682,8 @@ class SequencePositionsConstraint(BindingPrior):
         return prior
 
     def describe(self):
-        message = "Sequence positions constraint: {} mode.".format(self.mode)
+        message = "Impose positional constraints (mutation allowance) in the sequence based "
+        message += "on YAML file definition. Using {} sequence generation mode.".format(self.mode)
         return message
 
 

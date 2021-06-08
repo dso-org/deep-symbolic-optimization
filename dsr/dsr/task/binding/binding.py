@@ -1,19 +1,14 @@
 import os
-import numpy as np
-import pandas as pd
 import torch
 import yaml
 from collections import OrderedDict
 
 import dsr
 from dsr.library import Library, Token
-from dsr.functions import create_tokens
-# from dsr.program import Program
 import dsr.constants as constants
 
 import abag_ml.rl_environment_objects as rl_env_obj
 import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
-import abag_agent_setup.expand_allowed_mutant_menu as abag_agent_setup_eamm
 
 
 def make_binding_task(name, paths, mode, function_set):
@@ -91,6 +86,7 @@ def make_binding_task(name, paths, mode, function_set):
         # Per Tom: positions in the yaml file starts from 1 and not 0
         allowed_mutations[p[0] - 1] = p[2]
 
+    assert mode in ['full', 'short'], "Mode should be either full or short."
 
     def assemble_sequence(p):
         """ Create full sequence from the master sequence and generated mutations
@@ -154,7 +150,8 @@ def make_binding_task(name, paths, mode, function_set):
         info = {}
         return info
 
-    extra_info = {}
+    extra_info = {"menu_file": paths['menu_file'],
+                  "mode": mode}
     task = dsr.task.Task(reward_function=reward,
                          evaluate=evaluate,
                          library=library,
