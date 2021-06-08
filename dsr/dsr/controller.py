@@ -6,7 +6,7 @@ import numpy as np
 from dsr.program import Program
 from dsr.memory import Batch
 from dsr.subroutines import parents_siblings
-from dsr.prior import LengthConstraint
+from dsr.prior import LengthConstraint, BindingPrior
 
 
 class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
@@ -180,6 +180,8 @@ class Controller(object):
         lib = Program.library
 
         # Find max_length from the LengthConstraint prior, if it exists
+        # For binding task, max_length is # of allowed mutations or master-seq length
+        # Both priors will never happen in the same experiment
         prior_max_length = None
         for single_prior in self.prior.priors:
             if isinstance(single_prior, LengthConstraint):
@@ -187,6 +189,15 @@ class Controller(object):
                     prior_max_length = single_prior.max
                     self.max_length = prior_max_length
                 break
+            # automatically sets max_length based on task mode
+            if isinstance(single_prior, BindingPrior):
+                if single_prior.mode == "full":
+                    prior_max_length = len(single_prior.master_sequence)
+                else:
+                    prior_max_length = len(single_prior.allowed_mutations)
+                self.max_length = prior_max_length
+                break
+
         if prior_max_length is None:
             assert max_length is not None, "max_length must be specified if "\
                 "there is no LengthConstraint."
@@ -397,7 +408,10 @@ class Controller(object):
                     logits = cell_output + prior
                     next_cell_state = cell_state
                     emit_output = logits
+                    # tf.multinomial is deprecated: TF recommends switching to tf.random.categorical
+                    # action = tf.random.categorical(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
                     action = tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
+
                     # When implementing variable length:
                     # action = tf.where(
                     #     tf.logical_not(finished),
@@ -661,7 +675,6 @@ class Controller(object):
 
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
-
         feed_dict = {
             self.baseline : b,
             self.sampled_batch_ph : sampled_batch
