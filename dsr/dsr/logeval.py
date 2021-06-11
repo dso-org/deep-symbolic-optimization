@@ -67,7 +67,6 @@ class LogEval():
                 "invalid_avg_sub"
                 ]
         },
-        
         "hof": {
             "name": "Hall of Fame",
             "x_label": [
@@ -141,7 +140,10 @@ class LogEval():
         # Load pareto front if available
         self.pf_df = self._get_log(log_type="pf")
         # Load binding's hof if available
-        self.binding_df = self._get_log(log_type="binding")
+        if self.exp_config["task"]["task_type"] in ["binding"]:
+            self.binding_df = self._get_log(log_type="binding")
+        else:
+            self.binding_df = None
 
         if len(self.warnings) > 0:
             print("*** WARNING:")
