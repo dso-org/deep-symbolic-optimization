@@ -25,7 +25,7 @@ tf.random.set_random_seed(0)
 # Work for multiprocessing pool: optimize constants and compute reward
 def work(p):
     optimized_constants = p.optimize()
-    return optimized_constants, p.base_r
+    return optimized_constants, p.r
 
 
 # def sympy_work(p):
@@ -172,7 +172,7 @@ def learn(sess, controller, pool, gp_controller,
     Returns
     -------
     result : dict
-        A dict describing the best-fit expression (determined by base_r).
+        A dict describing the best-fit expression (determined by reward).
     """
     all_r_size              = batch_size
 
@@ -249,22 +249,20 @@ def learn(sess, controller, pool, gp_controller,
         print("\nInitial parameter means:")
         print_var_means()
 
-    # For stochastic Tasks, store each base_r computation for each unique traversal
+    # For stochastic Tasks, store each reward computation for each unique traversal
     if Program.task.stochastic:
-        base_r_history = {} # Dict from Program str to list of base_r values
+        r_history = {} # Dict from Program str to list of rewards
         # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
         assert Program.library.const_token is None, \
             "Constant tokens not yet supported with stochastic Tasks."
         assert not save_pareto_front, "Pareto front not supported with stochastic Tasks."
     else:
-        base_r_history = None
+        r_history = None
 
     # Main training loop
     p_final = None
-    base_r_best = -np.inf
     r_best = -np.inf
     prev_r_best = None
-    prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(all_r_size), dtype=np.float32)
@@ -288,7 +286,7 @@ def learn(sess, controller, pool, gp_controller,
             print("************************")
 
         # Set of str representations for all Programs ever seen
-        s_history = set(base_r_history.keys() if Program.task.stochastic else Program.cache.keys())
+        s_history = set(r_history.keys() if Program.task.stochastic else Program.cache.keys())
 
         # Sample batch of expressions from controller
         # Shape of actions: (batch_size, max_length)
@@ -327,15 +325,15 @@ def learn(sess, controller, pool, gp_controller,
             # base reward after the pool joins.
             programs = [from_tokens(a, optimize=False, n_objects=n_objects) for a in actions]
 
-            # Filter programs that have not yet computed base_r
+            # Filter programs that have not yet computed reward
             # TBD: Refactor with needs_optimizing flag or similar?
-            programs_to_optimize = list(set([p for p in programs if "base_r" not in p.__dict__]))
+            programs_to_optimize = list(set([p for p in programs if "r" not in p.__dict__]))
 
-            # Optimize and compute base_r
+            # Optimize and compute reward
             results = pool.map(work, programs_to_optimize)
-            for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
+            for (optimized_constants, r), p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
-                p.base_r = base_r
+                p.r = r
 
         # If we run GP, insert GP Program, actions, priors (blank) and obs.
         # We may option later to return these to the controller.
@@ -348,11 +346,6 @@ def learn(sess, controller, pool, gp_controller,
             priors      = np.append(priors, deap_priors, axis=0)
 
         # Retrieve metrics
-        '''
-            base_r:   is the reward regardless of complexity penalty.
-            r:        is reward with complexity subtracted. Note, if complexity_weight is 0 in the config, base_r = r
-        '''
-        base_r      = np.array([p.base_r for p in programs])
         r           = np.array([p.r for p in programs])
         r_train     = r
 
@@ -374,18 +367,15 @@ def learn(sess, controller, pool, gp_controller,
                 p_final = programs[success.index(True)]
 
         # Update reward history
-        if base_r_history is not None:
+        if r_history is not None:
             for p in programs:
                 key = p.str
-                if key in base_r_history:
-                    base_r_history[key].append(p.base_r)
+                if key in r_history:
+                    r_history[key].append(p.r)
                 else:
-                    base_r_history[key] = [p.base_r]
+                    r_history[key] = [p.r]
 
         # Store in variables the values for the whole batch (those variables will be modified below)
-        base_r_max = np.max(base_r)
-        base_r_best = max(base_r_max, base_r_best)
-        base_r_full = base_r
         r_full = r
         l_full = l
         s_full = s
@@ -449,8 +439,7 @@ def learn(sess, controller, pool, gp_controller,
                 contain the GP program items.
             '''
 
-            keep        = base_r >= quantile
-            base_r      = base_r[keep]
+            keep        = r >= quantile
             l           = l[keep]
             s           = list(compress(s, keep))
             invalid     = invalid[keep]
@@ -534,8 +523,8 @@ def learn(sess, controller, pool, gp_controller,
         epoch_walltime = time.time() - epoch_start_time
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r,
-                          l, actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch,
+        logger.save_stats(r_full, l_full, actions_full, s_full, invalid_full, r,
+                          l, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
                           s_history, b_train, epoch_walltime)
 
         # Update the memory queue
@@ -544,55 +533,33 @@ def learn(sess, controller, pool, gp_controller,
 
         # Update new best expression
         new_r_best = False
-        new_base_r_best = False
 
         if prev_r_best is None or r_max > prev_r_best:
             new_r_best = True
             p_r_best = programs[np.argmax(r)]
 
-        if prev_base_r_best is None or base_r_max > prev_base_r_best:
-            new_base_r_best = True
-            p_base_r_best = programs[np.argmax(base_r)]
-
         prev_r_best = r_best
-        prev_base_r_best = base_r_best
 
         if gp_verbose:
             print("************************")
             print("Best epoch Program:")
-            programs[np.argmax(base_r)].print_stats()
+            programs[np.argmax(r)].print_stats()
             print("************************")
             print("All time best Program:")
-            p_base_r_best.print_stats()
+            p_r_best.print_stats()
             print("************************")
 
         # Print new best expression
-        if verbose:
-            if new_r_best or new_base_r_best:
-                print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch, n_epochs, prev_r_best))
-            if new_r_best and new_base_r_best:
-                if p_r_best == p_base_r_best:
-                    print("\n\t** New best overall")
-                    p_r_best.print_stats()
-                else:
-                    print("\n\t** New best reward")
-                    p_r_best.print_stats()
-                    print("...and new best base reward")
-                    p_base_r_best.print_stats()
-
-            elif new_r_best:
-                print("\n\t** New best reward")
-                p_r_best.print_stats()
-
-            elif new_base_r_best:
-                print("\n\t** New best base reward")
-                p_base_r_best.print_stats()
+        if verbose and new_r_best:
+            print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch, n_epochs, prev_r_best))
+            print("\n\t** New best")
+            p_r_best.print_stats()
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
             print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
-        if early_stopping and p_base_r_best.evaluate.get("success"):
+        if early_stopping and p_r_best.evaluate.get("success"):
             print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
             break
 
@@ -609,7 +576,7 @@ def learn(sess, controller, pool, gp_controller,
             if nevals > n_samples:
                 print("************************")
                 print("All time best Program:")
-                p_base_r_best.print_stats()
+                p_r_best.print_stats()
                 print("************************")
                 print("Max Number of Samples Exceeded. Exiting...")
                 break
@@ -620,7 +587,7 @@ def learn(sess, controller, pool, gp_controller,
     if verbose:
         print("Evaluating the hall of fame...")
     #Save all results available only after all epochs are finished.
-    logger.save_results(positional_entropy, base_r_history, pool)
+    logger.save_results(positional_entropy, r_history, pool)
 
     # Print error statistics of the cache
     n_invalid = 0
@@ -654,10 +621,9 @@ def learn(sess, controller, pool, gp_controller,
     print("-------------------------------------")
 
     # Return statistics of best Program
-    p = p_final if p_final is not None else p_base_r_best
+    p = p_final if p_final is not None else p_r_best
     result = {
         "r" : p.r,
-        "base_r" : p.base_r,
     }
     result.update(p.evaluate)
     result.update({

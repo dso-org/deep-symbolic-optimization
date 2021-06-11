@@ -209,15 +209,11 @@ class Program(object):
         The (lazily calculated) SymPy expression corresponding to the program.
         Used for pretty printing _only_.
 
-    base_r : float
-        The base reward (reward without penalty) of the program on the training
-        data.
-
     complexity : float
         The (lazily calcualted) complexity of the program.
 
     r : float
-        The (lazily calculated) reward of the program on the training data.
+        The (lazily calculated) reward of the program.
 
     count : int
         The number of times this Program has been sampled.
@@ -532,32 +528,19 @@ class Program(object):
 
             Program.execute_function = unsafe_execute
 
-
     @cached_property
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
 
         return Program.complexity_penalty(self.traversal)
 
-
     @cached_property
-    def base_r(self):
-        """Evaluates and returns the base reward of the program on the training
-        set"""
+    def r(self):
+        """Evaluates and returns the reward of the program"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             
             return self.task.reward_function(self)
-
-    @cached_property
-    def r(self):
-        """Evaluates and returns the reward of the program on the training
-        set"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            
-            return self.base_r - self.complexity
-
 
     @cached_property
     def evaluate(self):
@@ -573,7 +556,6 @@ class Program(object):
 
         complexity = sum([t.complexity for t in self.traversal])
         return complexity
-
 
     @cached_property
     def sympy_expr(self):
@@ -607,7 +589,6 @@ class Program(object):
     def print_stats(self):
         """Prints the statistics of the program"""
         print("\tReward: {}".format(self.r))
-        print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
         print("\tTraversal: {}".format(self))
