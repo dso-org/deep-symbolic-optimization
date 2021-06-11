@@ -9,13 +9,14 @@ from dsr.utils import is_pareto_efficient, empirical_entropy
 from itertools import compress
 from io import StringIO
 import shutil
+from collections import defaultdict
 
 #These functions are defined globally so they are pickleable and can be used by Pool.map
 def hof_work(p):
-    return [p.r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.complexity_eureqa, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 class StatsLogger():
@@ -176,6 +177,7 @@ class StatsLogger():
         :param baseline: baseline value used for training
         :param epoch_walltime: time taken to process this epoch
         """
+        epoch = epoch + 1 #changing from 0-based index to 1-based
         if self.output_file is not None:
             r_avg_full = np.mean(r_full)
 
@@ -226,7 +228,7 @@ class StatsLogger():
             self.summary_writer.add_summary(summaries, epoch)
 
         # Should the buffer be saved now?
-        if (epoch + 1) % self.buffer_frequency == 0:
+        if epoch % self.buffer_frequency == 0:
             if self.output_file is not None:
                 self.flush_buffer(False)
             if self.save_all_epoch:
@@ -239,14 +241,16 @@ class StatsLogger():
             self.all_r.append(r_full)
 
 
-
-    def save_results(self, positional_entropy, r_history, pool):
+    def save_results(self, positional_entropy, r_history, pool, n_epochs, n_samples):
         """
         Saves stats that are available only after all epochs are finished
         :param positional_entropy: evolution of positional_entropy for all epochs
         :param r_history: reward for each unique program found during training
         :param pool: Pool used to parallelize reward computation
+        :param n_epochs: index of last epoch
+        :param n_samples: Total number of samples
         """
+        n_epochs = n_epochs + 1
         # First of all, saves any pending buffer
         if self.output_file is not None:
             self.flush_buffer(False)
@@ -282,7 +286,10 @@ class StatsLogger():
                 programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
                 for p, r in zip(programs, vals):
                     p.r = np.mean(r)
-                    p.count = len(r)  # HACK
+                    #It is not possible to tell if each program was sampled on- or off-policy at this point.
+                    # -1 on off_policy_count signals that we can't distinguish the counters in this task.
+                    p.on_policy_count = len(r)
+                    p.off_policy_count = -1
 
             # For deterministic Programs, just use the cache
             else:
@@ -316,7 +323,7 @@ class StatsLogger():
                 results = list(map(hof_work, hof))
 
             eval_keys = list(results[0][-1].keys())
-            columns = ["r", "count", "expression", "traversal"] + eval_keys
+            columns = ["r", "count_on_policy", "count_off_policy", "expression", "traversal"] + eval_keys
             hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
             df = pd.DataFrame(hof_results, columns=columns)
             if self.hof_output_file is not None:
@@ -326,9 +333,9 @@ class StatsLogger():
             #save cache
             if self.save_cache and Program.cache:
                 print("Saving cache to {}".format(self.cache_output_file))
-                cache_data = [(repr(p), p.count, p.r) for p in Program.cache.values()]
+                cache_data = [(repr(p), p.on_policy_count, p.off_policy_count, p.r) for p in Program.cache.values()]
                 df_cache = pd.DataFrame(cache_data)
-                df_cache.columns = ["str", "count", "r"]
+                df_cache.columns = ["str", "count_on_policy", "count_off_policy", "r"]
                 if self.save_cache_r_min is not None:
                     df_cache = df_cache[df_cache["r"] >= self.save_cache_r_min]
                 df_cache.to_csv(self.cache_output_file, header=True, index=False)
@@ -349,7 +356,7 @@ class StatsLogger():
                     results = list(map(pf_work, pf))
 
                 eval_keys = list(results[0][-1].keys())
-                columns = ["complexity", "r", "count", "expression", "traversal"] + eval_keys
+                columns = ["complexity", "r", "count_on_policy", "count_off_policy", "expression", "traversal"] + eval_keys
                 pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
                 df = pd.DataFrame(pf_results, columns=columns)
                 if self.pf_output_file is not None:
@@ -361,7 +368,36 @@ class StatsLogger():
                     if p.evaluate.get("success"):
                         p_final = p
                         break
+            #Save error summaries
+            # Print error statistics of the cache
+            n_invalid = 0
+            error_types = defaultdict(lambda: 0)
+            error_nodes = defaultdict(lambda: 0)
 
+            result = {}
+            for p in Program.cache.values():
+                if p.invalid:
+                    count = p.off_policy_count + p.on_policy_count
+                    n_invalid += count
+                    error_types[p.error_type] += count
+                    error_nodes[p.error_node] += count
+
+            if n_invalid > 0:
+                print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, n_samples,
+                                                                       n_invalid / n_samples))
+                print("Error type counts:")
+                for error_type, count in error_types.items():
+                    print("  {}: {} ({:.1%})".format(error_type, count, count / n_invalid))
+                    result["error_"+error_type] = count
+                print("Error node counts:")
+                for error_node, count in error_nodes.items():
+                    print("  {}: {} ({:.1%})".format(error_node, count, count / n_invalid))
+                    result["error_node_" + error_type] = count
+
+            result['n_epochs'] = n_epochs
+            result['n_samples'] = n_samples
+            result['n_cached'] = len(Program.cache)
+            return result
     def flush_buffer(self, all_info_buffer=False):
         """write buffer to output file
         @:param all_info_buffer: should self.buffer_epoch_stats (False) or self.buffer_all_programs (True) be flushed?
