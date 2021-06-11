@@ -186,7 +186,7 @@ def load_config(config_template=None, method="dsr", task="regression", language_
             language_prior = personal_config["prior"]["language_model"]["on"]
         except KeyError:
             pass
-        if isinstance(personal_config["task"]["dataset"], str):
+        if "dataset" in personal_config["task"] and isinstance(personal_config["task"]["dataset"], str):
             personal_config["task"]["name"] = personal_config["task"]["dataset"].split("/")[-1][:-4]
 
     # Load base config
