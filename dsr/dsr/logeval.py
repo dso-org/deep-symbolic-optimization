@@ -140,10 +140,10 @@ class LogEval():
         # Load pareto front if available
         self.pf_df = self._get_log(log_type="pf")
         # Load binding's hof if available
-        if self.exp_config["task"]["task_type"] in ["binding"]:
-            self.binding_df = self._get_log(log_type="binding")
-        else:
-            self.binding_df = None
+        #if self.exp_config["task"]["task_type"] in ["binding"]:
+        self.binding_df = self._get_log(log_type="binding")
+        #else:
+        #    self.binding_df = None
 
         if len(self.warnings) > 0:
             print("*** WARNING:")
@@ -244,7 +244,7 @@ class LogEval():
                     log_not_found.append(seed)
             try:
                 if log_type == "hof":
-                    if self.exp_config["postprocess"]["method"] == "binding":
+                    if self.exp_config["task"]["task_type"] == "binding":
                         log_df = log_df.sort_values(by=["r"], ascending=False)
                     else:
                         log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
@@ -302,16 +302,17 @@ class LogEval():
                         sns.lineplot(data=results, x=_x[data_id], y=_y[data_id], ax=ax[row, i])
                         ax[row, i].set_xlabel(_x_label[data_id])
                         ax[row, i].set_ylabel(_y_label[data_id])
-            elif boxplot_on:
-                sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
-                ax[0, i].set_xlabel(_x_label[i])
-                ax[0, i].set_ylabel(_y_label[i])
-                sns.boxplot(results[_y[i]], ax=ax[1, i])
-                ax[1, i].set_xlabel( _y[i])
             else:
-                sns.lineplot(x=results[_x[i]], y=results[_y[i]], ax=ax[i])
-                ax[i].set_xlabel(_x_label[i])
-                ax[i].set_ylabel(_y_label[i])
+                if boxplot_on:
+                    sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
+                    ax[0, i].set_xlabel(_x_label[i])
+                    ax[0, i].set_ylabel(_y_label[i])
+                    sns.boxplot(results[_y[i]], ax=ax[1, i])
+                    ax[1, i].set_xlabel( _y[i])
+                else:
+                    sns.lineplot(x=results[_x[i]], y=results[_y[i]], ax=ax[i])
+                    ax[i].set_xlabel(_x_label[i])
+                    ax[i].set_ylabel(_y_label[i])
         plt.suptitle(
             "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.exp_config["task"]["name"]),
             fontsize=14)
@@ -324,7 +325,7 @@ class LogEval():
             plt.show()
         plt.close()
 
-    def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False):
+    def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False, show_binding=False):
         """Generates a summary of important experiment outcomes."""
         print("\n-- LOG ANALYSIS ---------------------")
         try:
@@ -359,7 +360,7 @@ class LogEval():
                     self.plot_results(
                         self.pf_df, log_type="pf",
                         show_plots=show_plots, save_plots=save_plots)
-            if self.binding_df is not None:
+            if self.binding_df is not None and show_binding:
                 print('Binding ({} of {})____'.format(min(show_count,len(self.binding_df.index)), len(self.binding_df.index)))
                 for i in range(min(show_count,len(self.binding_df.index))):
                     data_index = len(self.binding_df.index) - 1 - i
