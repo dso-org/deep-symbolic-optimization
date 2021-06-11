@@ -211,11 +211,12 @@ You can turn on/off the generation of log files through `config.json`:
       "logdir": "./log",
       "hof": 100,
       "save_summary": true,
-      "save_all_r": true,
+      "save_all_epoch": true,
       "save_positional_entropy": true,
       "save_pareto_front": true,
       "save_cache": true,
-      "save_cache_r_min": 0.9
+      "save_cache_r_min": 0.9,
+      "save_freq": 50
    },
    ...
 }
@@ -226,7 +227,7 @@ You can turn on/off the generation of log files through `config.json`:
 
 `save_summary`: Whether to store Tensorflow [summaries](https://www.tensorflow.org/api_docs/python/tf/summary)
 
-`save_all_r`: Whether to store a `.npy` file dumping the rewards from all programs sampled throughout the training process (might result in huge files). 
+`save_all_epoch`: Whether to store statistics for all programs sampled throughout the training process (might result in huge files). 
 
 `save_positional_entropy`: Whether to save the evolution of positional entropy for each iteration into a `.npy` dump file.
 
@@ -235,5 +236,7 @@ You can turn on/off the generation of log files through `config.json`:
 `save_cache`: Whether to save the str, count, and r of each program in the cache.
 
 `save_cache_r_min`: If not null, only keep Programs with r >= r_min when saving cache.
+
+`save_freq`: Frequency (in epochs) to output results to files. They will be kept in a memory buffer meanwhile.
 
 For explanations of specific fields inside those files, read the comments in `dsr/dsr/train_stats.py`
