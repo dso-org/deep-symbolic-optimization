@@ -16,7 +16,7 @@ def hof_work(p):
     return [p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.complexity, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 class StatsLogger():
@@ -345,10 +345,10 @@ class StatsLogger():
                 #if verbose:
                 #    print("Evaluating the pareto front...")
                 all_programs = list(Program.cache.values())
-                costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
+                costs = np.array([(p.complexity, -p.r) for p in all_programs])
                 pareto_efficient_mask = is_pareto_efficient(costs)  # List of bool
                 pf = list(compress(all_programs, pareto_efficient_mask))
-                pf.sort(key=lambda p: p.complexity_eureqa)  # Sort by complexity
+                pf.sort(key=lambda p: p.complexity)  # Sort by complexity
 
                 if pool is not None:
                     results = pool.map(pf_work, pf)
