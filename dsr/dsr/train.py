@@ -30,7 +30,7 @@ def work(p):
 
 def learn(sess, controller, pool, gp_controller,
           logdir="./log", n_epochs=None, n_samples=1e6,
-          batch_size=1000, complexity="length", complexity_weight=0.001,
+          batch_size=1000, complexity="token",
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, save_summary=True,
           output_file=None, save_all_epoch=False, baseline="ewma_R",
@@ -71,10 +71,7 @@ def learn(sess, controller, pool, gp_controller,
         Number of sampled expressions per epoch.
 
     complexity : str, optional
-        Complexity penalty name.
-
-    complexity_weight : float, optional
-        Coefficient for complexity penalty.
+        Complexity function name, used computing Pareto front.
 
     const_optimizer : str or None, optional
         Name of constant optimizer.
@@ -182,7 +179,7 @@ def learn(sess, controller, pool, gp_controller,
 
     # TBD: REFACTOR
     # Set the complexity functions
-    Program.set_complexity_penalty(complexity, complexity_weight)
+    Program.set_complexity(complexity)
 
     # TBD: REFACTOR
     # Set the constant optimizer

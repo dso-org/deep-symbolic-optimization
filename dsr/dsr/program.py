@@ -446,23 +446,23 @@ class Program(object):
 
 
     @classmethod
-    def set_complexity_penalty(cls, name, weight):
-        """Sets the class' complexity penalty"""
+    def set_complexity(cls, name):
+        """Sets the class' complexity function"""
 
         all_functions = {
-            # No penalty
+            # No complexity
             None : lambda p : 0.0,
 
-            # Length of tree
-            "length" : lambda p : len(p)
+            # Length of sequence
+            "length" : lambda p : len(p.traversal),
+
+            # Sum of token-wise complexities
+            "token" : lambda p : sum([t.complexity for t in p.traversal])
         }
 
-        assert name in all_functions, "Unrecognzied complexity penalty name"
+        assert name in all_functions, "Unrecognzied complexity function name."
 
-        if weight == 0:
-            Program.complexity_penalty = lambda p : 0.0
-        else:
-            Program.complexity_penalty = lambda p : weight * all_functions[name](p)
+        Program.complexity_function = lambda p : all_functions[name](p)
 
 
     @classmethod
@@ -534,12 +534,6 @@ class Program(object):
             Program.execute_function = unsafe_execute
 
     @cached_property
-    def complexity(self):
-        """Evaluates and returns the complexity of the program"""
-
-        return Program.complexity_penalty(self.traversal)
-
-    @cached_property
     def r(self):
         """Evaluates and returns the reward of the program"""
         with warnings.catch_warnings():
@@ -548,19 +542,18 @@ class Program(object):
             return self.task.reward_function(self)
 
     @cached_property
+    def complexity(self):
+        """Evaluates and returns the complexity of the program"""
+
+        return Program.complexity_function(self)
+
+    @cached_property
     def evaluate(self):
         """Evaluates and returns the evaluation metrics of the program."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             
             return self.task.evaluate(self)
-    
-    @cached_property
-    def complexity_eureqa(self):
-        """Computes sum of token complexity based on Eureqa complexity measures."""
-
-        complexity = sum([t.complexity for t in self.traversal])
-        return complexity
 
     @cached_property
     def sympy_expr(self):
