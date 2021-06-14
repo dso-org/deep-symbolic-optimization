@@ -85,8 +85,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         Training episode seeds start at episode_seed_shift * 100 +
         REWARD_SEED_SHIFT. This has no effect if fix_seeds == False.
 
-    reward_scale : bool
-        Whether to scale rewards by top Zoo evaluation score.
+    reward_scale : list or bool
+        If list: list of [r_min, r_max] used to scale rewards. If True, use
+        default values in REWARD_SCALE. If False, don't scale rewards.
 
     Returns
     -------
@@ -105,7 +106,10 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         assert len(reward_scale) == 2, "Reward scale should be length 2: min, max."
         r_min, r_max = reward_scale
     elif reward_scale:
-        r_min, r_max = REWARD_SCALE[name]
+        if name in REWARD_SCALE:
+            r_min, r_max = REWARD_SCALE[name]
+        else:
+            raise RuntimeError("{} has no default values for reward_scale. Use reward_scale=False or specify reward_scale=[r_min, r_max].".format(name))
     else:
         r_min = r_max = None
 
