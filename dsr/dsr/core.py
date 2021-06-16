@@ -82,14 +82,8 @@ class DeepSymbolicOptimizer():
         self.config_gp_meld = self.config["gp_meld"]
 
     def seed(self, seed_=0):
-        """Set the tensorflow seed, which will be offset by a checksum on the
-        task name to ensure seeds differ across different tasks."""
+        """Set the tensorflow seed."""
 
-        if "name" in self.config_task:
-            task_name = self.config_task["name"]
-        else:
-            task_name = ""
-        seed_ += zlib.adler32(task_name.encode("utf-8"))
         tf.set_random_seed(seed_)
         np.random.seed(seed_)
         random.seed(seed_)
