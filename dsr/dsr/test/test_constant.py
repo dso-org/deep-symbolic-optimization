@@ -1,15 +1,14 @@
+import pytest
+
+import numpy as np
+
 from dsr.library import HardCodedConstant
 from dsr.config import load_config
 from dsr.core import DeepSymbolicOptimizer
-import numpy as np
-import pytest
 
 @pytest.fixture()
 def model():
     config = load_config()
-    config["task"].pop("method")
-    config["task"].pop("seed")
-    config["task"].pop("runs")
     return DeepSymbolicOptimizer(config)
 
 def test_constant():

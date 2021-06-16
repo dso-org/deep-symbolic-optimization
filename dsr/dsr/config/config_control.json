@@ -1,14 +1,12 @@
 {
    "task" : {
       "task_type" : "control",
-      "method" : "dsr",
-      "name" : "CustomCartPoleContinuous-v0",
+      "env" : "CustomCartPoleContinuous-v0",
       "action_spec" : [null],
       "n_episodes_train" : 5,
       "n_episodes_test" : 10,
       "success_score": 1000.0,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
-      "stochastic" : true,
       "protected" : false,
       "fix_seeds" : false,
       "episode_seed_shift" : 0,
