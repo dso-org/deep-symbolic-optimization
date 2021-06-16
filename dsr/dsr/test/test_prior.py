@@ -1,11 +1,5 @@
 """Tests for various Priors."""
 
-r"""
-    Run from hypothesis_testing/dsr/dsr as:
-    
-        pytest test/test_prior.py
-"""
-
 import pytest
 
 from dsr.core import DeepSymbolicOptimizer
@@ -28,9 +22,6 @@ BATCH_SIZE = 1000
 @pytest.fixture
 def model():
     config = load_config()
-    config["task"].pop("method")
-    config["task"].pop("seed")
-    config["task"].pop("runs")
     return DeepSymbolicOptimizer(config)
 
 
@@ -218,7 +209,7 @@ def test_no_inputs(model):
     """Test cases for NoInputsConstraint."""
 
     # This test case needs a float Token before creating the model
-    model.config["task"]["name"] = "Constant-1"
+    model.config["task"]["dataset"] = "Constant-1"
     model.pool = model.make_pool() # Resets Program.task with new Task
 
     model.config_prior = {} # Turn off all other Priors
@@ -414,7 +405,7 @@ def test_const(model):
     """Test cases for ConstConstraint."""
 
     # This test case needs the const Token before creating the model
-    model.config["task"]["name"] = "Constant-1"
+    model.config["task"]["dataset"] = "Constant-1"
     model.pool = model.make_pool() # Resets Program.task with new Task
 
     library = Program.library
@@ -560,5 +551,3 @@ def test_length(model, minmax):
 
     assert_valid(model, valid_cases)
     assert_invalid(model, invalid_cases)
-
-    

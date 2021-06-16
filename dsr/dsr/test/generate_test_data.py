@@ -16,9 +16,6 @@ CONFIG_TRAINING_OVERRIDE = {
 def main():
     # Load config
     config = load_config()
-    config["task"].pop("method")
-    config["task"].pop("seed")
-    config["task"].pop("runs")
 
     # Train the model
     model = DeepSymbolicOptimizer(config)

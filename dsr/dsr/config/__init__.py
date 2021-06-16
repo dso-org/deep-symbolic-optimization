@@ -11,7 +11,7 @@ from pkg_resources import resource_filename
 from dsr.utils import safe_merge_dicts
 
 
-def get_base_config(task, method):
+def get_base_config(task, language_prior):
     # Load base config
     with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_common.json"), encoding='utf-8') as f:
         base_config = json.load(f)
@@ -29,13 +29,11 @@ def get_base_config(task, method):
     with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), task_config_file), encoding='utf-8') as f:
         task_config = json.load(f)
 
-    # Load method specific config
-    task_config["task"]["method"] = method
-    if method in ["gp"]:
-        method_file = "config_gp.json"
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), method_file), encoding='utf-8') as f:
-            gp_config = json.load(f)
-        task_config = safe_merge_dicts(task_config, gp_config)
+    # Load language prior config
+    if language_prior:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_language.json"), encoding='utf-8') as f:
+            language_config = json.load(f)
+        task_config = safe_merge_dicts(task_config, language_config)
 
     return safe_merge_dicts(base_config, task_config)
 
@@ -167,7 +165,7 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
         benchmarks[benchmark] = _set_individual_config(benchmark)
     return benchmarks
 
-def load_config(config_template=None, method="dsr", runs=None):
+def load_config(config_template=None, task="regression", language_prior=False):
     # Load personal config file
     personal_config = {}
     task = None
@@ -179,13 +177,13 @@ def load_config(config_template=None, method="dsr", runs=None):
             task = personal_config["task"]["task_type"]
         except KeyError:
             pass
-        if "dataset" in personal_config["task"] and isinstance(personal_config["task"]["dataset"], str):
-            personal_config["task"]["name"] = personal_config["task"]["dataset"].split("/")[-1][:-4]
+        try:
+            language_prior = personal_config["prior"]["language_model"]["on"]
+        except KeyError:
+            pass
 
     # Load base config
-    base_config = get_base_config(task, method)
-    if runs is not None:
-        base_config["task"]["runs"] = int(runs)
+    base_config = get_base_config(task, language_prior)
 
     # Return combined configs
     return safe_merge_dicts(base_config, personal_config)

@@ -59,9 +59,7 @@ def make_task(task_type, **config_task):
         "binding": AbAg binding affinity optimization task.
 
     config_task : kwargs
-        Task-specific arguments. See specifications of task_dict. Special key
-        "name" is required, which defines the benchmark (i.e. dataset for
-        regression; environment for control).
+        Task-specific arguments. See specifications of task_dict.
 
     Returns
     -------

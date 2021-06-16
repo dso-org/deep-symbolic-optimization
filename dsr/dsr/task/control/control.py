@@ -25,10 +25,10 @@ REWARD_SCALE = {
 }
 
 
-def make_control_task(function_set, name, action_spec, algorithm=None,
+def make_control_task(function_set, env, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
-    stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0, reward_scale=True):
+    protected=False, env_kwargs=None, fix_seeds=False, episode_seed_shift=0,
+    reward_scale=True):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -40,8 +40,8 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     function_set : list
         List of allowable functions.
 
-    name : str
-        Name of Gym environment.
+    env : str
+        Name of Gym environment, e.g. "Pendulum-v0" or "my_module:MyEnv-v0".
 
     action_spec : list
         List of action specifications: None, "anchor", or a list of tokens.
@@ -59,11 +59,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
 
     n_episodes_test : int
         Number of episodes to run during testing.
-
-    stochastic : bool
-        If True, Programs will not be cached, and thus identical traversals will
-        be evaluated as unique objects. The hall of fame will be based on the
-        average reward seen for each unique traversal.
 
     protected : bool
         Whether or not to use protected operators.
@@ -90,33 +85,33 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     See dsr.task.task.make_task().
     """
 
+    env_name = env
     if env_kwargs is None:
         env_kwargs = {}
 
-    # Define closures for environment and anchor model
-    env = gym.make(name, **env_kwargs)
+    # Create the environment
+    env = gym.make(env_name, **env_kwargs)
 
+    # Determine reward scaling
     if isinstance(reward_scale, list):
         assert len(reward_scale) == 2, "Reward scale should be length 2: min, max."
         r_min, r_max = reward_scale
     elif reward_scale:
-        if name in REWARD_SCALE:
-            r_min, r_max = REWARD_SCALE[name]
+        if env_name in REWARD_SCALE:
+            r_min, r_max = REWARD_SCALE[env_name]
         else:
-            raise RuntimeError("{} has no default values for reward_scale. Use reward_scale=False or specify reward_scale=[r_min, r_max].".format(name))
+            raise RuntimeError("{} has no default values for reward_scale. Use reward_scale=False or specify reward_scale=[r_min, r_max].".format(env_name))
     else:
         r_min = r_max = None
 
     # HACK: Wrap pybullet envs in TimeFeatureWrapper
     # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
     # Note Zoo is not implemented as a package, which might make this tedious
-    if "Bullet" in name:
+    if "Bullet" in env_name:
         env = U.TimeFeatureWrapper(env)
 
     # Set the library (need to do this now in case there are symbolic actions)
-    if fix_seeds and stochastic:
-        print("WARNING: fix_seeds=True renders task deterministic. Overriding to stochastic=False.")
-        stochastic = False
+    stochastic = not fix_seeds
     n_input_var = env.observation_space.shape[0]
     tokens = create_tokens(n_input_var, function_set, protected)
     library = Library(tokens)
@@ -136,7 +131,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         if algorithm is not None and anchor is not None:
             U.load_model(algorithm, anchor_path)
         else:
-            U.load_default_model(name)
+            U.load_default_model(env_name)
         model = U.model
     else:
         model = None
