@@ -3,6 +3,7 @@
 from pkg_resources import resource_filename
 
 from dsr import DeepSymbolicOptimizer
+from dsr.config import load_config
 
 
 # Shorter config run for parity test
@@ -13,9 +14,12 @@ CONFIG_TRAINING_OVERRIDE = {
 
 
 def main():
+    # Load config
+    config = load_config()
+    config["task"].pop("method")
 
     # Train the model
-    model = DeepSymbolicOptimizer("config.json")
+    model = DeepSymbolicOptimizer(config)
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
