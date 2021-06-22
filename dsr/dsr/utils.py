@@ -48,6 +48,7 @@ def is_pareto_efficient(costs):
     is_efficient_mask[is_efficient] = True
     return is_efficient_mask
 
+
 class cached_property(object):
     """
     Decorator used for lazy evaluation of an object attribute. The property
@@ -96,7 +97,6 @@ def weighted_quantile(values, weights, q):
     return quantile
 
 
-
 # Entropy computation in batch
 def empirical_entropy(labels):
 
@@ -119,14 +119,17 @@ def empirical_entropy(labels):
 
     return ent
 
+
 def get_duration(start_time):
     return get_human_readable_time(time.time() - start_time)
+
 
 def get_human_readable_time(s):
     m, s = divmod(s, 60)
     h, m = divmod(m, 60)
     d, h = divmod(h, 24)
     return "{:02d}:{:02d}:{:02d}:{:05.2f}".format(int(d), int(h), int(m), s)
+
 
 def safe_merge_dicts(base_dict, update_dict):
     """Merges two dictionaries without changing the source dictionaries.
