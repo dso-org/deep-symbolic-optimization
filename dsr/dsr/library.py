@@ -4,6 +4,8 @@ from collections import defaultdict
 
 import numpy as np
 
+import dsr.utils as U
+
 
 class Token():
     """
@@ -64,16 +66,16 @@ class Constant(Token):
     """
 
     def __init__(self, value=None, name=None):
-        if value is not None:
-            value = np.atleast_1d(value)
+        assert value is not None, \
+            "Constant is not callable with value None."
+        assert U.is_float(value)
+        value = np.atleast_1d(np.float32(value))
         self.value = value
         if name is None:
-            name = "sconst"
+            name = str(self.value[0]) 
         super().__init__(function=self.function, name=name, arity=0, complexity=1)
 
     def function(self):
-        assert self.value is not None, \
-            "Constant is not callable with value None."
         return self.value
 
 
