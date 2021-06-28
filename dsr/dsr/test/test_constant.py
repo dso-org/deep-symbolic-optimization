@@ -1,5 +1,4 @@
 from dsr.library import Constant
-import pytest
 import numpy as np
 
 def test_constant():
