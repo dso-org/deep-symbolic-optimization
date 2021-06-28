@@ -13,10 +13,10 @@ from collections import defaultdict
 
 #These functions are defined globally so they are pickleable and can be used by Pool.map
 def hof_work(p):
-    return [p.r, p.base_r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.base_r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.complexity, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
 class StatsLogger():
@@ -108,11 +108,7 @@ class StatsLogger():
                 # invalid_avg_* : Fraction of invalid Programs per batch
                 # baseline: Baseline value used for training
                 # time: time used to learn in this epoch (in seconds)
-                headers = ["base_r_best",
-                           "base_r_max",
-                           "base_r_avg_full",
-                           "base_r_avg_sub",
-                           "r_best",
+                headers = ["r_best",
                            "r_max",
                            "r_avg_full",
                            "r_avg_sub",
@@ -134,12 +130,10 @@ class StatsLogger():
                 if self.save_all_epoch:
                     with open(self.all_info_output_file, 'w') as f:
                         # epoch : The epoch in which this line was saved
-                        # base_r : reward for this program (before complexity)
-                        # r : reward for this program (after complexity)
+                        # r : reward for this program
                         # l : length of the program
                         # invalid : if the program is invalid
                         headers = ["epoch",
-                                    "base_r",
                                     "r",
                                     "l",
                                     "invalid"]
@@ -158,27 +152,22 @@ class StatsLogger():
         else:
             self.summary_writer = None
 
-    def save_stats(self, base_r_full, r_full, l_full, actions_full, s_full, invalid_full, base_r, r, l,
-                   actions, s, invalid,  base_r_best, base_r_max, r_best, r_max, ewma, summaries, epoch, s_history,
+    def save_stats(self, r_full, l_full, actions_full, s_full, invalid_full, r, l,
+                   actions, s, invalid, r_best, r_max, ewma, summaries, epoch, s_history,
                    baseline, epoch_walltime):
         """
         Computes and saves all statistics that are computed for every time step. Depending on the value of
             self.buffer_frequency, the statistics might be instead saved in a buffer before going to disk.
-        :param base_r_full: The reward regardless of complexity penalty. It should be a list having all computed
-            programs in this time step
-        :param r_full: The reward with complexity subtracted.
+        :param r_full: The reward of all programs
         :param l_full: The length of all programs
         :param actions_full: all actions sampled this step
         :param s_full: String representation of all programs sampled this step.
         :param invalid_full: boolean for all programs sampled showing if they are invalid
-        :param base_r: base_r_full excluding programs not sent to the controller (keep variable)
         :param r: r_full excluding the ones where keep=false
         :param l: l_full excluding the ones where keep=false
         :param actions: actions_full excluding the ones where keep=false
         :param s: s_full excluding the ones where keep=false
         :param invalid: invalid_full excluding the ones where keep=false
-        :param base_r_best: base reward from the all time best program so far
-        :param base_r_max: base reward from the best program in this epoch
         :param r_best: reward from the all time best program so far
         :param r_max: reward from the best program in this epoch
         :param ewma: Exponentially Weighted Moving Average weight that might be used for baseline computation
@@ -190,7 +179,6 @@ class StatsLogger():
         """
         epoch = epoch + 1 #changing from 0-based index to 1-based
         if self.output_file is not None:
-            base_r_avg_full = np.mean(base_r_full)
             r_avg_full = np.mean(r_full)
 
             l_avg_full = np.mean(l_full)
@@ -199,7 +187,6 @@ class StatsLogger():
             n_novel_full = len(set(s_full).difference(s_history))
             invalid_avg_full = np.mean(invalid_full)
 
-            base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
             a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
@@ -207,10 +194,6 @@ class StatsLogger():
             n_novel_sub = len(set(s).difference(s_history))
             invalid_avg_sub = np.mean(invalid)
             stats = np.array([[
-                base_r_best,
-                base_r_max,
-                base_r_avg_full,
-                base_r_avg_sub,
                 r_best,
                 r_max,
                 r_avg_full,
@@ -232,8 +215,7 @@ class StatsLogger():
             np.savetxt(self.buffer_epoch_stats, stats, delimiter=',')
         if self.save_all_epoch:
             all_epoch_stats = np.array([
-                              [epoch]*len(base_r_full),
-                              base_r_full,
+                              [epoch]*len(r_full),
                               r_full,
                               l_full,
                               invalid_full
@@ -259,12 +241,11 @@ class StatsLogger():
             self.all_r.append(r_full)
 
 
-
-    def save_results(self, positional_entropy, base_r_history, pool, n_epochs, n_samples):
+    def save_results(self, positional_entropy, r_history, pool, n_epochs, n_samples):
         """
         Saves stats that are available only after all epochs are finished
         :param positional_entropy: evolution of positional_entropy for all epochs
-        :param base_r_history: reward for each unique program found during training
+        :param r_history: reward for each unique program found during training
         :param pool: Pool used to parallelize reward computation
         :param n_epochs: index of last epoch
         :param n_samples: Total number of samples
@@ -291,7 +272,7 @@ class StatsLogger():
 
         # Save the hall of fame
         if self.hof is not None and self.hof > 0:
-            # For stochastic Tasks, average each unique Program's base_r_history,
+            # For stochastic Tasks, average each unique Program's r_history,
             if Program.task.stochastic:
 
                 # Define a helper function to generate a Program from its tostring() value
@@ -299,17 +280,16 @@ class StatsLogger():
                     tokens = np.fromstring(str_tokens, dtype=np.int32)
                     return from_tokens(tokens, optimize=optimize)
 
-                # Generate each unique Program and manually set its base_r to the average of its base_r_history
-                keys = base_r_history.keys()  # str_tokens for each unique Program
-                vals = base_r_history.values()  # base_r histories for each unique Program
+                # Generate each unique Program and manually set its reward to the average of its r_history
+                keys = r_history.keys()  # str_tokens for each unique Program
+                vals = r_history.values()  # reward histories for each unique Program
                 programs = [from_token_string(str_tokens, optimize=False) for str_tokens in keys]
-                for p, base_r in zip(programs, vals):
-                    p.base_r = np.mean(base_r)
+                for p, r in zip(programs, vals):
+                    p.r = np.mean(r)
                     #It is not possible to tell if each program was sampled on- or off-policy at this point.
                     # -1 on off_policy_count signals that we can't distinguish the counters in this task.
-                    p.on_policy_count = len(base_r)
+                    p.on_policy_count = len(r)
                     p.off_policy_count = -1
-                    _ = p.r  # HACK: Need to cache reward here (serially) because pool doesn't know the complexity_function
 
             # For deterministic Programs, just use the cache
             else:
@@ -332,8 +312,8 @@ class StatsLogger():
                 # programs = list(map(programs.__getitem__, unique_ids + na_ids))
 
 
-            base_r = [p.base_r for p in programs]
-            i_hof = np.argsort(base_r)[-self.hof:][::-1]  # Indices of top hof Programs
+            r = [p.r for p in programs]
+            i_hof = np.argsort(r)[-self.hof:][::-1]  # Indices of top hof Programs
             hof = [programs[i] for i in i_hof]
 
 
@@ -343,7 +323,7 @@ class StatsLogger():
                 results = list(map(hof_work, hof))
 
             eval_keys = list(results[0][-1].keys())
-            columns = ["r", "base_r", "count_on_policy", "count_off_policy", "expression", "traversal"] + eval_keys
+            columns = ["r", "count_on_policy", "count_off_policy", "expression", "traversal"] + eval_keys
             hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
             df = pd.DataFrame(hof_results, columns=columns)
             if self.hof_output_file is not None:
@@ -365,10 +345,10 @@ class StatsLogger():
                 #if verbose:
                 #    print("Evaluating the pareto front...")
                 all_programs = list(Program.cache.values())
-                costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
+                costs = np.array([(p.complexity, -p.r) for p in all_programs])
                 pareto_efficient_mask = is_pareto_efficient(costs)  # List of bool
                 pf = list(compress(all_programs, pareto_efficient_mask))
-                pf.sort(key=lambda p: p.complexity_eureqa)  # Sort by complexity
+                pf.sort(key=lambda p: p.complexity)  # Sort by complexity
 
                 if pool is not None:
                     results = pool.map(pf_work, pf)
@@ -376,7 +356,7 @@ class StatsLogger():
                     results = list(map(pf_work, pf))
 
                 eval_keys = list(results[0][-1].keys())
-                columns = ["complexity", "r", "base_r", "count_on_policy", "count_off_policy", "expression", "traversal"] + eval_keys
+                columns = ["complexity", "r", "count_on_policy", "count_off_policy", "expression", "traversal"] + eval_keys
                 pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
                 df = pd.DataFrame(pf_results, columns=columns)
                 if self.pf_output_file is not None:
