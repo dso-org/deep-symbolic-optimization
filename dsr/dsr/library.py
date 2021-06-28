@@ -55,7 +55,7 @@ class Token():
         return self.name
 
 
-class Constant(Token):
+class HardCodedConstant(Token):
     """
     A Token with a "value" attribute, whose function returns the value.
 
@@ -66,8 +66,7 @@ class Constant(Token):
     """
 
     def __init__(self, value=None, name=None):
-        assert value is not None, \
-            "Constant is not callable with value None."
+        assert value is not None, "Constant is not callable with value None. Must provide a floating point number or string of a float."
         assert U.is_float(value)
         value = np.atleast_1d(np.float32(value))
         self.value = value
