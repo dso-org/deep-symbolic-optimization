@@ -9,7 +9,8 @@ import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
 
-from dsr.functions import PlaceholderConstant
+from dsr.library import Token
+from dsr.functions import PlaceholderConstant, function_map
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -44,7 +45,8 @@ def _finish_tokens(tokens, n_objects=1):
         tokens = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
-        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        if Program.task.task_type != 'binding':
+            tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
 
     return tokens
 
@@ -148,7 +150,10 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
         key = tokens.tostring() 
         if key in Program.cache:
             p = Program.cache[key]
-            p.count += 1
+            if on_policy:
+                p.on_policy_count += 1
+            else:
+                p.off_policy_count += 1
         else:
             p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
             Program.cache[key] = p
@@ -193,15 +198,11 @@ class Program(object):
         The (lazily calculated) SymPy expression corresponding to the program.
         Used for pretty printing _only_.
 
-    base_r : float
-        The base reward (reward without penalty) of the program on the training
-        data.
-
     complexity : float
         The (lazily calcualted) complexity of the program.
 
     r : float
-        The (lazily calculated) reward of the program on the training data.
+        The (lazily calculated) reward of the program.
 
     count : int
         The number of times this Program has been sampled.
@@ -243,9 +244,10 @@ class Program(object):
         
         if optimize:
             _ = self.optimize()
-            
-        self.count = 1
-        self.on_policy = on_policy # Note if a program was created on policy
+
+        self.on_policy_count = 1 if on_policy else 0
+        self.off_policy_count = 0 if on_policy else 1
+        self.originally_on_policy = on_policy # Note if a program was created on policy
 
         if self.n_objects > 1:
             # Fill list of multi-traversals
@@ -437,23 +439,23 @@ class Program(object):
 
 
     @classmethod
-    def set_complexity_penalty(cls, name, weight):
-        """Sets the class' complexity penalty"""
+    def set_complexity(cls, name):
+        """Sets the class' complexity function"""
 
         all_functions = {
-            # No penalty
+            # No complexity
             None : lambda p : 0.0,
 
-            # Length of tree
-            "length" : lambda p : len(p)
+            # Length of sequence
+            "length" : lambda p : len(p.traversal),
+
+            # Sum of token-wise complexities
+            "token" : lambda p : sum([t.complexity for t in p.traversal])
         }
 
-        assert name in all_functions, "Unrecognzied complexity penalty name"
+        assert name in all_functions, "Unrecognzied complexity function name."
 
-        if weight == 0:
-            Program.complexity_penalty = lambda p : 0.0
-        else:
-            Program.complexity_penalty = lambda p : weight * all_functions[name](p)
+        Program.complexity_function = lambda p : all_functions[name](p)
 
 
     @classmethod
@@ -524,32 +526,21 @@ class Program(object):
 
             Program.execute_function = unsafe_execute
 
-
     @cached_property
-    def complexity(self):
-        """Evaluates and returns the complexity of the program"""
-
-        return Program.complexity_penalty(self.traversal)
-
-
-    @cached_property
-    def base_r(self):
-        """Evaluates and returns the base reward of the program on the training
-        set"""
+    def r(self):
+        """Evaluates and returns the reward of the program"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             
             return self.task.reward_function(self)
 
     @cached_property
-    def r(self):
-        """Evaluates and returns the reward of the program on the training
-        set"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            
-            return self.base_r - self.complexity
-                
+
+    def complexity(self):
+        """Evaluates and returns the complexity of the program"""
+
+        return Program.complexity_function(self)
+
     @cached_property
     def evaluate(self):
         """Evaluates and returns the evaluation metrics of the program."""
@@ -557,14 +548,6 @@ class Program(object):
             warnings.simplefilter("ignore")
             
             return self.task.evaluate(self)
-    
-    @cached_property
-    def complexity_eureqa(self):
-        """Computes sum of token complexity based on Eureqa complexity measures."""
-
-        complexity = sum([t.complexity for t in self.traversal])
-        return complexity
-
 
     @cached_property
     def sympy_expr(self):
@@ -574,7 +557,8 @@ class Program(object):
         This is actually a bit complicated because we have to go: traversal -->
         tree --> serialized tree --> SymPy expression
         """
-
+        if self.task.task_type == 'binding':
+            return self.traversal
         tree = self.traversal.copy()
         tree = build_tree(tree)
         tree = convert_to_sympy(tree)
@@ -588,7 +572,10 @@ class Program(object):
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-        return pretty(self.sympy_expr)
+        if self.task.task_type != 'binding':
+            return pretty(self.sympy_expr)
+        else:
+            return None
 
 
     def print_stats(self):
@@ -598,17 +585,18 @@ class Program(object):
         """
         
         print("\tReward: {}".format(self.r))
-        print("\tBase reward: {}".format(self.base_r))
-        print("\tCount: {}".format(self.count))
-        print("\tInvalid: {} On Policy: {}".format(self.invalid, self.on_policy))
+        print("\tCount Off-policy: {}".format(self.off_policy_count))
+        print("\tCount On-policy: {}".format(self.on_policy_count))
+        print("\tOriginally on Policy: {}".format(self.originally_on_policy))
+        print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
-        print("\tExpression:")
-        print("{}\n".format(indent(self.pretty(), '\t  ')))
-
+        if self.task.task_type != 'binding':
+            print("\tExpression:")
+            print("{}\n".format(indent(self.pretty(), '\t  ')))
+        
 
     def __repr__(self):
         """Prints the program's traversal"""
-
         return ','.join([repr(t) for t in self.traversal])
 
 
