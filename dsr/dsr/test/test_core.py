@@ -7,12 +7,15 @@ import tensorflow as tf
 import numpy as np
 
 from dsr import DeepSymbolicOptimizer
+from dsr.config import load_config
 from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 
 
 @pytest.fixture
 def model():
-    return DeepSymbolicOptimizer("config.json")
+    config = load_config()
+    config["task"].pop("method")
+    return DeepSymbolicOptimizer(config)
 
 
 @pytest.fixture
@@ -24,10 +27,11 @@ def cached_results(model):
     return results
 
 
-@pytest.mark.parametrize("config", ["config.json", "config_dsp.json"])
+@pytest.mark.parametrize("config", ["config/config_regression.json", "config/config_control.json"])
 def test_task(model, config):
     """Test that Tasks do not crash for various configs."""
-
+    config = load_config(config)
+    config["task"].pop("method")
     model.update_config(config)
     model.config_training.update({"n_samples" : 10,
                                   "batch_size" : 5
@@ -35,9 +39,13 @@ def test_task(model, config):
     model.train()
 
 
-def test_model_parity(model, cached_results):
+@pytest.mark.parametrize("config", ["config/config_regression.json"])
+def test_model_parity(model, cached_results, config):
     """Compare results to last"""
 
+    config = load_config(config)
+    config["task"].pop("method")
+    model.update_config(config)
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
     results = model.sess.run(tf.trainable_variables())

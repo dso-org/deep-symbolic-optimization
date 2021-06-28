@@ -1,0 +1,74 @@
+{
+   "task" : {
+      "task_type" : "regression",
+      "method" : "dsr",
+      "name" : "Nguyen-1",
+      "dataset" : {
+         "benchmark_source" : "benchmarks.csv",
+         "name" : null,
+         "noise" : null,
+         "root" : null,
+         "backup" : false
+      },
+      "metric" : "inv_nrmse",
+      "metric_params" : [1.0],
+      "extra_metric_test" : null,
+      "extra_metric_test_params" : [1.0],
+      "threshold" : 1e-12,
+      "protected" : false,
+      "reward_noise" : 0.0,
+      "reward_noise_type" : "r",
+      "normalize_variance" : false
+   },
+   "prior": {
+      "length" : {
+         "min_" : 4,
+         "max_" : 30,
+         "on" : true
+      },
+      "repeat" : {
+         "tokens" : "const",
+         "min_" : null,
+         "max_" : 3,
+         "on" : true
+      },
+      "inverse" : {
+         "on" : true
+      },
+      "trig" : {
+         "on" : true
+      },
+      "const" : {
+         "on" : true
+      }
+   },
+   "training" : {
+      "n_epochs" : null,
+      "n_samples" : 2000000,
+      "batch_size" : 1000,
+      "complexity" : "token",
+      "const_optimizer" : "scipy",
+      "const_params" : {},
+      "alpha" : 0.5,
+      "epsilon" : 0.05,
+      "verbose" : true,
+      "baseline" : "R_e",
+      "b_jumpstart" : false,
+      "n_cores_batch" : 1,
+      "debug" : 0,
+      "output_file" : null,
+      "early_stopping" : true,
+      "hof" : 100,
+      "use_memory" : true,
+      "memory_capacity" : 1e3,
+      "warm_start" : null,
+      "memory_threshold" : null,
+      "save_all_epoch" : false,
+      "save_summary" : false,
+      "save_positional_entropy" : false,
+      "save_pareto_front" : true,
+      "save_cache" : false,
+      "save_cache_r_min" : 0.9,
+      "save_freq" : 1
+   }
+}

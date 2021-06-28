@@ -17,3 +17,4 @@ datarobot
 dataclasses
 pathos
 seaborn
+tqdm
