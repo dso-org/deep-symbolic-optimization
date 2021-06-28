@@ -83,7 +83,7 @@
       "off_policy_stats" : false
    },
    "gp_meld" : {
-   	"run_gp_meld" : false,
+      "run_gp_meld" : false,
       "verbose" : false,
       "generations" : 20,
       "p_crossover" : 0.5,
