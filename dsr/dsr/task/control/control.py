@@ -89,9 +89,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     reward_scale : bool
         Whether to scale rewards by top Zoo evaluation score.
 
-    seed : int
-        Seed for random number generator
-
     Returns
     -------
 
