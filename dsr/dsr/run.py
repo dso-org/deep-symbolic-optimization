@@ -28,6 +28,7 @@ def train_dsr(seeded_benchmark):
 
     # Override the benchmark name and output file
     benchmark_name, seed, config = seeded_benchmark
+    print("benchmark name", benchmark_name)
     #config["task"]["name"] = benchmark_name
     config["training"]["output_file"] = "dsr_{}_{}.csv".format(benchmark_name, seed)
 
@@ -145,6 +146,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed, b):
 
     # Load all benchmarks
     unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename)
+    print("unique benchmark configs", unique_benchmark_configs)
 
     # Generate seeds for each run for each benchmark
     configs = []
