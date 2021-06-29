@@ -53,7 +53,7 @@ def train_dsr(seeded_benchmark):
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
     if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
         import gym
-        import dsr.task.control
+        import dsr.task.control # Registers custom and third-party environments
         gym.make(benchmark_name)
 
     # Train the model
