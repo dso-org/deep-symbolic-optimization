@@ -208,7 +208,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                 # Replace symbolic action with current program
                 if action_dim is not None:
                     action[action_dim] = get_action(p, obs)
-                
+
                 # Replace NaNs and clip infinites
                 action[np.isnan(action)] = 0.0 # Replace NaNs with zero
                 action = np.clip(action, env.action_space.low, env.action_space.high)
@@ -254,7 +254,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     extra_info = {
         "symbolic_actions" : symbolic_actions
     }
-    
 
     task = dsr.task.Task(reward_function=reward,
                 evaluate=evaluate,

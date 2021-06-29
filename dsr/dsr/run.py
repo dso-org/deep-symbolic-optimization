@@ -4,6 +4,7 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
+import copy
 import os
 import time
 import multiprocessing
@@ -54,15 +55,16 @@ def train_dsr(seeded_benchmark):
         import gym
         gym.make(benchmark_name)
 
+    run_config = copy.deepcopy(config)
     # Train the model
-    model = DeepSymbolicOptimizer(config)
+    model = DeepSymbolicOptimizer(run_config)
     start = time.time()
     result = {"name" : benchmark_name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
     result.pop("program")
 
-    return result, config["paths"]["summary_path"]
+    return result, run_config["paths"]["summary_path"]
 
 
 def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
@@ -124,17 +126,22 @@ def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
 @click.command()
 @click.argument('config_template', default="")
 @click.option('--method', default="dsr", type=click.Choice(["dsr", "gp"]), help="Symbolic regression method")
-@click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
+@click.option('--mc', default=None, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--output_filename', default=None, help="Filename to write results")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
-@click.option('--seed_shift', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
+@click.option('--seed', default=None, help="First seed when running multiple experiments (increments by 1 for following experiments)")
 @click.option('--b', multiple=True, type=str, help="Name of benchmark or benchmark prefix")
-def main(config_template, method, mc, output_filename, n_cores_task, seed_shift, b):
+def main(config_template, method, mc, output_filename, n_cores_task, seed, b):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
     # Load the experiment config
     config_template = config_template if config_template != "" else None
-    config = load_config(config_template, method)
+    config = load_config(config_template, method, mc)
+    mc = config["task"]["runs"]
+
+    # Set seed properly
+    config["task"]["seed"] = config["task"]["seed"] if seed is None else int(seed)
+    seed = config["task"]["seed"]
 
     # Load all benchmarks
     unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename)
@@ -146,7 +153,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
     for benchmark in unique_benchmark_configs:
         benchmarks.extend([benchmark] * mc)
         configs.extend([unique_benchmark_configs[benchmark]] * mc)
-        seeds.extend((np.arange(mc) + seed_shift).tolist())
+        seeds.extend((np.arange(mc) + seed).tolist())
     seeded_benchmarks = list(zip(benchmarks, seeds, configs))
     benchmark_count = len(seeded_benchmarks)
 
@@ -166,7 +173,7 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
                 seeded_benchmark[2]["training"]["n_cores_batch"] = 1
 
     # Start benchmark training
-    print("Running {} with {} seeds on benchmark {}".format(method, mc, [*unique_benchmark_configs]))
+    print("Running {} with {} seeds starting at {} on benchmark {}".format(method, mc, seed, [*unique_benchmark_configs]))
 
     # Define the work
     if method == "dsr":
@@ -179,11 +186,14 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed_shift,
         pool = multiprocessing.Pool(n_cores_task)
         for result, summary_path in pool.imap_unordered(work, seeded_benchmarks):
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
-            print("Completed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"]+1-seed_shift, mc, result["t"]))
+            print("\n  Completed {} seed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"], result["seed"] + 1 - seed, mc, result["t"]))
+            print("########################################")
     else:
         for seeded_benchmark in seeded_benchmarks:
             result, summary_path = work(seeded_benchmark)
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
+            print("\n  Completed {} seed {} ({} of {}) in {:.0f} s".format(result["name"], result["seed"], result["seed"] + 1 - seed, mc, result["t"]))
+            print("########################################")
 
     # Evaluate the log files
     for config in unique_benchmark_configs.values():
