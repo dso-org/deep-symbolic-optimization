@@ -139,12 +139,12 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed, b):
     config = load_config(config_template, method, mc)
     mc = config["task"]["runs"]
 
-    # Load all benchmarks
-    unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename, seed)
-
     # Set seed properly
-    seed = config["task"]["seed"] if seed is None else int(seed)
+    config["task"]["seed"] = config["task"]["seed"] if seed is None else int(seed)
+    seed = config["task"]["seed"]
 
+    # Load all benchmarks
+    unique_benchmark_configs = set_benchmark_configs(config, b, method, output_filename)
 
     # Generate seeds for each run for each benchmark
     configs = []

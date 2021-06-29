@@ -39,12 +39,8 @@ def get_base_config(task, method):
 
     return safe_merge_dicts(base_config, task_config)
 
-def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None, seed=None):
+def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=None):
     """Get all indivual benchmarks and generate their respective configs."""
-    # Set seed properly
-    if seed is not None:
-        config["task"]["seed"] = int(seed)
-
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
         assert config["task"]["name"] is not None, "Task set to 'None' in config! Use the --b argument: python dsr.run config_file.json --b your_task"
@@ -157,6 +153,7 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
             json.dump(new_config, f, indent=4)
         new_config["task"].pop("method")
         new_config["task"].pop("runs")
+        new_config["task"].pop("seed")
         return new_config
 
     # make sure we get the right benchmarks
