@@ -1,4 +1,7 @@
 from gym import register
+import pybullet_envs
+# the above import is here to register the pybullet environments to Gym. Don't delete!
+# without the import you won't be able to use pybullet environments.
 
 # Gym Pendulum-v0 with added dt parameter
 register(
