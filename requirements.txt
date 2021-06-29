@@ -8,12 +8,7 @@ pandas
 scikit-learn
 click
 deap
-mpi4py
-pybullet
-gym[box2d]==0.15.4
-enum34~=1.1.6 
-stable-baselines[mpi]
-datarobot
 dataclasses
 seaborn
+progress
 tqdm
