@@ -17,7 +17,7 @@ from . import utils as U
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
 # This is a dictionary with  "NameEnv" : [minR, maxR].
-# The reward scaling is given by r_scaled = minR/(minR-maxR) - r/(minR-maxR) 
+# The reward scaling is given by r_scaled = minR/(minR-maxR) - r/(minR-maxR)
 REWARD_SCALE = {
     "CustomCartPoleContinuous-v0" : [0.0,1000.0],
     "MountainCarContinuous-v0" : [0.0,93.95],
@@ -34,7 +34,7 @@ REWARD_SCALE = {
 def make_control_task(function_set, name, action_spec, algorithm=None,
     anchor=None, n_episodes_train=5, n_episodes_test=1000, success_score=None,
     stochastic=True, protected=False, env_kwargs=None, fix_seeds=False,
-    episode_seed_shift=0, reward_scale=True, seed=0):
+    episode_seed_shift=0, reward_scale=True):
     """
     Factory function for episodic reward function of a reinforcement learning
     environment with continuous actions. This includes closures for the
@@ -205,7 +205,7 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
                 # Replace symbolic action with current program
                 if action_dim is not None:
                     action[action_dim] = get_action(p, obs)
-                
+
                 # Replace NaNs and clip infinites
                 action[np.isnan(action)] = 0.0 # Replace NaNs with zero
                 action = np.clip(action, env.action_space.low, env.action_space.high)
@@ -251,7 +251,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     extra_info = {
         "symbolic_actions" : symbolic_actions
     }
-    
 
     task = dsr.task.Task(reward_function=reward,
                 evaluate=evaluate,
