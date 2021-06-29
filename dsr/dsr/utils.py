@@ -8,7 +8,7 @@ import time
 
 
 def is_float(s):
-    """Determine whether str can be cast to float."""
+    """Determine whether the input variable can be cast to float."""
 
     try:
         float(s)
