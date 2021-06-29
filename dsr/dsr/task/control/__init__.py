@@ -1,4 +1,5 @@
 from gym import register
+import pybullet_envs
 
 # Gym Pendulum-v0 with added dt parameter
 register(
