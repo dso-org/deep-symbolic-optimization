@@ -2,7 +2,7 @@ import gym
 
 import numpy as np
 
-import dsr.task.control # registers custom and third party environments by import
+import dsr.task.control # Registers custom and third-party environments
 from dsr.program import Program, from_str_tokens
 from dsr.library import Library
 from dsr.functions import create_tokens
