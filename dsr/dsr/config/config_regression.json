@@ -18,7 +18,8 @@
       "protected" : false,
       "reward_noise" : 0.0,
       "reward_noise_type" : "r",
-      "normalize_variance" : false
+      "normalize_variance" : false,
+      "function_set": ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
    },
    "prior": {
       "length" : {
