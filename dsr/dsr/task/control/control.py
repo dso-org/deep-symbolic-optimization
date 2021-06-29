@@ -16,8 +16,7 @@ from . import utils as U
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
 
-# This is a dictionary with  "NameEnv" : [minR, maxR].
-# The reward scaling is given by r_scaled = minR/(minR-maxR) - r/(minR-maxR) 
+# Pre-computed values for reward scale
 REWARD_SCALE = {
     "CustomCartPoleContinuous-v0" : [0.0,1000.0],
     "MountainCarContinuous-v0" : [0.0,93.95],
@@ -86,8 +85,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         Training episode seeds start at episode_seed_shift * 100 +
         REWARD_SEED_SHIFT. This has no effect if fix_seeds == False.
 
-    reward_scale : bool
-        Whether to scale rewards by top Zoo evaluation score.
+    reward_scale : list or bool
+        If list: list of [r_min, r_max] used to scale rewards. If True, use
+        default values in REWARD_SCALE. If False, don't scale rewards.
 
     Returns
     -------
@@ -102,10 +102,16 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     # Define closures for environment and anchor model
     env = gym.make(name, **env_kwargs)
 
-    if reward_scale:
-        [minR, maxR] = REWARD_SCALE[name]
+    if isinstance(reward_scale, list):
+        assert len(reward_scale) == 2, "Reward scale should be length 2: min, max."
+        r_min, r_max = reward_scale
+    elif reward_scale:
+        if name in REWARD_SCALE:
+            r_min, r_max = REWARD_SCALE[name]
+        else:
+            raise RuntimeError("{} has no default values for reward_scale. Use reward_scale=False or specify reward_scale=[r_min, r_max].".format(name))
     else:
-        reward_scale = None
+        r_min = r_max = None
 
     # HACK: Wrap pybullet envs in TimeFeatureWrapper
     # TBD: Load the Zoo hyperparameters, including wrapper features, not just the model.
@@ -221,9 +227,9 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
         # Return the mean
         r_avg = np.mean(r_episodes)
 
-        # Scale rewards
-        if reward_scale is not None:
-            r_avg = minR/(minR-maxR) - r_avg/(minR-maxR)
+        # Scale rewards to [0, 1]
+        if r_min is not None:
+            r_avg = (r_avg - r_min) / (r_max - r_min)
 
         return r_avg
 
