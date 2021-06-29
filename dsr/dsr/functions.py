@@ -4,6 +4,7 @@ import numpy as np
 from fractions import Fraction
 
 from dsr.library import Token, PlaceholderConstant, HardCodedConstant
+import dsr.utils as U
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
 
@@ -178,7 +179,7 @@ def create_tokens(n_input_var, function_set, protected):
             token = function_map[op]
 
         # Hard-coded floating-point constant
-        elif isinstance(op, float) or isinstance(op, int):
+        elif isinstance(op, float) or isinstance(op, int) or U.is_float(op):
             token = HardCodedConstant(op)
 
         # Constant placeholder (to-be-optimized)
