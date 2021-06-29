@@ -22,6 +22,8 @@ def get_base_config(task, method):
         task_config_file = "config_regression.json"
     elif task in ["control"]:
         task_config_file = "config_control.json"
+    elif task in ["binding"]:
+        task_config_file = "config_binding.json"
     else:
         assert False, "*** ERROR: Unknown task type: {}".format(task)
     with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), task_config_file), encoding='utf-8') as f:
@@ -46,7 +48,6 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
     # Use benchmark name from config if not specified as command-line arg
     if len(arg_benchmark) == 0:
         assert config["task"]["name"] is not None, "Task set to 'None' in config! Use the --b argument: python dsr.run config_file.json --b your_task"
-        print(config["task"]["name"])
         if isinstance(config["task"]["name"], str):
             benchmarks = (config["task"]["name"],)
         elif isinstance(config["task"]["name"], list):
@@ -92,27 +93,41 @@ def set_benchmark_configs(config, arg_benchmark, method="dsr", output_filename=N
 
     benchmark_df = None
     if config["task"]["task_type"] == "regression":
-        paths["root_dir"] = resource_filename("dsr.task", "regression") \
-            if config["task"]["dataset"]["root"] is None \
-                else config["task"]["dataset"]["root"]
-        paths["benchmark_file"] = "benchmarks.csv" \
-            if config["task"]["dataset"]["benchmark_source"] is None \
-                else config["task"]["dataset"]["benchmark_source"]
-        paths["tokenset_path"] = os.path.join(
-            paths["root_dir"], "function_sets.csv")
-        if "dataset" in config["task"] \
-                and "backup" in config["task"]["dataset"] \
-                and config["task"]["dataset"]["backup"]:
-            config["task"]["dataset"]["logdir"] = paths["log_dir"]
-        # load all available benchmarks
-        benchmark_df = pd.read_csv(
-            os.path.join(paths["root_dir"], paths["benchmark_file"]),
-            index_col=None, encoding="ISO-8859-1")
-        # load available token sets
-        if config["task"]["function_set"] is None:
-            tokenset_df = pd.read_csv(
-                paths["tokenset_path"],
+        # Dataset needs to be created
+        if isinstance(config["task"]["dataset"], dict):
+            paths["root_dir"] = resource_filename("dsr.task", "regression") \
+                if config["task"]["dataset"]["root"] is None \
+                    else config["task"]["dataset"]["root"]
+            paths["benchmark_file"] = "benchmarks.csv" \
+                if config["task"]["dataset"]["benchmark_source"] is None \
+                    else config["task"]["dataset"]["benchmark_source"]
+            paths["tokenset_path"] = os.path.join(
+                paths["root_dir"], "function_sets.csv")
+            if "dataset" in config["task"] \
+                    and "backup" in config["task"]["dataset"] \
+                    and config["task"]["dataset"]["backup"]:
+                config["task"]["dataset"]["logdir"] = paths["log_dir"]
+            # load all available benchmarks
+            benchmark_df = pd.read_csv(
+                os.path.join(paths["root_dir"], paths["benchmark_file"]),
                 index_col=None, encoding="ISO-8859-1")
+            # load available token sets
+            if config["task"]["function_set"] is None:
+                tokenset_df = pd.read_csv(
+                    paths["tokenset_path"],
+                    index_col=None, encoding="ISO-8859-1")
+
+        # Dataset already exists and will be loaded
+        elif isinstance(config["task"]["dataset"], str):
+            paths["dataset"] = config["task"]["dataset"]
+            # load token sets
+            if not isinstance(config["task"]["function_set"], list):
+                # Fallback to standard set
+                print('WARNING: Tokenset has not been set properly, falling back to standard tokenset: '
+                      '["add","sub","mul","div","sin","cos","exp","log"]')
+                config["task"]["function_set"] = ["add","sub","mul","div","sin","cos","exp","log"]
+        else:
+            assert False, "Unknown dataset source: {}".format(config["task"]["function_set"])
 
     # Helper functions
     def _set_individual_paths(benchmark):
@@ -167,6 +182,8 @@ def load_config(config_template=None, method="dsr", runs=None):
             task = personal_config["task"]["task_type"]
         except KeyError:
             pass
+        if "dataset" in personal_config["task"] and isinstance(personal_config["task"]["dataset"], str):
+            personal_config["task"]["name"] = personal_config["task"]["dataset"].split("/")[-1][:-4]
 
     # Load base config
     base_config = get_base_config(task, method)
