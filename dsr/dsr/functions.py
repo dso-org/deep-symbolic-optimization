@@ -179,8 +179,7 @@ def create_tokens(n_input_var, function_set, protected):
 
         # Hard-coded floating-point constant
         elif isinstance(op, float) or isinstance(op, int):
-            name = str(op)
-            token = HardCodedConstant(op, name=name)
+            token = HardCodedConstant(op)
 
         # Constant placeholder (to-be-optimized)
         elif op == "const":
