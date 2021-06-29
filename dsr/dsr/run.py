@@ -86,7 +86,7 @@ def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
     p, logbook = gp.train()
 
     # Retrieve results
-    r = base_r = p.fitness.values[0]
+    r = p.fitness.values[0]
     str_p = str(p)
     nmse_test = gp.nmse_test(p)[0]
     nmse_test_noiseless = gp.nmse_test_noiseless(p)[0]
@@ -112,7 +112,6 @@ def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
         "name" : benchmark_name,
         "seed" : seed,
         "r" : r,
-        "base_r" : base_r,
         "nmse_test" : nmse_test,
         "nmse_test_noiseless" : nmse_test_noiseless,
         "success" : success,

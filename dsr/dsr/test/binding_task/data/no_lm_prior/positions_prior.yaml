@@ -1,0 +1,19 @@
+Description:
+  description: 'Add here a description of the study.'
+  name: 'Example_XYZ'
+
+Sequence:
+  master_sequence: 'MAEVQLVQSGGGVVQPGKSLRLSCAASGFAFSSYAMHWVRQAPGKGLEWVAVISYDGSNKYYADSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARDRSYYLDYWGQGTLVTVSSGGGGSGGGGSGGGGSETTLTQSPATLSLSPGERATLSCRASQSVRSNLAWYQQKPGQAPRPLIYDASTRATGIPDRFSGSGSGTDFTLTISRLEPEDFAVYYCQQRSNWPPTFGQGTKVEVKSGLVPR'
+
+# We can expand this YAML file to include more context. 
+AllowedMutations:
+  - [1, 'R',  &all_aa ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']]
+  - [2, 'S', *all_aa]
+  - [3, 'T', *all_aa]
+  - [4, 'R', *all_aa]
+  - [5, 'N', *all_aa]
+  - [6, 'P', *all_aa]
+  - [7, 'Q', *all_aa]
+  - [8, 'R', *all_aa]
+  - [9, 'S', ['A', 'E']]
+  - [10, 'R', ['A', 'C', 'D', 'E']]

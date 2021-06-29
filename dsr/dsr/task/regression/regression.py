@@ -214,6 +214,7 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
                 evaluate=evaluate,
                 library=library,
                 stochastic=stochastic,
+                task_type='regression',
                 extra_info=extra_info)
 
     return task
