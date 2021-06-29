@@ -1,17 +1,12 @@
 import gym
 
-try:
-    import pybullet_envs
-except ImportError:
-    pybullet_envs = None
-
 import numpy as np
 
-import dsr
+import dsr.task.control # registers custom and third party environments by import
 from dsr.program import Program, from_str_tokens
 from dsr.library import Library
 from dsr.functions import create_tokens
-from . import utils as U
+import dsr.task.control.utils as U
 
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
@@ -95,7 +90,6 @@ def make_control_task(function_set, name, action_spec, algorithm=None,
     See dsr.task.task.make_task().
     """
 
-    assert "Bullet" not in name or pybullet_envs is not None, "Must install pybullet_envs."
     if env_kwargs is None:
         env_kwargs = {}
 
