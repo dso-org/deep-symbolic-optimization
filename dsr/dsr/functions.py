@@ -179,7 +179,7 @@ def create_tokens(n_input_var, function_set, protected):
             token = function_map[op]
 
         # Hard-coded floating-point constant
-        elif isinstance(op, float) or isinstance(op, int) or U.is_float(op):
+        elif U.is_float(op):
             token = HardCodedConstant(op)
 
         # Constant placeholder (to-be-optimized)
