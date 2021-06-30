@@ -1,4 +1,4 @@
-"""Parallelized, single-point launch script to run DSR or GP on a set of benchmarks."""
+"""Parallelized, single-point launch script to run DSO on a set of benchmarks."""
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -8,17 +8,13 @@ import copy
 import os
 import time
 import multiprocessing
-import zlib
 from copy import deepcopy
 from datetime import datetime
 
 import click
 import pandas as pd
-from sympy.parsing.sympy_parser import parse_expr
 
 from dsr import DeepSymbolicOptimizer
-from dsr.task.regression.dataset import BenchmarkDataset
-from dsr.baselines import gpsr
 from dsr.logeval import LogEval
 from dsr.config import load_config
 
