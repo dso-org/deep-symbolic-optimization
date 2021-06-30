@@ -53,7 +53,7 @@ def train_dsr(config):
     if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
         import gym
         import dsr.task.control # Registers custom and third-party environments
-        gym.make(name)
+        gym.make(config["task"]["env"])
 
     run_config = copy.deepcopy(config)
     # Train the model
