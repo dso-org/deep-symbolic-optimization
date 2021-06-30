@@ -3,7 +3,8 @@ import re
 import numpy as np
 from fractions import Fraction
 
-from dsr.library import Token, PlaceholderConstant
+from dsr.library import Token, PlaceholderConstant, HardCodedConstant
+import dsr.utils as U
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
 
@@ -141,13 +142,6 @@ UNARY_TOKENS    = set([op.name for op in function_map.values() if op.arity == 1]
 BINARY_TOKENS   = set([op.name for op in function_map.values() if op.arity == 2])
 
 
-def _create_float_token(op):
-    
-    name = str(op)
-    value = np.atleast_1d(np.float32(op))
-    function = lambda : value
-    return Token(name=name, arity=0, complexity=1, function=function)
-
 def create_tokens(n_input_var, function_set, protected):
     """
     Helper function to create Tokens.
@@ -185,11 +179,9 @@ def create_tokens(n_input_var, function_set, protected):
             token = function_map[op]
 
         # Hard-coded floating-point constant
-        elif isinstance(op, float) or isinstance(op, int):
-            token = _create_float_token(op)
-        # Hard-coded floating-point constant, but it's still in a string
-        elif re.match(r'^-?\d+(?:\.\d+)$', op) is not None:
-            token = _create_float_token(float(op))
+        elif U.is_float(op):
+            token = HardCodedConstant(op)
+
         # Constant placeholder (to-be-optimized)
         elif op == "const":
             token = PlaceholderConstant()
