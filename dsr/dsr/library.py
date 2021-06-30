@@ -4,6 +4,8 @@ from collections import defaultdict
 
 import numpy as np
 
+import dsr.utils as U
+
 
 class Token():
     """
@@ -53,6 +55,29 @@ class Token():
         return self.name
 
 
+class HardCodedConstant(Token):
+    """
+    A Token with a "value" attribute, whose function returns the value.
+
+    Parameters
+    ----------
+    value : float
+        Value of the constant.
+    """
+
+    def __init__(self, value=None, name=None):
+        assert value is not None, "Constant is not callable with value None. Must provide a floating point number or string of a float."
+        assert U.is_float(value)
+        value = np.atleast_1d(np.float32(value))
+        self.value = value
+        if name is None:
+            name = str(self.value[0]) 
+        super().__init__(function=self.function, name=name, arity=0, complexity=1)
+
+    def function(self):
+        return self.value
+
+
 class PlaceholderConstant(Token):
     """
     A Token for placeholder constants that will be optimized with respect to
@@ -68,13 +93,12 @@ class PlaceholderConstant(Token):
         if value is not None:
             value = np.atleast_1d(value)
         self.value = value
+        super().__init__(function=self.function, name="const", arity=0, complexity=1)
 
-        def function():
-            assert self.value is not None, \
-                "Constant is not callable with value None."
-            return self.value
-
-        super().__init__(function=function, name="const", arity=0, complexity=1)
+    def function(self):
+        assert self.value is not None, \
+            "Constant is not callable with value None."
+        return self.value
 
     def __repr__(self):
         if self.value is None:

@@ -119,8 +119,6 @@ class LogEval():
             self.path["config"] = os.path.join(log_path, config_file)
         self.path["cmd"] = os.path.join(log_path, "cmd.out")
 
-        # Get information about the command line arguments
-        self.cmd_params = self._get_cmd()
         # Load the saved configuration data
         self.exp_config = self._get_config()
         self.path["postprocess"] = self.exp_config["paths"]["summary_path"]
@@ -137,29 +135,6 @@ class LogEval():
         if len(self.warnings) > 0:
             print("*** WARNING:")
             [print("    --> {}".format(warning)) for warning in self.warnings]
-
-    def _get_cmd(self):
-        """Get all command line parameter."""
-        params = None
-        try:
-            with open (self.path["cmd"], "r") as cmd_file:
-                cmd_content = cmd_file.readlines()
-            tokens = cmd_content[0].split("--")
-            params = {}
-            for token in tokens[1:]:
-                if "=" in token:
-                    setting = token.split("=")
-                elif " " in token:
-                    setting = token.split(" ")
-                else:
-                    self.warnings.append("Can't interpret command line argument: {}".format(token))
-                    continue
-                params[setting[0]] = self._get_correct_type(setting[1].strip())
-            if not "mc" in params:
-                params["mc"] = 1
-        except:
-            self.warnings.append("Missing command file!")
-        return params
 
     def _get_correct_type(self, token):
         """Make sure the token are recognized in the correct type."""
@@ -217,40 +192,37 @@ class LogEval():
         log_df = None
         log_exists = False
         log_not_found = []
-        if "mc" in self.cmd_params:
-            for seed in range(self.cmd_params["mc"]):
-                log_file = "{}_{}_{}_{}.csv".format(
-                    self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
-                try:
-                    df = pd.read_csv(os.path.join(self.path["log"], log_file))
-                    df.insert(0, "seed", seed)
-                    if log_exists:
-                        log_df = pd.concat([log_df, df])
-                    else:
-                        log_df = df.copy()
-                        log_exists = True
-                except:
-                    log_not_found.append(seed)
+        for seed in range(self.exp_config["task"]["seed"], self.exp_config["task"]["seed"] + self.exp_config["task"]["runs"]):
+            log_file = "{}_{}_{}_{}.csv".format(
+                self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
             try:
-                if log_type == "hof":
-                    if self.exp_config["task"]["task_type"] == "binding":
-                        log_df = log_df.sort_values(by=["r"], ascending=False)
-                    else:
-                        log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
-                if log_type == "binding":
-                    #log_df = log_df.sort_values(by=["r_best","seed"], ascending=False)
-                    pass
-                if log_type == "pf":
-                    log_df = self._apply_pareto_filter(log_df)
-                    log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
-                log_df = log_df.reset_index(drop=True)
-                log_df["index"] = log_df.index
+                df = pd.read_csv(os.path.join(self.path["log"], log_file))
+                df.insert(0, "seed", seed)
+                if log_exists:
+                    log_df = pd.concat([log_df, df])
+                else:
+                    log_df = df.copy()
+                    log_exists = True
             except:
-                self.warnings.append("No data for {}!".format(log_type))
-            if len(log_not_found) > 0:
-                self.warnings.append("Missing {} files for seeds: {}".format(log_type, log_not_found))
-        else:
-            self.warnings.append("Cannot read {} files!".format(log_type))
+                log_not_found.append(seed)
+        try:
+            if log_type == "hof":
+                if self.exp_config["task"]["task_type"] == "binding":
+                    log_df = log_df.sort_values(by=["r"], ascending=False)
+                else:
+                    log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
+            if log_type == "binding":
+                #log_df = log_df.sort_values(by=["r_best","seed"], ascending=False)
+                pass
+            if log_type == "pf":
+                log_df = self._apply_pareto_filter(log_df)
+                log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
+            log_df = log_df.reset_index(drop=True)
+            log_df["index"] = log_df.index
+        except:
+            self.warnings.append("No data for {}!".format(log_type))
+        if len(log_not_found) > 0:
+            self.warnings.append("Missing {} files for seeds: {}".format(log_type, log_not_found))
         return log_df
 
     def _apply_pareto_filter(self, df):
@@ -321,7 +293,7 @@ class LogEval():
             print("Task_____________{}".format(self.exp_config["task"]["name"]))
             print("Log path_________{}".format(self.path["log"]))
             print("Token set________{}".format(self.exp_config["task"]["function_set"]))
-            print("Runs_____________{}".format(self.cmd_params["mc"]))
+            print("Runs_____________{}".format(self.exp_config["task"]["runs"]))
             print("Samples/run______{}".format(self.exp_config["training"]["n_samples"]))
             if "successrate" in self.metrics:
                 print("Successrate______{}".format(self.metrics["successrate"]))

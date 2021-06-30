@@ -15,6 +15,8 @@ from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 def model():
     config = load_config()
     config["task"].pop("method")
+    config["task"].pop("seed")
+    config["task"].pop("runs")
     return DeepSymbolicOptimizer(config)
 
 
@@ -32,6 +34,8 @@ def test_task(model, config):
     """Test that Tasks do not crash for various configs."""
     config = load_config(config)
     config["task"].pop("method")
+    config["task"].pop("seed")
+    config["task"].pop("runs")
     model.update_config(config)
     model.config_training.update({"n_samples" : 10,
                                   "batch_size" : 5
@@ -45,6 +49,8 @@ def test_model_parity(model, cached_results, config):
 
     config = load_config(config)
     config["task"].pop("method")
+    config["task"].pop("seed")
+    config["task"].pop("runs")
     model.update_config(config)
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
