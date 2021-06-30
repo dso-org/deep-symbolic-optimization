@@ -67,62 +67,6 @@ def train_dsr(config):
     return result
 
 
-def train_gp(seeded_benchmark):
-    """Trains GP and returns dict of reward, expression, and program"""
-
-    benchmark_name, seed, config = seeded_benchmark
-    config_gp = config["gp"]
-    config_gp["seed"] = seed + zlib.adler32(benchmark_name.encode("utf-8"))
-
-    start = time.time()
-
-    # Load the dataset
-    config_dataset = config["task"]["dataset"]
-    config_dataset["name"] = benchmark_name
-    dataset = BenchmarkDataset(**config_dataset)
-
-    # Fit the GP
-    gp = gpsr.GP(dataset=dataset, **config_gp)
-    p, logbook = gp.train()
-
-    # Retrieve results
-    r = p.fitness.values[0]
-    str_p = str(p)
-    nmse_test = gp.nmse_test(p)[0]
-    nmse_test_noiseless = gp.nmse_test_noiseless(p)[0]
-    success = gp.success(p)
-
-    # Many failure cases right now for converting to SymPy expression
-    try:
-        expression = repr(parse_expr(str_p.replace("X", "x").replace("add", "Add").replace("mul", "Mul")))
-    except:
-        expression = "N/A"
-
-    # Save run details
-    drop = ["gen", "nevals"]
-    df_fitness = pd.DataFrame(logbook.chapters["fitness"]).drop(drop, axis=1)
-    df_fitness = df_fitness.rename({"avg" : "fit_avg", "min" : "fit_min"}, axis=1)
-    df_fitness["fit_best"] = df_fitness["fit_min"].cummin()
-    df_len = pd.DataFrame(logbook.chapters["size"]).drop(drop, axis=1)
-    df_len = df_len.rename({"avg" : "l_avg"}, axis=1)
-    df = pd.concat([df_fitness, df_len], axis=1, sort=False)
-    df.to_csv(os.path.join(config["paths"]["log_dir"], "gp_{}_{}.csv".format(benchmark_name, seed)), index=False)
-
-    result = {
-        "name" : benchmark_name,
-        "seed" : seed,
-        "r" : r,
-        "nmse_test" : nmse_test,
-        "nmse_test_noiseless" : nmse_test_noiseless,
-        "success" : success,
-        "expression" : expression,
-        "traversal" : str_p,
-        "t" : time.time() - start
-    }
-
-    return result, config["paths"]["summary_path"]
-
-
 @click.command()
 @click.argument('config_template', default="")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
