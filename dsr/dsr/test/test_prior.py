@@ -1,5 +1,11 @@
 """Tests for various Priors."""
 
+r"""
+    Run from hypothesis_testing/dsr/dsr as:
+    
+        pytest test/test_prior.py
+"""
+
 import pytest
 
 from dsr.core import DeepSymbolicOptimizer
@@ -7,9 +13,13 @@ from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dsr.program import from_tokens, Program
 from dsr.memory import Batch
 from dsr.controller import parents_siblings
+from dsr.subroutines import jit_parents_siblings_at_once
+from dsr.prior import RepeatConstraint, RelationalConstraint, TrigConstraint, \
+                      ConstConstraint, InverseUnaryConstraint, LengthConstraint
 from dsr.config import load_config
 
 import numpy as np
+import inspect
 
 
 BATCH_SIZE = 1000
@@ -23,6 +33,14 @@ def model():
     config["task"].pop("runs")
     return DeepSymbolicOptimizer(config)
 
+
+def make_failed_message(caller, i, n, msg):
+    ">>> Test Failed! Caller: {} ({}) {} : TEST {}/{}: \"{}\" ".format(caller.filename, caller.lineno, caller.function, i+1, n, msg)
+
+
+def make_testing_message(caller, i, n, msg):
+    print(">>> Testing Caller: {} ({}) {} : TEST {}/{}: \"{}\" ".format(caller.filename, caller.lineno, caller.function, i+1, n, msg))
+    
 
 def assert_invalid(model, cases):
     cases = [Program.library.actionize(case) for case in cases]
@@ -39,6 +57,47 @@ def assert_valid(model, cases):
     logp = model.controller.compute_probs(batch, log=True)
     assert all(logp > -np.inf), \
         "Found valid case with probability 0."
+
+
+def pre_assert_is_violation(model, cases, prior_class, caller):
+    assert callable(prior_class.is_violated)
+    
+    cases               = [Program.library.actionize(case) for case in cases]
+    batch               = make_batch(model, cases)
+    results             = []
+    
+    # For each action sequence in the batch.
+    # Deap works one at a time, so we do it this way. 
+    for i,a in enumerate(batch.actions):
+        a  = np.expand_dims(a, axis=0)
+        parents, siblings   = jit_parents_siblings_at_once(a,
+                                                           arities=Program.library.arities, 
+                                                           parent_adjust=Program.library.parent_adjust)
+            
+        r1 = prior_class.is_violated(a,parents,siblings)        # Tests an optimized version if we have one
+        r2 = prior_class.test_is_violated(a,parents,siblings)   # Tests the slower universal version
+    
+        make_testing_message(caller, i, len(batch.actions), "{} == {}".format(r1,r2))
+                        
+        assert r1==r2, make_failed_message(caller, i, len(batch.actions), "Both methods should return the same results.")
+    
+        results.append(r1)
+    
+    return results
+        
+
+def assert_is_violation_true(model, cases, prior_class):
+    caller  = inspect.getframeinfo(inspect.stack()[1][0])
+    results = pre_assert_is_violation(model, cases, prior_class, caller)
+    for i,r in enumerate(results):
+        assert r, make_failed_message(caller, i, len(results), "Return value should be TRUE, but is not.")
+ 
+    
+def assert_is_violation_false(model, cases, prior_class):
+    caller  = inspect.getframeinfo(inspect.stack()[1][0])
+    results = pre_assert_is_violation(model, cases, prior_class, caller)
+    for i,r in enumerate(results):
+        assert not r, make_failed_message(caller, i, len(results), "Return value should be FALSE, but is not.")
 
 
 def make_sequence(model, L):
@@ -104,6 +163,7 @@ def make_batch(model, actions):
         parent, sibling = parents_siblings(tokens=partial_actions,
                                            arities=arities,
                                            parent_adjust=parent_adjust)
+            
         dangling += arities[action] - 1
         prior = model.prior(partial_actions, parent, sibling, dangling)
         finished = np.where(np.logical_and(dangling == 0, lengths == 0),
@@ -132,8 +192,11 @@ def test_repeat(model):
         "max_" : 2,
         "on" : True
     }
+    
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+    
+    prior_class = RepeatConstraint(Program.library, **model.config_prior["repeat"])
 
     invalid_cases = []
     invalid_cases.append(["sin"] * 3)
@@ -142,11 +205,13 @@ def test_repeat(model):
     invalid_cases.append(["mul", "sin"] * 3)
     invalid_cases.append(["mul", "sin", "x1", "sin", "mul", "cos"])
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
     valid_cases = []
     valid_cases.append(["mul"] + ["sin"] * 2 + ["log"] * 2)
     valid_cases.append(["sin"] + ["mul", "exp"] * 4 + ["cos"])
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
 
 def test_no_inputs(model):
@@ -174,6 +239,8 @@ def test_no_inputs(model):
     valid_cases.append("mul,const,x1")
     valid_cases.append("mul,x1,x1")
     assert_valid(model, valid_cases)
+    
+    # No test for is_violation
 
 
 def test_descendant(model):
@@ -193,6 +260,8 @@ def test_descendant(model):
 
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+    
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     descendants = library.actionize(descendants)
     ancestors = library.actionize(ancestors)
@@ -211,6 +280,7 @@ def test_descendant(model):
             invalid_cases.append([A] * 10 + [D])
             invalid_cases.append([A] + [U, B] * 5 + [D])
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
     # For each D-A combination, generate valid cases where A is not an ancestor
     # of D
@@ -220,6 +290,7 @@ def test_descendant(model):
             valid_cases.append([U, D])
             valid_cases.append([D] + [U] * 10 + [A])
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
 
 def test_trig(model):
@@ -230,6 +301,8 @@ def test_trig(model):
     model.config_prior["trig"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+    
+    prior_class = TrigConstraint(Program.library, **model.config_prior["trig"])
 
     X = library.input_tokens[0]
     U = [i for i in library.unary_tokens
@@ -246,6 +319,7 @@ def test_trig(model):
             invalid_cases.append([t1, B, X, t2, X]) # E.g. sin(x + cos(x))
             invalid_cases.append([t1] + [U] * 10 + [t2, X])
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
     # For each trig-trig pair, generate valid cases where one Token is the
     # sibling the other
@@ -256,6 +330,7 @@ def test_trig(model):
             valid_cases.append([B, t1, X, t2, X]) # E.g. sin(x) + cos(x)
             valid_cases.append([U] + valid_cases[-1]) # E.g. log(sin(x) + cos(x))
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
 
 def test_child(model):
@@ -264,6 +339,9 @@ def test_child(model):
     library = Program.library
     parents = library.actionize("log,exp,mul")
     children = library.actionize("exp,log,sin")
+
+    print(parents)
+    print(children)
 
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["relational"] = {
@@ -274,6 +352,8 @@ def test_child(model):
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     # For each parent-child pair, generate invalid cases where child is one of
     # parent's children.
@@ -288,7 +368,9 @@ def test_child(model):
             after = arity - i - 1
             case = [p] + [X] * before + [c] + [X] * after
             invalid_cases.append(case)
+    print(invalid_cases)
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
 
 def test_uchild(model):
@@ -307,6 +389,8 @@ def test_uchild(model):
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+    
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     # Generate valid test cases
     valid_cases = []
@@ -315,6 +399,7 @@ def test_uchild(model):
     valid_cases.append("sub,sub,sub,x1,sin,x1,x1")
     valid_cases.append("sub,sin,x1,sin,x1")
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
     # Generate invalid test cases
     invalid_cases = []
@@ -322,6 +407,7 @@ def test_uchild(model):
     invalid_cases.append("sin,sub,x1,x1")
     invalid_cases.append("sub,sub,sub,x1,x1,x1")
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
 
 def test_const(model):
@@ -337,11 +423,14 @@ def test_const(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
+    prior_class = ConstConstraint(Program.library, **model.config_prior["const"])
+
     # Generate valid test cases
     valid_cases = []
     valid_cases.append("mul,const,x1")
     valid_cases.append("sub,const,sub,const,x1")
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
     # Generate invalid test cases
     invalid_cases = []
@@ -349,6 +438,7 @@ def test_const(model):
     invalid_cases.append("mul,const,const")
     invalid_cases.append("sin,add,const,const")
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
 
 def test_sibling(model):
@@ -367,6 +457,8 @@ def test_sibling(model):
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+    
+    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
 
     # Generate valid test cases
     valid_cases = []
@@ -374,6 +466,7 @@ def test_sibling(model):
     valid_cases.append("sin,cos,x1")
     valid_cases.append("add,add,sin,mul,x1,x1,cos,x1,x1")
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
     # Generate invalid test cases
     invalid_cases = []
@@ -381,6 +474,7 @@ def test_sibling(model):
     invalid_cases.append("add,sin,x1,x1")
     invalid_cases.append("add,add,sin,mul,x1,x1,x1,sin,x1")
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
 
 def test_inverse(model):
@@ -391,12 +485,15 @@ def test_inverse(model):
     model.config_prior["inverse"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
+    
+    prior_class = InverseUnaryConstraint(Program.library, **model.config_prior["inverse"])
 
     # Generate valid cases
     valid_cases = []
     valid_cases.append("exp,sin,log,cos,exp,x1")
     valid_cases.append("mul,sin,log,x1,exp,cos,x1")
     assert_valid(model, valid_cases)
+    assert_is_violation_false(model, valid_cases, prior_class)
 
     # Generate invalid cases for each inverse
     invalid_cases = []
@@ -405,6 +502,7 @@ def test_inverse(model):
         invalid_cases.append([t1, t2])
         invalid_cases.append([t2, t1])
     assert_invalid(model, invalid_cases)
+    assert_is_violation_true(model, invalid_cases, prior_class)
 
 
 @pytest.mark.parametrize("minmax", [(10, 10), (4, 30), (None, 10), (10, None)])
@@ -416,7 +514,7 @@ def test_length(model, minmax):
     model.config_prior["length"] = {"min_" : min_, "max_" : max_, "on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
-
+    
     # First, check that randomly generated samples do not violate constraints
     actions, _, _ = model.controller.sample(BATCH_SIZE)
     programs = [from_tokens(a, optimize=True) for a in actions]
@@ -462,3 +560,5 @@ def test_length(model, minmax):
 
     assert_valid(model, valid_cases)
     assert_invalid(model, invalid_cases)
+
+    

@@ -1,5 +1,5 @@
 """Common Tokens used for executable Programs."""
-
+import re
 import numpy as np
 from fractions import Fraction
 

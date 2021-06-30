@@ -9,6 +9,7 @@ scikit-learn
 click
 deap
 dataclasses
+pathos
 seaborn
 progress
 tqdm

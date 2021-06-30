@@ -8,7 +8,6 @@ from textwrap import indent
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
-import gym
 
 from dsr.library import Token
 from dsr.functions import PlaceholderConstant, function_map
@@ -17,44 +16,33 @@ from dsr.utils import cached_property
 import dsr.utils as U
 
 
-def _finish_tokens(tokens, n_objects: int = 1):
-
+def _finish_tokens(tokens, n_objects=1):
     """
-    Finish the token strings to make sure they are a valid program. 
-    
-    We know we have a valid program if all arities a cancled out by 
-    a the same number of terminals. Once we reach a point in the string
-    where these aq equal, we cut the string of tokens. Otherwise, the 
-    tokens are not yet a valid program. The solution is to keep adding 
-    terminals until they fully counterweight the arities. 
-    
-    We have to do this since we emit programs as strings which can leave
-    them over or under complete. 
-    
+    Complete a possibly unfinished string of tokens.
+
     Parameters
     ----------
     tokens : list of integers
         A list of integers corresponding to tokens in the library. The list
-        defines an expression's pre-order traversal. 
-       
+        defines an expression's pre-order traversal.
+
     Returns
     _______
-    tokens : list of integers
+    tokens : list of ints
         A list of integers corresponding to tokens in the library. The list
         defines an expression's pre-order traversal. "Dangling" programs are
         completed with repeated "x1" until the expression completes.
-        
     """
-    
-    arities         = np.array([Program.library.arities[t] for t in tokens])
+
+    arities = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
-    dangling        = 1 + np.cumsum(arities - 1) 
-    
+    dangling = 1 + np.cumsum(arities - 1)
+
     if -n_objects in (dangling - 1):
         # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
-        expr_length     = 1 + np.argmax((dangling - 1) == -n_objects)
-        tokens          = tokens[:expr_length]
+        expr_length = 1 + np.argmax((dangling - 1) == -n_objects)
+        tokens = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
         if Program.task.task_type != 'binding':
@@ -156,12 +144,10 @@ def from_tokens(tokens, optimize, skip_cache=False, on_policy=True, n_objects=1)
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
-    if skip_cache:
-        p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
-    elif Program.task.stochastic:
+    if skip_cache or Program.task.stochastic:
         p = Program(tokens, optimize=optimize, on_policy=on_policy, n_objects=n_objects)
     else:
-        key = tokens.tostring()
+        key = tokens.tostring() 
         if key in Program.cache:
             p = Program.cache[key]
             if on_policy:
@@ -243,23 +229,24 @@ class Program(object):
         against reward function, and evalutes the reward.
         """
         
-        self.traversal      = [Program.library[t] for t in tokens]
-        self.const_pos      = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
+        self.traversal = [Program.library[t] for t in tokens]
+        self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
         self.len_traversal  = len(self.traversal)
 
         if self.have_cython and self.len_traversal > 1:
-            self.is_input_var    = array.array('i', [t.input_var is not None for t in self.traversal])
+            self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])
         
-        self.invalid    = False
-        self.str        = tokens.tostring()        
+        self.invalid = False
+        self.str = tokens.tostring()        
         self.n_objects = n_objects
+        self.tokens = tokens
+        self.do_optimize = optimize 
         
         if optimize:
             _ = self.optimize()
 
         self.on_policy_count = 1 if on_policy else 0
         self.off_policy_count = 0 if on_policy else 1
-
         self.originally_on_policy = on_policy # Note if a program was created on policy
 
         if self.n_objects > 1:
@@ -284,7 +271,12 @@ class Program(object):
                     and trigger the end of a traversal at the wrong time 
                     """
                     danglings = danglings[danglings != dangling - 1]
-        
+            
+    def __eq__(self, p2):
+        """ Returns if the programs are the same by the string rep
+        """
+        return self.str == p2.str
+            
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
 
@@ -416,6 +408,7 @@ class Program(object):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
+            assert U.is_float, "Input to program constants must be of a floating point type"
             # Create a new instance of PlaceholderConstant instead of changing
             # the "values" attribute, otherwise all Programs will have the same
             # instance and just overwrite each other's value.
@@ -542,6 +535,7 @@ class Program(object):
             return self.task.reward_function(self)
 
     @cached_property
+
     def complexity(self):
         """Evaluates and returns the complexity of the program"""
 
@@ -585,7 +579,11 @@ class Program(object):
 
 
     def print_stats(self):
-        """Prints the statistics of the program"""
+        """Prints the statistics of the program
+        
+            We will print the most honest reward possible when using validation.
+        """
+        
         print("\tReward: {}".format(self.r))
         print("\tCount Off-policy: {}".format(self.off_policy_count))
         print("\tCount On-policy: {}".format(self.on_policy_count))
