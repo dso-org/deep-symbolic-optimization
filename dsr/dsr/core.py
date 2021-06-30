@@ -1,10 +1,10 @@
 """Core deep symbolic optimizer construct."""
 
 import json
-import zlib
 from collections import defaultdict
 from multiprocessing import Pool
 import random
+from time import time
 
 import numpy as np
 import tensorflow as tf
@@ -24,7 +24,7 @@ class DeepSymbolicOptimizer():
     Parameters
     ----------
     config : dict or str
-        Config dictionary or path to JSON. See dsr/dsr/config.json for template.
+        Config dictionary or path to JSON.
 
     Attributes
     ----------
@@ -41,12 +41,12 @@ class DeepSymbolicOptimizer():
         self.update_config(config)
         self.sess = None
 
-    def setup(self, seed=0):
+    def setup(self):
 
-        # Clear the cache, reset the compute graph, and set the seed
+        # Clear the cache, reset the compute graph, and set seeds
         Program.clear_cache()
         tf.reset_default_graph()
-        self.seed(seed) # Must be called _after_ resetting graph
+        self.set_seeds() # Must be called _after_ resetting graph
 
         self.pool = self.make_pool()
         self.sess = tf.Session()
@@ -54,10 +54,10 @@ class DeepSymbolicOptimizer():
         self.controller = self.make_controller()
         self.gp_controller = self.make_gp_controller()
 
-    def train(self, seed=0):
+    def train(self):
 
         # Setup the model
-        self.setup(seed)
+        self.setup()
 
         # Train the model
         result = learn(self.sess,
@@ -80,15 +80,23 @@ class DeepSymbolicOptimizer():
         self.config_training = self.config["training"]
         self.config_controller = self.config["controller"]
         self.config_gp_meld = self.config["gp_meld"]
+        self.config_experiment = self.config["experiment"]
 
-    def seed(self, seed_=0):
-        """Set the tensorflow seed."""
+    def set_seeds(self):
+        """
+        Set the tensorflow, numpy, and random module seeds based on the seed
+        specified in config. If there is no seed or it is None, a time-based
+        seed is used instead and is written to config.
+        """
 
-        tf.set_random_seed(seed_)
-        np.random.seed(seed_)
-        random.seed(seed_)
-
-        return seed_
+        seed = self.config_experiment.get("seed")
+        if seed is None:
+            # Default uses current time in milliseconds, modulo 1e9
+            seed = round(time() * 1000) % int(1e9)
+            self.config_experiment["seed"] = seed
+        tf.set_random_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
 
     def make_prior(self):
         prior = make_prior(Program.library, self.config_prior)
@@ -101,7 +109,7 @@ class DeepSymbolicOptimizer():
         return controller
 
     def make_gp_controller(self):
-        if self.config_gp_meld.pop("run_gp_meld", False): 
+        if self.config_gp_meld.pop("run_gp_meld", False):
             from dsr.gp.gp_controller import GPController
             gp_controller = GPController(self.prior,
                                          **self.config_gp_meld)
