@@ -8,13 +8,11 @@ import copy
 import os
 import time
 import multiprocessing
-from functools import partial
 import zlib
 from copy import deepcopy
 from datetime import datetime
 
 import click
-import numpy as np
 import pandas as pd
 from sympy.parsing.sympy_parser import parse_expr
 
@@ -22,7 +20,7 @@ from dsr import DeepSymbolicOptimizer
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.logeval import LogEval
-from dsr.config import load_config, set_benchmark_configs
+from dsr.config import load_config
 
 
 def train_dsr(config):
