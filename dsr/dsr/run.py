@@ -60,7 +60,7 @@ def train_dsr(config):
     model = DeepSymbolicOptimizer(run_config)
     start = time.time()
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
-    result.update(model.train(seed=seed))
+    result.update(model.train())
     result["t"] = time.time() - start
     result.pop("program")
 
