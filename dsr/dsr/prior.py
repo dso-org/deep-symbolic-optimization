@@ -1,12 +1,19 @@
 """Class for Prior object."""
 
 import numpy as np
+import warnings
+import inspect
+import copy
 import yaml
 from collections import OrderedDict
 
-from dsr.program import Program
-from dsr.subroutines import ancestors
 from dsr.library import TokenNotFoundError, Token
+from dsr.subroutines import ancestors
+from dsr.subroutines import jit_check_constraint_violation, \
+        jit_check_constraint_violation_descendant_with_target_tokens, \
+        jit_check_constraint_violation_descendant_no_target_tokens, \
+        jit_check_constraint_violation_uchild
+from dsr.program import Program
 from dsr.language_model import LanguageModelPrior as LM
 import dsr.constants as constants
 
@@ -28,7 +35,7 @@ def make_prior(library, config_prior):
     }
 
     priors = []
-    warnings = []
+    warn_messages = []
     for prior_type, prior_args in config_prior.items():
         assert prior_type in prior_dict, \
             "Unrecognized prior type: {}.".format(prior_type)
@@ -41,29 +48,29 @@ def make_prior(library, config_prior):
             if single_prior_args.pop('on', False):
                 try:
                     prior = prior_class(library, **single_prior_args)
-                    warning = prior.validate()
+                    warn_message = prior.validate()
                 except TokenNotFoundError:
                     prior = None
-                    warning = "Uses Tokens not in the Library."
+                    warn_message = "Uses Tokens not in the Library."
             else:
                 prior = None
-                warning = "Prior disabled."
+                warn_message = "Prior disabled."
 
             # Add warning context
-            if warning is not None:
-                warning = "Skipping invalid '{}' with arguments {}. " \
+            if warn_message is not None:
+                warn_message = "Skipping invalid '{}' with arguments {}. " \
                     "Reason: {}" \
-                    .format(prior_class.__name__, single_prior_args, warning)
-                warnings.append(warning)
+                    .format(prior_class.__name__, single_prior_args, warn_message)
+                warn_messages.append(warn_message)
 
             # Add the Prior if there are no warnings
-            if warning is None:
+            if warn_message is None:
                 priors.append(prior)
 
     joint_prior = JointPrior(library, priors)
 
     print("-- BUILDING PRIOR -------------------")
-    print("\n".join(["WARNING: " + message for message in warnings]))
+    print("\n".join(["WARNING: " + message for message in warn_messages]))
     print(joint_prior.describe())
     print("-------------------------------------")
 
@@ -113,6 +120,47 @@ class JointPrior():
         message = "\n".join(prior.describe() for prior in self.priors)
         return message
 
+    def is_violated(self, actions, parent, sibling):
+        for prior in self.priors:
+            if isinstance(prior, Constraint):
+                if prior.is_violated(actions, parent, sibling):
+                    return True
+        return False
+
+    def at_once(self, actions, parent, sibling):
+        """
+        Given a full sequence of actions, parents, and siblings, each of shape
+        (batch, time), *retrospectively* compute what was the joint prior at all
+        time steps. The combined prior has shape (batch, time, L).
+        """
+
+        B, T = actions.shape
+        zero_prior = np.zeros((B, T, self.L), dtype=np.float32) # (batch, time, L)
+        ind_priors = [zero_prior.copy() for _ in range(len(self.priors))] # i x (batch, time, L)
+
+        # Set initial prior
+        # Note: intial_prior() is already a combined prior, so we just set the
+        # first individual prior, ind_priors[0].
+        initial_prior = self.initial_prior() # Shape (L,)
+        ind_priors[0][:, 0, :] = initial_prior # Broadcast to (batch, L)
+
+        dangling = np.ones(B)
+        for t in range(1, T): # For each time step
+            # Update dangling based on previously sampled token
+            dangling += self.library.arities[actions[:, (t - 1)]] - 1
+            for i in range(len(self.priors)): # For each Prior
+                # Compute the ith Prior at time step t
+                prior = self.priors[i](actions[:, :t],
+                                       parent[:, t],
+                                       sibling[:, t],
+                                       dangling) # Shape (batch, L)
+                ind_priors[i][:, t, :] += prior
+
+        # Combine all Priors
+        combined_prior = sum(ind_priors) + zero_prior
+
+        return combined_prior
+
 
 class Prior():
     """Abstract class whose call method return logits."""
@@ -120,6 +168,7 @@ class Prior():
     def __init__(self, library):
         self.library = library
         self.L = library.L
+        self.mask_val = -np.inf
 
     def validate(self):
         """
@@ -167,7 +216,7 @@ class Prior():
         """
 
         raise NotImplementedError
-
+        
     def describe(self):
         """Describe the Prior."""
 
@@ -202,12 +251,60 @@ class Constraint(Prior):
             Logit adjustment. Since these are hard constraints, each element is
             either 0.0 or -np.inf.
         """
-
         prior = np.zeros((mask.shape[0], self.L), dtype=np.float32)
+        
         for t in tokens:
-            prior[mask, t] = -np.inf
+            prior[mask, t] = self.mask_val
         return prior
+    
+    def is_violated(self, actions, parent, sibling):
+        """
+        Given a set of actions, tells us if a prior constraint has been violated 
+        post hoc. 
+        
+        This is a generic version that will run using the __call__ function so that one
+        does not have to write a function twice for both DSR and Deap. 
+        
+        >>>HOWEVER<<<
+        
+        Using this function is less optimal than writing a variant for Deap. So...
+        
+        If you create a constraint and find you use if often with Deap, you should gp ahead anf
+        write the optimal version. 
 
+        Returns
+        -------
+        violated : Bool
+        """
+        caller          = inspect.getframeinfo(inspect.stack()[1][0])
+        
+        warnings.warn("{} ({}) {} : Using a slower version of constraint for Deap. You should write your own.".format(caller.filename, caller.lineno, type(self).__name__))
+        
+        assert len(actions.shape) == 2, "Only takes in one action at a time since this is how Deap will use it."
+        assert actions.shape[0] == 1, "Only takes in one action at a time since this is how Deap will use it."
+          
+        old_val         = copy.deepcopy(self.mask_val)
+        self.mask_val   = 1.0
+        dangling        = np.ones((1), dtype=np.int32)
+        
+        # For each step in time, get the prior                                
+        for t in range(actions.shape[1]):
+            dangling    += self.library.arities[actions[:,t]] - 1   
+            priors      = self.__call__(actions[:,:t], parent[:,t], sibling[:,t], dangling)
+            
+            # Does our action conflict with this prior?
+            if priors[0,actions[0,t]]:
+                return True
+             
+        return False
+    
+    def test_is_violated(self, actions, parent, sibling):
+        r"""
+            This allows one to call the generic version of "is_violated" for testing purposes
+            from the derived classes even if they have an optimized version. 
+        """
+        return Constraint.is_violated(self, actions, parent, sibling)
+    
 
 class RelationalConstraint(Constraint):
     """
@@ -235,21 +332,6 @@ class RelationalConstraint(Constraint):
         self.targets = library.actionize(targets)
         self.effectors = library.actionize(effectors)
         self.relationship = relationship
-
-    def validate(self):
-        message = []
-        if self.relationship in ["child", "descendant", "uchild"]:
-            if np.isin(self.effectors, self.library.terminal_tokens).any():
-                message = "{} relationship cannot have terminal effectors." \
-                          .format(self.relationship.capitalize())
-                return message
-        if len(self.targets) == 0:
-            message = "There are no target Tokens."
-            return message
-        if len(self.effectors) == 0:
-            message = "There are no effector Tokens."
-            return message
-        return None
 
     def __call__(self, actions, parent, sibling, dangling):
 
@@ -288,6 +370,46 @@ class RelationalConstraint(Constraint):
 
         return prior
 
+    def is_violated(self, actions, parent, sibling):
+
+        if self.relationship == "descendant":
+            violated = jit_check_constraint_violation_descendant_with_target_tokens(
+                actions, self.targets, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
+
+        elif self.relationship == "child":
+            parents = self.effectors
+            adj_parents = self.library.parent_adjust[parents]
+            violated = jit_check_constraint_violation(actions, self.targets, parent, adj_parents)
+
+        elif self.relationship == "sibling":
+            violated = jit_check_constraint_violation(actions, self.targets, sibling, self.effectors)
+            if not violated:
+                violated = jit_check_constraint_violation(actions, self.effectors, sibling, self.targets)
+
+        elif self.relationship == "uchild":
+            unary_effectors = np.intersect1d(self.effectors, self.library.unary_tokens)
+            adj_unary_effectors = self.library.parent_adjust[unary_effectors]
+            adj_effectors = self.library.parent_adjust[self.effectors]
+            violated = jit_check_constraint_violation_uchild(actions, parent, sibling, self.targets, 
+                                                     adj_unary_effectors, adj_effectors)
+
+        return violated
+
+    def validate(self):
+        message = []
+        if self.relationship in ["child", "descendant", "uchild"]:
+            if np.isin(self.effectors, self.library.terminal_tokens).any():
+                message = "{} relationship cannot have terminal effectors." \
+                          .format(self.relationship.capitalize())
+                return message
+        if len(self.targets) == 0:
+            message = "There are no target Tokens."
+            return message
+        if len(self.effectors) == 0:
+            message = "There are no effector Tokens."
+            return message
+        return None
+
     def describe(self):
 
         targets = ", ".join([self.library.names[t] for t in self.targets])
@@ -310,10 +432,16 @@ class TrigConstraint(RelationalConstraint):
     def __init__(self, library):
         targets = library.trig_tokens
         effectors = library.trig_tokens
-        RelationalConstraint.__init__(self, library,
-                                      targets=targets,
-                                      effectors=effectors,
-                                      relationship="descendant")
+        super(TrigConstraint, self).__init__(library=library,
+                                             targets=targets,
+                                             effectors=effectors,
+                                             relationship="descendant")
+        
+    def is_violated(self, actions, parent, sibling):
+        
+        # Call a slightly faster descendant computation since target is the same as effectors
+        return jit_check_constraint_violation_descendant_no_target_tokens(\
+                actions, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
 
 
 class ConstConstraint(RelationalConstraint):
@@ -324,10 +452,11 @@ class ConstConstraint(RelationalConstraint):
         targets = library.const_token
         effectors = np.concatenate([library.unary_tokens,
                                     library.binary_tokens])
-        RelationalConstraint.__init__(self, library,
-                                      targets=targets,
-                                      effectors=effectors,
-                                      relationship="uchild")
+
+        super(ConstConstraint, self).__init__(library=library,
+                                              targets=targets,
+                                              effectors=effectors,
+                                              relationship="uchild")
 
 
 class NoInputsConstraint(Constraint):
@@ -355,6 +484,11 @@ class NoInputsConstraint(Constraint):
         prior = self.make_constraint(mask, self.library.float_tokens)
         return prior
 
+    def is_violated(self, actions, parent, sibling):
+        # Violated if not all input tokens are found in actions
+        tokens = self.library.input_tokens
+        return np.isin(tokens, actions) != len(tokens)
+
     def describe(self):
         message = "{}: Sequences contain at least one input variable Token.".format(self.__class__.__name__)
         return message
@@ -367,10 +501,11 @@ class InverseUnaryConstraint(Constraint):
     def __init__(self, library):
         Prior.__init__(self, library)
         self.priors = []
+
         for target, effector in library.inverse_tokens.items():
             targets = [target]
             effectors = [effector]
-            prior = RelationalConstraint(library,
+            prior = RelationalConstraint(library=library,
                                          targets=targets,
                                          effectors=effectors,
                                          relationship="child")
@@ -383,9 +518,16 @@ class InverseUnaryConstraint(Constraint):
         return None
 
     def __call__(self, actions, parent, sibling, dangling):
-        prior = sum([prior(actions, parent, sibling, dangling)
-                     for prior in self.priors])
+        prior = sum([prior(actions, parent, sibling, dangling) for prior in self.priors])
         return prior
+
+    def is_violated(self, actions, parent, sibling):
+
+        for p in self.priors:
+            if p.is_violated(actions, parent, sibling):
+                return True
+
+        return False
 
     def describe(self):
         message = [prior.describe() for prior in self.priors]
@@ -429,6 +571,9 @@ class RepeatConstraint(Constraint):
             mask = counts >= self.max
             prior += self.make_constraint(mask, self.tokens)
         return prior
+
+    def is_violated(self, actions, parent, sibling):
+        return np.isin(actions, self.tokens).sum() > self.max
 
     def describe(self):
         names = ", ".join([self.library.names[t] for t in self.tokens])
@@ -495,6 +640,15 @@ class LengthConstraint(Constraint):
             prior += self.make_constraint(mask, self.library.terminal_tokens)
 
         return prior
+
+    def is_violated(self, actions, parent, sibling):
+        l = len(actions[0])
+        if self.min is not None and l < self.min:
+            return True
+        if self.max is not None and l > self.max:
+            return True
+
+        return False
 
     def describe(self):
         message = []

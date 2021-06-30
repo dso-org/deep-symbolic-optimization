@@ -38,8 +38,6 @@ def train_dsr(seeded_benchmark):
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         import tensorflow as tf
         tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-        from dsr.controller import Controller
-        from dsr.train import learn
     except ModuleNotFoundError: # Specific subclass of ImportError for when module is not found, probably needs to be excepted first
         print("One or more libraries not found")
         raise ModuleNotFoundError
@@ -69,7 +67,7 @@ def train_dsr(seeded_benchmark):
     return result, run_config["paths"]["summary_path"]
 
 
-def train_gp(seeded_benchmark): #, logdir, config_task, config_gp):
+def train_gp(seeded_benchmark):
     """Trains GP and returns dict of reward, expression, and program"""
 
     benchmark_name, seed, config = seeded_benchmark
@@ -182,6 +180,8 @@ def main(config_template, method, mc, output_filename, n_cores_task, seed, b):
     if method == "dsr":
         work = partial(train_dsr)
     elif method == "gp":
+        assert config_task["task_type"] == "regression", \
+            "Pure GP currently only supports the regression task."
         work = partial(train_gp)
 
     # Farm out the work

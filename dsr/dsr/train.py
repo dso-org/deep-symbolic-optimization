@@ -4,6 +4,8 @@ import os
 import multiprocessing
 import time
 from itertools import compress
+from collections import defaultdict
+from pathos.multiprocessing import ProcessPool
 
 import tensorflow as tf
 import numpy as np
@@ -21,11 +23,11 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # Set TensorFlow seed
 tf.random.set_random_seed(0)
 
+
 # Work for multiprocessing pool: optimize constants and compute reward
 def work(p):
     optimized_constants = p.optimize()
     return optimized_constants, p.r
-
 
 
 def learn(sess, controller, pool, gp_controller,
@@ -39,7 +41,6 @@ def learn(sess, controller, pool, gp_controller,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           n_objects=1, save_cache=False, save_cache_r_min=0.9, save_freq=None):
           # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
-
 
     """
     Executes the main training loop.
@@ -166,13 +167,7 @@ def learn(sess, controller, pool, gp_controller,
         A dict describing the best-fit expression (determined by reward).
     """
 
-    if gp_controller is not None:
-        run_gp_meld             = True
-        gp_verbose              = gp_controller.config_gp_meld["verbose"]
-    else:
-        gp_controller           = None
-        run_gp_meld             = False
-        gp_verbose              = False
+    run_gp_meld = gp_controller is not None
 
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -201,7 +196,10 @@ def learn(sess, controller, pool, gp_controller,
         if n_cores_batch == -1:
             n_cores_batch = multiprocessing.cpu_count()
         if n_cores_batch > 1:
-            pool = multiprocessing.Pool(n_cores_batch)
+            # Use a Pathos pool since newer versions of Program 
+            # give a pickling error
+            # pool = multiprocessing.Pool(n_cores_batch)
+            pool = ProcessPool(nodes = n_cores_batch)            
 
     # Create the priority queue
     k = controller.pqt_k
@@ -251,23 +249,14 @@ def learn(sess, controller, pool, gp_controller,
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-
+    nevals = 0 # Total number of sampled expressions (from RL or GP)
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
-
-    logger = StatsLogger(sess,  logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
+    logger = StatsLogger(sess, logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_cache, save_cache_r_min, save_freq)
-    nevals              = 0
 
-    start_time = time.time()
-    print("\n-- START TRAINING -------------------")
     for epoch in range(n_epochs):
 
-        epoch_start_time = time.time()
-
-        if gp_verbose:
-            print("************************************************************************")
-            print("EPOCH {}".format(epoch))
-            print("************************")
+        start_time = time.time()
 
         # Set of str representations for all Programs ever seen
         s_history = set(r_history.keys() if Program.task.stochastic else Program.cache.keys())
@@ -277,26 +266,12 @@ def learn(sess, controller, pool, gp_controller,
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors = controller.sample(batch_size)
-
         nevals += batch_size
 
         if run_gp_meld:
-            '''
-                Given the set of 'actions' we have so far, we will use them as a prior seed into
-                the GP controller. It will take care of conversion to its own population data
-                structures. It will return programs, observations, actions that are compat with
-                the current way we do things in train.py.
-            '''
-            deap_programs, deap_obs, deap_actions, deap_priors = gp_controller(actions)
+            # Run GP seeded with the current batch, returning elite samples
+            deap_programs, deap_actions, deap_obs, deap_priors = gp_controller(actions)
             nevals += gp_controller.nevals
-
-            if gp_verbose:
-                print("************************")
-                print("Number of Evaluations: {}".format(nevals))
-                print("************************")
-                print("Deap Programs:")
-                deap_programs[0].print_stats()
-                print("************************")
 
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
@@ -368,20 +343,13 @@ def learn(sess, controller, pool, gp_controller,
         r_max = np.max(r)
         r_best = max(r_max, r_best)
 
-
-        '''
-            Risk-seeking policy gradient: only train on top epsilon fraction of sampled expressions
-            Note: controller.train_step(r_train, b_train, actions, obs, priors, mask, priority_queue)
-
-            GP Integration note:
-
-            For the moment, GP samples get added on top of the epsilon samples making it slightly larger. 
-            This will be changed in the future when we integrate off policy support.
-        '''
+        """
+        Apply risk-seeking policy gradient: compute the empirical quantile of
+        rewards and filter out programs with lesser reward.
+        """
         if epsilon is not None and epsilon < 1.0:
             # Compute reward quantile estimate
             if use_memory: # Memory-augmented quantile
-
                 # Get subset of Programs not in buffer
                 unique_programs = [p for p in programs \
                                    if p.str not in memory_queue.unique_items]
@@ -430,8 +398,6 @@ def learn(sess, controller, pool, gp_controller,
 
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not gp_controller.return_gp_obs:
-                if gp_verbose:
-                    print("GP solutions NOT returned to controller")
                 '''
                     If we are not returning the GP components to the controller, we will remove them from
                     r_train and p_train by augmenting 'keep'. We just chop off the GP elements which are indexed
@@ -450,8 +416,6 @@ def learn(sess, controller, pool, gp_controller,
                 r                   = _r
                 programs            = _p
             else:
-                if run_gp_meld and gp_verbose:
-                    print("{} GP solutions returned to controller".format(gp_controller.config_gp_meld["train_n"]))
                 '''
                     Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
                 '''
@@ -504,7 +468,7 @@ def learn(sess, controller, pool, gp_controller,
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
 
         #wall time calculation for the epoch
-        epoch_walltime = time.time() - epoch_start_time
+        epoch_walltime = time.time() - start_time
 
         # Collect sub-batch statistics and write output
         logger.save_stats(r_full, l_full, actions_full, s_full, invalid_full, r,
@@ -523,15 +487,6 @@ def learn(sess, controller, pool, gp_controller,
             p_r_best = programs[np.argmax(r)]
 
         prev_r_best = r_best
-
-        if gp_verbose:
-            print("************************")
-            print("Best epoch Program:")
-            programs[np.argmax(r)].print_stats()
-            print("************************")
-            print("All time best Program:")
-            p_r_best.print_stats()
-            print("************************")
 
         # Print new best expression
         if verbose and new_r_best:
@@ -554,19 +509,8 @@ def learn(sess, controller, pool, gp_controller,
             print("\nParameter means after epoch {} of {}:".format(epoch+1, n_epochs))
             print_var_means()
 
-
-
-        if run_gp_meld:
-            if nevals > n_samples:
-                print("************************")
-                print("All time best Program:")
-                p_r_best.print_stats()
-                print("************************")
-                print("Max Number of Samples Exceeded. Exiting...")
-                break
-    print("-------------------------------------")
-
-    print("\n-- PROCESSING RESULTS ---------------")
+        if nevals > n_samples:
+            break
 
     if verbose:
         print("Evaluating the hall of fame...")
@@ -584,7 +528,6 @@ def learn(sess, controller, pool, gp_controller,
     # Close the pool
     if pool is not None:
         pool.close()
-    print("-------------------------------------")
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_r_best
