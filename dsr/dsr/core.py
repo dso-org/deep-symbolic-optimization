@@ -50,12 +50,20 @@ class DeepSymbolicOptimizer():
         tf.reset_default_graph()
         self.set_seeds() # Must be called _after_ resetting graph
 
+        # Generate objects needed for training
         self.pool = self.make_pool()
         self.sess = tf.Session()
         self.prior = self.make_prior()
         self.controller = self.make_controller()
         self.gp_controller = self.make_gp_controller()
         self.output_file = self.make_output_file()
+
+        # Save the config file
+        if self.output_file is not None:
+            path = os.path.join(self.config_experiment["save_path"],
+                                "config.json")
+            with open(path, 'w') as f:
+                json.dump(self.config, f, indent=3)
 
     def train(self):
 
