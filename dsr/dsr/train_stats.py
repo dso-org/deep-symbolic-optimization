@@ -22,21 +22,18 @@ def pf_work(p):
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
-    def __init__(self, sess, logdir="./log", save_summary=True, output_file=None, save_all_epoch=False, hof=10,
+    def __init__(self, sess, output_file, save_summary=True, save_all_epoch=False, hof=10,
                  save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9,
-                 save_freq = None):
+                 save_freq=None):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
 
-        logdir : str, optional
-            Name of log directory.
+        output_file : str
+            Filename to write results for each iteration.
 
         save_summary : bool, optional
             Whether to write TensorFlow summaries.
-
-        output_file : str, optional
-            Filename to write results for each iteration.
 
         save_all_epoch : bool, optional
             Whether to save statistics for all programs for each iteration.
@@ -60,9 +57,8 @@ class StatsLogger():
             Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
         """
         self.sess = sess
-        self.logdir = logdir
-        self.save_summary = save_summary
         self.output_file = output_file
+        self.save_summary = save_summary
         self.save_all_epoch = save_all_epoch
         self.hof = hof
         self.save_pareto_front = save_pareto_front
@@ -88,8 +84,7 @@ class StatsLogger():
         Opens and prepares all output log files controlled by this class.
         """
         if self.output_file is not None:
-            os.makedirs(self.logdir, exist_ok=True)
-            self.output_file = os.path.join(self.logdir, self.output_file)
+            os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
             prefix, _ = os.path.splitext(self.output_file)
             self.all_r_output_file = "{}_all_r.npy".format(prefix)
             self.all_info_output_file = "{}_all_info.csv".format(prefix)

@@ -6,7 +6,7 @@ import numpy as np
 def test_multiobject_output(model):
     # update and setup model
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
-    model.setup()
+    # model.setup()
 
     np.random.seed(0)
     X = np.random.random((100,1))

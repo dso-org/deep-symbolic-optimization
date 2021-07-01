@@ -1,10 +1,12 @@
 """Core deep symbolic optimizer construct."""
 
+import os
 import json
 from collections import defaultdict
 from multiprocessing import Pool
 import random
 from time import time
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -53,6 +55,7 @@ class DeepSymbolicOptimizer():
         self.prior = self.make_prior()
         self.controller = self.make_controller()
         self.gp_controller = self.make_gp_controller()
+        self.output_file = self.make_output_file()
 
     def train(self):
 
@@ -60,11 +63,13 @@ class DeepSymbolicOptimizer():
         self.setup()
 
         # Train the model
-        result = learn(self.sess,
-                       self.controller,
-                       self.pool,
-                       self.gp_controller,
-                       **self.config_training)
+        result = {"seed" : self.config_experiment["seed"]} # Seed listed first
+        result.update(learn(self.sess,
+                            self.controller,
+                            self.pool,
+                            self.gp_controller,
+                            self.output_file,
+                            **self.config_training))
         return result
 
     def update_config(self, config):
@@ -130,6 +135,32 @@ class DeepSymbolicOptimizer():
         set_task(self.config_task)
 
         return pool
+
+    def make_output_file(self):
+        """Generates an output filename"""
+
+        # Provide default logidr
+        if self.config_experiment.get("logdir") is None:
+            self.config_experiment["logdir"] = "./log"
+
+        # Provide default exp_name
+        if self.config_experiment.get("exp_name") is None:
+            self.config_experiment["exp_name"] = self.config_task["task_type"]
+
+        # Generate save path (if using run.py, this was already generated)
+        if self.config_experiment.get("save_path") is None:
+            save_path = os.path.join(
+                self.config_experiment["logdir"],
+                self.config_experiment["exp_name"],
+                datetime.now().strftime("%Y-%m-%d-%H%M%S"))
+            self.config_experiment["save_path"] = save_path
+
+        exp_name = self.config_experiment["exp_name"]
+        seed = self.config_experiment["seed"]
+        output_file = os.path.join(self.config_experiment["save_path"],
+                                   "dso_{}_{}.csv".format(exp_name, seed))
+
+        return output_file
 
     def save(self, save_path):
 
