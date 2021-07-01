@@ -46,7 +46,6 @@
       "b_jumpstart": false,
       "n_cores_batch": 1,
       "debug": 0,
-      "output_file": null,
       "early_stopping": true,
       "hof": 100,
       "use_memory": true,

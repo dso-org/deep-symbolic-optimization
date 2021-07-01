@@ -4,7 +4,6 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-import copy
 import os
 import time
 import multiprocessing
@@ -21,12 +20,6 @@ from dsr.config import load_config
 
 def train_dsr(config):
     """Trains DSR and returns dict of reward, expression, and traversal"""
-
-    name = config["task"]["name"] if "name" in config["task"] else config["task"]["task_type"]
-    seed = config["experiment"]["seed"]
-
-    # Override the benchmark name and output file
-    config["training"]["output_file"] = "dsr_{}_{}.csv".format(name, seed)
 
     # Try importing TensorFlow (with suppressed warnings), Controller, and learn
     # When parallelizing across tasks, these will already be imported, hence try/except
@@ -51,12 +44,10 @@ def train_dsr(config):
         import dsr.task.control # Registers custom and third-party environments
         gym.make(config["task"]["env"])
 
-    run_config = copy.deepcopy(config)
     # Train the model
-    model = DeepSymbolicOptimizer(run_config)
+    model = DeepSymbolicOptimizer(deepcopy(config))
     start = time.time()
-    result = {"name" : name, "seed" : seed} # Name and seed are listed first
-    result.update(model.train())
+    result = model.train()
     result["t"] = time.time() - start
     result.pop("program")
 
@@ -73,7 +64,7 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
     # Load the experiment config
-    config_template = config_template if config_template != "" else None # Default None?
+    config_template = config_template if config_template != "" else None
     config = load_config(config_template)
 
     # Overwrite benchmark (for tasks that support them)
@@ -98,7 +89,6 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
         config["experiment"]["exp_name"],
         datetime.now().strftime("%Y-%m-%d-%H%M%S"))
     config["experiment"]["save_path"] = save_path
-    config["training"]["logdir"] = save_path # TBD: Fix hack
     os.makedirs(save_path, exist_ok=False)
     summary_path = os.path.join(save_path, "summary.csv")
 
@@ -117,8 +107,9 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
 
     # Generate configs for each mc
     configs = [deepcopy(config) for _ in range(mc)]
-    for i, config in enumerate(configs):
-        config["experiment"]["seed"] += seed_shift + i
+    if config["experiment"]["seed"] is not None:
+        for i, config in enumerate(configs):
+            config["experiment"]["seed"] += seed_shift + i
 
     # Start benchmark training
     print("Running DSO for {} seeds".format(mc))
