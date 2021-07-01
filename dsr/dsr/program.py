@@ -271,12 +271,7 @@ class Program(object):
                     and trigger the end of a traversal at the wrong time 
                     """
                     danglings = danglings[danglings != dangling - 1]
-            
-    def __eq__(self, p2):
-        """ Returns if the programs are the same by the string rep
-        """
-        return self.str == p2.str
-            
+           
     def cython_execute(self, X):
         """Executes the program according to X using Cython.
 
