@@ -4,7 +4,6 @@ import os
 import multiprocessing
 import time
 from itertools import compress
-from collections import defaultdict
 from pathos.multiprocessing import ProcessPool
 
 import tensorflow as tf
@@ -39,8 +38,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
           save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           n_objects=1, save_cache=False, save_cache_r_min=0.9, save_freq=None):
-          # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
-
     """
     Executes the main training loop.
 
@@ -185,20 +182,20 @@ def learn(sess, controller, pool, gp_controller, output_file,
 
     if debug:
         tvars = tf.trainable_variables()
+
         def print_var_means():
             tvars_vals = sess.run(tvars)
             for var, val in zip(tvars, tvars_vals):
-                print(var.name, "mean:", val.mean(),"var:", val.var())
+                print(var.name, "mean:", val.mean(), "var:", val.var())
 
     # Create the pool of workers, if pool is not already given
     if pool is None:
         if n_cores_batch == -1:
             n_cores_batch = multiprocessing.cpu_count()
         if n_cores_batch > 1:
-            # Use a Pathos pool since newer versions of Program 
-            # give a pickling error
+            # Use pathos pool to avoid pickling error
             # pool = multiprocessing.Pool(n_cores_batch)
-            pool = ProcessPool(nodes = n_cores_batch)            
+            pool = ProcessPool(nodes=n_cores_batch)
 
     # Create the priority queue
     k = controller.pqt_k

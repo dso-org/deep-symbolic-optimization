@@ -139,15 +139,14 @@ class DeepSymbolicOptimizer():
     def make_output_file(self):
         """Generates an output filename"""
 
-        # Provide default logidr
-        if self.config_experiment.get("logdir") is None:
-            self.config_experiment["logdir"] = "./log"
-
-        # Provide default exp_name
+        # If exp_name is not provided (e.g. for pytest), results are not saved
         if self.config_experiment.get("exp_name") is None:
-            self.config_experiment["exp_name"] = self.config_task["task_type"]
+            print("WARNING: exp_name not provided. Results will not be saved to file.")
+            return None
 
         # Generate save path (if using run.py, this was already generated)
+        assert self.config_experiment.get("logdir") is not None, \
+            "logdir must be specified."
         if self.config_experiment.get("save_path") is None:
             save_path = os.path.join(
                 self.config_experiment["logdir"],
