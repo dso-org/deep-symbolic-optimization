@@ -126,16 +126,13 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
             print("Completed {} of {} in {:.0f} s".format(i + 1, mc, result["t"]))
 
-    # # Evaluate the log files
-    # for config in configs:
-    #     log = LogEval(
-    #         config["paths"]["log_dir"],
-    #         config_file=config["paths"]["config_file"])
-    #     log.analyze_log(
-    #         show_count=config["postprocess"]["show_count"],
-    #         show_hof=config["training"]["hof"] != None and config["training"]["hof"] > 0,
-    #         show_pf=config["training"]["save_pareto_front"],
-    #         save_plots=config["postprocess"]["save_plots"])
+    # Evaluate the log files
+    log = LogEval(config_path=os.path.join(save_path, "config.json"))
+    log.analyze_log(
+        show_count=config["postprocess"]["show_count"],
+        show_hof=config["training"]["hof"] is not None and config["training"]["hof"] > 0,
+        show_pf=config["training"]["save_pareto_front"],
+        save_plots=config["postprocess"]["save_plots"])
 
 
 if __name__ == "__main__":
