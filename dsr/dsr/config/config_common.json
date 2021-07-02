@@ -5,8 +5,7 @@
       "exp_name" : null
    },
    "task" : {
-      "task_type" : null,
-      "function_set" : null
+      "task_type" : null
    },
    "postprocess" : {
       "show_count" : 5,
