@@ -1,9 +1,5 @@
 """Parallelized, single-point launch script to run DSO on a set of benchmarks."""
 
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', category=FutureWarning)
-
 import os
 import time
 import multiprocessing
