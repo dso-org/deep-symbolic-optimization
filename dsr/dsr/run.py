@@ -17,22 +17,6 @@ from dsr.config import load_config
 def train_dsr(config):
     """Trains DSR and returns dict of reward, expression, and traversal"""
 
-    # Try importing TensorFlow (with suppressed warnings), Controller, and learn
-    # When parallelizing across tasks, these will already be imported, hence try/except
-    try:
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        import tensorflow as tf
-        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-    except ModuleNotFoundError: # Specific subclass of ImportError for when module is not found, probably needs to be excepted first
-        print("One or more libraries not found")
-        raise ModuleNotFoundError
-    except ImportError:
-        # Have we already imported tf? If so, this is the error we want to dodge.
-        if 'tf' in globals():
-            pass
-        else:
-            raise ImportError
-
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
     if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
