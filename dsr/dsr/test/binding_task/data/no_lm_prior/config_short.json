@@ -1,7 +1,6 @@
 {
     "task" : {
        "task_type" : "binding",
-       "name" : "AbAg_binding_affinity_optimization",
        "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
        "mode": "short",
        "paths" : {
