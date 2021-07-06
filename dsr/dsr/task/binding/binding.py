@@ -11,7 +11,7 @@ import abag_ml.rl_environment_objects as rl_env_obj
 import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 
 
-def make_binding_task(paths, mode, function_set):
+def make_binding_task(paths, mode):
     """
     Factory function for ab/ag binding affinity rewards. 
 
@@ -25,9 +25,6 @@ def make_binding_task(paths, mode, function_set):
         Task mode: full or short. Sample the entire sequence = full,
         or sample only the positions that are allowed to mutate = short.
     
-    function_set : list
-        List of possible discrete symbols that can be allocated.
-
     Returns
     -------
 
