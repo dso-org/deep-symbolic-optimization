@@ -133,7 +133,7 @@ class Model():
                  return None
             config_task = {
                 "task_type" : "control",
-                "name" : env_name,
+                "env" : env_name,
                 "anchor" : None,
                 "algorithm" : None,
                 "action_spec" : ENVS[env_name]["symbolic"],

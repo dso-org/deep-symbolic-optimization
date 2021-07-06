@@ -165,7 +165,7 @@ def main(zoo_root, alg, env, n_episodes, output_filename, robustness):
             for env_kwargs in env_kwargs_combinations:
                 config_task = {
                     "task_type" : "control",
-                    "name" : name,
+                    "env" : name,
                     "anchor" : anchor,
                     "algorithm" : alg if anchor is not None else None,
                     "action_spec" : action_spec,
