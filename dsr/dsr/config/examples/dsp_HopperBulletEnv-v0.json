@@ -1,15 +1,12 @@
 {
    "task" : {
       "task_type" : "control",
-      "name" : "HopperBulletEnv-v0",
+      "env" : "HopperBulletEnv-v0",
       "action_spec" : [["sin", "add", "x4", "x12"], null, "anchor"],
       "n_episodes_train" : 2,
       "n_episodes_test" : 3,
       "success_score": 99999999,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
-   },
-   "postprocess" : {
-      "method" : "dsp"
    },
    "training": {
       "n_samples": 64,
