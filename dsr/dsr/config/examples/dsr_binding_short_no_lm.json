@@ -1,7 +1,6 @@
 {
     "task" : {
        "task_type" : "binding",
-       "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
        "mode" : "short",
        "paths" : {
            "menu_file" : "/usr/workspace/vaccines/abag_binding_rl/feb_4th/rl_priors_coronavirus_80R_2ghw_annotated_dan_4mutations.yaml",
