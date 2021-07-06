@@ -11,15 +11,12 @@ import abag_ml.rl_environment_objects as rl_env_obj
 import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 
 
-def make_binding_task(name, paths, mode, function_set):
+def make_binding_task(paths, mode, function_set):
     """
     Factory function for ab/ag binding affinity rewards. 
 
     Parameters
     ----------
-
-    name : str
-        Experiment name.
 
     paths : dict
         Path to files used to run Gaussian Process-based binding environment.
