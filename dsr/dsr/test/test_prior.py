@@ -249,7 +249,6 @@ def test_descendant(model):
     descendants = "add,mul"
     ancestors = "exp,log"
 
-    library = Program.library
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["relational"] = {
         "targets" : descendants,
@@ -260,8 +259,9 @@ def test_descendant(model):
 
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
-    
-    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
+
+    library = Program.library
+    prior_class = RelationalConstraint(library, **model.config_prior["relational"])
 
     descendants = library.actionize(descendants)
     ancestors = library.actionize(ancestors)
@@ -296,13 +296,13 @@ def test_descendant(model):
 def test_trig(model):
     """Test cases for TrigConstraint."""
 
-    library = Program.library
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["trig"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
-    
-    prior_class = TrigConstraint(Program.library, **model.config_prior["trig"])
+
+    library = Program.library
+    prior_class = TrigConstraint(library, **model.config_prior["trig"])
 
     X = library.input_tokens[0]
     U = [i for i in library.unary_tokens
@@ -336,12 +336,8 @@ def test_trig(model):
 def test_child(model):
     """Test cases for child RelationalConstraint."""
 
-    library = Program.library
-    parents = library.actionize("log,exp,mul")
-    children = library.actionize("exp,log,sin")
-
-    print(parents)
-    print(children)
+    parents = "log,exp,mul"
+    children = "exp,log,sin"
 
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["relational"] = {
@@ -353,7 +349,11 @@ def test_child(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
+    library = Program.library
+    prior_class = RelationalConstraint(library, **model.config_prior["relational"])
+
+    parents = library.actionize(parents)
+    children = library.actionize(children)
 
     # For each parent-child pair, generate invalid cases where child is one of
     # parent's children.
@@ -376,9 +376,8 @@ def test_child(model):
 def test_uchild(model):
     """Test cases for uchild RelationalConstraint."""
 
-    library = Program.library
-    targets = library.actionize("x1")
-    effectors = library.actionize("sub,div") # i.e. no x1 - x1 or x1 / x1
+    targets = "x1"
+    effectors = "sub,div" # i.e. no x1 - x1 or x1 / x1
 
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["relational"] = {
@@ -389,8 +388,9 @@ def test_uchild(model):
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
-    
-    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
+
+    library = Program.library
+    prior_class = RelationalConstraint(library, **model.config_prior["relational"])
 
     # Generate valid test cases
     valid_cases = []
@@ -417,13 +417,13 @@ def test_const(model):
     model.config["task"]["name"] = "Constant-1"
     model.pool = model.make_pool() # Resets Program.task with new Task
 
-    library = Program.library
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["const"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = ConstConstraint(Program.library, **model.config_prior["const"])
+    library = Program.library
+    prior_class = ConstConstraint(library, **model.config_prior["const"])
 
     # Generate valid test cases
     valid_cases = []
@@ -444,9 +444,8 @@ def test_const(model):
 def test_sibling(model):
     """Test cases for sibling RelationalConstraint."""
 
-    library = Program.library
-    targets = library.actionize("sin,cos")
-    effectors = library.actionize("x1")
+    targets = "sin,cos"
+    effectors = "x1"
 
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["relational"] = {
@@ -457,8 +456,11 @@ def test_sibling(model):
     }
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
-    
-    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
+
+    library = Program.library
+    prior_class = RelationalConstraint(library, **model.config_prior["relational"])
+
+
 
     # Generate valid test cases
     valid_cases = []
@@ -480,13 +482,13 @@ def test_sibling(model):
 def test_inverse(model):
     """Test cases for InverseConstraint."""
 
-    library = Program.library
     model.config_prior = {} # Turn off all other Priors
     model.config_prior["inverse"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
-    
-    prior_class = InverseUnaryConstraint(Program.library, **model.config_prior["inverse"])
+
+    library = Program.library
+    prior_class = InverseUnaryConstraint(library, **model.config_prior["inverse"])
 
     # Generate valid cases
     valid_cases = []
