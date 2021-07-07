@@ -28,7 +28,7 @@ class DeepSymbolicRegressor(DeepSymbolicOptimizer,
             print("WARNING: GP-meld not yet supported for sklearn interface.")
         config["gp_meld"]["run_gp_meld"] = False
 
-        self.update_config(config)
+        self.set_config(config)
 
         train_result = self.train()
         self.program_ = train_result["program"]
