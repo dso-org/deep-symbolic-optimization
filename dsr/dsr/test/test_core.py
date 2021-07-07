@@ -30,7 +30,7 @@ def cached_results(model):
 def test_task(model, config):
     """Test that Tasks do not crash for various configs."""
     config = load_config(config)
-    model.update_config(config)
+    model.set_config(config)
     model.config_training.update({"n_samples" : 10,
                                   "batch_size" : 5
                                   })
@@ -42,7 +42,7 @@ def test_model_parity(model, cached_results, config):
     """Compare results to last"""
 
     config = load_config(config)
-    model.update_config(config)
+    model.set_config(config)
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
     results = model.sess.run(tf.trainable_variables())
