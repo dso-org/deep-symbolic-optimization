@@ -140,7 +140,7 @@ class StatsLogger():
         if self.save_summary:
             timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
             if self.output_file is not None:
-                summary_dir = os.path.join(self.logdir, "summary_" + timestamp)
+                summary_dir = ("{}_sumary"+ timestamp).format(prefix)
             else:
                 summary_dir = os.path.join("summary", timestamp)
             self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
