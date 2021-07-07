@@ -53,7 +53,7 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
         # For regression, --b overwrites config["task"]["dataset"]
         if task_type == "regression":
             config["task"]["dataset"] = benchmark
-        # For regression, --b overwrites config["task"]["env"]
+        # For control, --b overwrites config["task"]["env"]
         elif task_type == "control":
             config["task"]["env"] = benchmark
         else:
