@@ -240,6 +240,11 @@ def make_control_task(function_set, env, action_spec, algorithm=None,
         }
         return info
 
+    # Define name for task, based on environment and learned action dimension
+    name = env_name
+    if action_dim is not None:
+        name += "_a{}".format(action_dim)
+
     extra_info = {
         "symbolic_actions" : symbolic_actions
     }
@@ -249,6 +254,7 @@ def make_control_task(function_set, env, action_spec, algorithm=None,
                 library=library,
                 stochastic=stochastic,
                 task_type='control',
+                name=name,
                 extra_info=extra_info)
 
     return task

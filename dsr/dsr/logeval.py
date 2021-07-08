@@ -154,8 +154,8 @@ class LogEval():
         log_dfs = []
 
         # Get files that match regexp
-        exp_name = self.config["experiment"]["exp_name"]
-        r = re.compile(r"dso_{}_\d+_{}.csv".format(exp_name, log_type))
+        task_name = self.config["experiment"]["task_name"]
+        r = re.compile(r"dso_{}_\d+_{}.csv".format(task_name, log_type))
         files = filter(r.match, os.listdir(self.save_path))
         files = [os.path.join(self.save_path, f) for f in files]
         seeds = [int(f.split("_")[-2]) for f in files]
@@ -240,11 +240,11 @@ class LogEval():
                     ax[i].set_xlabel(_x_label[i])
                     ax[i].set_ylabel(_y_label[i])
         plt.suptitle(
-            "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.config["experiment"]["exp_name"]),
+            "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.config["experiment"]["task_name"]),
             fontsize=14)
         plt.tight_layout()
         if save_plots:
-            save_path = os.path.join(self.save_path, "dso_{}_plot_{}.png".format(self.config["experiment"]["exp_name"], log_type))
+            save_path = os.path.join(self.save_path, "dso_{}_plot_{}.png".format(self.config["experiment"]["task_name"], log_type))
             print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], save_path))
             plt.savefig(save_path)
         if show_plots:
