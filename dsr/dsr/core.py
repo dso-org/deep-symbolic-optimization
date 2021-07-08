@@ -19,6 +19,7 @@ from dsr.controller import Controller
 from dsr.train import learn
 from dsr.prior import make_prior
 from dsr.program import Program
+from dsr.config import load_config
 
 
 class DeepSymbolicOptimizer():
@@ -43,7 +44,7 @@ class DeepSymbolicOptimizer():
     """
 
     def __init__(self, config=None):
-        self.update_config(config)
+        self.set_config(config)
         self.sess = None
 
     def setup(self):
@@ -83,12 +84,8 @@ class DeepSymbolicOptimizer():
                             **self.config_training))
         return result
 
-    def update_config(self, config):
-        if config is None:
-            config = {}
-        elif isinstance(config, str):
-            with open(config, 'rb') as f:
-                config = json.load(f)
+    def set_config(self, config):
+        config = load_config(config)
 
         self.config = defaultdict(dict, config)
         self.config_task = self.config["task"]
