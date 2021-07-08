@@ -22,7 +22,7 @@
       "debug" : 0,
       "early_stopping" : true,
       "hof" : 100,
-      "use_memory" : true,
+      "use_memory" : false,
       "memory_capacity" : 1e3,
       "warm_start" : null,
       "memory_threshold" : null,
@@ -102,12 +102,12 @@
       "no_inputs" : {
          "on" : false
       },
-      "soft_length" : {
-         "loc" : null,
-         "scale" : null,
+      "uniform_arity" : {
          "on" : false
       },
-      "uniform_arity" : {
+      "soft_length" : {
+         "loc" : 10,
+         "scale" : 5,
          "on" : false
       },
       "language_model" : {
