@@ -5,11 +5,8 @@ import numpy as np
 from dsr.library import HardCodedConstant
 from dsr.config import load_config
 from dsr.core import DeepSymbolicOptimizer
+from dsr.test.test_core import model
 
-@pytest.fixture()
-def model():
-    config = load_config()
-    return DeepSymbolicOptimizer(config)
 
 def test_constant():
     valid_cases = np.arange(0, 25, 0.1)
