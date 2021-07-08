@@ -41,9 +41,9 @@ def train_dsr(config):
 @click.argument('config_template', default="")
 @click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
-@click.option('--seed_shift', '--ss', default=0, type=int, help="Integer to add to each seed (i.e. to combine multiple runs)")
+@click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each Monte Carlo trial")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
-def main(config_template, mc, n_cores_task, seed_shift, benchmark):
+def main(config_template, mc, n_cores_task, seed, benchmark):
     """Runs DSR or GP on multiple benchmarks using multiprocessing."""
 
     # Load the experiment config
@@ -62,6 +62,12 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
         else:
             raise ValueError("--b is not supported for task {}.".format(task_type))
 
+    # Overwrite config seed, if specified
+    if seed is not None:
+        if config["experiment"]["seed"] is not None:
+            print("WARNING: Overwriting config seed with command-line seed.")
+        config["experiment"]["seed"] = seed
+
     # Set timestamp once to be used by all workers
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     config["experiment"]["timestamp"] = timestamp
@@ -79,11 +85,10 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
         print("Setting 'n_cores_batch' to 1 to avoid nested child processes.")
         config["training"]["n_cores_batch"] = 1
 
-    # Generate configs for each mc
+    # Generate configs (with incremented seeds) for each mc
     configs = [deepcopy(config) for _ in range(mc)]
-    if config["experiment"]["seed"] is not None:
-        for i, config in enumerate(configs):
-            config["experiment"]["seed"] += seed_shift + i
+    for i, config in enumerate(configs):
+        config["experiment"]["seed"] += i
 
     # Start benchmark training
     print("Running DSO for {} seeds".format(mc))
