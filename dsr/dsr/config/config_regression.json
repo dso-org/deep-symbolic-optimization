@@ -19,6 +19,11 @@
       "epsilon" : 0.05,
       "baseline" : "R_e"
    },
+   "controller" : {
+      "learning_rate" : 0.0005,
+      "entropy_weight" : 0.03,
+      "entropy_gamma" : 0.7
+   },
    "prior": {
       "length" : {
          "min_" : 4,
@@ -38,6 +43,17 @@
          "on" : true
       },
       "const" : {
+         "on" : true
+      },
+      "no_inputs" : {
+         "on" : true
+      },
+      "uniform_arity" : {
+         "on" : true
+      },
+      "soft_length" : {
+         "loc" : 10,
+         "scale" : 5,
          "on" : true
       }
    }
