@@ -1,15 +1,7 @@
 {
    "task" : {
       "task_type" : "regression",
-      "method" : "dsr",
-      "name" : "Nguyen-1",
-      "dataset" : {
-         "benchmark_source" : "benchmarks.csv",
-         "name" : null,
-         "noise" : null,
-         "root" : null,
-         "backup" : false
-      },
+      "dataset" : "Nguyen-1",
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],
       "extra_metric_test" : null,
@@ -57,7 +49,6 @@
       "b_jumpstart" : false,
       "n_cores_batch" : 1,
       "debug" : 0,
-      "output_file" : null,
       "early_stopping" : true,
       "hof" : 100,
       "use_memory" : true,

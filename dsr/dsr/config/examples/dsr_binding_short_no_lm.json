@@ -1,8 +1,6 @@
 {
     "task" : {
        "task_type" : "binding",
-       "name" : "AbAg_binding_affinity_optimization",
-       "function_set": ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"],
        "mode" : "short",
        "paths" : {
            "menu_file" : "/usr/workspace/vaccines/abag_binding_rl/feb_4th/rl_priors_coronavirus_80R_2ghw_annotated_dan_4mutations.yaml",
@@ -46,7 +44,6 @@
        "b_jumpstart": false,
        "n_cores_batch": 1,
        "debug": 0,
-       "output_file": null,
        "save_all_epoch": true,
        "early_stopping": true,
        "hof" : 10,

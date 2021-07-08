@@ -1,10 +1,15 @@
 """Core deep symbolic optimizer construct."""
 
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+
+import os
 import json
-import zlib
 from collections import defaultdict
 from multiprocessing import Pool
 import random
+from time import time
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -24,7 +29,7 @@ class DeepSymbolicOptimizer():
     Parameters
     ----------
     config : dict or str
-        Config dictionary or path to JSON. See dsr/dsr/config.json for template.
+        Config dictionary or path to JSON.
 
     Attributes
     ----------
@@ -41,30 +46,41 @@ class DeepSymbolicOptimizer():
         self.update_config(config)
         self.sess = None
 
-    def setup(self, seed=0):
+    def setup(self):
 
-        # Clear the cache, reset the compute graph, and set the seed
+        # Clear the cache, reset the compute graph, and set seeds
         Program.clear_cache()
         tf.reset_default_graph()
-        self.seed(seed) # Must be called _after_ resetting graph
+        self.set_seeds() # Must be called _after_ resetting graph
 
+        # Generate objects needed for training
         self.pool = self.make_pool()
         self.sess = tf.Session()
         self.prior = self.make_prior()
         self.controller = self.make_controller()
         self.gp_controller = self.make_gp_controller()
+        self.output_file = self.make_output_file()
 
-    def train(self, seed=0):
+        # Save the config file
+        if self.output_file is not None:
+            path = os.path.join(self.config_experiment["save_path"],
+                                "config.json")
+            with open(path, 'w') as f:
+                json.dump(self.config, f, indent=3)
+
+    def train(self):
 
         # Setup the model
-        self.setup(seed)
+        self.setup()
 
         # Train the model
-        result = learn(self.sess,
-                       self.controller,
-                       self.pool,
-                       self.gp_controller,
-                       **self.config_training)
+        result = {"seed" : self.config_experiment["seed"]} # Seed listed first
+        result.update(learn(self.sess,
+                            self.controller,
+                            self.pool,
+                            self.gp_controller,
+                            self.output_file,
+                            **self.config_training))
         return result
 
     def update_config(self, config):
@@ -80,21 +96,23 @@ class DeepSymbolicOptimizer():
         self.config_training = self.config["training"]
         self.config_controller = self.config["controller"]
         self.config_gp_meld = self.config["gp_meld"]
+        self.config_experiment = self.config["experiment"]
 
-    def seed(self, seed_=0):
-        """Set the tensorflow seed, which will be offset by a checksum on the
-        task name to ensure seeds differ across different tasks."""
+    def set_seeds(self):
+        """
+        Set the tensorflow, numpy, and random module seeds based on the seed
+        specified in config. If there is no seed or it is None, a time-based
+        seed is used instead and is written to config.
+        """
 
-        if "name" in self.config_task:
-            task_name = self.config_task["name"]
-        else:
-            task_name = ""
-        seed_ += zlib.adler32(task_name.encode("utf-8"))
-        tf.set_random_seed(seed_)
-        np.random.seed(seed_)
-        random.seed(seed_)
-
-        return seed_
+        seed = self.config_experiment.get("seed")
+        if seed is None:
+            # Default uses current time in milliseconds, modulo 1e9
+            seed = round(time() * 1000) % int(1e9)
+            self.config_experiment["seed"] = seed
+        tf.set_random_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
 
     def make_prior(self):
         prior = make_prior(Program.library, self.config_prior)
@@ -107,7 +125,7 @@ class DeepSymbolicOptimizer():
         return controller
 
     def make_gp_controller(self):
-        if self.config_gp_meld.pop("run_gp_meld", False): 
+        if self.config_gp_meld.pop("run_gp_meld", False):
             from dsr.gp.gp_controller import GPController
             gp_controller = GPController(self.prior,
                                          **self.config_gp_meld)
@@ -128,6 +146,35 @@ class DeepSymbolicOptimizer():
         set_task(self.config_task)
 
         return pool
+
+    def make_output_file(self):
+        """Generates an output filename"""
+
+        # If logdir is not provided (e.g. for pytest), results are not saved
+        if self.config_experiment.get("logdir") is None:
+            print("WARNING: logdir not provided. Results will not be saved to file.")
+            return None
+
+        # When using run.py, timestamp is already generated
+        timestamp = self.config_experiment.get("timestamp")
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            self.config_experiment["timestamp"] = timestamp
+
+        # Generate save path
+        task_name = Program.task.name
+        save_path = os.path.join(
+            self.config_experiment["logdir"],
+            '_'.join([task_name, timestamp]))
+        self.config_experiment["task_name"] = task_name
+        self.config_experiment["save_path"] = save_path
+        os.makedirs(save_path, exist_ok=True)
+
+        seed = self.config_experiment["seed"]
+        output_file = os.path.join(save_path,
+                                   "dso_{}_{}.csv".format(task_name, seed))
+
+        return output_file
 
     def save(self, save_path):
 
