@@ -4,6 +4,7 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 import os
+import zlib
 import json
 from collections import defaultdict
 from multiprocessing import Pool
@@ -52,10 +53,10 @@ class DeepSymbolicOptimizer():
         # Clear the cache, reset the compute graph, and set seeds
         Program.clear_cache()
         tf.reset_default_graph()
-        self.set_seeds() # Must be called _after_ resetting graph
 
         # Generate objects needed for training
-        self.pool = self.make_pool()
+        self.pool = self.make_pool_and_set_task()
+        self.set_seeds() # Must be called _after_ resetting graph and _after_ setting task
         self.sess = tf.Session()
         self.prior = self.make_prior()
         self.controller = self.make_controller()
@@ -103,13 +104,21 @@ class DeepSymbolicOptimizer():
         """
 
         seed = self.config_experiment.get("seed")
+
+        # Default uses current time in milliseconds, modulo 1e9
         if seed is None:
-            # Default uses current time in milliseconds, modulo 1e9
             seed = round(time() * 1000) % int(1e9)
             self.config_experiment["seed"] = seed
-        tf.set_random_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
+
+        # Shift the seed based on task name
+        # This ensures a specified seed doesn't have similarities across different task names
+        task_name = Program.task.name
+        shifted_seed = seed + zlib.adler32(task_name.encode("utf-8"))
+
+        # Set the seeds using the shifted seed
+        tf.set_random_seed(shifted_seed)
+        np.random.seed(shifted_seed)
+        random.seed(shifted_seed)
 
     def make_prior(self):
         prior = make_prior(Program.library, self.config_prior)
@@ -130,7 +139,7 @@ class DeepSymbolicOptimizer():
             gp_controller = None
         return gp_controller
 
-    def make_pool(self):
+    def make_pool_and_set_task(self):
         # Create the pool and set the Task for each worker
         pool = None
         n_cores_batch = self.config_training.get("n_cores_batch")
