@@ -1,8 +1,7 @@
 {
    "experiment" : {
       "logdir" : "./log",
-      "seed" : 0,
-      "exp_name" : null
+      "seed" : 0
    },
    "task" : {
       "task_type" : null
