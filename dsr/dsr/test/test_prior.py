@@ -22,6 +22,7 @@ BATCH_SIZE = 1000
 @pytest.fixture
 def model():
     config = load_config()
+    config["experiment"]["logdir"] = None # Turn off saving results
     return DeepSymbolicOptimizer(config)
 
 
