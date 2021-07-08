@@ -136,12 +136,13 @@ class StatsLogger():
         else:
             self.all_r_output_file = self.hof_output_file = self.pf_output_file = self.positional_entropy_output_file = \
                 self.cache_output_file = self.all_info_output_file = None
-        # Creates the summary writer
+
+        # Create summary writer
         if self.save_summary:
-            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
             if self.output_file is not None:
-                summary_dir = ("{}_sumary"+ timestamp).format(prefix)
+                summary_dir = "{}_summary".format(prefix)
             else:
+                timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
                 summary_dir = os.path.join("summary", timestamp)
             self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
         else:
