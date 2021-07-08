@@ -78,6 +78,7 @@ def make_regression_task(function_set, dataset, metric="inv_nrmse",
         X_test = benchmark.X_test
         y_test = benchmark.y_test
         y_test_noiseless = benchmark.y_test_noiseless
+        name = benchmark.name
 
         # Unless specified, use the benchmark's default function_set
         if function_set is None:
@@ -88,11 +89,13 @@ def make_regression_task(function_set, dataset, metric="inv_nrmse",
         df = pd.read_csv(dataset, header=None) # Assuming data file does not have header rows
         X_train = df.values[:, :-1]
         y_train = df.values[:, -1]
+        name = dataset.replace("/", "_")[:-4]
 
     # sklearn-like (X, y) data
     elif isinstance(dataset, tuple):
         X_train = dataset[0]
         y_train = dataset[1]
+        name = "regression"
 
     if X_test is None:
         X_test = X_train
@@ -213,6 +216,7 @@ def make_regression_task(function_set, dataset, metric="inv_nrmse",
                 library=library,
                 stochastic=stochastic,
                 task_type='regression',
+                name=name,
                 extra_info=extra_info)
 
     return task
