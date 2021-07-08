@@ -13,14 +13,20 @@ class DeepSymbolicRegressor(DeepSymbolicOptimizer,
     """
 
     def __init__(self, config=None):
+        if config is None:
+            config = {
+                "task" : {"task_type" : "regression"}
+            }
         DeepSymbolicOptimizer.__init__(self, config)
 
     def fit(self, X, y):
 
         # Update the Task
         config = deepcopy(self.config)
-        config["task"]["task_type"] = "regression"
         config["task"]["dataset"] = (X, y)
+
+        # Turn off file saving
+        config["experiment"]["logdir"] = None
 
         # TBD: Add support for gp-meld and sklearn interface. Currently, gp-meld
         # relies on BenchmarkDataset objects, not (X, y) data.
