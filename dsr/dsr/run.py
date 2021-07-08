@@ -31,7 +31,10 @@ def train_dsr(config):
     result["t"] = time.time() - start
     result.pop("program")
 
-    return result
+    save_path = model.config_experiment["save_path"]
+    summary_path = os.path.join(save_path, "summary.csv")
+
+    return result, summary_path
 
 
 @click.command()
@@ -47,7 +50,7 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
     config_template = config_template if config_template != "" else None
     config = load_config(config_template)
 
-    # Overwrite benchmark (for tasks that support them)
+    # Overwrite named benchmark (for tasks that support them)
     task_type = config["task"]["task_type"]
     if benchmark is not None:
         # For regression, --b overwrites config["task"]["dataset"]
@@ -59,18 +62,9 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
         else:
             raise ValueError("--b is not supported for task {}.".format(task_type))
 
-    # Provide default experiment name
-    if config["experiment"]["exp_name"] is None:
-        config["experiment"]["exp_name"] = task_type
-
-    # Set save path: [logdir]/[exp_name]/[timestamp]
-    save_path = os.path.join(
-        config["experiment"]["logdir"],
-        config["experiment"]["exp_name"],
-        datetime.now().strftime("%Y-%m-%d-%H%M%S"))
-    config["experiment"]["save_path"] = save_path
-    os.makedirs(save_path, exist_ok=False)
-    summary_path = os.path.join(save_path, "summary.csv")
+    # Set timestamp once to be used by all workers
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    config["experiment"]["timestamp"] = timestamp
 
     # Fix incompatible configurations
     if n_cores_task == -1:
@@ -97,16 +91,17 @@ def main(config_template, mc, n_cores_task, seed_shift, benchmark):
     # Farm out the work
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
-        for i, result in enumerate(pool.imap_unordered(train_dsr, configs)):
+        for i, (result, summary_path) in enumerate(pool.imap_unordered(train_dsr, configs)):
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
             print("Completed {} of {} in {:.0f} s".format(i + 1, mc, result["t"]))
     else:
         for i, config in enumerate(configs):
-            result = train_dsr(config)
+            result, summary_path = train_dsr(config)
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
             print("Completed {} of {} in {:.0f} s".format(i + 1, mc, result["t"]))
 
     # Evaluate the log files
+    save_path = os.path.dirname(summary_path)
     log = LogEval(config_path=os.path.join(save_path, "config.json"))
     log.analyze_log(
         show_count=config["postprocess"]["show_count"],

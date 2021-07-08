@@ -150,25 +150,29 @@ class DeepSymbolicOptimizer():
     def make_output_file(self):
         """Generates an output filename"""
 
-        # If exp_name is not provided (e.g. for pytest), results are not saved
-        if self.config_experiment.get("exp_name") is None:
-            print("WARNING: exp_name not provided. Results will not be saved to file.")
+        # If logdir is not provided (e.g. for pytest), results are not saved
+        if self.config_experiment.get("logdir") is None:
+            print("WARNING: logdir not provided. Results will not be saved to file.")
             return None
 
-        # Generate save path (if using run.py, this was already generated)
-        assert self.config_experiment.get("logdir") is not None, \
-            "logdir must be specified."
-        if self.config_experiment.get("save_path") is None:
-            save_path = os.path.join(
-                self.config_experiment["logdir"],
-                self.config_experiment["exp_name"],
-                datetime.now().strftime("%Y-%m-%d-%H%M%S"))
-            self.config_experiment["save_path"] = save_path
+        # When using run.py, timestamp is already generated
+        timestamp = self.config_experiment.get("timestamp")
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            self.config_experiment["timestamp"] = timestamp
 
-        exp_name = self.config_experiment["exp_name"]
+        # Generate save path
+        task_name = Program.task.name
+        save_path = os.path.join(
+            self.config_experiment["logdir"],
+            '_'.join([task_name, timestamp]))
+        self.config_experiment["task_name"] = task_name
+        self.config_experiment["save_path"] = save_path
+        os.makedirs(save_path, exist_ok=True)
+
         seed = self.config_experiment["seed"]
-        output_file = os.path.join(self.config_experiment["save_path"],
-                                   "dso_{}_{}.csv".format(exp_name, seed))
+        output_file = os.path.join(save_path,
+                                   "dso_{}_{}.csv".format(task_name, seed))
 
         return output_file
 

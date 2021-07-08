@@ -30,7 +30,10 @@ class Task:
         Whether the reward function of the task is stochastic.
 
     task_type : str
-        Task type: regression, control or binding
+        Task type: regression, control or binding.
+
+    name : str
+        Unique name for instance of this task.
 
     extra_info : dict
         Extra task-specific info, e.g. reference to symbolic policies for
@@ -42,6 +45,7 @@ class Task:
     library: Library
     stochastic: bool
     task_type: str
+    name: str
     extra_info: Dict[str, Any]
 
 

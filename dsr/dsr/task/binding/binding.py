@@ -144,13 +144,17 @@ def make_binding_task(paths, mode):
         info = {}
         return info
 
+    name = "binding_short" if mode == "short" else "binding_full"
+
     extra_info = {"menu_file": paths['menu_file'],
                   "mode": mode}
+
     task = dsr.task.Task(reward_function=reward,
                          evaluate=evaluate,
                          library=library,
                          stochastic=False,
                          task_type='binding',
+                         name=name
                          extra_info=extra_info)
 
     return task
