@@ -1,11 +1,10 @@
 {
+   "experiment" : {
+      "logdir" : "./log",
+      "seed" : 0
+   },
    "task" : {
-      "task_type" : null,
-      "method" : null,
-      "name" : null,
-      "function_set" : null,
-      "seed" : 0,
-      "runs" : 1
+      "task_type" : null
    },
    "postprocess" : {
       "show_count" : 5,
@@ -55,7 +54,6 @@
       }
    },
    "training" : {
-      "logdir" : "./log"
    },
    "controller" : {
       "summary" : false,

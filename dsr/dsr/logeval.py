@@ -4,6 +4,7 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
+import re
 import click
 import glob
 import json
@@ -95,134 +96,98 @@ class LogEval():
         }
     }
 
-    def __init__(self,
-                 log_path,
-                 config_file=None):
-        """Loads all files from log path."""
-        # Prepare variable to store warnings when reading the log
+    def __init__(self, config_path):
+        """Load config, summary, hof, and pf."""
+
         self.warnings = []
-        # Prepare variable to store calculated metrics
         self.metrics = {}
 
-        # define paths
-        self.path = {}
-        self.path["log"] = log_path
-        if config_file is None:
-            # Look up available config files and take the first one
-            configs = glob.glob("{}/*config.json".format(log_path))
-            assert len(configs) > 0, "*** ERROR: No experiments found!"
-            assert len(configs) == 1, "*** ERROR: Cannot handle multiple configurations at once."
-            #if len(configs) > 1:
-            #    print("*** WARNING: Several experiments found, continuing using the first one:\n{}\n".format(configs))
-            self.path["config"] = configs[0]
-        else:
-            self.path["config"] = os.path.join(log_path, config_file)
-        self.path["cmd"] = os.path.join(log_path, "cmd.out")
+        # Load config
+        self.config = self._get_config(config_path)
+        self.save_path = self.config["experiment"]["save_path"]
 
-        # Load the saved configuration data
-        self.exp_config = self._get_config()
-        self.path["postprocess"] = self.exp_config["paths"]["summary_path"]
-        # Load benchmark data (one row per seed)
+        # Load summary data (one row per seed)
         self.summary_df = self._get_summary()
+        self.n_seeds = len(self.summary_df) if self.summary_df is not None else "N/A"
 
-        # Load hof if available
+        # Load HOF
         self.hof_df = self._get_log(log_type="hof")
-        # Load pareto front if available
+
+        # Load pareto front
         self.pf_df = self._get_log(log_type="pf")
-        # Load binding's hof if available
-        self.binding_df = self._get_log(log_type="binding")
 
         if len(self.warnings) > 0:
             print("*** WARNING:")
-            [print("    --> {}".format(warning)) for warning in self.warnings]
+            for warning in self.warnings:
+                print("    --> {}".format(warning))
 
-    def _get_correct_type(self, token):
-        """Make sure the token are recognized in the correct type."""
-        if any(c.isdigit() for c in token):
-            if any(c.isalpha() for c in token):
-                return str(token)
-            elif "." in token:
-                return float(token)
-            else:
-                return int(token)
-        return str(token)
+    def _get_config(self, config_path):
+        """Read the experiment's config file."""
 
-    def _get_config(self):
-        """Read the experiment configuration file."""
-        exp_config = None
-        try:
-            with open(self.path["config"], "r") as read_file:
-                exp_config = json.load(read_file)
-        except:
-            self.warnings.append("Missing config file!")
-        if exp_config["task"]["function_set"] is None:
-            exp_config["task"]["function_set"] = self._get_tokenset(exp_config["task"])
-        return exp_config
+        with open(config_path, 'r') as f:
+            config = json.load(f)
 
-    def _get_tokenset(self, task_config):
-        # load all available benchmarks
-        root_dir = resource_filename("dsr.task", "regression") \
-            if task_config["dataset"]["root"] == None else task_config["dataset"]["root"]
-        benchmark_df = pd.read_csv(
-            os.path.join(root_dir, "benchmarks.csv"),
-            index_col=None, encoding="ISO-8859-1")
-        tokenset_df = pd.read_csv(
-            os.path.join(root_dir, "function_sets.csv"),
-            index_col=None, encoding="ISO-8859-1")
-        tokenset_name = benchmark_df[benchmark_df["name"]==task_config["name"]]["function_set"].item()
-        return tokenset_df[tokenset_df["name"]==tokenset_name]["function_set"].item()
+        return config
 
     def _get_summary(self):
         """Read summarized benchmark data for each seed."""
+
         summary_df = None
         try:
-            summary_df = pd.read_csv(self.path["postprocess"])  #.to_dict(orient="records")
+            summary_path = os.path.join(self.config["experiment"]["save_path"],
+                                        "summary.csv")
+            summary_df = pd.read_csv(summary_path)
             summary_df = summary_df.reset_index(drop=True)
-            summary_df.drop("name", 1).sort_values("seed")
+            summary_df.sort_values("seed")
             try:
-                self.metrics["successrate"] = summary_df["success"].mean()
+                self.metrics["success_rate"] = summary_df["success"].mean()
             except:
-                self.metrics["successrate"] = 0.0
+                self.metrics["success_rate"] = 0.0
         except:
-            self.warnings.append("Missing benchmark file!")
+            self.warnings.append("Missing summary file!")
+
         return summary_df
 
-    def _get_log(self, log_type="hof"):
+    def _get_log(self, log_type):
         """Read data from log files ("hof" or "pf")."""
-        log_df = None
-        log_exists = False
-        log_not_found = []
-        for seed in range(self.exp_config["task"]["seed"], self.exp_config["task"]["seed"] + self.exp_config["task"]["runs"]):
-            log_file = "{}_{}_{}_{}.csv".format(
-                self.exp_config["task"]["method"], self.exp_config["task"]["name"], seed, log_type)
-            try:
-                df = pd.read_csv(os.path.join(self.path["log"], log_file))
-                df.insert(0, "seed", seed)
-                if log_exists:
-                    log_df = pd.concat([log_df, df])
-                else:
-                    log_df = df.copy()
-                    log_exists = True
-            except:
-                log_not_found.append(seed)
-        try:
-            if log_type == "hof":
-                if self.exp_config["task"]["task_type"] == "binding":
-                    log_df = log_df.sort_values(by=["r"], ascending=False)
-                else:
-                    log_df = log_df.sort_values(by=["r","success","seed"], ascending=False)
-            if log_type == "binding":
-                #log_df = log_df.sort_values(by=["r_best","seed"], ascending=False)
-                pass
-            if log_type == "pf":
-                log_df = self._apply_pareto_filter(log_df)
-                log_df = log_df.sort_values(by=["r","complexity","seed"], ascending=False)
-            log_df = log_df.reset_index(drop=True)
-            log_df["index"] = log_df.index
-        except:
+
+        log_dfs = []
+
+        # Get files that match regexp
+        task_name = self.config["experiment"]["task_name"]
+        r = re.compile(r"dso_{}_\d+_{}.csv".format(task_name, log_type))
+        files = filter(r.match, os.listdir(self.save_path))
+        files = [os.path.join(self.save_path, f) for f in files]
+        seeds = [int(f.split("_")[-2]) for f in files]
+
+        if len(files) == 0:
             self.warnings.append("No data for {}!".format(log_type))
-        if len(log_not_found) > 0:
-            self.warnings.append("Missing {} files for seeds: {}".format(log_type, log_not_found))
+            return None
+
+        # Load each df
+        for f, seed in zip(files, seeds):
+            df = pd.read_csv(f)
+            df.insert(0, "seed", seed)
+            log_dfs.append(df)
+
+        # Combine them all
+        log_df = pd.concat(log_dfs)
+
+        # Sort HOF
+        if log_type == "hof":
+            if self.config["task"]["task_type"] == "binding":
+                log_df = log_df.sort_values(by=["r"], ascending=False)
+            else:
+                log_df = log_df.sort_values(by=["r", "success", "seed"], ascending=False)
+
+        # Compute PF across all runs
+        if log_type == "pf":
+            log_df = self._apply_pareto_filter(log_df)
+            log_df = log_df.sort_values(by=["r", "complexity", "seed"], ascending=False)
+
+        log_df = log_df.reset_index(drop=True)
+        log_df["index"] = log_df.index
+
         return log_df
 
     def _apply_pareto_filter(self, df):
@@ -236,7 +201,7 @@ class LogEval():
                 filtered_df = filtered_df.append(row, ignore_index=True)
         return filtered_df
 
-    def plot_results(self, results, log_type="hof", boxplot_on=False, show_plots=False, save_plots=False):
+    def plot_results(self, results, log_type, boxplot_on=False, show_plots=False, save_plots=False):
         """Plot data from log files ("hof" or "pf")."""
         col_count = 0
         _x = []
@@ -275,11 +240,11 @@ class LogEval():
                     ax[i].set_xlabel(_x_label[i])
                     ax[i].set_ylabel(_y_label[i])
         plt.suptitle(
-            "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.exp_config["task"]["name"]),
+            "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.config["experiment"]["task_name"]),
             fontsize=14)
         plt.tight_layout()
         if save_plots:
-            save_path = os.path.join(self.path["log"], "{}_{}_plot_{}.png".format(self.exp_config["task"]["method"], self.exp_config["task"]["name"], log_type))
+            save_path = os.path.join(self.save_path, "dso_{}_plot_{}.png".format(self.config["experiment"]["task_name"], log_type))
             print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], save_path))
             plt.savefig(save_path)
         if show_plots:
@@ -290,20 +255,20 @@ class LogEval():
         """Generates a summary of important experiment outcomes."""
         print("\n-- LOG ANALYSIS ---------------------")
         try:
-            print("Task_____________{}".format(self.exp_config["task"]["name"]))
-            print("Log path_________{}".format(self.path["log"]))
-            print("Token set________{}".format(self.exp_config["task"]["function_set"]))
-            print("Runs_____________{}".format(self.exp_config["task"]["runs"]))
-            print("Samples/run______{}".format(self.exp_config["training"]["n_samples"]))
-            if "successrate" in self.metrics:
-                print("Successrate______{}".format(self.metrics["successrate"]))
+            print("Task_____________{}".format(self.config["task"]["task_type"]))
+            print("Save path________{}".format(self.config["experiment"]["save_path"]))
+            print("MC_______________{}".format(self.n_seeds))
+            print("Samples/run______{}".format(self.config["training"]["n_samples"]))
+            if "success_rate" in self.metrics:
+                print("Success_rate_____{}".format(self.metrics["success_rate"]))
             if len(self.warnings) > 0:
-                print("Found issues_____")
-                for i in range(len(self.warnings)):
-                    print("  {}".format(self.warnings[i]))
+                print("Found issues:")
+                for warning in range(len(self.warnings)):
+                    print("  {}".format(warning))
             if self.hof_df is not None and show_hof:
-                print('Hall of Fame (Top {} of {})____'.format(min(show_count,len(self.hof_df.index)), len(self.hof_df.index)))
-                for i in range(min(show_count,len(self.hof_df.index))):
+                hof_show_count = min(show_count, len(self.hof_df))
+                print('Hall of Fame (Top {} of {})____'.format(hof_show_count, len(self.hof_df)))
+                for i in range(hof_show_count):
                     print('  {:3d}: S={:03d} R={:8.6f} <-- {}'.format(
                         i, self.hof_df.iloc[i]['seed'], self.hof_df.iloc[i]['r'],
                         self.hof_df.iloc[i]['expression']))
@@ -321,69 +286,30 @@ class LogEval():
                     self.plot_results(
                         self.pf_df, log_type="pf",
                         show_plots=show_plots, save_plots=save_plots)
-            if self.binding_df is not None and show_binding:
-                print('Binding ({} of {})____'.format(min(show_count,len(self.binding_df.index)), len(self.binding_df.index)))
-                for i in range(min(show_count,len(self.binding_df.index))):
-                    data_index = len(self.binding_df.index) - 1 - i
-                    print('  {:3d}: S={:03d} R={:8.6f}'.format(
-                        data_index,
-                        int(self.binding_df.iloc[data_index]['seed']),
-                        self.binding_df.iloc[data_index]['r_best']))
-                if show_plots or save_plots:
-                    self.plot_results(
-                        self.binding_df, log_type="binding", boxplot_on=False,
-                        show_plots=show_plots, save_plots=save_plots)
-        except:
+        except FloatingPointError:
             print("Error when analyzing!")
-            [print("    --> {}".format(warning)) for warning in self.warnings]
+            for warning in self.warnings:
+                print("    --> {}".format(warning))
         print("-------------------------------------\n")
-
-def get_config_files(log_path):
-    # check if config file provided
-    if ".json" in log_path:
-        return [log_path]
-    return glob.glob("{}/*config.json".format(log_path))
 
 
 @click.command()
-@click.argument('log_path', default=None)
-@click.option('--config_file', default="config.json", type=str, help="Name of the config file.")
+@click.argument('config_path', default=None, type=str)
 @click.option('--show_count', default=10, type=int, help="Number of results we want to see from each metric.")
 @click.option('--show_hof', is_flag=True, help='Show Hall of Fame results.')
 @click.option('--show_pf', is_flag=True, help='Show Pareto Front results.')
 @click.option('--show_plots', is_flag=True, help='Generate plots and show results as simple plots.')
 @click.option('--save_plots', is_flag=True, help='Generate plots and safe to log file as simple plots.')
-@click.option('--eval_all', is_flag=True, help='Evaluate all tasks in log directory.')
-def main(log_path, show_count, show_hof, show_pf, show_plots, save_plots, eval_all):
-    # Get config files of tasks
-    configs = get_config_files(log_path)
-    # Check if several tasks exist in log directory
-    if len(configs) > 1 and not eval_all:
-        info_text = ""
-        info_text += "--show_count {}".format(show_count)
-        info_text += " --show_hof" if show_hof else ""
-        info_text += " --show_pf" if show_pf else ""
-        info_text += " --show_plots" if show_plots else ""
-        info_text += " --save_plots" if save_plots else ""
-        print("*** WARNING: Several tasks found! Please indicate how to evaluate:")
-        print("      python -m dsr.logeval {} --eval_all {}".format(log_path, info_text))
-        for config in configs:
-            print("      python -m dsr.logeval {} {}".format(config, info_text))
-        print("***")
-    else:
-        for config in configs:
-            config_file = config.split("/")
-            log = LogEval('/'.join(str(t) for t in config_file[:-1]), config_file[-1])
-            log.analyze_log(
-                show_count=show_count,
-                show_hof=show_hof,
-                show_pf=show_pf,
-                show_plots=show_plots,
-                save_plots=save_plots)
-            if not all([show_hof, show_pf, save_plots]):
-                print("-- BEST USE -------------------------")
-                print("    --> python -m dsr.logeval {} --show_hof --show_pf --save_plots".format(config))
-                print("-------------------------------------\n")
+def main(config_path, show_count, show_hof, show_pf, show_plots, save_plots):
+
+    log = LogEval(config_path)
+    log.analyze_log(
+        show_count=show_count,
+        show_hof=show_hof,
+        show_pf=show_pf,
+        show_plots=show_plots,
+        save_plots=save_plots)
+
 
 if __name__ == "__main__":
     main()

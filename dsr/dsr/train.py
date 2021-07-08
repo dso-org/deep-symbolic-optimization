@@ -4,7 +4,6 @@ import os
 import multiprocessing
 import time
 from itertools import compress
-from collections import defaultdict
 from pathos.multiprocessing import ProcessPool
 
 import tensorflow as tf
@@ -30,18 +29,15 @@ def work(p):
     return optimized_constants, p.r
 
 
-def learn(sess, controller, pool, gp_controller,
-          logdir="./log", n_epochs=None, n_samples=1e6,
-          batch_size=1000, complexity="token",
+def learn(sess, controller, pool, gp_controller, output_file,
+          n_epochs=None, n_samples=1e6, batch_size=1000, complexity="token",
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, save_summary=True,
-          output_file=None, save_all_epoch=False, baseline="ewma_R",
+          save_all_epoch=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
           save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           n_objects=1, save_cache=False, save_cache_r_min=0.9, save_freq=None):
-          # TODO: Let tasks set n_objects, i.e. LunarLander-v2 would set n_objects = 2. For now, allow the user to set it by passing it in here.
-
     """
     Executes the main training loop.
 
@@ -58,8 +54,11 @@ def learn(sess, controller, pool, gp_controller,
         worker should have its own TensorFlow model. If None, a Pool will be
         generated if n_cores_batch > 1.
 
-    logdir : str, optional
-        Name of log directory.
+    gp_controller : dsr.gp.gp_controller.GPController or None
+        GP controller object used to generate Programs.
+
+    output_file : str or None
+        Path to save results each step.
 
     n_epochs : int or None, optional
         Number of epochs to train when n_samples is None.
@@ -96,9 +95,6 @@ def learn(sess, controller, pool, gp_controller,
 
     save_summary : bool, optional
         Whether to write TensorFlow summaries.
-
-    output_file : str, optional
-        Filename to write results for each iteration.
 
     save_all_epoch : bool, optional
         Whether to save all rewards for each iteration.
@@ -186,20 +182,20 @@ def learn(sess, controller, pool, gp_controller,
 
     if debug:
         tvars = tf.trainable_variables()
+
         def print_var_means():
             tvars_vals = sess.run(tvars)
             for var, val in zip(tvars, tvars_vals):
-                print(var.name, "mean:", val.mean(),"var:", val.var())
+                print(var.name, "mean:", val.mean(), "var:", val.var())
 
     # Create the pool of workers, if pool is not already given
     if pool is None:
         if n_cores_batch == -1:
             n_cores_batch = multiprocessing.cpu_count()
         if n_cores_batch > 1:
-            # Use a Pathos pool since newer versions of Program 
-            # give a pickling error
+            # Use pathos pool to avoid pickling error
             # pool = multiprocessing.Pool(n_cores_batch)
-            pool = ProcessPool(nodes = n_cores_batch)            
+            pool = ProcessPool(nodes=n_cores_batch)
 
     # Create the priority queue
     k = controller.pqt_k
@@ -251,7 +247,7 @@ def learn(sess, controller, pool, gp_controller,
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     nevals = 0 # Total number of sampled expressions (from RL or GP)
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
-    logger = StatsLogger(sess, logdir, save_summary, output_file, save_all_epoch, hof, save_pareto_front,
+    logger = StatsLogger(sess, output_file, save_summary, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_cache, save_cache_r_min, save_freq)
 
     for epoch in range(n_epochs):

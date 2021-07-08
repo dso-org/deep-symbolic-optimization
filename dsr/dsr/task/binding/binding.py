@@ -11,15 +11,12 @@ import abag_ml.rl_environment_objects as rl_env_obj
 import vaccine_advance_core.featurization.vaccine_advance_core_io as vac_io
 
 
-def make_binding_task(name, paths, mode, function_set):
+def make_binding_task(paths, mode):
     """
     Factory function for ab/ag binding affinity rewards. 
 
     Parameters
     ----------
-
-    name : str
-        Experiment name.
 
     paths : dict
         Path to files used to run Gaussian Process-based binding environment.
@@ -28,9 +25,6 @@ def make_binding_task(name, paths, mode, function_set):
         Task mode: full or short. Sample the entire sequence = full,
         or sample only the positions that are allowed to mutate = short.
     
-    function_set : list
-        List of possible discrete symbols that can be allocated.
-
     Returns
     -------
 
@@ -150,13 +144,17 @@ def make_binding_task(name, paths, mode, function_set):
         info = {}
         return info
 
+    name = "binding_short" if mode == "short" else "binding_full"
+
     extra_info = {"menu_file": paths['menu_file'],
                   "mode": mode}
+
     task = dsr.task.Task(reward_function=reward,
                          evaluate=evaluate,
                          library=library,
                          stochastic=False,
                          task_type='binding',
+                         name=name
                          extra_info=extra_info)
 
     return task

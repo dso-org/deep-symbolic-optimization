@@ -7,7 +7,7 @@ from dsr.functions import create_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
 
 
-def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
+def make_regression_task(function_set, dataset, metric="inv_nrmse",
     metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
     reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
     normalize_variance=False, protected=False):
@@ -18,16 +18,14 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
     Parameters
     ----------
-    name : str or None
-        Name of regression benchmark, if using benchmark dataset.
-
     function_set : list or None
         List of allowable functions. If None, uses function_set according to
         benchmark dataset.
 
     dataset : dict, str, or tuple
         If dict: .dataset.BenchmarkDataset kwargs.
-        If str: filename of dataset.
+        If str ending with .csv: filename of dataset.
+        If other str: name of benchmark dataset.
         If tuple: (X, y) data
 
     metric : str
@@ -68,30 +66,36 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
 
     X_test = y_test = y_test_noiseless = None
 
+    # Shortcut for named benchmark dataset
+    if isinstance(dataset, str) and not dataset.endswith(".csv"):
+        dataset = {"name" : dataset}
+
     # Benchmark dataset config
     if isinstance(dataset, dict):
-        dataset["name"] = name
         benchmark = BenchmarkDataset(**dataset)
         X_train = benchmark.X_train
         y_train = benchmark.y_train
         X_test = benchmark.X_test
         y_test = benchmark.y_test
         y_test_noiseless = benchmark.y_test_noiseless
+        name = benchmark.name
 
         # Unless specified, use the benchmark's default function_set
         if function_set is None:
             function_set = benchmark.function_set
 
     # Dataset filename
-    elif isinstance(dataset, str):
+    elif isinstance(dataset, str) and dataset.endswith("csv"):
         df = pd.read_csv(dataset, header=None) # Assuming data file does not have header rows
         X_train = df.values[:, :-1]
         y_train = df.values[:, -1]
+        name = dataset.replace("/", "_")[:-4]
 
     # sklearn-like (X, y) data
     elif isinstance(dataset, tuple):
         X_train = dataset[0]
         y_train = dataset[1]
+        name = "regression"
 
     if X_test is None:
         X_test = X_train
@@ -212,6 +216,7 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
                 library=library,
                 stochastic=stochastic,
                 task_type='regression',
+                name=name,
                 extra_info=extra_info)
 
     return task
