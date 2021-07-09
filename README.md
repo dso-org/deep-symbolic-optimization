@@ -1,242 +1,193 @@
-# Deep symbolic regression
+_Update July 9, 2021_: This repository now supports an additional symbolic optimization task: learning symbolic policies for reinforcement learning. The repository itself has also been renamed; however, Github automatically handles all web-based and `git` command redirects to use the new URL.
 
-Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regression--recovering tractable mathematical expressions from an input dataset. The package `dsr` contains the code for DSR, including a single-point, parallelized launch script (`dsr/run.py`), baseline genetic programming-based symbolic regression algorithm, and scripts to reproduce results and figures from the paper.
+# Deep symbolic optimization
+
+Deep symbolic optimization (DSO) is a deep learning framework for symbolic optimization tasks. The package `dso` includes the core symbolic optimization algorithms, as well as support for two particular symbolic optimization tasks: (1) _symbolic regression_ (recovering tractable mathematical expressions from an input dataset) and (2) discovering _symbolic policies_ for reinforcement learning environments. In the code, these tasks are referred to as `regression` and `control`, respectively. We also include a simple interface for defining new tasks.
+
+This repository contains code supporting the following publications:
+1. Petersen et al. 2021 **Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients.** *ICLR 2021.* [Oral](https://iclr.cc/virtual/2021/poster/2578) [Paper](https://openreview.net/forum?id=m5Qsh0kBQG)
+2. Landajuela et al. 2021 **Discovering symbolic policies with deep reinforcement learning.** *ICML 2021.* [Paper](http://proceedings.mlr.press/v139/landajuela21a/landajuela21a.pdf)
+3. Landajuela et al. 2021 **Improving exploration in policy gradient search: Application to symbolic optimization.** *Math-AI @ ICLR 2021.* [Oral]() [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_16_paper.pdf) [Poster](https://mathai-iclr.github.io/papers/posters/MATHAI_16_poster.png)
+4. Petersen et al. 2021 **Incorporating domain knowledge into neural-guided search via *in situ* priors and constraints** *AutoML @ ICML 2021.* [Paper]()
+5. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
+6. Kim et al. 2020 **An interactive visualization platform for deep symbolic regression.** *IJCAI 2020.* [Paper](https://www.ijcai.org/Proceedings/2020/0763.pdf)
 
 # Installation
 
-From the repository root:
+### Installation - core package
+
+The core package has been tested on Python3.6+ on Unix and OSX. To install the core package (and the default `regression` task), we highly recommend first creating a Python 3 virtual environment, e.g.
 
 ```
 python3 -m venv venv3 # Create a Python 3 virtual environment
-source venv3/bin/activate # Activate the virtual environmnet
+source venv3/bin/activate # Activate the virtual environment
+```
+Then, from the repository root:
+```
+pip install --upgrade pip
 pip install -r requirements.txt # Install Python dependencies
 export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
-pip install -e ./dsr # Install DSR package
-```
-Note: To install in LC, use `Python 3.6.4`. You can do:
-```
-python3-3.6.4 -m venv venv3 # Create a Python 3.6.4 virtual environment
+pip install -e ./dso # Install DSO package
 ```
 
-To install additional dependencies only needed for reproducing figures from the paper:
+### Installation - `regression` task
+There are no additional dependencies to run the `regression` task.
 
+### Installation - `control` task
+There are a few additional dependencies to run the `control` task. Install them using:
 ```
-pip install -r requirements_plots.txt
-```
-
-# Example usage
-
-To try out `dsr` after installing the package use the following command from anywhere:
-
-```
-python -m dsr.run
-```
-
-This runs the solver on the `Nguyen-1` task and solves quickly in under 100 training epochs (~60 seconds on a laptop).
-
-Additional examples and how to define individual configurations can be found in `./dsr/dsr/config/examples/`.
-
-# Reproducing paper results
-
-Results from the paper can be exactly reproduced using the following commands. First, `cd` into the `paper` directory.
-
-To reproduce hyperparameter sweeps:
-
-```
-python setup_sweep.py # Generate config files and shell scripts to run hyperparameter sweeps
-./run_sweep_dsr.sh # Run DSR hyperparameter sweep
-./run_sweep_gp.sh # Run GP hyperparameter sweep
-```
-
-To reproduce DSR vs GP performance comparisons:
-
-```
-./run_Nguyen_dsr.sh # Run DSR on Nguyen benchmarks
-./run_Nguyen_gp.sh # Run GP on Ngueyn benchmarks
-./run_Constant_dsr.sh # Run DSR on Constant benchmarks
-./run_Constant_gp.sh # Run GP on Constant benchmarks
-```
-
-To reproduce ablation studies:
-
-```
-python setup_ablations.py # Generate config files and shell scripts to run ablation experiments
-./run_ablations.sh # Run DSR ablations
-```
-
-To reproduce noise and dataset size studies:
-
-```
-python setup_noise.py # Generate config files and shell scripts to run noise and dataset size experiments
-./run_noise_dsr.sh # Run DSR for various noise levels and dataset sizes
-./run_noise_gp.sh # Run GP for various noise levels and dataset sizes
-```
-
-To execute DSP (Deep Symbolic Policy) algorithm:
-In config.json, set "training"->"env_params"->"set_dsp" as true
-
-```
-./run_dsp.exe # Run DSP for gym environment defined as in config.json
-```
-
-Figures and tables from the paper can be reproduced using the following scripts after having run the relevant experiments:
-
-```
-python plot_table.py # Generate Table 1 contents (DSR vs GP performance comparison)
-python plot_distributions.py 0 # Generate Figure 2 (risk-seeking vs standard policy gradients for Nguyen-8)
-python plot_ablations.py # Generate Figure 3 (ablations barplots)
-python plot_noise.py # Generate Figure 4 (noise and dataset size comparison)
-python plot_training.py # Generate Figures 5 and 6 (training curves)
-python plot_distributions.py 1 # Generate Figures 7 and 8 (risk-seeking vs standard policy gradients for all Nguyen benchmarks)
+pip install -r requirements_control.txt
 ```
 
 # Getting started
 
-## Configuring runs
+DSO relies on configuring runs via JSON file, then launching them via a simple command-line or a few lines of Python.
 
-`dsr` uses JSON files to configure training.
+### Method 1: Running DSO via command-line interface
 
-Top-level key "dataset" specifies details of the benchmark expression for DSR or GP. See docs in `dataset.py` for details.
-
-Top-level key "training" specifies the training hyperparameters for DSR. See docs in `train.py` for details.
-
-Top-level key "controller" specifies the RNN controller hyperparameters for DSR. See docs for in `controller.py` for details.
-
-Top-level key "gp" specifies the hyperparameters for GP. See docs in `baselines/gpsr.py` for details.
-
-## Launching runs
-
-After configuring a run, launching it is simple:
-
+After creating your config file, simply run:
 ```
-python -m dsr.run [PATH_TO_CONFIG] [--OPTIONS]
+python -m dso.run path/to/config.json
 ```
+After training, results are saved to a timestamped directory in the path given in `config["training"]["logdir"]` (default `./log`).
 
-## Examples
+### Method 2: Running DSO via Python interface
 
-### Show command-line help and quit
-
+The Python interface lets users instantiate and customize DSO models via Python scripts, an interactive Python shell, or an iPython notebook. The core DSO model is `dso.core.DeepSymbolicOptimizer`. After creating your config file, you can use:
 ```
-python -m dsr.run --help
-```
+from dso import DeepSymbolicOptimizer
 
-### Train 2 indepdent runs of DSR on Nguyen-1 using 2 cores
-
+# Create and train the model
+model = DeepSymbolicOptimizer("path/to/config.json")
+model.train()
 ```
-python -m dsr.run --b=Nguyen-1 --mc=2 --n_cores_task=2
-```
+After training, results are saved to a timestamped directory in the path given in `config["training"]["logdir"]` (default `./log`).
 
-### Train DSR on all Nguyen benchmarks using 12 cores
+### Configuring runs
 
-```
-python -m dsr.run --b=Nguyen... --n_cores_task=12
-```
+A single JSON file is used to configure each run. This file specifies the symbolic optimization task and all hyperparameters. 
 
-### Train 2 independent runs of GP on Nguyen-1
+Each configuration JSON file has a number of top-level keys that control various parts of the DSO framework. The important top-level keys are:
+* `"experiment"` configures the experiment, namely the log directory and random number seed.
+* `"task"` configures the task, e.g. the dataset for symbolic regression, or the Gym environment for the `control` task. See below for task-specific configuration.
+* `"training"` configures training hyperparameters like `"n_samples"` (the total number of samples to generate) and `"epsilon"` (the risk factor used by the risk-seeking policy gradient).
+* `"controller"` configures RNN hyperparameters like `"learning_rate"` and `"num_layers"`.
+* `"prior"` configures the priors and constraints on the search space.
 
-```
-python -m dsr.run --method=gp --b=Nguyen-1 --mc=2 --n_cores_task=2
-```
+Any parameters parameters not included in your config file assume default values found in `config/config_common.json`, `config/config_regression.json` (for `regression` runs), and `config/config_control.json` (for `control` runs).
 
-### Train DSR on Nguyen-1 and Nguyen-4
+##### Configuring runs for symbolic regression
 
-```
-python -m dsr.run --b=Nguyen-1 --b=Nguyen-4
-```
+Here are simple example contents of a JSON file for the `regression` task:
 
-## Using an external dataset
-
-- Create a directory `DATAPATH` with your data in your input deck :  `Dataset1.csv`, `Dataset2.csv`,...
-- Point to that directory in your configuration file  `base.json`:
-```
-   "task": {
-      "task_type": "regression",
-      "name": null,
-      "dataset": {
-         "file": "benchmarks.csv",
-         "name": null,
-         "noise": null,
-         "extra_data_dir": "DATAPATH",
-         "function_set": [ 
-...
-...
-```
-- Call `dsr` by:
-```
-python -m dsr.run base.json --method=dsr --mc=50 --n_cores_task=24 --b=Dataset1 --output_filename run_stats_Nguyen-12_mp.1.csv
-```
-Note the `--b` flag matches the name of the CSV file (-`.csv` ) : `Dataset1.csv`
-
-
-## Summary and evaluation of a log path
-
-With this tool one can easily get a summary of the executed experiment that is generated from the log files.
-If plots are generated they will be placed in the same log directory.
-### Program integration
-Printing the summary is automatically turned on as well as plotting the curves for HoF and PF if they are logged.
-Can be changed in your config file:
 ```
 {
-   ...
-   "postprocess": {
-      "show_count" : 5,
-      "save_plots" : true
-   },
-   ...
+  "task" : {
+    "task_type" : "regression",
+    "dataset" : "path/to/my_dataset.csv",
+    "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
+  }
 }
 ```
-### Commandline usage
+This configures DSO to learn symbolic expressions to fit your custom dataset, using the tokens specified in `function_set` (see `dso/functions.py` for a list of supported tokens).
 
-```
-python -m dsr.logeval path_to_log_directory --show_count 10 --show_hof --show_pf --save_plots --show_plots --eval_all
-```
-or
-```
-python -m dsr.logeval path_to_log_config_file --show_count 10 --show_hof --show_pf --save_plots --show_plots
-```
-### Jupyter notebook usage
-```
-from dsr.logeval import LogEval
-log = LogEval(path_to_log_directory, config_file)
-log.analyze_log(show_count=10, show_hof=True, show_pf=True, show_plots=True)
-```
+If you want to include optimized floating-point constants in the search space, simply add `"const"` to the `function_set` list. Note that constant optimization uses an inner-optimization loop, which leads to much longer runtimes (~hours instead of ~minutes).
 
-# Generating log files
+##### Configuring runs for learning symbolic control policies
 
-You can turn on/off the generation of log files through `config.json`:
+Here's a simple example for the `control` task:
 ```
 {
-   ...
-   "training": {
-      "logdir": "./log",
-      "hof": 100,
-      "save_summary": true,
-      "save_all_epoch": true,
-      "save_positional_entropy": true,
-      "save_pareto_front": true,
-      "save_cache": true,
-      "save_cache_r_min": 0.9,
-      "save_freq": 50
-   },
-   ...
+  "task" : {
+    "task_type" : "control",
+    "env" : "MountainCarContinuous-v0",
+    "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 1.0, 5.0, 10.0]
+    }
+  }
 }
 ```
-`logdir`: folder where the log files are saved.
+This configures DSO to learn a symbolic policy for MountainCarContinuous-v0, using the tokens specified in `function_set` (see `dso/functions.py` for a list of supported tokens).
 
-`hof`: Number of programs from the "Hall of fame" (best all times programs) to be included in the log file.
+For environments with multi-dimensional action spaces, DSO requires a pre-trained "anchor" policy. DSO is run once per action dimension, and the `"action_spec"` parameter is updated each run. For an environment with `N` action dimesions, `"action_spec"` is a list of length `N`. A single element should be `null`, meaning that is the symbolic action to be learned. Any number of elements can be `"anchor"`, meaning the anchor policy will determine those actions. Any number of elements can be expression traversals (e.g. `["add", "x1", "x2"]`), meaning that fixed symbolic policy will determine those actions.
 
-`save_summary`: Whether to store Tensorflow [summaries](https://www.tensorflow.org/api_docs/python/tf/summary)
+Here's an example workflow for HopperBulletEnv-v0, which has three action dimensions. First, learn a symbolic policy for the first action by running DSO with a config like:
+```
+{
+  "task" : {
+    "task_type" : "control",
+    "name" : "HopperBulletEnv-v0",
+    "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 1.0, 5.0, 10.0],
+    "action_spec" : [null, "anchor", "anchor"],
+    "anchor" : "path/to/anchor.pkl"
+    }
+  }
+}
+```
+where `"path/to/anchor.pkl"` is a path to a `stable_baselines` model. (The environments used in the ICML paper have default values for `anchor`, so you do not have to specify one.) After running, let's say the best expression has traversal `["add", "x1", "x2"]`. To launch the second round of DSO, update the config's `action_spec` to use the fixed symbolic policy for the first action, learn a symbolic policy for the second action, and use the anchor again for the third action:
+```
+"action_spec" : [["add", "x1", "x2"], null, "anchor"]
+```
+After running DSO, say the second action's traversal is ["div", "x3", "x4"]. Finally, update the `action_spec` to:
+```
+"action_spec" : [["add", "x1", "x2"], ["div", "x3", "x4"], null]
+```
+and rerun DSO. The final result is a fully symbolic policy.
 
-`save_all_epoch`: Whether to store statistics for all programs sampled throughout the training process (might result in huge files). 
+# Sklearn interface
 
-`save_positional_entropy`: Whether to save the evolution of positional entropy for each iteration into a `.npy` dump file.
+The `regression` task supports an additional [`sklearn`-like regressor interface](https://scikit-learn.org/stable/modules/generated/sklearn.base.RegressorMixin.html) to make it easy to try out deep symbolic regression on your own data:
+```
+from dso import DeepSymbolicRegressor
 
-`save_pareto_front`: Whether to save a file listing all the programs in the pareto front.
+# Generate some data
+np.random.seed(0)
+X = np.random.random((10, 2))
+y = np.sin(X[:,0]) + X[:,1] ** 2
 
-`save_cache`: Whether to save the str, count, and r of each program in the cache.
+# Create the model
+model = DeepSymbolicRegressor() # Alternatively, you can pass in your own config JSON path
 
-`save_cache_r_min`: If not null, only keep Programs with r >= r_min when saving cache.
+# Fit the model
+model.fit(X, y) # Should solve in ~10 seconds
 
-`save_freq`: Frequency (in epochs) to output results to files. They will be kept in a memory buffer meanwhile.
+# View the best expression
+print(model.program_.pretty())
 
-For explanations of specific fields inside those files, read the comments in `dsr/dsr/train_stats.py`
+# Make predictions
+model.predict(2 * X)
+
+```
+
+# Analyzing results
+
+Each run of DSO saves a timestamped log directory in `config["training"]["logdir"]`. Inside this directory is:
+* `dso_ExperimentName_0.csv`: This file contains batch-wise summary statistics for each epoch. The suffix `_0` means the random number seed was 0. (See "Advanced usage" for batch runs with multiple seeds.)
+* `dso_ExperimnetName_0_summary.csv`: This file contains summary statistics for the entire training run.
+* `dso_ExperimnetName_0_hof.csv`: This file contains statistics of the "hall of fame" (best sequences discovered during training). Edit `config["training"]["hof"] to set the number of hall-of-famers to record.
+* `dso_ExperimnetName_0_pf.csv`: This file contains statistics of the Pareto front of sequences discovered during training. This is a reward-complexity front.
+* `config.json`: This is a "dense" version of the configuration used for your run. It explicitly includes all parameters.
+* `cmd.out`: This is the CLI command to reproduce your experiment.
+
+# Advanced usage
+
+## Batch runs
+DSO's command-line interface supports a `multiprocessing`-parallelized batch mode to run multiple tasks in parallel. This is recommended for large runs. Batch-mode DSO is launched with:
+
+```
+python -m dso.run path/to/config.json [--mc] [--n_cores_task] [--b]
+```
+
+The option `--mc` (default `1`) defines how many independent tasks (with different random number seeds) to perform. The `regression` task is computationally expedient enough to run multiple tasks in parallel. For the `control` task, we recommend running with the default `--mc=1`.
+
+The option `--n_cores_task` (default `1`) defines how many parallel processes to use across the `--mc` tasks. Each task is assigned a single core, so `--n_cores_task` should be less than or equal to `--mc`. (To use multiple cores _within_ a single task, i.e. to parallelize reward computation, see the `n_cores_batch` configuration parameter.)
+
+By default, DSO will use the task specification found in the configuration JSON. The option `--b` (default `None`) is used to specify the named task(s) via command-line. For example, `--b=path/to/mydata.csv` runs DSO on the given dataset (`regression` task), and `--b=MountainCarContinuous-v0` runs the environment MountainCarContinuous-v0 (`control` task). This is useful for running benchmark problems.
+
+For example, to train 100 independent runs of DSR on the Nguyen-1 benchmark using 12 cores:
+```
+python -m dso.run --b=Nguyen-1 --mc=100 --n_cores_task=12
+```
+
+# Release
+
+LLNL-CODE-647188
