@@ -1,4 +1,3 @@
-import json
 import pytest
 
 from dsr.core import DeepSymbolicOptimizer
@@ -20,10 +19,3 @@ def test_task_execution(config_file):
                                   })
     model.config_task['paths']['use_gpu'] = False
     model.train()
-
-
-if __name__ == '__main__':
-
-    config = json.load(open("test/binding_task/data/no_lm_prior/config_short.json", 'rb'))
-    m = DeepSymbolicOptimizer(config)
-    m.train()

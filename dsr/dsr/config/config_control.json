@@ -1,24 +1,85 @@
 {
    "task" : {
+      // Deep Symbolic Policy
       "task_type" : "control",
-      "env" : "CustomCartPoleContinuous-v0",
+
+      // Name of your environment. The argument is similar to what you'd use for
+      // gym.make(). To use a custom environment, use "mymodule:MyEnv-v0", where
+      // MyEnv-v0 is expected to be registered to gym upon importing mymodule.
+      "env" : "MountainCarContinuous-v0",
+
+      // This list specifies which action is to be learned symbolically (null),
+      // which ones should use the anchor model ("anchor"), and which ones
+      // should use previously learned symbolic policies (str representing the
+      // expression).
       "action_spec" : [null],
+
+      // Number of episodes to average per reward computation.
       "n_episodes_train" : 5,
+
+      // Number of test episodes to average to determine the best policies.
       "n_episodes_test" : 10,
+
+      // Early stopping is triggered if all test episode's episodic rewards are
+      // >= success_score.
       "success_score": 1000.0,
+
+      // Allowed functions. See functions.py for a list of supported functions.
+      // Hard-coded constants can be combined to form new constants. The use of
+      // the placeholder constant "const" is supported but is likely
+      // prohibitively expensive for the control task, so is not recommended.
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
+
+      // With protected=false, floating-point errors (e.g. log of negative
+      // number) may occur, in which case the action is set to 0 for that
+      // timestep. With protected=true, "protected" functions will prevent
+      // floating-point errors, but may introduce discontinuities in the learned
+      // functions.
       "protected" : false,
+
+      // If true, each reward computation will use the same set of seeds (via
+      // env.seed()). This is useful because it renders the task deterministic.
+      // However, it can introduce bias if the seeds aren't representative of
+      // the whole environment.
       "fix_seeds" : true,
+
+      // If fix_seeds=True, this shifts the seeds used each episode, which
+      // changes the reward function from run to run. If fix_seeds=false, this
+      // has no effect.
       "episode_seed_shift" : 0,
+
+      // If your env has kwargs, they can go here.
       "env_kwargs" : {},
+
+      // A list of [r_min, r_max] for your environment, used to rescale rewards
+      // to roughly [0, 1]. If true, it uses precomputed [r_min, r_max] for
+      // environments supported in control.py. If false, reward scaling is not
+      // used.
       "reward_scale" : true
    },
+
+   // Only the key training hyperparameters are listed here. See
+   // config_common.json for the full list.
    "training" : {
       "n_samples": 2000,
       "batch_size": 20,
       "epsilon": 0.05,
-      "baseline": "R_e"
+
+      // Recommended to set this to as many cores as you can use!
+      "n_cores_batch" : 1
    },
+
+   // Only the key RNN controller hyperparameters are listed here. See
+   // config_common.json for the full list.
+   "controller" : {
+      "learning_rate" : 0.001,
+      "entropy_weight" : 0.03,
+      "entropy_gamma" : 0.7
+   },
+
+   // Hyperparameters related to including in situ priors and constraints. Each
+   // prior must explicitly be turned "on" or it will not be used. See
+   // config_common.json for descriptions of each prior.
    "prior": {
       "length" : {
          "min_" : 4,
@@ -35,6 +96,14 @@
          "on" : true
       },
       "no_inputs" : {
+         "on" : true
+      },
+      "uniform_arity" : {
+         "on" : true
+      },
+      "soft_length" : {
+         "loc" : 10,
+         "scale" : 5,
          "on" : true
       }
    }

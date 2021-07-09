@@ -4,16 +4,15 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
+from pkg_resources import resource_filename
 import re
-import click
 import glob
-import json
 import os
+
+import click
 import pandas as pd
 import seaborn as sns
-
-from pkg_resources import resource_filename
-
+import commentjson as json
 from matplotlib import pyplot as plt
 
 class LogEval():
