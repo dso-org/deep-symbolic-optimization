@@ -25,7 +25,7 @@ def main():
     mc = 8
     n_cores_task = 16
 
-    sweep_dsr = {
+    sweep_dso = {
         "training" : {
             "batch_size" : [250, 500, 1000],
             "epsilon" : [0.05, 0.1, 0.15]
@@ -45,8 +45,8 @@ def main():
         }
     }
 
-    methods = ["dsr", "gp"]
-    sweeps = [sweep_dsr, sweep_gp]
+    methods = ["dso", "gp"]
+    sweeps = [sweep_dso, sweep_gp]
 
     for method, sweep in zip(methods, sweeps):
 
@@ -84,7 +84,7 @@ def main():
         
             with open(run_file, 'a') as f:
                 only = " ".join(["--b=Nguyen-{}".format(b) for b in benchmarks])
-                cmd = "time python -m dsr.run {} --method={} {} --mc={} --n_cores_task={}\n".format(path, method, only, mc, num_cores)
+                cmd = "time python -m dso.run {} --method={} {} --mc={} --n_cores_task={}\n".format(path, method, only, mc, num_cores)
                 f.write(cmd)
 
         # Make the run file executable
