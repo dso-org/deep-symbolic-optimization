@@ -30,7 +30,10 @@ class Task:
         Whether the reward function of the task is stochastic.
 
     task_type : str
-        Task type: regression, control or binding
+        Task type: regression, control or binding.
+
+    name : str
+        Unique name for instance of this task.
 
     extra_info : dict
         Extra task-specific info, e.g. reference to symbolic policies for
@@ -42,6 +45,7 @@ class Task:
     library: Library
     stochastic: bool
     task_type: str
+    name: str
     extra_info: Dict[str, Any]
 
 
@@ -59,9 +63,7 @@ def make_task(task_type, **config_task):
         "binding": AbAg binding affinity optimization task.
 
     config_task : kwargs
-        Task-specific arguments. See specifications of task_dict. Special key
-        "name" is required, which defines the benchmark (i.e. dataset for
-        regression; environment for control).
+        Task-specific arguments. See specifications of task_dict.
 
     Returns
     -------

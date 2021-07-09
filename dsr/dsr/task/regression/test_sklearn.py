@@ -9,7 +9,7 @@ from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 
 @pytest.fixture
 def model():
-    return DeepSymbolicRegressor("config.json")
+    return DeepSymbolicRegressor()
 
 
 def test_task(model):

@@ -1,10 +1,13 @@
+import numpy as np
+
 from dsr.program import from_str_tokens
 from dsr.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dsr.test.test_core import model
-import numpy as np
+
 
 def test_multiobject_output(model):
-    # update and setup model
+
+    # Update and setup model
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.setup()
 

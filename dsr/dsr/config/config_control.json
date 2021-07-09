@@ -1,19 +1,23 @@
 {
    "task" : {
       "task_type" : "control",
-      "method" : "dsr",
-      "name" : "CustomCartPoleContinuous-v0",
+      "env" : "CustomCartPoleContinuous-v0",
       "action_spec" : [null],
       "n_episodes_train" : 5,
       "n_episodes_test" : 10,
       "success_score": 1000.0,
       "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
-      "stochastic" : true,
       "protected" : false,
-      "fix_seeds" : false,
+      "fix_seeds" : true,
       "episode_seed_shift" : 0,
       "env_kwargs" : {},
       "reward_scale" : true
+   },
+   "training" : {
+      "n_samples": 2000,
+      "batch_size": 20,
+      "epsilon": 0.05,
+      "baseline": "R_e"
    },
    "prior": {
       "length" : {
@@ -33,33 +37,5 @@
       "no_inputs" : {
          "on" : true
       }
-   },
-   "training" : {
-      "n_epochs" : null,
-      "n_samples": 2000,
-      "batch_size": 20,
-      "complexity": "token",
-      "const_optimizer": "scipy",
-      "const_params": {},
-      "alpha": 0.5,
-      "epsilon": 0.05,
-      "verbose": true,
-      "baseline": "R_e",
-      "b_jumpstart": false,
-      "n_cores_batch": 1,
-      "debug": 0,
-      "output_file": null,
-      "early_stopping": true,
-      "hof": 100,
-      "use_memory": true,
-      "memory_capacity": 1e3,
-      "warm_start": null,
-      "memory_threshold": null,
-      "save_all_epoch": false,
-      "save_summary": false,
-      "save_positional_entropy": false,
-      "save_pareto_front": false,
-      "save_cache": false,
-      "save_freq": 1
    }
 }
