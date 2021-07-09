@@ -60,7 +60,7 @@ def main():
 
         # Add the experiment to the run file
         with open(run_file, 'a') as f:
-            f.write("time python -m dsr.run ./config/dist/{}.json --method=dsr --b=Nguyen --mc=100 --n_cores_task=24\n".format(name))
+            f.write("time python -m dso.run ./config/dist/{}.json --method=dso --b=Nguyen --mc=100 --n_cores_task=24\n".format(name))
 
 
 if __name__ == "__main__":

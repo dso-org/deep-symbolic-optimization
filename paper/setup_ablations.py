@@ -69,7 +69,7 @@ ablations = {
         "controller:constrain_min_len" : False,
         "controller:constrain_max_len" : False
     },
-    "full" : {}, # No ablations; DSR
+    "full" : {}, # No ablations; dso
 }
 
 
@@ -115,7 +115,7 @@ def main():
 
         # Add the ablation to the run file
         with open(run_file, 'a') as f:
-            f.write("time python -m dsr.run ./config/ablations/{}.json --method=dsr --b=Nguyen --mc=10 --seed_shift={} --n_cores_task=24\n".format(name, ABLATIONS_SEED_SHIFT))
+            f.write("time python -m dso.run ./config/ablations/{}.json --method=dso --b=Nguyen --mc=10 --seed_shift={} --n_cores_task=24\n".format(name, ABLATIONS_SEED_SHIFT))
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Plot training curves for DSR and GP."""
+"""Plot training curves for dso and GP."""
 
 import os
 import re
@@ -11,7 +11,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, inset_axes, mark_inset
 
-LOGDIR = "./log/dsr_vs_gp/" # Directory containing results
+LOGDIR = "./log/dso_vs_gp/" # Directory containing results
 PREFIX = "plots" # Directory to save plots
 FONTSIZE = 8
 NROWS = 4
@@ -27,13 +27,13 @@ def main():
 
     os.makedirs(PREFIX, exist_ok=True)
 
-    methods = ["gp", "dsr"]
+    methods = ["gp", "dso"]
     benchmarks = ["Nguyen-{}".format(i) for i in range(1, 13)] + ["Constant-{}".format(i) for i in range(1, 4)]
-    labels = {"gp" : "GP", "dsr" : "DSR"}
-    colors = {"gp" : "C1", "dsr" : "C0"}
+    labels = {"gp" : "GP", "dso" : "dso"}
+    colors = {"gp" : "C1", "dso" : "C0"}
 
-    best = {"gp" : [], "dsr" : []} # Best so far
-    correct = {"gp" : [], "dsr" : []} # Fraction correct so far
+    best = {"gp" : [], "dso" : []} # Best so far
+    correct = {"gp" : [], "dso" : []} # Fraction correct so far
     data = {"best" : best, "correct" : correct}
     data = [deepcopy(data) for _ in benchmarks]
 
@@ -43,7 +43,7 @@ def main():
 
     # Constant correctness was determined by manual inspection of the symbolic expression
     # To get a threshold, check the manual correctness and retrieve the corresponding best reward
-    thresholds = {"dsr" : [], "gp" : []}
+    thresholds = {"dso" : [], "gp" : []}
     for method in methods:
         path = os.path.join(LOGDIR, method, "benchmark_{}_Constant.csv".format(method))
         summary = pd.read_csv(path)
@@ -92,27 +92,27 @@ def main():
 
 
     for i, b in enumerate(benchmarks):
-        print("Reading DSR and GP data for benchmark {}...".format(b))
+        print("Reading dso and GP data for benchmark {}...".format(b))
         for mc in range(MC):
 
             if "Constant" in b and mc >= MC_CONSTANT:
                 continue
 
-            # Load DSR data
-            filename = "dsr_{}_{}.csv".format(b, mc)
-            path = os.path.join(LOGDIR, "dsr", filename)
+            # Load dso data
+            filename = "dso_{}_{}.csv".format(b, mc)
+            path = os.path.join(LOGDIR, "dso", filename)
             df = pd.read_csv(path)        
             best = df["base_r_best"].values # Best reward
             nmse = df["nmse_best"].values # Best NMSE on test set
             nrmse = np.sqrt(nmse)
-            THRESHOLD = get_nrmse_threshold("dsr", b, mc, nrmse)
+            THRESHOLD = get_nrmse_threshold("dso", b, mc, nrmse)
             best[nrmse <= THRESHOLD] = 1.0
             correct = nrmse <= THRESHOLD
-            data[i]["best"]["dsr"].append(best)
-            data[i]["correct"]["dsr"].append(correct)
+            data[i]["best"]["dso"].append(best)
+            data[i]["correct"]["dso"].append(correct)
 
             # Load corresponding GP data
-            filename = filename.replace("dsr", "gp")
+            filename = filename.replace("dso", "gp")
             path = os.path.join(LOGDIR, "gp", filename)
             df = pd.read_csv(path)
             nmse = df["fit_best"].values[1:] # Skip initial row (before first GP update)
@@ -130,7 +130,7 @@ def main():
     if early_stopping:
         for method in methods:
             for i in range(len(benchmarks)):
-                N = 4000 if method == "dsr" else 2000 # Number of iterations/generations
+                N = 4000 if method == "dso" else 2000 # Number of iterations/generations
                 if i >= 12:
                     N = N // 2
                 for j in range(len(data[i]["best"][method])):
