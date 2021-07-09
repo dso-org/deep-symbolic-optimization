@@ -11,5 +11,6 @@ deap
 dataclasses
 pathos
 seaborn
+commentjson
 progress
 tqdm

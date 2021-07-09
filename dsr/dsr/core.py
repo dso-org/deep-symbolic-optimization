@@ -5,7 +5,6 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 
 import os
 import zlib
-import json
 from collections import defaultdict
 from multiprocessing import Pool
 import random
@@ -14,6 +13,7 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
+import commentjson as json
 
 from dsr.task import set_task
 from dsr.controller import Controller

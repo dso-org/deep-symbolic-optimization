@@ -1,5 +1,6 @@
-import json
 import os
+
+import commentjson as json
 
 from dsr.utils import safe_merge_dicts
 
