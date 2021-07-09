@@ -132,7 +132,6 @@ class Controller(object):
     max_length : int or None
         Maximum sequence length. This will be overridden if a LengthConstraint
         with a maximum length is part of the prior.
-
     """
 
     def __init__(self, sess, prior, debug=0, summary=True,
@@ -166,16 +165,12 @@ class Controller(object):
                  pqt_weight=200.0,
                  pqt_use_pg=False,
                  # Other hyperparameters
-                 max_length=None,
-                 off_policy_stats=False):
+                 max_length=None):
 
         self.sess = sess
         self.prior = prior
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
-
-        # Set to true for on/off policy stat differences
-        self.off_policy_stats = off_policy_stats
 
         lib = Program.library
 
@@ -501,21 +496,6 @@ class Controller(object):
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
                         
             neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
-    
-            # print some basic stats between on policy and off policy results
-            if self.off_policy_stats:
-                neglogp_off_policy      = tf.gather(neglogp, tf.where(tf.equal(B.on_policy,0)))
-                neglogp_on_policy       = tf.gather(neglogp, tf.where(tf.equal(B.on_policy,1)))
-                
-                neglogp_off_policy_std  = tf.math.reduce_std(neglogp_off_policy)
-                neglogp_on_policy_std   = tf.math.reduce_std(neglogp_on_policy)            
-                
-                neglogp_off_policy_mean = tf.reduce_mean(neglogp_off_policy)
-                neglogp_on_policy_mean  = tf.reduce_mean(neglogp_on_policy)
-                
-                neglogp                 = tf.Print(neglogp, [neglogp_on_policy_mean, neglogp_on_policy_std],   "Neglogp On Policy ",  summarize=100)
-                neglogp                 = tf.Print(neglogp, [neglogp_off_policy_mean, neglogp_off_policy_std], "Neglogp Off Policy ", summarize=100)
-
             
             # NOTE 1: The above implementation is the same as the one below:
             # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
