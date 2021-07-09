@@ -129,7 +129,7 @@ def make_control_task(function_set, env, action_spec, algorithm=None,
     if "anchor" in action_spec:
         # Load custom anchor, if provided, otherwise load default
         if algorithm is not None and anchor is not None:
-            U.load_model(algorithm, anchor_path)
+            U.load_model(algorithm, anchor)
         else:
             U.load_default_model(env_name)
         model = U.model
