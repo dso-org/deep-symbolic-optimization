@@ -16,7 +16,7 @@ import dsr.gp.utils as U
 class GPController:
 
     def __init__(self, prior, verbose=False, generations=20, p_crossover=0.5,
-                 p_mutate=0.5, tournament_size=3, mutate_tree_max=2, train_n=50,
+                 p_mutate=0.5, tournament_size=5, mutate_tree_max=3, train_n=50,
                  parallel_eval=False):
         """
         Parameters

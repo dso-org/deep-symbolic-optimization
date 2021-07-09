@@ -30,14 +30,14 @@ def work(p):
 
 
 def learn(sess, controller, pool, gp_controller, output_file,
-          n_epochs=None, n_samples=1e6, batch_size=1000, complexity="token",
-          const_optimizer="minimize", const_params=None, alpha=0.1,
-          epsilon=0.01, n_cores_batch=1, verbose=True, save_summary=True,
-          save_all_epoch=False, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          save_pareto_front=False, debug=0, use_memory=False, memory_capacity=1e4,
+          n_epochs=None, n_samples=2000000, batch_size=1000, complexity="token",
+          const_optimizer="scipy", const_params=None, alpha=0.5,
+          epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
+          save_all_epoch=False, baseline="R_e",
+          b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
+          save_pareto_front=True, debug=0, use_memory=False, memory_capacity=1e3,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          n_objects=1, save_cache=False, save_cache_r_min=0.9, save_freq=None):
+          n_objects=1, save_cache=False, save_cache_r_min=0.9, save_freq=1):
     """
     Executes the main training loop.
 

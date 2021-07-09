@@ -22,9 +22,9 @@ def pf_work(p):
 class StatsLogger():
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
-    def __init__(self, sess, output_file, save_summary=True, save_all_epoch=False, hof=10,
-                 save_pareto_front=False, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9,
-                 save_freq=None):
+    def __init__(self, sess, output_file, save_summary=False, save_all_epoch=False, hof=100,
+                 save_pareto_front=True, save_positional_entropy=False, save_cache=False, save_cache_r_min=0.9,
+                 save_freq=1):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
