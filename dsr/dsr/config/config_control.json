@@ -8,6 +8,12 @@
       // MyEnv-v0 is expected to be registered to gym upon importing mymodule.
       "env" : "MountainCarContinuous-v0",
 
+      // Path to a pre-trained stable-baselines "anchor". The environments used
+      // in the ICML paper have default values, so you do not have to specify
+      // one. You also don't have to specify an "anchor" for environments with
+      // one-dimensional action spaces.
+      "anchor" : null,
+
       // This list specifies which action is to be learned symbolically (null),
       // which ones should use the anchor model ("anchor"), and which ones
       // should use previously learned symbolic policies (str representing the
