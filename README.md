@@ -166,7 +166,6 @@ Each run of DSO saves a timestamped log directory in `config["training"]["logdir
 * `dso_ExperimnetName_0_hof.csv`: This file contains statistics of the "hall of fame" (best sequences discovered during training). Edit `config["training"]["hof"] to set the number of hall-of-famers to record.
 * `dso_ExperimnetName_0_pf.csv`: This file contains statistics of the Pareto front of sequences discovered during training. This is a reward-complexity front.
 * `config.json`: This is a "dense" version of the configuration used for your run. It explicitly includes all parameters.
-* `cmd.out`: This is the CLI command to reproduce your experiment.
 
 # Advanced usage
 
