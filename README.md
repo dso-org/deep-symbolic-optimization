@@ -7,7 +7,7 @@ Deep symbolic optimization (DSO) is a deep learning framework for symbolic optim
 This repository contains code supporting the following publications:
 1. Petersen et al. 2021 **Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients.** *ICLR 2021.* [Oral](https://iclr.cc/virtual/2021/poster/2578) [Paper](https://openreview.net/forum?id=m5Qsh0kBQG)
 2. Landajuela et al. 2021 **Discovering symbolic policies with deep reinforcement learning.** *ICML 2021.* [Paper](http://proceedings.mlr.press/v139/landajuela21a/landajuela21a.pdf)
-3. Landajuela et al. 2021 **Improving exploration in policy gradient search: Application to symbolic optimization.** *Math-AI @ ICLR 2021.* [Oral]() [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_16_paper.pdf) [Poster](https://mathai-iclr.github.io/papers/posters/MATHAI_16_poster.png)
+3. Landajuela et al. 2021 **Improving exploration in policy gradient search: Application to symbolic optimization.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_16_paper.pdf) [Poster](https://mathai-iclr.github.io/papers/posters/MATHAI_16_poster.png)
 4. Petersen et al. 2021 **Incorporating domain knowledge into neural-guided search via *in situ* priors and constraints** *AutoML @ ICML 2021.* [Paper]()
 5. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
 6. Kim et al. 2020 **An interactive visualization platform for deep symbolic regression.** *IJCAI 2020.* [Paper](https://www.ijcai.org/Proceedings/2020/0763.pdf)
@@ -41,7 +41,7 @@ pip install -r requirements_control.txt
 
 # Getting started
 
-DSO relies on configuring runs via JSON file, then launching them via a simple command-line or a few lines of Python.
+DSO relies on configuring runs via a JSON file, then launching them via a simple command-line or a few lines of Python.
 
 ### Method 1: Running DSO via command-line interface
 
