@@ -4,7 +4,7 @@
       "task_type" : "regression",
 
       // This can either be (1) the name of the benchmark dataset (see
-      // benchmarks.csv) for a list of supported benchmarks or (2) a path to a
+      // benchmarks.csv for a list of supported benchmarks) or (2) a path to a
       // CSV file containing the data.
       "dataset" : "Nguyen-1",
 
