@@ -1,4 +1,4 @@
-"""Generates LaTeX contents for table comparing DSR and GP performance."""
+"""Generates LaTeX contents for table comparing DSO and GP performance."""
 
 import os
 
@@ -9,12 +9,12 @@ from scipy.stats import ttest_ind, fisher_exact
 MODES = ["Nguyen", "Constant"]
 THRESHOLD = 1e-10
 PRECISION = 3
-ROOT = "./log/dsr_vs_gp/"
+ROOT = "./log/dso_vs_gp/"
 
 
 def main():
 
-    methods = ["gp", "dsr"]
+    methods = ["gp", "dso"]
     expressions = {
         "Nguyen-1" : "$x^3+x^2+x$",
         "Nguyen-2" : "$x^4+x^3+x^2+x$",
@@ -111,7 +111,7 @@ def main():
                 if p < 0.05:
                     if method == "gp" and percent[name] > percents[1][name]:
                         bold_percent = True
-                    elif method == "dsr" and percent[name] > percents[0][name]:
+                    elif method == "dso" and percent[name] > percents[0][name]:
                         bold_percent = True
 
                 # Check significance for NRMSE
@@ -122,7 +122,7 @@ def main():
                 if p < 0.05:
                     if method == "gp" and mean[name] < means[1][name] and percents[1][name] < 100:
                         bold_nrmse = True
-                    elif method == "dsr" and mean[name] < means[0][name] and percents[0][name] < 100:
+                    elif method == "dso" and mean[name] < means[0][name] and percents[0][name] < 100:
                         bold_nrmse = True
 
                 # Percent recovery
@@ -151,11 +151,11 @@ def main():
 
             # For "Average" line, consider each experiment an average across all expressions
             df_a = dfs[0].groupby("seed").mean() # gp
-            df_b = dfs[1].groupby("seed").mean() # dsr
+            df_b = dfs[1].groupby("seed").mean() # dso
 
             if method == "gp":
                 df = df_a
-            elif method == "dsr":
+            elif method == "dso":
                 df = df_b
 
             # Check best recovery
@@ -166,7 +166,7 @@ def main():
             if p < 0.05:
                 if method == "gp" and a.mean() > b[1].mean():
                     bold_percent = True
-                elif method == "dsr" and b.mean() > a[0].mean():
+                elif method == "dso" and b.mean() > a[0].mean():
                     bold_percent = True
 
             # Check best NRMSE
@@ -177,7 +177,7 @@ def main():
             if p < 0.05:
                 if method == "gp" and a.mean() < b.mean() and b.mean() > THRESHOLD:
                     bold_nrmse = True
-                elif method == "dsr" and b.mean() < a.mean() and a.mean() > THRESHOLD:
+                elif method == "dso" and b.mean() < a.mean() and a.mean() > THRESHOLD:
                     bold_nrmse = True
 
             # Percent recovery
