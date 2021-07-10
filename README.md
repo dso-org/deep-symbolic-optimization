@@ -1,4 +1,4 @@
-_Update July 9, 2021_: This repository now supports an additional symbolic optimization task: learning symbolic policies for reinforcement learning. The repository itself has also been renamed; however, Github automatically handles all web-based and `git` command redirects to use the new URL.
+_Update July 10, 2021_: This repository now supports an additional symbolic optimization task: learning symbolic policies for reinforcement learning. The repository itself has also been renamed; however, Github automatically handles all web-based and `git` command redirects to use the new URL.
 
 # Deep symbolic optimization
 
@@ -7,7 +7,7 @@ Deep symbolic optimization (DSO) is a deep learning framework for symbolic optim
 This repository contains code supporting the following publications:
 1. Petersen et al. 2021 **Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients.** *ICLR 2021.* [Oral](https://iclr.cc/virtual/2021/poster/2578) [Paper](https://openreview.net/forum?id=m5Qsh0kBQG)
 2. Landajuela et al. 2021 **Discovering symbolic policies with deep reinforcement learning.** *ICML 2021.* [Paper](http://proceedings.mlr.press/v139/landajuela21a/landajuela21a.pdf)
-3. Landajuela et al. 2021 **Improving exploration in policy gradient search: Application to symbolic optimization.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_16_paper.pdf) [Poster](https://mathai-iclr.github.io/papers/posters/MATHAI_16_poster.png)
+3. Landajuela et al. 2021 **Improving exploration in policy gradient search: Application to symbolic optimization.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_16_paper.pdf)
 4. Petersen et al. 2021 **Incorporating domain knowledge into neural-guided search via *in situ* priors and constraints** *AutoML @ ICML 2021.* [Paper]()
 5. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
 6. Kim et al. 2020 **An interactive visualization platform for deep symbolic regression.** *IJCAI 2020.* [Paper](https://www.ijcai.org/Proceedings/2020/0763.pdf)
@@ -185,6 +185,32 @@ By default, DSO will use the task specification found in the configuration JSON.
 For example, to train 100 independent runs of DSR on the Nguyen-1 benchmark using 12 cores:
 ```
 python -m dso.run --b=Nguyen-1 --mc=100 --n_cores_task=12
+```
+
+# Citing this work
+
+To cite this work, please cite according to the most relevant task.
+
+To cite the `regression` task, use:
+```
+@inproceedings{petersen2021deep,
+  title={Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients},
+  author={Petersen, Brenden K and Landajuela, Mikel and Mundhenk, T Nathan and Santiago, Claudio P and Kim, Soo K and Kim, Joanne T},
+  booktitle={Proc. of the International Conference on Learning Representations},
+  year={2021}
+}
+```
+
+To cite the `control` task, use:
+```
+@inproceedings{landajuela2021discovering,
+  title={Discovering symbolic policies with deep reinforcement learning},
+  author={Landajuela, Mikel and Petersen, Brenden K and Kim, Sookyung and Santiago, Claudio P and Glatt, Ruben and Mundhenk, Nathan and Pettit, Jacob F and Faissol, Daniel},
+  booktitle={International Conference on Machine Learning},
+  pages={5979--5989},
+  year={2021},
+  organization={PMLR}
+}
 ```
 
 # Release
