@@ -78,7 +78,7 @@ def main():
             # Read data            
             bar = Bar("Reading {} data".format(name))
             for i in range(mc):
-                filename = os.path.join(logdir, "dsr_Nguyen-{}_{}_all_r.npy".format(b, i))
+                filename = os.path.join(logdir, "dso_Nguyen-{}_{}_all_r.npy".format(b, i))
                 data = np.load(filename)
                 data = data[:n_epochs] # In case experiment ran longer than plots
                 data = np.sort(data, axis=1)

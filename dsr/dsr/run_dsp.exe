@@ -1,1 +1,0 @@
-python -m dsr.run config.json --b=Nguyen-1 --num_cores=1
