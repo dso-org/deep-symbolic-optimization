@@ -46,7 +46,7 @@ def main():
         names = ["Nguyen-{}".format(i+1) for i in range(12)]
         mc = 10
         epsilons = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
-        methods = ["dsr", "gp"]
+        methods = ["dso", "gp"]
 
         for method in methods:
             nrmse[multiplier][method] = np.zeros_like(epsilons)
@@ -71,8 +71,8 @@ def main():
                 df = pd.read_csv("{}/{}/benchmark_{}.csv".format(path, filename, m))
 
                 # Compute correctness, which uses base_r_test_noiseless
-                if m == "dsr":
-                    # ASSUMING DSR USED INV_NRMSE AS REWARD
+                if m == "dso":
+                    # ASSUMING DSO USED INV_NRMSE AS REWARD
                     df["nrmse_noiseless"] = (1/(df["base_r_test_noiseless"]) - 1).clip(upper=1)
                 elif m == "gp":
                     # ASSUMING GP USED NRMSE AS FITNESS
@@ -105,11 +105,11 @@ def main():
             logx = False
             if epsilons[0] == 0 and logx:
                 epsilons[0] = epsilons[1]/10
-            label = "DSR" if multiplier == multipliers[0] else None
+            label = "DSO" if multiplier == multipliers[0] else None
             def unclip(e):
                 for bar in e[2]:
                     bar.set_clip_on(False)
-            e = ax.errorbar(epsilons, ys[metric]["dsr"], yerr=error[metric]["dsr"], label=label, color="C0", linestyle=linestyle)
+            e = ax.errorbar(epsilons, ys[metric]["dso"], yerr=error[metric]["dso"], label=label, color="C0", linestyle=linestyle)
             unclip(e)
             label = "GP" if multiplier == multipliers[0] else None
             e = ax.errorbar(epsilons, ys[metric]["gp"], yerr=error[metric]["gp"], label=label, color="C1", linestyle=linestyle)
