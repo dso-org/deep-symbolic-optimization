@@ -24,7 +24,7 @@ def myargparse():
                         type=str,
                         dest='bp',            
                         help="full path of base config",
-                        default='../dsr/dsr/config.json')
+                        default='../dso/dso/config.json')
     parser.add_argument('-nm','--base_name', 
                         type=str,
                         dest='nm',            

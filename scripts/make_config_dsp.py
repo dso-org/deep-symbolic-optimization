@@ -6,7 +6,7 @@ User case:
     contain fields that have been recently added), you can do:
     
         python3 $(hypothesis_testing)/scripts/make_config_dsp.py -bp 
-        $(hypothesis_testing)/dsr/dsr/config_dsp.json -out my_own_config.json -bs 100
+        $(hypothesis_testing)/dso/dso/config_dsp.json -out my_own_config.json -bs 100
         
     to get a fresh version of config.json with your parameters of choice
 """
@@ -35,7 +35,7 @@ def myargparse():
                         type=str,
                         dest='bp',            
                         help="full path of base config",
-                        default='../dsr/dsr/config.json')
+                        default='../dso/dso/config.json')
     parser.add_argument('-out','--output_name', 
                         type=str,
                         dest='out',            
