@@ -134,7 +134,7 @@ class Controller(object):
         with a maximum length is part of the prior.
     """
 
-    def __init__(self, sess, prior, debug=0, summary=True,
+    def __init__(self, sess, prior, debug=0, summary=False,
                  # RNN cell hyperparameters
                  cell='lstm',
                  num_layers=1,
@@ -142,16 +142,16 @@ class Controller(object):
                  initializer='zeros',
                  # Embedding hyperparameters
                  embedding=False,
-                 embedding_size=4,
+                 embedding_size=8,
                  # Optimizer hyperparameters
                  optimizer='adam',
                  learning_rate=0.001,
                  # Observation space hyperparameters
-                 observe_action=True,
+                 observe_action=False,
                  observe_parent=True,
                  observe_sibling=True,
                  # Loss hyperparameters
-                 entropy_weight=0.0,
+                 entropy_weight=0.005,
                  entropy_gamma=1.0,
                  # PPO hyperparameters
                  ppo=False,
@@ -165,7 +165,7 @@ class Controller(object):
                  pqt_weight=200.0,
                  pqt_use_pg=False,
                  # Other hyperparameters
-                 max_length=None):
+                 max_length=30):
 
         self.sess = sess
         self.prior = prior
