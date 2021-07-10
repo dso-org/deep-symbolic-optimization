@@ -81,7 +81,7 @@ filled symbolic multi-action policy config file."
     
     # Read the HOF
     files = os.listdir(prev_logdir)
-    hof_filename = "dsr_{}_{}_hof.csv".format(env, seed)
+    hof_filename = "dso_{}_{}_hof.csv".format(env, seed)
     assert hof_filename in files, "HOF not found; run did not complete."
     df = pd.read_csv(os.path.join(prev_logdir, hof_filename))
     # Extract the best expression for prev_action
