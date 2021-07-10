@@ -1,4 +1,4 @@
-"""Sampling obs, and action data from a Zoo or dso policy on a Gym environment.
+"""Sampling obs, and action data from a Zoo or DSO policy on a Gym environment.
 Usage:
     - Run all envs for zoo and symbolic: python policy_eval.py
     - Run all envs for specific alg: python policy_eval.py --alg zoo

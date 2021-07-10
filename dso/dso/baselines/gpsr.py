@@ -252,7 +252,7 @@ class GP():
             del gp.const
 
         # The best individual is the first one in self.hof with success=True,
-        # otherwise the highest reward. This mimics dso's train.py.
+        # otherwise the highest reward. This mimics DSO's train.py.
         ind_best = None
         for ind in self.hof:
             if self.success(ind):

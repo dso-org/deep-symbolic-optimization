@@ -69,7 +69,7 @@ ablations = {
         "controller:constrain_min_len" : False,
         "controller:constrain_max_len" : False
     },
-    "full" : {}, # No ablations; dso
+    "full" : {}, # No ablations; DSO
 }
 
 

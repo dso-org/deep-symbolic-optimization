@@ -11,13 +11,13 @@ Description:
   Needs Mathematica 12.0.0. Runs in parallel over the number of kernels available.
 
 Run: 
-  wolframscript -script wolfram_nguyen_baseline.wls dsoPATH TESTFAMILY MC RUNMODE SPCGOAL USENOISE NSE MTP
+  wolframscript -script wolfram_nguyen_baseline.wls DSOPATH TESTFAMILY MC RUNMODE SPCGOAL USENOISE NSE MTP
 
   - In LC:
 	wolframscript in /usr/tce/packages/mathematica/12.0.0/Executables/wolframscript
 
 Command options:
-  dsoPATH : Path to dso (eg., "/usr/workspace/landajue/code/hypothesis_testing")
+  DSOPATH : Path to DSO (eg., "/usr/workspace/landajue/code/hypothesis_testing")
   TESTFAMILY : {"Nguyen", "Constant", "Custom"}
   MC : Monte Carlo seed (eg, 100)
   RUNMODE : {"Default", "Error", "Score"}
@@ -31,7 +31,7 @@ Output:
 *)
 
 CMDIX = 1
-dsoCODEPATH=$ScriptCommandLine[[++CMDIX]];
+DSOCODEPATH=$ScriptCommandLine[[++CMDIX]];
 OUTPUTPATH=".";
 TESTFAMILY=$ScriptCommandLine[[++CMDIX]]
 MC=ToExpression[$ScriptCommandLine[[++CMDIX]]];
@@ -69,7 +69,7 @@ RUNMODE=="Complexity",HEADER={"name","expression","complexity","nmse_test","nmse
 ];
 
 LIBRARY={Plus,Times,Power,Sin,Cos,Exp,Log};(*Function lib: Koza,"add,sub,mul,div,sin,cos,exp,log"*)
-dsoREGRESSIONPATH=dsoCODEPATH<>"/dso/dso/task/regression/data"
+DSOREGRESSIONPATH=DSOCODEPATH<>"/dso/dso/task/regression/data"
 RULESODDEXP={
 Abs[x]^0.5-> x^0.5 ,
 Sqrt[Abs[x]]-> x^0.5,
@@ -119,7 +119,7 @@ Print["  Parallel kernels : " <> ToString[Length[ParallelEvaluate[$KernelID]]]];
 For[testIndex=1,testIndex<=Length[TESTS],testIndex++,
 If[VERBOSE,Print["Processing "<>TESTS[[testIndex]]]];
 
-CSVNAME=dsoREGRESSIONPATH<>"/"<>TESTS[[testIndex]];
+CSVNAME=DSOREGRESSIONPATH<>"/"<>TESTS[[testIndex]];
 If[USENOISE,
 {
 Print["Use noise"];
@@ -130,7 +130,7 @@ CSVNAME = CSVNAME<>"_n"<>NSE<>"_d"<>MTP;
 Print["Reading data : "<>CSVNAME<>".csv"];
 data=Normal[Import[CSVNAME<>".csv","Dataset"]];
 datatest=Normal[Import[CSVNAME<>"_test"<>".csv","Dataset"]];
-datatestNoiseLess=Normal[Import[dsoREGRESSIONPATH<>"/"<>TESTS[[testIndex]]<>"_test"<>".csv","Dataset"]];
+datatestNoiseLess=Normal[Import[DSOREGRESSIONPATH<>"/"<>TESTS[[testIndex]]<>"_test"<>".csv","Dataset"]];
 
 (*for nmse calcualtions*)
 varydatatest=MyVariance[datatest[[All,2]]];

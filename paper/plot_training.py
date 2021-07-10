@@ -1,4 +1,4 @@
-"""Plot training curves for dso and GP."""
+"""Plot training curves for DSO and GP."""
 
 import os
 import re
@@ -92,13 +92,13 @@ def main():
 
 
     for i, b in enumerate(benchmarks):
-        print("Reading dso and GP data for benchmark {}...".format(b))
+        print("Reading DSO and GP data for benchmark {}...".format(b))
         for mc in range(MC):
 
             if "Constant" in b and mc >= MC_CONSTANT:
                 continue
 
-            # Load dso data
+            # Load DSO data
             filename = "dso_{}_{}.csv".format(b, mc)
             path = os.path.join(LOGDIR, "dso", filename)
             df = pd.read_csv(path)        
