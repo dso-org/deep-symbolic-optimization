@@ -263,7 +263,7 @@ class Constraint(Prior):
         post hoc. 
         
         This is a generic version that will run using the __call__ function so that one
-        does not have to write a function twice for both dso and Deap. 
+        does not have to write a function twice for both DSO and Deap. 
         
         >>>HOWEVER<<<
         

@@ -9,7 +9,7 @@ import gym
 import dso.task.control.utils as U
 
 DSP_DATA_ROOT = "." #../data"
-dso_DATA_ROOT = "./dso/task/regression/data" #"../../regression/data"
+DSO_DATA_ROOT = "./dso/task/regression/data" #"../../regression/data"
 REGRESSION_SEED_SHIFT = int(2e6)
 
 
@@ -43,7 +43,7 @@ def main(env,  n_episodes, n_samples):
             action_list.append(action)
 
     # Convert to array
-    # Columns correspond to [s1, s2, ..., sn, a1, a2, ..., an] for use by dso
+    # Columns correspond to [s1, s2, ..., sn, a1, a2, ..., an] for use by DSO
     obs_array = np.array(obs_list)
     action_array = np.array(action_list)
     data = np.hstack([obs_array, action_array])
@@ -56,7 +56,7 @@ def main(env,  n_episodes, n_samples):
     np.random.seed(0) # For reproducibility
     rows_to_keep = np.random.choice(data.shape[0], n_samples, replace=False)
     data = data[rows_to_keep, :]
-    path = os.path.join(dso_DATA_ROOT, env_name + ".csv")
+    path = os.path.join(DSO_DATA_ROOT, env_name + ".csv")
     np.savetxt(path, data, delimiter=",")
 
 

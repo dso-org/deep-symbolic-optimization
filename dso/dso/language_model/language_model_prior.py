@@ -9,7 +9,7 @@ from .model.model_dyn_rnn import LanguageModel
 
 class LanguageModelPrior(object):
     """
-    Language model to get prior for dso, given token.
+    Language model to get prior for DSO, given token.
     
     History of tokens of a sequence is holded as a state of language model.
     Usage: LanguageModelPrior.get_lm_prior(token)
@@ -17,7 +17,7 @@ class LanguageModelPrior(object):
     Parameters
     ----------
     dso_library: dso.library.Library
-        Library used in main dso model
+        Library used in main DSO model
 
     model_path: str
         Path to separately trained mathematical language model to use as prior
@@ -60,16 +60,16 @@ class LanguageModelPrior(object):
         return sess
 
     def set_lib_to_lib(self, dso_library):
-        """match token libraries of dso and lm (LanguageModel)"""
+        """match token libraries of DSO and lm (LanguageModel)"""
 
         # dso token -> lm token
         dso2lm = [self.lm_token2idx['TERMINAL']] * self.dso_n_input_var
         dso2lm += [self.lm_token2idx[t.name.lower()] for t in dso_library.tokens if t.input_var is None] # ex) [1,1,1,2,3,4,5,6,7,8,9], len(dso2lm) = len(library of dso)
         
-        # lm token -> dso token
+        # lm token -> DSO token
         lm2dso = {lm_idx: i for i, lm_idx in enumerate(dso2lm)}
 
-        # TODO: if dso token missing in lm token library
+        # TODO: if DSO token missing in lm token library
 
         return dso2lm, lm2dso
 
@@ -77,7 +77,7 @@ class LanguageModelPrior(object):
         """return language model prior based on given current token"""
 
         # set feed_dict
-        next_input = np.array(self.dso2lm)[next_input]  # match library with dso
+        next_input = np.array(self.dso2lm)[next_input]  # match library with DSO 
         next_input = np.array([next_input])
 
         if self.next_state is None: # first input of a sequence
