@@ -72,7 +72,7 @@ def main():
 
                 # Compute correctness, which uses base_r_test_noiseless
                 if m == "dso":
-                    # ASSUMING dso USED INV_NRMSE AS REWARD
+                    # ASSUMING DSO USED INV_NRMSE AS REWARD
                     df["nrmse_noiseless"] = (1/(df["base_r_test_noiseless"]) - 1).clip(upper=1)
                 elif m == "gp":
                     # ASSUMING GP USED NRMSE AS FITNESS
@@ -105,7 +105,7 @@ def main():
             logx = False
             if epsilons[0] == 0 and logx:
                 epsilons[0] = epsilons[1]/10
-            label = "dso" if multiplier == multipliers[0] else None
+            label = "DSO" if multiplier == multipliers[0] else None
             def unclip(e):
                 for bar in e[2]:
                     bar.set_clip_on(False)

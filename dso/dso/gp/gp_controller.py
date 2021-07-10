@@ -171,7 +171,7 @@ class GPController:
         if self.hof is not None:
             self.hof = tools.HallOfFame(maxsize=self.train_n)
 
-        # Get dso generated batch members into Deap based "individuals"
+        # Get DSO generated batch members into Deap based "individuals"
         # TBD: Can base class of Individual can be initialized with tokens and Program?
         individuals = [self.creator.Individual(U.tokens_to_DEAP(a, self.pset)) for a in actions]
         self.algorithm.set_population(individuals)
