@@ -44,7 +44,7 @@ def train_dso(config):
 @click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each Monte Carlo trial")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
 def main(config_template, mc, n_cores_task, seed, benchmark):
-    """Runs DSO or GP on multiple benchmarks using multiprocessing."""
+    """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
     # Load the experiment config
     config_template = config_template if config_template != "" else None
