@@ -1,4 +1,4 @@
-"""Generates LaTeX contents for table comparing dso and GP performance."""
+"""Generates LaTeX contents for table comparing DSO and GP performance."""
 
 import os
 

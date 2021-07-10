@@ -15,7 +15,7 @@ from dso.config import load_config
 
 
 def train_dso(config):
-    """Trains dso and returns dict of reward, expression, and traversal"""
+    """Trains DSO and returns dict of reward, expression, and traversal"""
 
     # For some reason, for the control task, the environment needs to be instantiated
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
@@ -44,7 +44,7 @@ def train_dso(config):
 @click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each Monte Carlo trial")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
 def main(config_template, mc, n_cores_task, seed, benchmark):
-    """Runs dso or GP on multiple benchmarks using multiprocessing."""
+    """Runs DSO or GP on multiple benchmarks using multiprocessing."""
 
     # Load the experiment config
     config_template = config_template if config_template != "" else None

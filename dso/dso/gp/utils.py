@@ -178,7 +178,7 @@ def DEAP_to_padded_tokens(individual, max_length):
 
 def tokens_to_DEAP(tokens, pset):
     """
-    Convert dso tokens into DEAP individual.
+    Convert DSO tokens into DEAP individual.
 
     Parameters
     ----------
