@@ -31,14 +31,14 @@ def main():
     data = {}
     data["nrmse"] = {}
     data["correct"] = {}
-    dsr_baseline = {"nrmse" : None, "correct" : None}
+    dso_baseline = {"nrmse" : None, "correct" : None}
 
     # Run from paper directory
     for root, dirs, files in os.walk(LOGDIR):
 
         # Read the summary file
         df = None
-        for method in ["dsr", "gp"]:
+        for method in ["dso", "gp"]:
             if "benchmark_{}.csv".format(method) in files:
                 path = os.path.join(root, "benchmark_{}.csv".format(method))
                 df = pd.read_csv(path)
@@ -89,7 +89,7 @@ def main():
 
             # Set baseline, if appropriate
             if label == "Full":
-                dsr_baseline[metric] = avg
+                dso_baseline[metric] = avg
 
     for metric in ["correct", "nrmse"]:
 
@@ -120,7 +120,7 @@ def main():
         width = [p.get_width() for p in ax.patches][0] # Bar width
 
         # Add baselines
-        baseline = dsr_baseline[metric]
+        baseline = dso_baseline[metric]
         if baseline is not None:
             ax.axhline(baseline, color='black', linewidth=0.75, linestyle='--', zorder=0)
 
