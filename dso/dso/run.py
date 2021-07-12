@@ -39,7 +39,7 @@ def train_dso(config):
 
 @click.command()
 @click.argument('config_template', default="")
-@click.option('--runs', '--r', default=1, type=int, help="Number of runs with different seeds")
+@click.option('--runs', '--r', default=1, type=int, help="Number of independent runs with different seeds")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each Monte Carlo trial")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
