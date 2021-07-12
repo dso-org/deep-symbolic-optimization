@@ -37,7 +37,7 @@
       "b_jumpstart" : false,
 
       // Number of cores to use when evaluating a batch of rewards. For batch
-      // runs using run.py and --mc > 1, this will be overridden to 1. For
+      // runs using run.py and --runs > 1, this will be overridden to 1. For
       // single runs, recommended to set this to as many cores as you can use!
       "n_cores_batch" : 1,
 
