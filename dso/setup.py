@@ -8,7 +8,7 @@ import os
 
 setup(  name='dso',
         version='1.0dev',
-        description='Deep symbolic regression.',
+        description='Deep symbolic optimization.',
         author='LLNL',
         packages=['dso'],
         ext_modules=cythonize([os.path.join('dso','cyfunc.pyx')]), 
