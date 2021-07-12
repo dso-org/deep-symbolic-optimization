@@ -228,16 +228,12 @@ class LogEval():
                         ax[row, i].set_xlabel(_x_label[data_id])
                         ax[row, i].set_ylabel(_y_label[data_id])
             else:
+                sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
+                ax[0, i].set_xlabel(_x_label[i])
+                ax[0, i].set_ylabel(_y_label[i])
                 if boxplot_on:
-                    sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
-                    ax[0, i].set_xlabel(_x_label[i])
-                    ax[0, i].set_ylabel(_y_label[i])
                     sns.boxplot(results[_y[i]], ax=ax[1, i])
                     ax[1, i].set_xlabel( _y[i])
-                else:
-                    sns.lineplot(x=results[_x[i]], y=results[_y[i]], ax=ax[0, i])
-                    ax[0, i].set_xlabel(_x_label[i])
-                    ax[0, i].set_ylabel(_y_label[i])
         plt.suptitle(
             "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.config["experiment"]["task_name"]),
             fontsize=14)
