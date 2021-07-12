@@ -76,14 +76,6 @@ class DeepSymbolicOptimizer():
                 with open(path, 'w') as f:
                     json.dump(self.config, f, indent=3)
 
-        # Save cmd.out if using run.py
-        if "cmd" in self.config_experiment:
-            path = os.path.join(self.config_experiment["save_path"],
-                                "cmd.out")
-            if not os.path.exists(path):
-                with open(path, 'w') as f:
-                    print(self.config_experiment["cmd"], file=f)
-
     def train(self):
 
         # Setup the model
