@@ -60,7 +60,6 @@ class DeepSymbolicOptimizer():
         self.sess = tf.Session()
         self.prior = self.make_prior()
         self.controller = self.make_controller()
-        self.gp_controller = self.make_gp_controller()
         self.output_file = self.make_output_file()
 
         # Save the config file
@@ -86,7 +85,6 @@ class DeepSymbolicOptimizer():
         result.update(learn(self.sess,
                             self.controller,
                             self.pool,
-                            self.gp_controller,
                             self.output_file,
                             **self.config_training))
         return result
@@ -99,7 +97,6 @@ class DeepSymbolicOptimizer():
         self.config_prior = self.config["prior"]
         self.config_training = self.config["training"]
         self.config_controller = self.config["controller"]
-        self.config_gp_meld = self.config["gp_meld"]
         self.config_experiment = self.config["experiment"]
 
     def set_seeds(self):
@@ -135,15 +132,6 @@ class DeepSymbolicOptimizer():
                                 self.prior,
                                 **self.config_controller)
         return controller
-
-    def make_gp_controller(self):
-        if self.config_gp_meld.pop("run_gp_meld", False):
-            from dso.gp.gp_controller import GPController
-            gp_controller = GPController(self.prior,
-                                         **self.config_gp_meld)
-        else:
-            gp_controller = None
-        return gp_controller
 
     def make_pool_and_set_task(self):
         # Create the pool and set the Task for each worker

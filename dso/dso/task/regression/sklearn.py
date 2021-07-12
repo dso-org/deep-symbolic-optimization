@@ -28,12 +28,6 @@ class DeepSymbolicRegressor(DeepSymbolicOptimizer,
         # Turn off file saving
         config["experiment"]["logdir"] = None
 
-        # TBD: Add support for gp-meld and sklearn interface. Currently, gp-meld
-        # relies on BenchmarkDataset objects, not (X, y) data.
-        if config["gp_meld"].get("run_gp_meld"):
-            print("WARNING: GP-meld not yet supported for sklearn interface.")
-        config["gp_meld"]["run_gp_meld"] = False
-
         self.set_config(config)
 
         train_result = self.train()

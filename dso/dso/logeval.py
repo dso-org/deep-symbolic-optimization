@@ -20,45 +20,6 @@ class LogEval():
     to analyze experiments."""
 
     PLOT_HELPER = {
-        "binding": {
-            "name": "Binding Summary",
-            "x_label": ["Epoch"] * 19,
-            'y_label': [
-                'Reward Best',
-                'Reward Max',
-                'Reward Avg Full',
-                'Reward Avg Sub',
-                'L Avg Full',
-                'L Avg Sub',
-                'EWMA',
-                'Unique Full',
-                'Unique Sub',
-                'Novel Full',
-                'Novel Sub',
-                'A Avg Full',
-                'A Avg Sub',
-                'Invalid Avg Full',
-                'Invalid Avg Sub',
-                ],
-            "x": ["index"] * 19,
-            "y": [
-                "r_best",
-                "r_max",
-                "r_avg_full",
-                "r_avg_sub",
-                "l_avg_full",
-                "l_avg_sub",
-                "ewma",
-                "n_unique_full",
-                "n_unique_sub",
-                "n_novel_full",
-                "n_novel_sub",
-                "a_ent_full",
-                "a_ent_sub",
-                "invalid_avg_full",
-                "invalid_avg_sub"
-                ]
-        },
         "hof": {
             "name": "Hall of Fame",
             "x_label": [
@@ -174,10 +135,7 @@ class LogEval():
 
         # Sort HOF
         if log_type == "hof":
-            if self.config["task"]["task_type"] == "binding":
-                log_df = log_df.sort_values(by=["r"], ascending=False)
-            else:
-                log_df = log_df.sort_values(by=["r", "success", "seed"], ascending=False)
+            log_df = log_df.sort_values(by=["r", "success", "seed"], ascending=False)
 
         # Compute PF across all runs
         if log_type == "pf":
@@ -215,25 +173,14 @@ class LogEval():
                 _x_label.append(self.PLOT_HELPER[log_type]["x_label"][i])
                 _y_label.append(self.PLOT_HELPER[log_type]["y_label"][i])
         row_count = 2 if boxplot_on else 1
-        if log_type == "binding":
-            row_count = 5
-            col_count = 4
         fig, ax = plt.subplots(row_count, col_count, squeeze=0, figsize=(8 * col_count, 4 * row_count))
         for i in range(col_count):
-            if log_type == "binding":
-                for row in range(row_count):
-                    data_id = i + row * col_count
-                    if data_id < len(_x):
-                        sns.lineplot(data=results, x=_x[data_id], y=_y[data_id], ax=ax[row, i])
-                        ax[row, i].set_xlabel(_x_label[data_id])
-                        ax[row, i].set_ylabel(_y_label[data_id])
-            else:
-                sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
-                ax[0, i].set_xlabel(_x_label[i])
-                ax[0, i].set_ylabel(_y_label[i])
-                if boxplot_on:
-                    sns.boxplot(results[_y[i]], ax=ax[1, i])
-                    ax[1, i].set_xlabel( _y[i])
+            sns.lineplot(data=results, x=_x[i], y=_y[i], ax=ax[0, i])
+            ax[0, i].set_xlabel(_x_label[i])
+            ax[0, i].set_ylabel(_y_label[i])
+            if boxplot_on:
+                sns.boxplot(results[_y[i]], ax=ax[1, i])
+                ax[1, i].set_xlabel( _y[i])
         plt.suptitle(
             "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.config["experiment"]["task_name"]),
             fontsize=14)
@@ -246,7 +193,7 @@ class LogEval():
             plt.show()
         plt.close()
 
-    def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False, show_binding=False):
+    def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False):
         """Generates a summary of important experiment outcomes."""
         print("\n-- LOG ANALYSIS ---------------------")
         try:

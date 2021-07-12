@@ -30,7 +30,7 @@ class Task:
         Whether the reward function of the task is stochastic.
 
     task_type : str
-        Task type: regression, control or binding.
+        Task type: regression or control.
 
     name : str
         Unique name for instance of this task.
@@ -60,7 +60,6 @@ def make_task(task_type, **config_task):
         Type of task:
         "regression" : Symbolic regression task.
         "control" : Episodic reinforcement learning task.
-        "binding": AbAg binding affinity optimization task.
 
     config_task : kwargs
         Task-specific arguments. See specifications of task_dict.
@@ -71,21 +70,16 @@ def make_task(task_type, **config_task):
     task : Task
         Task object.
     """
-    # lazy import of task factory functions
-    if task_type != 'binding':
-        from dso.task.regression.regression import make_regression_task
-        from dso.task.control.control import make_control_task
-        # Dictionary from task name to task factory function
-        task_dict = {
-            "regression" : make_regression_task,
-            "control" : make_control_task
-        }
-    else:
-        # Dictionary from task name to task factory function
-        from dso.task.binding.binding import make_binding_task
-        task_dict = {"binding": make_binding_task}
 
-    task = task_dict[task_type](**config_task)
+    # Lazy imports of task factory functions
+    if task_type == "regression":
+        from dso.task.regression.regression import make_regression_task
+        task_function = make_regression_task
+    elif task_type == "control":
+        from dso.task.control.control import make_control_task
+        task_function = make_control_task
+
+    task = task_function(**config_task)
     return task
 
 

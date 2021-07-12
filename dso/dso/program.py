@@ -45,8 +45,8 @@ def _finish_tokens(tokens, n_objects=1):
         tokens = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
-        if Program.task.task_type != 'binding':
-            tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+
 
     return tokens
 
@@ -552,8 +552,6 @@ class Program(object):
         This is actually a bit complicated because we have to go: traversal -->
         tree --> serialized tree --> SymPy expression
         """
-        if self.task.task_type == 'binding':
-            return self.traversal
         tree = self.traversal.copy()
         tree = build_tree(tree)
         tree = convert_to_sympy(tree)
@@ -567,10 +565,7 @@ class Program(object):
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-        if self.task.task_type != 'binding':
-            return pretty(self.sympy_expr)
-        else:
-            return None
+        return pretty(self.sympy_expr)
 
 
     def print_stats(self):
@@ -585,9 +580,8 @@ class Program(object):
         print("\tOriginally on Policy: {}".format(self.originally_on_policy))
         print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
-        if self.task.task_type != 'binding':
-            print("\tExpression:")
-            print("{}\n".format(indent(self.pretty(), '\t  ')))
+        print("\tExpression:")
+        print("{}\n".format(indent(self.pretty(), '\t  ')))
         
 
     def __repr__(self):

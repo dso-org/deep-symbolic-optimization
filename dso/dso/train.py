@@ -29,7 +29,7 @@ def work(p):
     return optimized_constants, p.r
 
 
-def learn(sess, controller, pool, gp_controller, output_file,
+def learn(sess, controller, pool, output_file,
           n_epochs=None, n_samples=2000000, batch_size=1000, complexity="token",
           const_optimizer="scipy", const_params=None, alpha=0.5,
           epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
@@ -53,9 +53,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
         Pool to parallelize reward computation. For the control task, each
         worker should have its own TensorFlow model. If None, a Pool will be
         generated if n_cores_batch > 1.
-
-    gp_controller : dso.gp.gp_controller.GPController or None
-        GP controller object used to generate Programs.
 
     output_file : str or None
         Path to save results each step.
@@ -163,8 +160,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
         A dict describing the best-fit expression (determined by reward).
     """
 
-    run_gp_meld = gp_controller is not None
-
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
@@ -245,7 +240,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    nevals = 0 # Total number of sampled expressions (from RL or GP)
+    nevals = 0 # Total number of sampled expressions
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
     logger = StatsLogger(sess, output_file, save_summary, save_all_epoch, hof, save_pareto_front,
                          save_positional_entropy, save_cache, save_cache_r_min, save_freq)
@@ -263,11 +258,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors = controller.sample(batch_size)
         nevals += batch_size
-
-        if run_gp_meld:
-            # Run GP seeded with the current batch, returning elite samples
-            deap_programs, deap_actions, deap_obs, deap_priors = gp_controller(actions)
-            nevals += gp_controller.nevals
 
         # Instantiate, optimize, and evaluate expressions
         if pool is None:
@@ -289,16 +279,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
             for (optimized_constants, r), p in zip(results, programs_to_optimize):
                 p.set_constants(optimized_constants)
                 p.r = r
-
-        # If we run GP, insert GP Program, actions, priors (blank) and obs.
-        # We may option later to return these to the controller.
-        if run_gp_meld:
-            programs    = programs + deap_programs
-            actions     = np.append(actions, deap_actions, axis=0)
-            obs         = [np.append(obs[0], deap_obs[0], axis=0),
-                           np.append(obs[1], deap_obs[1], axis=0),
-                           np.append(obs[2], deap_obs[2], axis=0)]
-            priors      = np.append(priors, deap_priors, axis=0)
 
         # Retrieve metrics
         r           = np.array([p.r for p in programs])
@@ -377,50 +357,12 @@ def learn(sess, controller, pool, gp_controller, output_file,
             else: # Empirical quantile
                 quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
 
-            # These guys can contain the GP solutions if we run GP
-            '''
-                Here we get the returned as well as stored programs and properties.
-
-                If we are returning the GP programs to the controller, p and r will be exactly the same
-                as p_train and r_train. Othewrwise, p and r will still contain the GP programs so they
-                can still fall into the hall of fame. p_train and r_train will be different and no longer
-                contain the GP program items.
-            '''
-
             keep        = r >= quantile
             l           = l[keep]
             s           = list(compress(s, keep))
             invalid     = invalid[keep]
-
-            # Option: don't keep the GP programs for return to controller
-            if run_gp_meld and not gp_controller.return_gp_obs:
-                '''
-                    If we are not returning the GP components to the controller, we will remove them from
-                    r_train and p_train by augmenting 'keep'. We just chop off the GP elements which are indexed
-                    from batch_size to the end of the list.
-                '''
-                _r                  = r[keep]
-                _p                  = list(compress(programs, keep))
-                keep[batch_size:]   = False
-                r_train             = r[keep]
-                p_train             = list(compress(programs, keep))
-
-                '''
-                    These contain all the programs and rewards regardless of whether they are returned to the controller.
-                    This way, they can still be stored in the hall of fame.
-                '''
-                r                   = _r
-                programs            = _p
-            else:
-                '''
-                    Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
-                '''
-                r_train = r         = r[keep]
-                p_train = programs  = list(compress(programs, keep))
-
-            '''
-                get the action, observation, priors and on_policy status of all programs returned to the controller.
-            '''
+            r_train = r         = r[keep]
+            p_train = programs  = list(compress(programs, keep))
             actions     = actions[keep, :]
             obs         = [o[keep, :] for o in obs]
             priors      = priors[keep, :, :]

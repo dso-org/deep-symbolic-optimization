@@ -121,19 +121,6 @@
       "summary" : false
    },
 
-   // Hyperparameters related to genetic programming hybrid methods.
-   "gp_meld" : {
-      "run_gp_meld" : false,
-      "verbose" : false,
-      "generations" : 20,
-      "p_crossover" : 0.5,
-      "p_mutate" : 0.5,
-      "tournament_size" : 5,
-      "train_n" : 50,
-      "mutate_tree_max" : 3,
-      "parallel_eval" : false
-   },
-
    // Hyperparameters related to including in situ priors and constraints. Each
    // prior must explicitly be turned "on" or it will not be used.
    "prior": {
