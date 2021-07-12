@@ -39,11 +39,11 @@ def train_dso(config):
 
 @click.command()
 @click.argument('config_template', default="")
-@click.option('--mc', default=1, type=int, help="Number of Monte Carlo trials for each benchmark")
+@click.option('--runs', '--r', default=1, type=int, help="Number of runs with different seeds")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each Monte Carlo trial")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
-def main(config_template, mc, n_cores_task, seed, benchmark):
+def main(config_template, runs, n_cores_task, seed, benchmark):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
     # Load the experiment config
@@ -75,9 +75,9 @@ def main(config_template, mc, n_cores_task, seed, benchmark):
     # Fix incompatible configurations
     if n_cores_task == -1:
         n_cores_task = multiprocessing.cpu_count()
-    if n_cores_task > mc:
-        print("Setting 'n_cores_task' to {} because there are only {} replicates.".format(mc, mc))
-        n_cores_task = mc
+    if n_cores_task > runs:
+        print("Setting 'n_cores_task' to {} because there are only {} replicates.".format(runs, runs))
+        n_cores_task = runs
     if config["training"]["verbose"] and n_cores_task > 1:
         print("Setting 'verbose' to False for parallelized run.")
         config["training"]["verbose"] = False
@@ -85,25 +85,25 @@ def main(config_template, mc, n_cores_task, seed, benchmark):
         print("Setting 'n_cores_batch' to 1 to avoid nested child processes.")
         config["training"]["n_cores_batch"] = 1
 
-    # Generate configs (with incremented seeds) for each mc
-    configs = [deepcopy(config) for _ in range(mc)]
+    # Generate configs (with incremented seeds) for each run
+    configs = [deepcopy(config) for _ in range(runs)]
     for i, config in enumerate(configs):
         config["experiment"]["seed"] += i
 
     # Start benchmark training
-    print("Running DSO for {} seeds".format(mc))
+    print("Running DSO for {} seeds".format(runs))
 
     # Farm out the work
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
         for i, (result, summary_path) in enumerate(pool.imap_unordered(train_dso, configs)):
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
-            print("Completed {} of {} in {:.0f} s".format(i + 1, mc, result["t"]))
+            print("Completed {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))
     else:
         for i, config in enumerate(configs):
             result, summary_path = train_dso(config)
             pd.DataFrame(result, index=[0]).to_csv(summary_path, header=not os.path.exists(summary_path), mode='a', index=False)
-            print("Completed {} of {} in {:.0f} s".format(i + 1, mc, result["t"]))
+            print("Completed {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))
 
     # Evaluate the log files
     save_path = os.path.dirname(summary_path)
