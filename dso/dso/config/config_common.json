@@ -50,7 +50,10 @@
       "const_params" : {},      
       "verbose" : true,
 
+      // Debug level
       "debug" : 0,
+
+      // Whether to stop early if success condition is met
       "early_stopping" : true,
 
       // Size of the "hall of fame" (top performers during training) to save.
