@@ -1,4 +1,4 @@
 mpi4py
 pybullet
 gym[box2d]==0.15.4
-stable-baselines[mpi]
+stable-baselines[mpi]==2.10.0
