@@ -13,6 +13,6 @@
    },
    "controller" : {
       "entropy_weight" : 0.01,
-      "entropy_gamma" : 1.0
+      "entropy_gamma" : 0.85
    },
 }
