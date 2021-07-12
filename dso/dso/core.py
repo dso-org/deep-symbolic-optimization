@@ -67,8 +67,14 @@ class DeepSymbolicOptimizer():
         if self.output_file is not None:
             path = os.path.join(self.config_experiment["save_path"],
                                 "config.json")
-            with open(path, 'w') as f:
-                json.dump(self.config, f, indent=3)
+            # With run.py, config.json may already exist. To avoid race
+            # conditions, only record the starting seed.
+            if not os.path.exists(path):
+                starting_seed = self.config_experiment["starting_seed"]
+                self.config_experiment["seed"] = starting_seed
+                del self.config_experiment["starting_seed"]
+                with open(path, 'w') as f:
+                    json.dump(self.config, f, indent=3)
 
     def train(self):
 
