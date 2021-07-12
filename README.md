@@ -173,18 +173,18 @@ Each run of DSO saves a timestamped log directory in `config["training"]["logdir
 DSO's command-line interface supports a `multiprocessing`-parallelized batch mode to run multiple tasks in parallel. This is recommended for large runs. Batch-mode DSO is launched with:
 
 ```
-python -m dso.run path/to/config.json [--mc] [--n_cores_task] [--b]
+python -m dso.run path/to/config.json [--runs] [--n_cores_task] [--b]
 ```
 
-The option `--mc` (default `1`) defines how many independent tasks (with different random number seeds) to perform. The `regression` task is computationally expedient enough to run multiple tasks in parallel. For the `control` task, we recommend running with the default `--mc=1`.
+The option `--runs` (default `1`) defines how many independent tasks (with different random number seeds) to perform. The `regression` task is computationally expedient enough to run multiple tasks in parallel. For the `control` task, we recommend running with the default `--runs=1`.
 
-The option `--n_cores_task` (default `1`) defines how many parallel processes to use across the `--mc` tasks. Each task is assigned a single core, so `--n_cores_task` should be less than or equal to `--mc`. (To use multiple cores _within_ a single task, i.e. to parallelize reward computation, see the `n_cores_batch` configuration parameter.)
+The option `--n_cores_task` (default `1`) defines how many parallel processes to use across the `--runs` tasks. Each task is assigned a single core, so `--n_cores_task` should be less than or equal to `--runs`. (To use multiple cores _within_ a single task, i.e. to parallelize reward computation, see the `n_cores_batch` configuration parameter.)
 
 By default, DSO will use the task specification found in the configuration JSON. The option `--b` (default `None`) is used to specify the named task(s) via command-line. For example, `--b=path/to/mydata.csv` runs DSO on the given dataset (`regression` task), and `--b=MountainCarContinuous-v0` runs the environment MountainCarContinuous-v0 (`control` task). This is useful for running benchmark problems.
 
 For example, to train 100 independent runs of DSR on the Nguyen-1 benchmark using 12 cores:
 ```
-python -m dso.run --b=Nguyen-1 --mc=100 --n_cores_task=12
+python -m dso.run --b=Nguyen-1 --runs=100 --n_cores_task=12
 ```
 
 # Citing this work
