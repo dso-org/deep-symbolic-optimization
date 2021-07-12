@@ -1,6 +1,7 @@
 """Parallelized, single-point launch script to run DSO on a set of benchmarks."""
 
 import os
+import sys
 import time
 import multiprocessing
 from copy import deepcopy
@@ -67,6 +68,10 @@ def main(config_template, runs, n_cores_task, seed, benchmark):
         if config["experiment"]["seed"] is not None:
             print("WARNING: Overwriting config seed with command-line seed.")
         config["experiment"]["seed"] = seed
+
+    # Save starting seed and run command
+    config["experiment"]["starting_seed"] = config["experiment"]["seed"]
+    config["experiment"]["cmd"] = " ".join(sys.argv)    
 
     # Set timestamp once to be used by all workers
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
