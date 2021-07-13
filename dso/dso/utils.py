@@ -1,4 +1,4 @@
-"""Utility functions used in deep symbolic regression."""
+"""Utility functions used in deep symbolic optimization."""
 
 import collections
 import copy

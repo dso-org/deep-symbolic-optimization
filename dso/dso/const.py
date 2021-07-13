@@ -1,4 +1,4 @@
-"""Constant optimizer used for deep symbolic regression."""
+"""Constant optimizer used for deep symbolic optimization."""
 
 from functools import partial
 

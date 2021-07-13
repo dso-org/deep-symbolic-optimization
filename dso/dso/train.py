@@ -1,4 +1,4 @@
-"""Defines main training loop for deep symbolic regression."""
+"""Defines main training loop for deep symbolic optimization."""
 
 import os
 import multiprocessing
