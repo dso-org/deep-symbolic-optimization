@@ -1,0 +1,79 @@
+{
+    "task" : {
+       "task_type" : "binding",
+       "mode" : "short",
+       "paths" : {
+           "menu_file" : "/usr/workspace/vaccines/abag_binding_rl/feb_4th/rl_priors_coronavirus_80R_2ghw_annotated_dan_4mutations.yaml",
+           "base_path": "/usr/workspace/vaccines/abag_binding_rl/feb_4th",
+           "master_seqrecord_fasta": "80R_2ghw.fasta",
+           "master_structure": "XR6m0j_80R.renumbered.pdb.final.pdb",
+           "history_yaml": "",
+           "history_x_tensor": "statium_80R_20201217_fx_ros_20201022_history_x_rosetta.pt",
+           "history_i_tensor": "statium_80R_20201217_fx_ros_20201022_history_i_rosetta.pt",
+           "history_y_tensor": "statium_80R_20201217_fx_ros_20201022_history_y_rosetta.pt",
+           "model_weights_pth": "models/sparse_stl_gp_weights_rosetta_adam.pth",
+           "model_is_sparse": true,
+           "model_is_mtl": false,
+           "use_gpu": true
+          }
+    },
+    "prior": {
+       "seq_positions": {"biasing_factor": "0",
+                         "on": true}
+    },
+    "postprocess": {
+       "method": "binding",
+       "print": true,
+       "print_count": 5,
+       "save_plots": true,
+       "show_count": true
+    },
+    "training": {
+       "logdir": "./log/Binding",
+       "n_epochs": null,
+       "n_samples": 100000,
+       "batch_size": 1000,
+       "complexity": "length",
+       "complexity_weight": 0.0,
+       "const_optimizer": "scipy",
+       "const_params": {},
+       "alpha": 0.5,
+       "epsilon": 0.1,
+       "verbose": true,
+       "baseline": "R_e",
+       "b_jumpstart": false,
+       "n_cores_batch": 1,
+       "debug": 0,
+       "save_all_epoch": true,
+       "early_stopping": true,
+       "hof" : 10,
+       "save_positional_entropy": true,
+       "save_pareto_front": false,
+       "save_summary": false
+    },
+    "controller": {
+       "cell": "lstm",
+       "num_layers": 1,
+       "num_units": 32,
+       "initializer": "zeros",
+       "embedding": false,
+       "embedding_size": 8,
+       "optimizer": "adam",
+       "learning_rate": 0.001,
+       "observe_action": true,
+       "observe_parent": false,
+       "observe_sibling": false,
+       "max_length": null,
+       "entropy_weight": 0.01,
+       "ppo": false,
+       "ppo_clip_ratio": 0.2,
+       "ppo_n_iters": 10,
+       "ppo_n_mb": 4,
+       "pqt": false,
+       "pqt_k": 10,
+       "pqt_batch_size": 1,
+       "pqt_weight": 200.0,
+       "pqt_use_pg": false
+    }
+ }
+ 

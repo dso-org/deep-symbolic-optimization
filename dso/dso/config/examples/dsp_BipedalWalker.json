@@ -1,0 +1,18 @@
+// This example contains the tuned entropy_weight and entropy_gamma
+// hyperparameters used to solve BipedalWalker-v2
+
+{
+   "task" : {
+      "task_type" : "control",
+      "env" : "BipedalWalker-v2",
+      "action_spec" : [null, "anchor", "anchor", "anchor"],
+   },
+   "training" : {
+      // Recommended to set this to as many cores as you can use!
+      "n_cores_batch" : 16
+   },
+   "controller" : {
+      "entropy_weight" : 0.01,
+      "entropy_gamma" : 0.85
+   },
+}

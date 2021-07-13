@@ -1,0 +1,15 @@
+pytest
+cython
+numpy
+tensorflow==1.14
+numba
+sympy
+pandas
+scikit-learn
+click
+dataclasses
+pathos
+seaborn
+commentjson
+progress
+tqdm
