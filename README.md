@@ -61,7 +61,7 @@ from dso import DeepSymbolicOptimizer
 model = DeepSymbolicOptimizer("path/to/config.json")
 model.train()
 ```
-After training, results are saved to a timestamped directory in the path given in `config["training"]["logdir"]` (default `./log`).
+After training, results are saved to a timestamped directory in the path given in the `"logdir"` parameter (default `./log`).
 
 ### Configuring runs
 
@@ -173,7 +173,7 @@ Each run of DSO saves a timestamped log directory in `config["training"]["logdir
 DSO's command-line interface supports a `multiprocessing`-parallelized batch mode to run multiple tasks in parallel. This is recommended for large runs. Batch-mode DSO is launched with:
 
 ```
-python -m dso.run path/to/config.json [--runs] [--n_cores_task] [--b]
+python -m dso.run path/to/config.json [--runs] [--n_cores_task] [--b] [--seed]
 ```
 
 The option `--runs` (default `1`) defines how many independent tasks (with different random number seeds) to perform. The `regression` task is computationally expedient enough to run multiple tasks in parallel. For the `control` task, we recommend running with the default `--runs=1`.
@@ -184,9 +184,9 @@ The option `--seed`, *if provided*, will override the parameter `"seed"` in your
 
 By default, DSO will use the task specification found in the configuration JSON. The option `--b` (default `None`) is used to specify the named task(s) via command-line. For example, `--b=path/to/mydata.csv` runs DSO on the given dataset (`regression` task), and `--b=MountainCarContinuous-v0` runs the environment MountainCarContinuous-v0 (`control` task). This is useful for running benchmark problems.
 
-For example, to train 100 independent runs of DSR on the Nguyen-1 benchmark using 12 cores:
+For example, to train 100 independent runs of DSR on the Nguyen-1 benchmark using 12 cores, using seeds 500 through 599:
 ```
-python -m dso.run --b=Nguyen-1 --runs=100 --n_cores_task=12
+python -m dso.run --b=Nguyen-1 --runs=100 --n_cores_task=12 --seed=500
 ```
 
 # Citing this work
