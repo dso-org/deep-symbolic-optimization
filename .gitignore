@@ -1,0 +1,15 @@
+*.DS_Store
+*.pyc
+*.egg*
+venv*
+dso/dso/summary*
+*log_*
+.ipynb_checkpoints
+~$*
+*.vscode/
+dso/build
+dso/dso/cyfunc*
+**/log/
+/tmp
+*videos
+*bsub
