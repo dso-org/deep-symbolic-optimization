@@ -17,7 +17,8 @@ def get_base_config(task, language_prior):
     elif task in ["control"]:
         task_config_file = "config_control.json"
     else:
-        assert False, "*** ERROR: Unknown task type: {}".format(task)
+        # Custom tasks use config_common.json.
+        task_config_file = "config_common.json"
     with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), task_config_file), encoding='utf-8') as f:
         task_config = json.load(f)
 

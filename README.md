@@ -189,6 +189,38 @@ For example, to train 100 independent runs of DSR on the Nguyen-1 benchmark usin
 python -m dso.run --b=Nguyen-1 --runs=100 --n_cores_task=12 --seed=500
 ```
 
+## Adding custom tasks and priors
+
+DSO supports adding custom tasks and priors from your own modules.
+
+To add new tasks, the `task_type` keyword in the config file can be used in the following format: `<module>.<source>:<function>` specifying the source implementing a `make_task` function.
+
+For example:
+```
+{
+  "task" : {
+    "task_type" : "custom_mod.my_source:make_task"
+    }
+  }
+}
+```
+
+Similarly, new priors can be added by specifying the source where the `Prior` class can be found in the `prior` group of the config file.
+
+For example:
+```
+ "prior": {
+      "uniform_arity" : {
+         "on" : true
+      },
+      "custom_mod.my_source:CustomPrior" : {
+         "loc" : 10,
+         "scale" : 5,
+         "on" : true
+      }
+  }
+```
+
 # Citing this work
 
 To cite this work, please cite according to the most relevant task.
