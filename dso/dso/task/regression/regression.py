@@ -5,6 +5,7 @@ import dso
 from dso.library import Library
 from dso.functions import create_tokens
 from dso.task.regression.dataset import BenchmarkDataset
+from dso.task.task import get_next_obs_parent_sibling, reset_task_parent_sibling
 
 
 def make_regression_task(function_set, dataset, metric="inv_nrmse",
@@ -213,6 +214,8 @@ def make_regression_task(function_set, dataset, metric="inv_nrmse",
 
     task = dso.task.Task(reward_function=reward,
                 evaluate=evaluate,
+                get_next_obs=get_next_obs_parent_sibling,
+                reset_task=reset_task_parent_sibling,
                 library=library,
                 stochastic=stochastic,
                 task_type='regression',

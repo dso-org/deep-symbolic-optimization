@@ -5,7 +5,6 @@ import numpy as np
 
 from dso.program import Program
 from dso.memory import Batch
-from dso.subroutines import parents_siblings
 from dso.prior import LengthConstraint
 
 
@@ -54,6 +53,9 @@ class Controller(object):
     prior : dso.prior.JointPrior
         JointPrior object used to adjust probabilities during sampling.
 
+    state_manager: dso.tf_state_manager.StateManager
+        Object that handles the state features to be used
+
     summary : bool
         Write tensorboard summaries?
 
@@ -74,26 +76,11 @@ class Controller(object):
     initiailizer : str
         Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'.
 
-    embedding : bool
-        Embed each observation?
-
-    embedding_size : int
-        Size of embedding for each observation if embedding=True.
-
     optimizer : str
         Optimizer to use. Supports 'adam', 'rmsprop', and 'sgd'.
 
     learning_rate : float
         Learning rate for optimizer.
-
-    observe_action : bool
-        Observe previous action token?
-
-    observe_parent : bool
-        Observe parent token?
-
-    observe_sibling : bool
-        Observe sibling token?
 
     entropy_weight : float
         Coefficient for entropy bonus.
@@ -134,22 +121,15 @@ class Controller(object):
         with a maximum length is part of the prior.
     """
 
-    def __init__(self, sess, prior, debug=0, summary=False,
+    def __init__(self, sess, prior, state_manager, debug=0, summary=False,
                  # RNN cell hyperparameters
                  cell='lstm',
                  num_layers=1,
                  num_units=32,
                  initializer='zeros',
-                 # Embedding hyperparameters
-                 embedding=False,
-                 embedding_size=8,
                  # Optimizer hyperparameters
                  optimizer='adam',
                  learning_rate=0.001,
-                 # Observation space hyperparameters
-                 observe_action=False,
-                 observe_parent=True,
-                 observe_sibling=True,
                  # Loss hyperparameters
                  entropy_weight=0.005,
                  entropy_gamma=1.0,
@@ -196,8 +176,6 @@ class Controller(object):
         max_length = self.max_length
 
         # Hyperparameters
-        self.observe_parent = observe_parent
-        self.observe_sibling = observe_sibling
         self.entropy_weight = entropy_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
@@ -216,13 +194,6 @@ class Controller(object):
         if entropy_gamma is None:
             entropy_gamma = 1.0
         entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
-        
-        # Parameter assertions/warnings
-        assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
-
-        self.compute_parents_siblings = any([self.observe_parent,
-                                             self.observe_sibling,
-                                             self.prior.requires_parents_siblings])
 
         # Build controller RNN
         with tf.name_scope("controller"):
@@ -250,28 +221,12 @@ class Controller(object):
                     [make_cell(cell, n, initializer=initializer) for n in num_units])
             cell = LinearWrapper(cell=cell, output_size=n_choices)
 
-            # Define input dimensions
-            n_action_inputs = n_choices + 1 # lib tokens + empty token
-            n_parent_inputs = n_choices + 1 - len(lib.terminal_tokens) # Parent sub-lib tokens + empty token
-            n_sibling_inputs = n_choices + 1 # lib tokens + empty tokens
-
-            # Create embeddings
-            if embedding:
-                with tf.variable_scope("embeddings",
-                                       initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0, seed=0)):
-                    if observe_action:
-                        action_embeddings = tf.get_variable("action_embeddings", [n_action_inputs, embedding_size], trainable=True)
-                    if observe_parent:
-                        parent_embeddings = tf.get_variable("parent_embeddings", [n_parent_inputs, embedding_size], trainable=True)
-                    if observe_sibling:
-                        sibling_embeddings = tf.get_variable("sibling_embeddings", [n_sibling_inputs, embedding_size], trainable=True)
-
-            # First observation is all empty tokens
-            initial_obs = tuple()
-            for n in [n_action_inputs, n_parent_inputs, n_sibling_inputs]:
-                obs = tf.constant(n - 1, dtype=np.int32)
-                obs = tf.broadcast_to(obs, [self.batch_size])
-                initial_obs += (obs,)            
+            task = Program.task
+            initial_obs = task.reset_task(state_manager, prior)
+            state_manager.setup_manager(self)
+            # replicates initial obs to the batch shape
+            initial_obs = tuple([tf.broadcast_to(obs, [self.batch_size]) for obs in initial_obs])
+            initial_obs = state_manager.process_state(initial_obs)
 
             # Get initial prior
             initial_prior = self.prior.initial_prior()
@@ -287,94 +242,18 @@ class Controller(object):
             # prior = tf.broadcast_to(prior, prior_dims)
             # initial_prior = prior
 
-
-            # Returns concatenated one-hot or embeddings from observation tokens
-            # Used for both raw_rnn and dynamic_rnn
-            def get_input(obs):
-                action, parent, sibling = obs
-                observations = []
-                if observe_action:
-                    if embedding:
-                        obs = tf.nn.embedding_lookup(action_embeddings, action)
-                    else:
-                        obs = tf.one_hot(action, depth=n_action_inputs)
-                    observations.append(obs)
-                if observe_parent:
-                    if embedding:
-                        obs = tf.nn.embedding_lookup(parent_embeddings, parent)
-                    else:
-                        obs = tf.one_hot(parent, depth=n_parent_inputs)
-                    observations.append(obs)
-                if observe_sibling:
-                    if embedding:
-                        obs = tf.nn.embedding_lookup(sibling_embeddings, sibling)
-                    else:
-                        obs = tf.one_hot(sibling, depth=n_sibling_inputs)
-                    observations.append(obs)
-                input_ = tf.concat(observations, -1)                
-                return input_
-
-
-            # Applies constraints
-            def get_action_parent_sibling_prior_dangling(actions, dangling):
-                n = actions.shape[0] # Batch size
-                i = actions.shape[1] - 1 # Current index
-                action = actions[:, -1] # Current action
-
-                # Depending on the constraints, may need to compute parents and siblings
-                if self.compute_parents_siblings:
-                    parent, sibling = parents_siblings(actions, arities=lib.arities, parent_adjust=lib.parent_adjust)
-                else:
-                    parent = np.zeros(n, dtype=np.int32)
-                    sibling = np.zeros(n, dtype=np.int32)
-
-                # Update dangling with (arity - 1) for each element in action
-                dangling += lib.arities[action] - 1
-
-                prior = self.prior(actions, parent, sibling, dangling)
-
-                return action, parent, sibling, prior, dangling
-
-
-            # Given the actions chosen so far, return the observation, the prior, and the updated dangling
-            # Uses py_func to retrieve action/parent/sibling/dangling
-            def get_next_obs_prior_dangling(actions_ta, dangling):
-
-                # Get current action batch
-                actions = tf.transpose(actions_ta.stack()) # Shape: (?, time)
-                
-                # Compute parent, sibling, prior, and dangling
-                action, parent, sibling, prior, dangling = tf.py_func(func=get_action_parent_sibling_prior_dangling,
-                                                              inp=[actions, dangling],
-                                                              Tout=[tf.int32, tf.int32, tf.int32, tf.float32, tf.int32])
-
-                # Observe previous action, parent, and/or sibling
-                obs = (action, parent, sibling)
-
-                # Set the shapes for returned Tensors
-                action.set_shape([None])
-                parent.set_shape([None])
-                sibling.set_shape([None])                
-                prior.set_shape([None, lib.L])
-                dangling.set_shape([None])
-
-                return obs, prior, dangling
-
-
             # Define loop function to be used by tf.nn.raw_rnn.
-            initial_cell_input = get_input(initial_obs)
+            initial_cell_input = state_manager.get_tensor_input(initial_obs)
             def loop_fn(time, cell_output, cell_state, loop_state):
 
                 if cell_output is None: # time == 0
                     finished = tf.zeros(shape=[self.batch_size], dtype=tf.bool)
                     obs = initial_obs
-                    next_input = get_input(obs)
+                    next_input = state_manager.get_tensor_input(obs)
                     next_cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)                    
                     emit_output = None
                     actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=False) # Read twice
-                    obs_tas = (tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True), # Action inputs
-                              tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True), # Parent inputs
-                              tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=True)) # Sibling inputs
+                    obs_tas = state_manager.get_initial_tensor_arrays()
                     priors_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     prior = initial_prior
                     lengths = tf.ones(shape=[self.batch_size], dtype=tf.int32)
@@ -403,12 +282,24 @@ class Controller(object):
                     #     tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32)[:, 0],
                     #     tf.zeros(shape=[self.batch_size], dtype=tf.int32))
                     next_actions_ta = actions_ta.write(time - 1, action) # Write chosen actions
-                    next_obs, next_prior, next_dangling = get_next_obs_prior_dangling(next_actions_ta, dangling)
-                    next_input = get_input(next_obs)
-                    next_obs_tas = ( # Write OLD observation
-                        obs_tas[0].write(time - 1, obs[0]), # Action inputs
-                        obs_tas[1].write(time - 1, obs[1]), # Parent inputs
-                        obs_tas[2].write(time - 1, obs[2])) # Sibling inputs
+                    # Get current action batch
+                    actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
+
+                    # Compute parent, sibling, prior, and dangling
+                    next_obs, next_prior, next_dangling = tf.py_func(func=task.get_next_obs,
+                                                                     inp=[actions, dangling],
+                                                                     Tout=[tf.int32, tf.float32, tf.int32])
+                    next_prior.set_shape([None, lib.L])
+                    next_dangling.set_shape([None])
+                    next_obs.set_shape([3, None])  # action, parent, sibling
+                    next_obs = tuple(tf.unstack(next_obs))
+                    next_obs = state_manager.process_state(next_obs)
+                    next_input = state_manager.get_tensor_input(next_obs)
+                    # Write OLD observation
+                    tas_out = []
+                    for x in range(len(obs_tas)):
+                        tas_out.append(obs_tas[x].write(time - 1, obs[x]))
+                    next_obs_tas = tuple(tas_out)
                     next_priors_ta = priors_ta.write(time - 1, prior) # Write OLD prior
                     finished = next_finished = tf.logical_or(
                         finished,
@@ -448,9 +339,7 @@ class Controller(object):
             with tf.name_scope(name):
                 batch_ph = {
                     "actions" : tf.placeholder(tf.int32, [None, max_length]),
-                    "obs" : (tf.placeholder(tf.int32, [None, max_length]),
-                             tf.placeholder(tf.int32, [None, max_length]),
-                             tf.placeholder(tf.int32, [None, max_length])),
+                    "obs" : state_manager.get_obs_ph(),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None,]),
                     "rewards" : tf.placeholder(tf.float32, [None], name="r"),
@@ -468,7 +357,7 @@ class Controller(object):
         def make_neglogp_and_entropy(B):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
-                                              inputs=get_input(B.obs),
+                                              inputs=state_manager.get_tensor_input(B.obs),
                                               sequence_length=B.lengths, # Backpropagates only through sequence length
                                               dtype=tf.float32)
             logits += B.priors

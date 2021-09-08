@@ -21,6 +21,7 @@ from dso.train import learn
 from dso.prior import make_prior
 from dso.program import Program
 from dso.config import load_config
+from dso.tf_state_manager import make_state_manager as manager_make_state_manager
 
 
 class DeepSymbolicOptimizer():
@@ -59,6 +60,7 @@ class DeepSymbolicOptimizer():
         self.set_seeds() # Must be called _after_ resetting graph and _after_ setting task
         self.sess = tf.Session()
         self.prior = self.make_prior()
+        self.state_manager = self.make_state_manager()
         self.controller = self.make_controller()
         self.output_file = self.make_output_file()
 
@@ -97,6 +99,7 @@ class DeepSymbolicOptimizer():
         self.config_task = self.config["task"]
         self.config_prior = self.config["prior"]
         self.config_training = self.config["training"]
+        self.config_state_manager = self.config["state_manager"]
         self.config_controller = self.config["controller"]
         self.config_experiment = self.config["experiment"]
 
@@ -128,9 +131,13 @@ class DeepSymbolicOptimizer():
         prior = make_prior(Program.library, self.config_prior)
         return prior
 
+    def make_state_manager(self):
+        return manager_make_state_manager(self.config_state_manager)
+
     def make_controller(self):
         controller = Controller(self.sess,
                                 self.prior,
+                                self.state_manager,
                                 **self.config_controller)
         return controller
 

@@ -12,6 +12,7 @@ from dso.subroutines import jit_check_constraint_violation, \
         jit_check_constraint_violation_descendant_no_target_tokens, \
         jit_check_constraint_violation_uchild
 from dso.language_model import LanguageModelPrior as LM
+from dso.utils import import_custom_source
 
 
 def make_prior(library, config_prior):
@@ -33,9 +34,11 @@ def make_prior(library, config_prior):
     priors = []
     warn_messages = []
     for prior_type, prior_args in config_prior.items():
-        assert prior_type in prior_dict, \
-            "Unrecognized prior type: {}.".format(prior_type)
-        prior_class = prior_dict[prior_type]
+        if prior_type in prior_dict:
+            prior_class = prior_dict[prior_type]
+        else:
+            # Tries to import custom priors
+            prior_class = import_custom_source(prior_type)
         if isinstance(prior_args, dict):
             prior_args = [prior_args]
         for single_prior_args in prior_args:

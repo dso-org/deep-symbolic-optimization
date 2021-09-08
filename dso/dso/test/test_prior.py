@@ -6,7 +6,7 @@ from dso.core import DeepSymbolicOptimizer
 from dso.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dso.program import from_tokens, Program
 from dso.memory import Batch
-from dso.controller import parents_siblings
+from dso.subroutines import parents_siblings
 from dso.subroutines import jit_parents_siblings_at_once
 from dso.prior import RepeatConstraint, RelationalConstraint, TrigConstraint, \
                       ConstConstraint, InverseUnaryConstraint, LengthConstraint

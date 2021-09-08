@@ -5,6 +5,8 @@ import copy
 import functools
 import numpy as np
 import time
+import importlib
+import re
 
 
 def is_float(s):
@@ -155,3 +157,32 @@ def safe_merge_dicts(base_dict, update_dict):
         else:
             base_dict[key] = value
     return base_dict
+
+
+def import_custom_source(import_source):
+    """
+    Provides a way to import custom modules. The return will be a reference to the desired source
+    Parameters
+    ----------
+        import_source : import path
+            Source to import from, for most purposes: <module_name>:<class or function name>
+
+    Returns
+    -------
+        mod : ref
+            reference to the imported module
+    """
+
+    # Partially validates if the import_source is in correct format
+    regex = '[\w._]+:[\w._]+' #lib_name:class_name
+    m = re.match(pattern=regex, string=import_source)
+    # Partial matches mean that the import will fail
+    assert m is not None and m.end() == len(import_source), "*** Failed to import malformed source string: "+import_source
+
+    source, type = import_source.split(':')
+
+    # Dynamically imports the configured source
+    mod = importlib.import_module(source)
+    func = getattr(mod, type)
+
+    return func

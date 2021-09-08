@@ -7,6 +7,7 @@ from dso.program import Program, from_str_tokens
 from dso.library import Library
 from dso.functions import create_tokens
 import dso.task.control.utils as U
+from dso.task.task import get_next_obs_parent_sibling, reset_task_parent_sibling
 
 
 REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
@@ -251,6 +252,8 @@ def make_control_task(function_set, env, action_spec, algorithm=None,
 
     task = dso.task.Task(reward_function=reward,
                 evaluate=evaluate,
+                get_next_obs=get_next_obs_parent_sibling,
+                reset_task=reset_task_parent_sibling,
                 library=library,
                 stochastic=stochastic,
                 task_type='control',

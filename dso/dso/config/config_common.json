@@ -74,6 +74,18 @@
       "save_cache_r_min" : 0.9,
       "save_freq" : 1
    },
+   // The State Manager defines which input features are used in the RNN
+   "state_manager": {
+         "type" : "parent_sibling",
+         // Observation hyperparameters. Use only observe_parent and
+         // observe_sibling to capture hierarchical information of expression
+         // trees.
+         "observe_action" : false,
+         "observe_parent" : true,
+         "observe_sibling" : true,
+         "embedding" : false,
+         "embedding_size" : 8
+   },
 
    // Hyperparameters related to the RNN distribution over objects.
    "controller" : {
@@ -86,19 +98,10 @@
       "num_layers" : 1,
       "num_units" : 32,
       "initializer" : "zeros",
-      "embedding" : false,
-      "embedding_size" : 8,
 
       // Optimizer hyperparameters.
       "learning_rate" : 0.001,
       "optimizer" : "adam",
-
-      // Observation hyperparameters. Use only observe_parent and
-      // observe_sibling to capture hierarchical information of expression
-      // trees.
-      "observe_action" : false,
-      "observe_parent" : true,
-      "observe_sibling" : true,
 
       // Entropy regularizer hyperparameters.
       "entropy_weight" : 0.005,
