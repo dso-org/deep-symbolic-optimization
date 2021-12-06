@@ -40,20 +40,9 @@ There are a few additional dependencies to run the `control` task. Install them 
 pip install -e ./dso[control]
 ```
 
-Make sure you have the DSO's python env activated. It will take a few minutes to install all dependencies. If something goes wrong during the installation, check again if you really have all permissions required.
-
-After succesfully running the script, add the following certs to your `.bashrc` (create this file in your home dir if the file doesn't exist):
-
-```
-# Proxy Python CA certs
-export HTTPLIB2_CA_CERTS=/etc/pki/tls/cert.pem
-export REQUESTS_CA_BUNDLE=/etc/pki/tls/cert.pem
-export REQUESTS_CA_CERTS=/etc/pki/tls/cert.pem
-export CURL_CA_BUNDLE=/etc/pki/tls/cert.pem
-```
-
 ### Installation - all tasks
-To install all dependencies for all tasks, use the `all` option like this:
+To install all dependencies for all tasks, use the `all` option:
+
 ```
 pip install -e ./dso[all]
 ```
@@ -115,10 +104,10 @@ If you want to include optimized floating-point constants in the search space, s
 You can test symbolic regression out of the box with a default configuration, after running setup, with a command such as:
 
 ```
-python -m dso.run dso/config/config_regression_gp.json --b Nguyen-7
+python -m dso.run dso/config/config_regression.json --b Nguyen-7
 ```
 
-This will run the population seeding controller on the regression task with benchmark Nguyen-7. 
+This will run DSO on the regression task with benchmark Nguyen-7.
 
 ##### Configuring runs for learning symbolic control policies
 
@@ -202,7 +191,6 @@ To use the latest development from NeurIPS 2021, insert a field for `"gp_meld"`.
 }
 ```
 
-`config/config_regression_gp.json` will run the symbolic regression task using the RNN/GP controller and can be used as an example for other tasks.
 # Sklearn interface
 
 The `regression` task supports an additional [`sklearn`-like regressor interface](https://scikit-learn.org/stable/modules/generated/sklearn.base.RegressorMixin.html) to make it easy to try out deep symbolic regression on your own data:
@@ -324,7 +312,7 @@ To cite the `control` task, use:
 }
 ```
 
-To cite the `neural guided GP seeding` method, use:
+To cite the neural-guided genetic programming population seeding method, use:
 ```
 @inproceedings{mundhenk2021seeding,
   title={Symbolic Regression via Neural-Guided Genetic Programming Population Seeding},
