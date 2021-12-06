@@ -1,0 +1,25 @@
+{
+   "task" : {
+      "task_type" : "control",
+      "env" : "CustomCartPoleContinuous-v0",
+      "action_spec" : [null],
+      "n_episodes_train" : 5,
+      "n_episodes_test" : 10,
+      "success_score": 800.0,
+      "function_set" : ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", 0.1, 1, 5],
+      "fix_seeds" : false,
+      "episode_seed_shift" : 0,
+      "env_kwargs" : {"dt" : 0.02},
+      "reward_scale" : true,
+      "decision_tree_threshold_set" : [-2.4, -0.21, 0.0, 0.21, 2.4]
+   },
+   "prior": {
+      "state_checker" : { "on" : true }
+   },
+   "training" : {
+      "n_samples" : 2000,
+      "batch_size" : 20,
+      "save_pareto_front" : false,
+      "n_cores_batch": 2
+   }
+}

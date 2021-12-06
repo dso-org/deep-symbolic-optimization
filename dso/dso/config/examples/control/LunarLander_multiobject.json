@@ -1,0 +1,19 @@
+// This example contains an example of how to use multiobject Programs to learn both LunarLander actions at once.
+
+{
+   "task" : {
+      "task_type" : "control",
+      "env" : "LunarLanderContinuous-v2",
+      "action_spec" : [null, null],
+      "multiobject": true,
+      "reward_scale": false
+   },
+   "training" : {
+      // Recommended to set this to as many cores as you can use!
+      "n_cores_batch" : 2 
+   },
+   "controller" : {
+      "entropy_weight" : 0.01,
+      "entropy_gamma" : 0.85
+   },
+}
