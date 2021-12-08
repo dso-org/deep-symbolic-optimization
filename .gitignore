@@ -8,7 +8,8 @@ dso/dso/summary*
 ~$*
 *.vscode/
 dso/build
-dso/dso/cyfunc*
+dso/dso/cyfunc.c
+dso/dso/cyfunc*.so
 **/log/
 /tmp
 /demo-web/user
