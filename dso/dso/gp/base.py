@@ -89,11 +89,10 @@ class RunOneStepAlgorithm:
             
         # Calls either map or pool.map
         programs    = list(self.toolbox.cmap(_eval_step, tokens_list))
-        for i, ind in enumerate(population):
-            if np.isposinf(ind.fitness.values[0]):
-                p = programs.pop(0)
-                ind.fitness.values = (-p.r,)
-                Program.cache[p.str] = p 
+        for ind in uncached_ind:
+            p = programs.pop(0)
+            ind.fitness.values = (-p.r,)
+            Program.cache[p.str] = p
 
         return population, invalid_ind, uncached_ind
 
