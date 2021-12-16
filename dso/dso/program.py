@@ -445,11 +445,7 @@ class Program(object):
     def set_execute(cls, protected):
         """Sets which execute method to use"""
 
-        """
-        If cython ran, we will have a 'c' file generated. The dynamic libary can be
-        given different names, so it's not reliable for testing if cython ran.
-        """
-
+        # Check if cython_execute can be imported; if not, fall back to python_execute
         try:
             from dso import cyfunc
             from dso.execute import cython_execute
