@@ -1,6 +1,5 @@
 """Utility functions used in deep symbolic optimization."""
 
-import collections
 import copy
 import functools
 import numpy as np
@@ -9,6 +8,11 @@ import importlib
 import re
 import os
 import pandas as pd
+
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
 
 
 def is_float(s):
@@ -154,7 +158,7 @@ def safe_merge_dicts(base_dict, update_dict):
         return update_dict
     base_dict = copy.deepcopy(base_dict)
     for key, value in update_dict.items():
-        if isinstance(value, collections.Mapping):
+        if isinstance(value, Mapping):
             base_dict[key] = safe_merge_dicts(base_dict.get(key, {}), value)
         else:
             base_dict[key] = value
