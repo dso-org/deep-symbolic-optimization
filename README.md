@@ -409,7 +409,6 @@ To cite the `regression` task, please use:
 
 To cite the `control` task, please use:
 ```
-<font size="1">
 @inproceedings{landajuela2021discovering,
   title={Discovering symbolic policies with deep reinforcement learning},
   author={Landajuela, Mikel and Petersen, Brenden K and Kim, Sookyung and Santiago, Claudio P and Glatt, Ruben and Mundhenk, Nathan and Pettit, Jacob F and Faissol, Daniel},
@@ -418,7 +417,6 @@ To cite the `control` task, please use:
   year={2021},
   organization={PMLR}
 }
-</font>
 ```
 
 To cite the neural-guided genetic programming population seeding method, please use:
