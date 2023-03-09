@@ -66,6 +66,7 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
     return adj_parents, siblings
 
 
+# TBD: Refactor to compute hierarchical obs
 @jit(nopython=True, parallel=False)
 def jit_parents_siblings_at_once(tokens, arities, parent_adjust):
     """
@@ -176,6 +177,10 @@ def ancestors(actions, arities, ancestor_tokens):
         ancestor_tokens.
     """
 
+    for token in ancestor_tokens:
+        assert arities[token] == 1, "subroutine 'ancestors' may not work" \
+            "properly for non-unary ancestor_tokens"
+
     N, L = actions.shape
     mask = np.zeros(shape=(N,), dtype=np.bool_)
     # Parallelized loop over action sequences
@@ -199,91 +204,6 @@ def ancestors(actions, arities, ancestor_tokens):
         # If the sequences ended "on", then there is a trig ancestor
         if threshold is not None:
             mask[r] = True
-    return mask
-
-
-@jit(nopython=True, parallel=True)
-def get_position(actions, arities, n_objects=1):
-    """
-    Given a batch of action trajectories and action arities, 
-    compute the current position in the current object and the position the last object ended at. 
-
-    The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence. 
-
-    This function is designed mainly for usage when training multiobject DSP policies (n_objects > 1).
-    As such, it expects that each action in the batch is a traversal containing n_objects sub-traversals (aka objects)
-    within it.
-
-    Parameters
-    ----------
-
-    actions : np.ndarray, shape=(N, L), dtype=np.int32
-        Batch of action sequences. Values correspond to library indices.
-
-    arities : np.ndarray, dtype=np.int32
-        Array of arities corresponding to library indices.
-
-    n_objects : int
-        Integer value representing the number of objects (aka the number of action dimensions) in each action trajectory.
-    """
-    N, L = actions.shape # get dimensions (batch, action length)
-    positions = np.zeros(shape=(N,)) # initialize for tracking positions in current object for each object in batch
-    position_last_object_ended = np.zeros(shape=(N,))
-
-    # step over batch
-    for r in range(N):
-        dangling = 0
-        dangling_markers = -np.arange(1, n_objects + 1) # these are the dangling values that denote the end of an object
-        position_ctr = 0
-
-        # step over object
-        for c in range(L):
-            arity = arities[actions[r, c]]
-            dangling += arity - 1
-            positions[r] = position_ctr
-
-            if dangling == dangling_markers[0]:
-                dangling_markers = dangling_markers[1:]
-                position_ctr = 0
-                position_last_object_ended[r] = c
-            else:
-                position_ctr += 1
-                
-    return positions, position_last_object_ended
-
-
-@jit(nopython=True, parallel=True)
-def get_mask(pos, depth):
-    """
-    Given a batch of positions where the last object ended and a depth which is the current total
-    number of actions taken, compute a binary mask where all actions taken before the current
-    object are associated with a zero and all actions taken in the current object are associated
-    with a one.
-
-    This function is designed mainly for usage when training multiobject DSP policies (n_objects > 1).
-    As such, it expects that each action in the batch is a traversal containing n_objects sub-traversals (aka objects)
-    within it.
-
-    Parameters
-    ----------
-
-    pos : np.ndarray, shape=(N,), dtype=np.int32
-        Batch of positions where the last object ended.
-
-    depth : int
-        The current 't' of the actions taken. Same as actions.shape[1].
-
-    Returns
-    -------
-
-    mask : np.ndarray, shape = (N,depth), dtype=np.int32
-        The binary mask with zeros where the mask should be applied and ones where it shouldn't.
-    """
-    mask = np.ones((pos.shape[0], depth))
-    for i in range(len(pos)):
-        for j in range(int(pos[i])):
-            mask[i, j] = 0
     return mask
 
 

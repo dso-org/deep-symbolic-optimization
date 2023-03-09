@@ -7,6 +7,8 @@
 import numpy as np
 import array
 
+from dso.library import StateChecker, Polynomial
+
 # Cython specific C imports
 cimport numpy as np
 from cpython cimport array
@@ -69,7 +71,16 @@ def execute(np.ndarray X, int len_traversal, list traversal, int[:] is_input_var
         # Keep on doing this so long as arity matches up, we can 
         # add in numbers above and complete the arity later.
         while stack_count[sp] == arity:
-            intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) # 85% of overhead
+            # If stack_end_function is a StateChecker (xi < tj), which is associated with
+            # the i-th state variable xi and threshold tj, then stack_end_function needs to know
+            # the value of xi (through set_state_value) in order to evaluate the returned value.
+            # The index i is specified by the attribute state_index of a StateChecker.
+            if isinstance(stack_end_function, StateChecker):
+                stack_end_function.set_state_value(X[:, stack_end_function.state_index])
+            if isinstance(stack_end_function, Polynomial):
+                intermediate_result = stack_end_function(X)
+            else:
+                intermediate_result = stack_end_function(*stack_end[1:(stack_count[sp] + 1)]) # 85% of overhead
 
             # I think we can get rid of this line, but will require a major rewrite.
             if sp == 0:    

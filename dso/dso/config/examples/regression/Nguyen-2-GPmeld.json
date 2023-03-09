@@ -1,0 +1,25 @@
+{
+   "task" : {
+      "dataset" : "Nguyen-2"
+   },
+   // Hyperparameters related to genetic programming hybrid methods.
+   "gp_meld" : {
+      "run_gp_meld" : true,
+      "population_size" : 100,
+      "generations" : 10,
+      "crossover_operator" : "cxOnePoint",
+      "p_crossover" : 0.5,
+      "mutation_operator" : "multi_mutate",
+      "p_mutate" : 0.5,
+      "tournament_size" : 5,
+      "train_n" : 50,
+      "mutate_tree_max" : 3,
+      "verbose" : false,
+      // Speeds up processing when doing expensive evaluations.
+      "parallel_eval" : false
+   },
+   "training": {
+      "n_samples": 2000000,
+      "batch_size": 1000
+   }
+}

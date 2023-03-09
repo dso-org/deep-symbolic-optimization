@@ -7,22 +7,22 @@ from dso.program import Program
 
 class StateManager(ABC):
     """
-    An interface for handling the tf.Tensor inputs to the Controller.
+    An interface for handling the tf.Tensor inputs to the Policy.
     """
 
-    def setup_manager(self, controller):
+    def setup_manager(self, policy):
         """
-        Function called inside the controller to perform the needed initializations (e.g., if the tf context is needed)
-        :param controller the controller class
+        Function called inside the policy to perform the needed initializations (e.g., if the tf context is needed)
+        :param policy the policy class
         """
-        self.controller = controller
-        self.max_length = controller.max_length
+        self.policy = policy
+        self.max_length = policy.max_length
 
     @abstractmethod
     def get_tensor_input(self, obs):
         """
         Convert an observation from a Task into a Tesnor input for the
-        Controller, e.g. by performing one-hot encoding or embedding lookup.
+        Policy, e.g. by performing one-hot encoding or embedding lookup.
 
         Parameters
         ----------
@@ -32,7 +32,7 @@ class StateManager(ABC):
         Returns
         --------
         input_ : tf.Tensor (dtype=tf.float32)
-            Tensor to be used as input to the Controller.
+            Tensor to be used as input to the Policy.
         """
         return
 
@@ -54,7 +54,7 @@ def make_state_manager(config):
     Returns
     -------
     state_manager : StateManager
-        The StateManager to be used by the Controller.
+        The StateManager to be used by the policy.
     """
     manager_dict = {
         "hierarchical": HierarchicalStateManager
@@ -115,8 +115,8 @@ class HierarchicalStateManager(StateManager):
         self.embedding = embedding
         self.embedding_size = embedding_size
 
-    def setup_manager(self, controller):
-        super().setup_manager(controller)
+    def setup_manager(self, policy):
+        super().setup_manager(policy)
         # Create embeddings if needed
         if self.embedding:
             initializer = tf.random_uniform_initializer(minval=-1.0,
@@ -138,7 +138,8 @@ class HierarchicalStateManager(StateManager):
 
     def get_tensor_input(self, obs):
         observations = []
-        action, parent, sibling, dangling = tf.unstack(obs, axis=1)
+        unstacked_obs = tf.unstack(obs, axis=1)
+        action, parent, sibling, dangling = unstacked_obs[:4]
 
         # Cast action, parent, sibling to int for embedding_lookup or one_hot
         action = tf.cast(action, tf.int32)
@@ -171,4 +172,7 @@ class HierarchicalStateManager(StateManager):
             observations.append(x)
 
         input_ = tf.concat(observations, -1)
+        # possibly concatenates additional observations (e.g., bert embeddings)
+        if len(unstacked_obs) > 4:
+            input_ = tf.concat([input_, tf.stack(unstacked_obs[4:], axis=-1)], axis=-1)
         return input_

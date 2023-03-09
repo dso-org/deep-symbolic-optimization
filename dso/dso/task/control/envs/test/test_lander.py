@@ -10,7 +10,8 @@ import click
 def setup_envs_run_rollouts(seed: int, rollout_length: int):
     continuous_envs = {"LunarLanderContinuous-v2": {}, "LunarLanderCustom-v0": dict(reward_shaping_coef=1, continuous=True)}
     discrete_envs = {"LunarLander-v2": {}, "LunarLanderCustom-v0": dict(reward_shaping_coef=1, continuous=False)}
-    all_envs = [discrete_envs, continuous_envs]
+    multi_discrete_envs = {"LunarLanderMultiDiscrete-v0": {}}
+    all_envs = [discrete_envs, continuous_envs, multi_discrete_envs]
 
     results = {}
     for i, envs in enumerate(all_envs):

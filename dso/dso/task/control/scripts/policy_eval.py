@@ -148,7 +148,7 @@ class Model():
             action_models = []
             for traversal in ENVS[env_name]["symbolic"]:
                 action_models.append(
-                    from_str_tokens(traversal, skip_cache=False, n_objects=1))
+                    from_str_tokens(traversal, skip_cache=False))
             return action_models
 
     def predict(self, obs):

@@ -3,7 +3,7 @@ import re
 import numpy as np
 from fractions import Fraction
 
-from dso.library import Token, PlaceholderConstant, HardCodedConstant
+from dso.library import Token, PlaceholderConstant, HardCodedConstant, Polynomial, StateChecker
 import dso.utils as U
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
@@ -141,6 +141,36 @@ UNARY_TOKENS    = set([op.name for op in function_map.values() if op.arity == 1]
 BINARY_TOKENS   = set([op.name for op in function_map.values() if op.arity == 2])
 
 
+def create_state_checkers(n_states, threshold_set):
+    """
+    Helper function to create StateChecker Tokens.
+
+    Parameters
+    ----------
+    n_states : int
+        Number of state variables.
+
+    threshold_set : list or list of lists
+        A list of constants [t1, t2, ..., tn] for constructing StateChecker (si < tj),
+        or a list of lists of constants [[t11, t12, t1n], [t21, t22, ..., t2m], ...].
+        In the latter case, the i-th list contains the thresholds for state variable si for 
+        constructing StateChecker (si < tij). The sizes of the threshold lists can be different.
+    """
+    tokens = []
+    if isinstance(threshold_set[0], list):
+        assert len(threshold_set) == n_states, \
+            "If threshold_set is a list of lists, its length must equal n_states."
+    else:
+        threshold_set = [threshold_set]*n_states
+
+    for i, thresholds in enumerate(threshold_set):
+        assert all([U.is_float(t) for t in thresholds]), \
+            "threshold_set must contain only real constant numbers."
+        tokens.extend([StateChecker(i, t) for t in thresholds])
+
+    return tokens
+
+
 def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_set=None):
     """
     Helper function to create Tokens.
@@ -156,8 +186,11 @@ def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_
     protected : bool
         Whether to use protected versions of registered Tokens.
 
-    decision_tree_threshold_set : list
-        A set of constants {tj} for constructing nodes (xi < tj) in decision trees.
+    decision_tree_threshold_set : list or list of lists
+        A list of constants [t1, t2, ..., tn] for constructing nodes (xi < tj) in decision trees,
+        or a list of lists of constants [[t11, t12, t1n], [t21, t22, ..., t2m], ...].
+        In the latter case, the i-th list contains the thresholds for input variable xi for constructing
+        nodes (xi < tij) in decision trees. The sizes of the threshold lists can be different.
     """
 
     tokens = []
@@ -188,9 +221,16 @@ def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_
         elif op == "const":
             token = PlaceholderConstant()
 
+        elif op == "poly":
+            token = Polynomial()
+
         else:
             raise ValueError("Operation {} not recognized.".format(op))
 
         tokens.append(token)
 
+    if decision_tree_threshold_set is not None and len(decision_tree_threshold_set) > 0:
+        state_checkers = create_state_checkers(n_input_var, decision_tree_threshold_set)
+        tokens.extend(state_checkers)
+        
     return tokens

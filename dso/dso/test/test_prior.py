@@ -7,21 +7,21 @@ from dso.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 from dso.program import from_tokens, Program
 from dso.memory import Batch
 from dso.subroutines import parents_siblings
-from dso.subroutines import jit_parents_siblings_at_once, get_position
+from dso.subroutines import jit_parents_siblings_at_once 
 from dso.prior import RepeatConstraint, RelationalConstraint, TrigConstraint, \
-                      ConstConstraint, InverseUnaryConstraint, LengthConstraint
+                      ConstConstraint, InverseUnaryConstraint, LengthConstraint, \
+                      JointPrior, Prior
 from dso.config import load_config
 
 import numpy as np
 import inspect
-
+from typing import Type
 
 BATCH_SIZE = 1000
 
 
 @pytest.fixture
 def model():
-    Program.set_n_objects(1)
     config = load_config()
     config["experiment"]["logdir"] = None # Turn off saving results
     return DeepSymbolicOptimizer(config)
@@ -35,34 +35,42 @@ def make_testing_message(caller, i, n, msg):
     print(">>> Testing Caller: {} ({}) {} : TEST {}/{}: \"{}\" ".format(caller.filename, caller.lineno, caller.function, i+1, n, msg))
 
 
-def assert_invalid(model, cases, n_objects=1):
-    cases = [Program.library.actionize(case) for case in cases]
-    batch = make_batch(model, cases, n_objects=n_objects)
-    logp = model.controller.compute_probs(batch, log=True)
-    print(batch)
-    print(logp)
-    assert all(np.isneginf(logp)), \
-        "Found invalid case with probability > 0."
+def assert_invalid(model, cases):
+    for case in cases:
+        case = Program.library.actionize(case)
+        batch = make_batch(model, [case])
+        prior = batch.priors[0]
+        tokens = Program.library.tokenize(case)
+        invalid = False
+        for i, action in enumerate(case):
+            if np.isneginf(prior[i, action]) or np.isnan(prior[i, action]):
+                invalid = True
+                break
+        assert invalid, "The invalid case {} has probability > 0.".format(tokens)
 
 
-def assert_valid(model, cases, n_objects=1):
-    cases = [Program.library.actionize(case) for case in cases]
-    batch = make_batch(model, cases, n_objects=n_objects)
-    logp = model.controller.compute_probs(batch, log=True)
-    assert all(logp > -np.inf), \
-        "Found valid case with probability 0."
+def assert_valid(model, cases):
+    for case in cases:
+        case = Program.library.actionize(case)
+        batch = make_batch(model, [case])
+        prior = batch.priors[0]
+        tokens = Program.library.tokenize(case)
+        for i, action in enumerate(case):
+            assert prior[i, action] > -np.inf, "The {}-th action in the " \
+                "valid case {} has probability 0 to be chosen.".format(i, tokens)
 
 
 def pre_assert_is_violation(model, cases, prior_class, caller):
     assert callable(prior_class.is_violated)
 
     cases               = [Program.library.actionize(case) for case in cases]
-    batch               = make_batch(model, cases)
     results             = []
 
     # For each action sequence in the batch.
     # Deap works one at a time, so we do it this way.
-    for i,a in enumerate(batch.actions):
+    for i,case in enumerate(cases):
+        batch = make_batch(model, [case])
+        a = batch.actions[0]
         a  = np.expand_dims(a, axis=0)
         parents, siblings   = jit_parents_siblings_at_once(a,
                                                            arities=Program.library.arities,
@@ -71,9 +79,9 @@ def pre_assert_is_violation(model, cases, prior_class, caller):
         r1 = prior_class.is_violated(a,parents,siblings)        # Tests an optimized version if we have one
         r2 = prior_class.test_is_violated(a,parents,siblings)   # Tests the slower universal version
 
-        make_testing_message(caller, i, len(batch.actions), "{} == {}".format(r1,r2))
+        make_testing_message(caller, i, len(cases), "{} == {}".format(r1,r2))
 
-        assert r1==r2, make_failed_message(caller, i, len(batch.actions), "Both methods should return the same results.")
+        assert r1==r2, make_failed_message(caller, i, len(cases), "Both methods should return the same results.")
 
         results.append(r1)
 
@@ -104,25 +112,23 @@ def make_sequence(model, L):
     num_X = num_B + 1
     case = [B] * num_B + [U] * num_U + [X] * num_X
     assert len(case) == L
-    case = case[:model.controller.max_length]
+    case = case[:model.policy.max_length]
     return case
 
 
-def make_batch(model, actions, n_objects=1):
+def make_batch(model, actions):
     """
     Utility function to generate a Batch from (unfinished) actions.
 
     This uses essentially the same logic as controller.py's loop_fn, except
-    actions are prescribed instead of samples. Is there a way to refactor these
-    with less code reuse?
+    actions are prescribed instead of samples. The batch size is assumed to
+    be 1 to avoid arbitrary padding that may affect the prior test results.
+    Is there a way to refactor these with less code reuse?
     """
 
-    batch_size = len(actions)
-    L = model.controller.max_length
-
-    # Pad actions to maximum length
-    actions = np.array([np.pad(a, (0, L - len(a)), "constant")
-                        for a in actions], dtype=np.int32)
+    assert len(actions) == 1
+    actions = np.array(actions)
+    batch_size, L = actions.shape
 
     # Initialize obs
     prev_actions = np.zeros_like(actions)
@@ -162,10 +168,10 @@ def make_batch(model, actions, n_objects=1):
                                            empty_parent=empty_parent,
                                            empty_sibling=empty_sibling)
         dangling += arities[action] - 1
-        prior = model.prior(partial_actions, parent, sibling, dangling)
-        finished = np.where(np.logical_and(dangling == 1 - n_objects, lengths == 0),
+        finished = np.where(np.logical_and(dangling == 0, lengths == 0),
                             True,
                             False)
+        prior = model.prior(partial_actions, parent, sibling, dangling, finished)
         lengths = np.where(finished,
                            i + 1,
                            lengths)
@@ -177,6 +183,42 @@ def make_batch(model, actions, n_objects=1):
     on_policy = np.ones(batch_size, dtype=np.bool)
     batch = Batch(actions, obs, priors, lengths, rewards, on_policy)
     return batch
+
+
+def find_prior_from_joint(joint_prior : JointPrior,
+                          prior_type : Type[Prior]):
+    """
+    Find and return a prior of a specific type
+    from the priors within the joint prior.
+
+    Parameters
+    __________
+
+    joint_prior :
+            dso.prior.JointPrior that contains list of priors to look at
+
+    prior_type :
+            Prior type to try and find in list of priors
+
+    Returns
+    _______
+
+    prior :
+            Prior found in joint priors of the specified type
+
+    Raises
+    _______
+
+    AssertionError
+        If the prior is not found
+    """
+    found_prior = None
+    for prior in joint_prior.priors:
+        if isinstance(prior, prior_type):
+            found_prior = prior
+            break
+    assert found_prior is not None, "Prior {} not found in JointPrior object.".format(prior_type)
+    return found_prior
 
 
 def test_repeat(model):
@@ -192,7 +234,7 @@ def test_repeat(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = RepeatConstraint(Program.library, **model.config_prior["repeat"])
+    prior_class = find_prior_from_joint(model.prior, RepeatConstraint)
 
     invalid_cases = []
     invalid_cases.append(["sin"] * 3)
@@ -256,7 +298,7 @@ def test_descendant(model):
     model.train()
 
     library = Program.library
-    prior_class = RelationalConstraint(library, **model.config_prior["relational"])
+    prior_class = find_prior_from_joint(model.prior, RelationalConstraint)
 
     descendants = library.actionize(descendants)
     ancestors = library.actionize(ancestors)
@@ -297,7 +339,7 @@ def test_trig(model):
     model.train()
 
     library = Program.library
-    prior_class = TrigConstraint(library, **model.config_prior["trig"])
+    prior_class = find_prior_from_joint(model.prior, TrigConstraint)
 
     X = library.input_tokens[0]
     U = [i for i in library.unary_tokens
@@ -345,7 +387,7 @@ def test_child(model):
     model.train()
 
     library = Program.library
-    prior_class = RelationalConstraint(library, **model.config_prior["relational"])
+    prior_class = find_prior_from_joint(model.prior, RelationalConstraint)
 
     parents = library.actionize(parents)
     children = library.actionize(children)
@@ -363,7 +405,6 @@ def test_child(model):
             after = arity - i - 1
             case = [p] + [X] * before + [c] + [X] * after
             invalid_cases.append(case)
-    print(invalid_cases)
     assert_invalid(model, invalid_cases)
     assert_is_violation_true(model, invalid_cases, prior_class)
 
@@ -384,7 +425,8 @@ def test_uchild(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
+    model.config_prior["relational"].pop("on")
+    prior_class = find_prior_from_joint(model.prior, RelationalConstraint)
 
     # Generate valid test cases
     valid_cases = []
@@ -415,7 +457,7 @@ def test_const(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = ConstConstraint(Program.library, **model.config_prior["const"])
+    prior_class = find_prior_from_joint(model.prior, ConstConstraint)
 
     # Generate valid test cases
     valid_cases = []
@@ -449,9 +491,7 @@ def test_sibling(model):
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
-    prior_class = RelationalConstraint(Program.library, **model.config_prior["relational"])
-
-
+    prior_class = find_prior_from_joint(model.prior, RelationalConstraint)
 
     # Generate valid test cases
     valid_cases = []
@@ -478,7 +518,7 @@ def test_inverse(model):
     model.train()
 
     library = Program.library
-    prior_class = InverseUnaryConstraint(library, **model.config_prior["inverse"])
+    prior_class = find_prior_from_joint(model.prior, InverseUnaryConstraint)
 
     # Generate valid cases
     valid_cases = []
@@ -499,9 +539,8 @@ def test_inverse(model):
 
 @pytest.mark.parametrize("minmax", [(10, 10), (4, 30), (None, 10), (10, None),
                                         (10, 10), (4, 30), (None, 10),])
-# NOTE: This test doesn't use a fixture cause n_objects has to be specified before building a fixture
 def test_length(model, minmax):
-    """Test cases for LengthConstraint (for single- and multi-object Programs)."""
+    """Test cases for LengthConstraint"""
 
     min_, max_ = minmax
     model.setup()
@@ -513,7 +552,7 @@ def test_length(model, minmax):
     model.train()
 
     # First, check that randomly generated samples do not violate constraints
-    actions, _, _ = model.controller.sample(BATCH_SIZE)
+    actions, _, _ = model.policy.sample(BATCH_SIZE)
     programs = [from_tokens(a) for a in actions]
     lengths = [len(p.traversal) for p in programs]
     if min_ is not None:
@@ -562,10 +601,12 @@ def test_length(model, minmax):
 def test_state_checker(model):
     """Test cases for StateCheckerConstraint."""
 
-    # set non-empty decision_tree_threshold_set so as to add StateCheckers to Library
+    # use a dataset that has 2 inputs (states) to test if order of state index
+    # of StateChecker is constrained by StateCheckerConstraint as expected
+    model.config_task["dataset"] = "Nguyen-9"
+    # set non-empty decision_tree_threshold_set to add StateCheckers to Library
     model.config_task["decision_tree_threshold_set"] = [0.2, 0.4, 0.6, 0.8]
     model.config_prior = {} # Turn off all other Priors
-    model.config_prior["state_checker"] = {"on" : True}
     model.config_training.update(CONFIG_TRAINING_OVERRIDE)
     model.train()
 
@@ -616,6 +657,132 @@ def test_state_checker(model):
 
     assert_valid(model, valid_cases)
 
-    # reset default value of decision_tree_threshold_set for other tests
+    # reset default value for other tests
+    model.config_task["dataset"] = "Nguyen-1"
     model.config_task["decision_tree_threshold_set"] = []
 
+
+def test_domain_range(model):
+    """Test cases for DomainRangeConstraint"""
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["domain_range"] = {"on" : True}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    invalid_cases = []
+    # First token's range does not contain y_train
+    invalid_cases.append("sin") # y_train contains values outside (-1, 1)
+    invalid_cases.append("cos") # y_train contains values outside (-1, 1)
+    invalid_cases.append("exp") # y_train contains values < 0
+
+    # Unary parent's domain does not contain X_train
+    invalid_cases.append("log,x1") # X_train contains values < 0
+    invalid_cases.append("add,x1,log,x1")
+
+    valid_cases = []
+    valid_cases.append("log,sin,x1")
+    valid_cases.append("log,add,x1,x1")
+
+    assert_invalid(model, invalid_cases)
+    assert_valid(model, valid_cases)
+
+
+def test_domain_range_length_special(model):
+    """Test cases for special case regarding DomainRangeConstraint + LengthConstraint"""
+
+    LENGTH = 30
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_prior["domain_range"] = {"on" : True}
+    model.config_prior["length"] = {"on" : True, "max_" : LENGTH}
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    invalid_cases = []
+    # Last chance to choose unary operator cannot be log (since X_train contains values < 0)
+    for i in range(1, LENGTH // 2):
+        invalid_cases.append("add," * i + "sin," * (LENGTH - 2 * (i + 1)) + "log")
+    invalid_cases.append("add,add,mul,mul,cos,mul,add,exp,x1,add,mul,mul,mul,add,mul,sub,x1,log") # Empirical example of collision
+
+    # Last chance to choose unary operator can be non-log
+    valid_cases = [case[:-3] + "cos" for case in invalid_cases]
+
+    assert_invalid(model, invalid_cases)
+    assert_valid(model, valid_cases[0:1])
+
+
+def test_poly(model):
+    """Test cases for PolyConstraint."""
+
+    model.config_prior = {} # Turn off all other Priors
+    model.config_task.update({"dataset": "Poly-5"})
+    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+    model.train()
+
+    # Generate invalid cases involving Polynomial
+    invalid_cases = []
+    # more than one poly token
+    invalid_cases.append("add,exp,poly,poly")
+    # non-invertible function being ancestor of poly
+    invalid_cases.append("exp,sin,poly")
+    invalid_cases.append("sin,exp,poly")
+    # containing poly and const at the same time
+    invalid_cases.append("add,poly,const")
+
+    assert_invalid(model, invalid_cases)
+
+    # Generate valid cases involving Polynomial
+    valid_cases = []
+    # invertible unary function being ancestor of poly
+    valid_cases.append("exp,exp,poly")
+    # invertible binary function being ancestor of poly
+    valid_cases.append("add,exp,poly,x1")
+    # non-invertible function not being ancestor of poly
+    valid_cases.append("add,sin,x1,poly")
+    # more than one const token
+    valid_cases.append("add,const,add,x1,const")
+
+    assert_valid(model, valid_cases)
+
+
+def test_multi_discrete():
+    config = "config/examples/control/LunarLanderMultiDiscrete.json"
+    config = load_config(config)
+    config["experiment"]["logdir"] = None # Turn off saving results
+    config["training"]["n_samples"] = 4
+    config["training"]["batch_size"] = 2
+    model = DeepSymbolicOptimizer(config)
+
+    # dense = False, ordered = False
+    model.train()
+    invalid_cases = ["x1 < 0.0,a1_1,a1_2"]
+    invalid_cases.append("x1 < 0.0,a1_1,a2_2,a1_2")
+    assert_invalid(model, invalid_cases)
+
+    valid_cases = ["x1 < 0.0,a2_1,a1_1"]
+    valid_cases.append("x1 < 0.0,a1_1,a2_1,STOP,x2 < 0.0,a2_1,a1_2,STOP,a1_2")
+    assert_valid(model, valid_cases)
+
+    # dense = True, ordered = False
+    model.config_prior["multi_discrete"]["dense"] = True
+    model.train()
+    assert_invalid(model, ["x1 < 0.0,a1_1,STOP"])
+    assert_valid(model, ["x1 < 0.0,a2_1,a1_1,STOP"])
+
+    # dense = True, ordered = True
+    model.config_prior["multi_discrete"]["ordered"] = True
+    model.train()
+    invalid_cases = ["x1 < 0.0,a1_1,STOP"]
+    invalid_cases = ["x1 < 0.0,a2_1"]
+    assert_invalid(model, invalid_cases)
+
+    valid_cases = ["x1 < 0.0,a1_1,a2_1,STOP"]
+    valid_cases.append("x1 < 0.0,a1_2")
+    assert_valid(model, valid_cases)
+
+    # dense = False, ordered = True
+    model.config_prior["multi_discrete"]["dense"] = False
+    model.train()
+    assert_invalid(model, ["x1 < 0.0,a2_1,a1_1"])
+    assert_valid(model, ["x1 < 0.0,a2_1,STOP"])

@@ -1,14 +1,12 @@
 """Class for symbolic expression object or program."""
 
 import array
+import os
 import warnings
 from textwrap import indent
 
 import numpy as np
-from sympy.parsing.sympy_parser import parse_expr
-from sympy import pretty
-
-from dso.functions import PlaceholderConstant
+from dso.library import Token, PlaceholderConstant, Polynomial
 from dso.const import make_const_optimizer
 from dso.utils import cached_property
 import dso.utils as U
@@ -35,22 +33,23 @@ def _finish_tokens(tokens):
 
     """
 
-    n_objects = Program.n_objects
+    if Program.task.task_type == "binding":
+        return tokens
 
     arities = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
     # Note that terminal nodes are -1 while functions will be >= 0 since arities - 1
     dangling = 1 + np.cumsum(arities - 1)
 
-    if -n_objects in (dangling - 1):
-        # Chop off tokens once the cumsum reaches 0, This is the last valid point in the tokens
-        expr_length = 1 + np.argmax((dangling - 1) == -n_objects)
+    if -1 in (dangling - 1):
+        # chop off tokens once the cumsum reaches 0, this is the last valid point in the tokens
+        expr_length = 1 + np.argmax((dangling - 1) == -1)
         tokens = tokens[:expr_length]
     else:
         # Extend with valid variables until string is valid
         # NOTE: This only appends onto the end of a set of tokens, even in the multi-object case!
-        assert n_objects == 1, "Is max length constraint turned on? Max length constraint required when n_objects > 1."
-        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        if Program.task.task_type != 'binding':
+            tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
 
     return tokens
 
@@ -150,7 +149,7 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
     if skip_cache or Program.task.stochastic:
         p = Program(tokens, on_policy=on_policy)
     else:
-        key = tokens.tostring() 
+        key = tokens.tostring()
         try:
             p = Program.cache[key]
             if on_policy:
@@ -194,6 +193,9 @@ class Program(object):
         A list of indices of constants placeholders or floating-point constants
         along the traversal.
 
+    poly_pos : int
+        Index of poly token in the traversal if it has one.
+
     sympy_expr : str
         The (lazily calculated) SymPy expression corresponding to the program.
         Used for pretty printing _only_.
@@ -216,12 +218,10 @@ class Program(object):
     library = None          # Library
     const_optimizer = None  # Function to optimize constants
     cache = {}
-    n_objects = 1           # Number of executable objects per Program instance
 
     # Cython-related static variables
     have_cython = None      # Do we have cython installed
     execute = None          # Link to execute. Either cython or python
-    cyfunc = None           # Link to cyfunc lib since we do an include inline
 
     def __init__(self, tokens=None, on_policy=True):
         """
@@ -236,6 +236,9 @@ class Program(object):
 
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i, t in enumerate(self.traversal) if isinstance(t, PlaceholderConstant)]
+        poly_pos = [i for i, t in enumerate(self.traversal) if isinstance(t, Polynomial)]
+        assert len(poly_pos) <= 1, "A program cannot contain more than one 'poly' token"
+        self.poly_pos = poly_pos[0] if len(poly_pos) > 0 else None
         self.len_traversal = len(self.traversal)
 
         if self.have_cython and self.len_traversal > 1:
@@ -249,72 +252,6 @@ class Program(object):
         self.off_policy_count = 0 if on_policy else 1
         self.originally_on_policy = on_policy # Note if a program was created on policy
 
-        if Program.n_objects > 1:
-            # Fill list of multi-traversals
-            danglings = -1 * np.arange(1, Program.n_objects + 1)
-            self.traversals = [] # list to keep track of each multi-traversal
-            i_prev = 0
-            arity_list = [] # list of arities for each node in the overall traversal
-            for i, token in enumerate(self.traversal):
-                arities = token.arity
-                arity_list.append(arities)
-                dangling = 1 + np.cumsum(np.array(arity_list) - 1)[-1]
-                if (dangling - 1) in danglings:
-                    trav_object = self.traversal[i_prev:i+1]
-                    self.traversals.append(trav_object)
-                    i_prev = i+1
-                    """
-                    Keep only what dangling values have not yet been calculated. Don't want dangling to go down and up (e.g hits -1, goes back up to 0 before hitting -2)
-                    and trigger the end of a traversal at the wrong time
-                    """
-                    danglings = danglings[danglings != dangling - 1]
-                    
-    def __getstate__(self):
-        
-        have_r = "r" in self.__dict__
-        have_evaluate = "evaluate" in self.__dict__
-        possible_const = have_r or have_evaluate
-        
-        state_dict = {'tokens' : self.tokens, # string rep comes out different if we cast to array, so we can get cache misses.
-                      'have_r' : bool(have_r),
-                      'r' : float(self.r) if have_r else float(-np.inf), 
-                      'have_evaluate' : bool(have_evaluate),
-                      'evaluate' : self.evaluate if have_evaluate else float(-np.inf), 
-                      'const' : array.array('d', self.get_constants()) if possible_const else float(-np.inf), 
-                      'on_policy_count' : bool(self.on_policy_count),
-                      'off_policy_count' : bool(self.off_policy_count),
-                      'originally_on_policy' : bool(self.originally_on_policy),
-                      'invalid' : bool(self.invalid), 
-                      'error_node' : array.array('u', "" if not self.invalid else self.error_node), 
-                      'error_type' : array.array('u', "" if not self.invalid else self.error_type)}    
-        
-        # In the future we might also return sympy_expr and complexity if we ever need to compute in parallel 
-
-        return state_dict
-                
-    def __setstate__(self, state_dict):
-        
-        # Question, do we need to init everything when we have already run, or just some things?
-        self._init(state_dict['tokens'], state_dict['originally_on_policy'])
-        
-        have_run = False
-        
-        if state_dict['have_r']:
-            setattr(self, 'r', state_dict['r'])
-            have_run = True
-            
-        if state_dict['have_evaluate']:
-            setattr(self, 'evaluate', state_dict['evaluate'])
-            have_run = True 
-        
-        if have_run:
-            self.set_constants(state_dict['const'].tolist())
-            self.invalid = state_dict['invalid']
-            self.error_node = state_dict['error_node'].tounicode()
-            self.error_type = state_dict['error_type'].tounicode()
-            self.on_policy_count = state_dict['on_policy_count']
-            self.off_policy_count = state_dict['off_policy_count']
-                              
     def execute(self, X):
         """
         Execute program on input X.
@@ -331,24 +268,11 @@ class Program(object):
         result : np.array or list of np.array
             In a single-object Program, returns just an array. In a multi-object Program, returns a list of arrays.
         """
-        if Program.n_objects > 1:
-            if not Program.protected:
-                result = []
-                invalids = []
-                for trav in self.traversals:
-                    val, invalid, self.error_node, self.error_type = Program.execute_function(trav, X)
-                    result.append(val)
-                    invalids.append(invalid)
-                self.invalid = any(invalids)
-            else:
-                result = [Program.execute_function(trav, X) for trav in self.traversals]
-            return result
+        if not Program.protected:
+            result, self.invalid, self.error_node, self.error_type = Program.execute_function(self.traversal, X)
         else:
-            if not Program.protected:
-                result, self.invalid, self.error_node, self.error_type = Program.execute_function(self.traversal, X)
-            else:
-                result = Program.execute_function(self.traversal, X)
-            return result
+            result = Program.execute_function(self.traversal, X)
+        return result
 
     def optimize(self):
         """
@@ -356,13 +280,15 @@ class Program(object):
         optimized values are stored in the traversal.
         """
 
+        # TBD: Should use np.float32
+
         if len(self.const_pos) == 0:
             return
 
         # Define the objective function: negative reward
         def f(consts):
             self.set_constants(consts)
-            r = self.task.reward_function(self)
+            r = self.task.reward_function(self, optimizing=True)
             obj = -r # Constant optimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
@@ -393,10 +319,17 @@ class Program(object):
             # instance and just overwrite each other's value.
             self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
+    def get_poly(self):
+        """Returns a Program's Polynomial token if it has one."""
 
-    @classmethod
-    def set_n_objects(cls, n_objects):
-        Program.n_objects = n_objects
+        return None if self.poly_pos is None else self.traversal[self.poly_pos]
+
+    def set_poly(self, poly_token):
+        """Sets the program's Polynomial token to the given token"""
+
+        if self.poly_pos is not None:
+            self.traversal[self.poly_pos] = poly_token
+
 
     @classmethod
     def clear_cache(cls):
@@ -420,7 +353,6 @@ class Program(object):
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
 
-
     @classmethod
     def set_complexity(cls, name):
         """Sets the class' complexity function"""
@@ -435,9 +367,11 @@ class Program(object):
             # Sum of token-wise complexities
             "token" : lambda p : sum([t.complexity for t in p.traversal]),
 
+            # Binding complexity: % of mutations relative to master seq
+            "mutations" : lambda p : Program.task.compute_mutational_distance(p)
         }
 
-        assert name in all_functions, "Unrecognzied complexity function name."
+        assert name in all_functions, "Unrecognized complexity function name."
 
         Program.complexity_function = lambda p : all_functions[name](p)
 
@@ -447,14 +381,13 @@ class Program(object):
 
         # Check if cython_execute can be imported; if not, fall back to python_execute
         try:
-            from dso import cyfunc
             from dso.execute import cython_execute
-            execute_function        = cython_execute
-            Program.have_cython     = True
+            execute_function = cython_execute
+            Program.have_cython = True
         except ImportError:
             from dso.execute import python_execute
-            execute_function        = python_execute
-            Program.have_cython     = False
+            execute_function = python_execute
+            Program.have_cython = False
 
         if protected:
             Program.protected = True
@@ -548,53 +481,38 @@ class Program(object):
         tree --> serialized tree --> SymPy expression
         """
 
-        if Program.n_objects == 1:
-            tree = self.traversal.copy()
-            tree = build_tree(tree)
-            tree = convert_to_sympy(tree)
-            try:
-                expr = parse_expr(tree.__repr__()) # SymPy expression
-            except:
-                expr = tree.__repr__()
-            return [expr]
-        else:
-            exprs = []
-            for i in range(len(self.traversals)):
-                tree = self.traversals[i].copy()
-                tree = build_tree(tree)
-                tree = convert_to_sympy(tree)
-                try:
-                    expr = parse_expr(tree.__repr__()) # SymPy expression
-                except:
-                    expr = tree.__repr__()
-                exprs.append(expr)
-            return exprs
+        tree = self.traversal.copy()
+        tree = build_tree(tree)
+        tree = convert_to_sympy(tree)
+        try:
+            expr = U.parse_expr(tree.__repr__()) # SymPy expression
+        except:
+            expr = tree.__repr__()
+        return expr
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-        return [pretty(self.sympy_expr[i]) for i in range(Program.n_objects)] 
 
+        if self.task.task_type != "binding":
+            return U.pretty(self.sympy_expr)
+        else:
+            return None
 
     def print_stats(self):
         """Prints the statistics of the program
-        
+
             We will print the most honest reward possible when using validation.
         """
-        
+
         print("\tReward: {}".format(self.r))
         print("\tCount Off-policy: {}".format(self.off_policy_count))
         print("\tCount On-policy: {}".format(self.on_policy_count))
         print("\tOriginally on Policy: {}".format(self.originally_on_policy))
         print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
-
-        if Program.n_objects == 1:
-            print("\tExpression:")
-            print("{}\n".format(indent(self.pretty()[0], '\t  ')))
-        else:
-            for i in range(Program.n_objects):
-                print("\tExpression {}:".format(i))
-                print("{}\n".format(indent(self.pretty()[i], '\t  ')))
+        if self.task.task_type != 'binding':
+            print("\tExpression:") 
+            print("{}\n".format(indent(self.pretty(), '\t  ')))
 
     def __repr__(self):
         """Prints the program's traversal"""

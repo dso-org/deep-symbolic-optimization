@@ -5,18 +5,38 @@ from collections import namedtuple
 
 import numpy as np
 
+from dso.program import from_tokens
+from dso.utils import pad_action_obs_priors
+
 
 Batch = namedtuple(
     "Batch", ["actions", "obs", "priors", "lengths", "rewards", "on_policy"])
 
 
-def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
+# TBD: This should be member function of Batch class
+def save_batch(B, save_path):
+    """Save Batch to file."""
+
+    with open(save_path, "wb") as f:
+        np.savez(f, **dict(B._asdict()))
+
+
+# TBD: This should be class function of Batch class
+def load_batch(save_path):
+    """Load Batch from file."""
+
+    B = np.load(save_path)
+    B = Batch(**B)
+    return B
+
+
+def make_queue(policy=None, priority=False, capacity=np.inf, seed=0):
     """Factory function for various Queues.
 
     Parameters
     ----------
-    controller : dso.controller.Controller
-        Reference to the Controller, used to compute probabilities of items in
+    policy : dso.policy.Policy
+        Reference to the Policy, used to compute probabilities of items in
         the Queue.
 
     priority : bool
@@ -41,11 +61,11 @@ def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
         Base = UniqueQueue
 
     class ProgramQueue(ProgramQueueMixin, Base):
-        def __init__(self, controller, capacity, seed):
-            ProgramQueueMixin.__init__(self, controller)
+        def __init__(self, policy, capacity, seed):
+            ProgramQueueMixin.__init__(self, policy)
             Base.__init__(self, capacity, seed)
 
-    queue = ProgramQueue(controller, capacity, seed)
+    queue = ProgramQueue(policy, capacity, seed)
     return queue
 
 
@@ -281,8 +301,8 @@ class ProgramQueueMixin():
     """A mixin for Queues with additional utilities specific to Batch and
     Program."""
 
-    def __init__(self, controller=None):
-        self.controller = controller
+    def __init__(self, policy=None):
+        self.policy = policy
 
     def push_sample(self, sample, program):
         """
@@ -327,9 +347,17 @@ class ProgramQueueMixin():
     def _make_batch(self, samples):
         """Turns a list of samples into a Batch."""
 
-        actions = np.stack([s.actions for s in samples], axis=0)
-        obs = np.stack([s.obs for s in samples], axis=0)
-        priors = np.stack([s.priors for s in samples], axis=0)
+        # Pad up to max length across samples
+        max_len = max([s.actions.shape[0] for s in samples])
+        padded_aop = [pad_action_obs_priors(np.expand_dims(s.actions, axis=0),
+                                            np.expand_dims(s.obs, axis=0),
+                                            np.expand_dims(s.priors, axis=0),
+                                            pad_length=max_len - s.actions.shape[0]) for s in samples]
+
+        actions, obs, priors = zip(*padded_aop)
+        actions = np.concatenate(actions, axis=0)
+        obs = np.concatenate(obs, axis=0)
+        priors = np.concatenate(priors, axis=0)
         lengths = np.array([s.lengths for s in samples], dtype=np.int32)
         rewards = np.array([s.rewards for s in samples], dtype=np.float32)
         on_policy = np.array([s.on_policy for s in samples], dtype=np.bool)
@@ -346,15 +374,30 @@ class ProgramQueueMixin():
 
     def compute_probs(self):
         """Computes the probabilities of items in the queue according to the
-        Controller."""
+        Policy."""
 
-        if self.controller is None:
+        if self.policy is None:
             raise RuntimeError("Cannot compute probabilities. This Queue does \
-                not have a Controller.")
-        return self.controller.compute_probs(self.to_batch())
+                not have a Policy.")
+        return self.policy.compute_probs(self.to_batch())
 
     def get_rewards(self):
         """Returns the rewards"""
 
         r = [container.extra_data.rewards for container in self.heap]
         return r
+
+    def save(self, save_path):
+        """Save the contents of the queue to file."""
+
+        B = self.to_batch()
+        save_batch(B, save_path)
+
+    def load(self, load_path):
+        """Load the contents of the queue from file."""
+
+        B = load_batch(load_path)
+        programs = [from_tokens(np.array(tokens, dtype=np.int32)) for tokens in B.actions]
+        for p, r in zip(programs, B.rewards):
+            p.r = r
+        self.push_batch(B, programs)

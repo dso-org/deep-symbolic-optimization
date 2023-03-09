@@ -18,18 +18,23 @@ def model():
     return DeepSymbolicOptimizer(config)
 
 
-@pytest.fixture
-def cached_results(model):
-    save_path = resource_filename("dso.test", "data/test_model")
-    model.load(save_path)
+@pytest.fixture(params=("strong", "weak"))
+def cached_results(model, request):
+    if request.param == "strong":
+        model_data = "data/test_model_strong"
+    elif request.param == "weak":
+        model_data = "data/test_model_weak"
+    tf_load_path = resource_filename("dso.test", model_data)
+    model.setup()
+    saver = tf.train.Saver()
+    saver.restore(model.sess, tf_load_path)
     results = model.sess.run(tf.trainable_variables())
 
-    return results
+    return [request.param, results]
 
 
 @pytest.mark.parametrize("config", ["config/config_regression.json",
                                     "config/config_control.json"])
-
 def test_task(model, config):
     """Test that Tasks do not crash for various configs."""
     config = load_config(config)
@@ -43,15 +48,37 @@ def test_task(model, config):
 
 @pytest.mark.parametrize("config", ["config/config_regression.json"])
 def test_model_parity(model, cached_results, config):
-    """Compare results to last"""
-
+    """Compare results with gp meld on to previous set"""
     config = load_config(config)
     config["experiment"]["logdir"] = None # Turn off saving results
     model.set_config(config)
-    model.config_training.update(CONFIG_TRAINING_OVERRIDE)
+
+    [stringency, cached_results]= cached_results
+
+    if stringency == "strong":
+        n_samples = 1000
+    elif stringency == "weak":
+        n_samples = 100
+
+    model.config_training.update({"n_samples" : n_samples,
+                                  "batch_size" : 100})
+
+    # Turn on GP meld
+    model.config_gp_meld.update({"run_gp_meld" : True,
+                                 "generations" : 3,
+                                 "population_size" : 10,
+                                 "crossover_operator" : "cxOnePoint",
+                                 "mutation_operator" : "multi_mutate"
+                                 })
+
     model.train()
     results = model.sess.run(tf.trainable_variables())
-
-    cached_results = np.concatenate([a.flatten() for a in cached_results])
     results = np.concatenate([a.flatten() for a in results])
+    cached_results = np.concatenate([a.flatten() for a in cached_results])
+    assert np.linalg.norm(cached_results, ord=1) > 0
+    
+    if stringency == "weak":
+        results = np.where(results, 1, 0)
+        cached_results = np.where(cached_results, 1, 0)
+
     np.testing.assert_array_almost_equal(results, cached_results)

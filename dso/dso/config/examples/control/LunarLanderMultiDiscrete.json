@@ -1,0 +1,52 @@
+// This example contains an example of how to use MultiDiscreteAction to learn both actions of LunarLanderMultiDiscrete-v0 at once.
+
+{
+  "task" : {
+    "task_type" : "control",
+    "env" : "LunarLanderMultiDiscrete-v0",
+    "action_spec" : [null, null],
+    "n_episodes_train" : 5,
+    "n_episodes_test" : 10,
+    "reward_scale": false,
+    "decision_tree_threshold_set": [[-0.5, 0.0, 0.5], [-0.75, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25],
+                                       [0.0], [0.0], [0.0], [0.0], [0.5], [0.5]],
+    "ref_action" : [0, 1],
+    "success_score" : 215.0
+  },
+  "training" : {
+    "n_samples" : 2000,
+    "batch_size" : 4,
+    "n_cores_batch": 2
+  },
+  "controller" : {
+    "entropy_weight" : 0.01,
+    "entropy_gamma" : 0.85
+  },
+  "prior": {
+    "length": {
+      "min_": null,
+      "max_": 128,
+      "on": true
+    },
+    "no_inputs" : {
+      "on" : false
+    },
+    "uniform_arity" : {
+      "on" : false
+    },
+    "soft_length" : {
+      "loc" : 30,
+      "scale" : 8,
+      "on" : true
+    },
+    "multi_discrete" : {
+      "dense" : false,
+      "ordered" : false,
+      "on" : true
+    }
+  },
+  "logging": {
+      "save_top_samples_per_batch": 0.01
+  }
+}
+

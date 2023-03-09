@@ -4,7 +4,7 @@ from dso.program import from_tokens
 from dso.utils import weighted_quantile
 
 
-def quantile_variance(memory_queue, controller, batch_size, epsilon, step,
+def quantile_variance(memory_queue, policy, batch_size, epsilon, step,
                       n_experiments=1000, estimate_bias=True,
                       n_samples_bias=1e6):
 
@@ -18,7 +18,7 @@ def quantile_variance(memory_queue, controller, batch_size, epsilon, step,
     memory_r = memory_queue.get_rewards()
     memory_w = memory_queue.compute_probs()
     for exp in range(n_experiments):
-        actions, obs, priors = controller.sample(batch_size)
+        actions, obs, priors = policy.sample(batch_size)
         programs = [from_tokens(a) for a in actions]
         r = np.array([p.r for p in programs])
         quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
@@ -47,7 +47,7 @@ def quantile_variance(memory_queue, controller, batch_size, epsilon, step,
     print("Mean(Memory augmented quantile):", np.mean(memory_augmented_quantiles))
     print("Var(Memory augmented quantile):", np.var(memory_augmented_quantiles))
     if estimate_bias:
-        actions, obs, priors = controller.sample(int(n_samples_bias))
+        actions, obs, priors = policy.sample(int(n_samples_bias))
         programs = [from_tokens(a) for a in actions]
         r = np.array([p.r for p in programs])
         true_quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
