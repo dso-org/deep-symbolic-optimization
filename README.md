@@ -122,9 +122,9 @@ This will run DSO on the regression task with benchmark Nguyen-7.
 
 If you want to include optimized floating-point constants in the search space, simply include `"const"` in the `function_set` list. Note that constant optimization uses an inner-optimization loop, which leads to much longer runtimes (~hours instead of ~minutes).
 
-If you want to include the powerful <span style="font-variant:small-caps;">linear</span> token (called `poly` in the code)--introduced in the unified deep symbolic regression (uDSR) NeurIPS 2022 paper--in the search space, simply include `"poly"` in the `function_set` list. Polynomial optimization adds a bit of overhead, but not nearly as much as the `const` token; thus, we highly recommend this token for most applications.
+If you want to include the powerful `LINEAR` token (called `poly` in the code)--introduced in the unified deep symbolic regression (uDSR) NeurIPS 2022 paper--in the search space, simply include `"poly"` in the `function_set` list. Polynomial optimization adds a bit of overhead, but not nearly as much as the `const` token; thus, we highly recommend this token for most applications.
 
-You can further configure the <span style="font-variant:small-caps;">linear</span>/`poly` token by adjusting the `poly_optimizer_params` in the config, for example:
+You can further configure the `LINEAR/poly` token by adjusting the `poly_optimizer_params` in the config, for example:
 ```
 {
   "task" : {
@@ -391,7 +391,7 @@ J_{\text{PPO}} (\theta) =\mathbb{E}_{\tau \sim \mathcal{T}} [ \min (r(\theta) (R
 <img src="images/code_map.png" width=750/>
 </p>
 </details>
-<br>
+
 
 # Citing this work
 
@@ -429,7 +429,7 @@ To cite the neural-guided genetic programming population seeding method, please 
 }
 ```
 
-To cite the unified deep symbolic regression (uDSR) method or the <span style="font-variant:small-caps;">linear</span>/`poly` token, please use:
+To cite the unified deep symbolic regression (uDSR) method or the `LINEAR/poly` token, please use:
 ```
 @inproceedings{landajuela2022unified,
 title={A Unified Framework for Deep Symbolic Regression},
