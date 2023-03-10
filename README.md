@@ -24,6 +24,7 @@ This repository contains code supporting the following publications:
 6. Petersen et al. 2021 **Incorporating domain knowledge into neural-guided search via *in situ* priors and constraints** *AutoML @ ICML 2021.* [Paper]()
 7. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
 8. Silva et al. 2022 **Leveraging Language Models to Efficiently Learn Symbolic Optimization Solutions** *ALA Workshop 2022.* [Paper](https://ala2022.github.io/papers/ALA2022_paper_24.pdf)
+9. Glatt et al. 2022 **Deep Symbolic Optimization for Electric Component Sizing in Fixed Topology Power Converters** *AI for Design and Manufacturing (ADAM) @ AAAI 2022.* [Paper](https://openreview.net/forum?id=u_ghY9PnAyZ)
 
 # Installation
 
