@@ -1,0 +1,32 @@
+{
+   "task" : {
+      "task_type" : "control",
+      "env" : "MountainCar-v0",
+      "action_spec" : [null],
+      "n_episodes_train" : 10,
+      "n_episodes_test" : 100,
+      "success_score": -90.0,
+      "function_set" : [0.0, 1.0, 2.0],
+      "fix_seeds" : true,
+      "episode_seed_shift" : 0,
+      "env_kwargs" : {},
+      "reward_scale" : false,
+      "decision_tree_threshold_set" : [[-0.9, -0.6, -0.3, 0.0, 0.3],
+         [-0.06, -0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06]]
+   },
+   "prior": {
+      "length": {
+         "min_": 3,
+         "max_": 30,
+         "on": true
+      },
+      "no_inputs" : {
+         "on" : false
+      }
+   },
+   "training" : {
+      "n_samples" : 20000,
+      "batch_size" : 100,
+      "n_cores_batch": 4
+   }
+}

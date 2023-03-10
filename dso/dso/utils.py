@@ -6,9 +6,50 @@ import functools
 import numpy as np
 import time
 import importlib
+import random
 import re
 import os
 import pandas as pd
+
+import sympy.parsing.sympy_parser as sympy_parser
+import sympy
+
+from typing import Callable
+
+
+def preserve_global_rng_state(f: Callable):
+    """
+    Decorator that saves the internal state of the global random number
+    generator before call to function and sets it back to that state
+    after the call
+
+    Parameters
+    ----------
+    f : Callable
+        Function to decorate
+
+    Returns
+    _______
+    Callable
+        Decorated function that saves global random state and resets to it after
+    """
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        rng_state = random.getstate()
+        result = f(*args, **kwargs)
+        random.setstate(rng_state)
+        return result
+    return decorated
+
+
+# We wrap the sympy functions with preserve_global_rng_state
+# as the sympy routines appear to non-deterministically
+# re-seed the global random generator which can influence GP results.
+# This problem seems to be resolved in sympy in commit
+# https://github.com/sympy/sympy/pull/22433
+# These functions should be used instead of the sympy functions directly
+pretty = preserve_global_rng_state(sympy.pretty)
+parse_expr = preserve_global_rng_state(sympy_parser.parse_expr)
 
 
 def is_float(s):
@@ -121,7 +162,7 @@ def empirical_entropy(labels):
     for i in probs:
         ent -= i * np.log(i)
 
-    return ent
+    return np.array(ent, dtype=np.float32)
 
 
 def get_duration(start_time):
@@ -220,3 +261,74 @@ def import_custom_source(import_source):
     func = getattr(mod, type)
 
     return func
+
+def pad_action_obs_priors(actions, obs, priors, pad_length):
+    """
+    Will pad action, obs, priors with zeros.  
+    
+    Parameters
+    ----------
+        actions : np array
+            Standard actions array of tokens
+        obs : np array
+            Standard observations array
+        priors : np array
+            Standard priors array
+        pdd_length : int
+
+    Returns
+    -------
+        actions : np array
+            Standard actions array of tokens padded with zeros at the end columns
+        obs : np array
+            Standard observations array padded with zeros at the end columns
+        priors : np array
+            Standard priors array padded with zeros at the end columns
+    """
+    assert isinstance(pad_length,int)
+    assert pad_length >= 0
+    
+    actions = np.pad(actions, ((0,0),(0,pad_length)), 'constant', constant_values=((0,0),(0,0)))
+    obs = [ np.pad(o, ((0,0),(0,pad_length)), 'constant', constant_values=((0,0),(0,0))) for o in obs ]
+    priors = np.pad(priors, ((0,0),(0,pad_length),(0,0)), 'constant', constant_values=((0,0),(0,0),(0,0)))
+
+    return actions, obs, priors
+
+
+def make_batch_ph(name : str, n_choices : int):
+    """
+    Generates dictionary containing placeholders needed for a batch of sequences.
+    
+    Parameters
+    ----------
+        names : str
+            Name of tensorflow scope for this batch
+
+        n_choices : int
+            Number of choices in priors
+
+    Returns
+    -------
+        batch_ph : dict
+            Dictionary of placeholders
+    """
+
+    # Lazy import
+    import tensorflow as tf
+    from dso.memory import Batch
+    from dso.program import Program
+
+    with tf.name_scope(name):
+        batch_ph = {
+            "actions": tf.placeholder(tf.int32, [None, None]),
+            "obs": tf.placeholder(tf.float32, [None, Program.task.OBS_DIM, None]),
+            "priors": tf.placeholder(tf.float32, [None, None, n_choices]),
+            "lengths": tf.placeholder(tf.int32, [None, ]),
+            "rewards": tf.placeholder(tf.float32, [None], name="r"),
+            "on_policy": tf.placeholder(tf.int32, [None, ])
+         }
+        batch_ph = Batch(**batch_ph)
+    return batch_ph
+
+
+

@@ -1,8 +1,8 @@
-from distutils.core import setup
+from setuptools import setup
 import os
 from setuptools import dist
 
-dist.Distribution().fetch_build_eggs(['Cython', 'numpy<=1.19'])
+dist.Distribution().fetch_build_eggs(['Cython', 'numpy'])
 
 import numpy
 from Cython.Build import cythonize
@@ -23,7 +23,8 @@ required = [
     "progress",
     "tqdm",
     "commentjson",
-    "PyYAML"
+    "PyYAML",
+    "prettytable"
 ]
 
 extras = {

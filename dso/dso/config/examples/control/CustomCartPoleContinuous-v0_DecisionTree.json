@@ -11,7 +11,7 @@
       "episode_seed_shift" : 0,
       "env_kwargs" : {"dt" : 0.02},
       "reward_scale" : true,
-      "decision_tree_threshold_set" : [-2.4, -0.21, 0.0, 0.21, 2.4]
+      "decision_tree_threshold_set" : [[-2.4, 0.0, 2.4], [0.0], [-0.21, 0.0, 0.21], [0.0]]
    },
    "prior": {
       "state_checker" : { "on" : true }

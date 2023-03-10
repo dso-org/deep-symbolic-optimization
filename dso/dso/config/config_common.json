@@ -5,6 +5,9 @@
       // Root directory to save results.
       "logdir" : "./log",
 
+      // Save dir within logdir (will be set automatically to <task_name>_<timestamp> if null)
+      "exp_name" : null,
+
       // Random number seed. Don't forget to change this for multiple runs!
       "seed" : 0
    },
@@ -20,9 +23,7 @@
    // Hyperparameters related to the main training loop.
    "training" : {
 
-      // These parameters control the length of the run. Specify exactly one of
-      // [n_epochs, n_samples]. The other must be null.
-      "n_epochs" : null,
+      // These parameters control the length of the run.
       "n_samples" : 2000000,
       "batch_size" : 1000,
 
@@ -47,7 +48,12 @@
 
       // The constant optimizer used to optimized each "const" token.
       "const_optimizer" : "scipy",
-      "const_params" : {},
+      "const_params" : {
+         "method" : "L-BFGS-B",
+         "options" : {
+            "gtol" : 1e-3
+         }
+      },
       "verbose" : true,
 
       // Debug level
@@ -56,46 +62,65 @@
       // Whether to stop early if success condition is met
       "early_stopping" : true,
 
-      // Size of the "hall of fame" (top performers during training) to save.
-      "hof" : 100,
-
       // EXPERIMENTAL: Hyperparameters related to utilizing a memory buffer.
       "use_memory" : false,
       "memory_capacity" : 1e3,
       "warm_start" : null,
-      "memory_threshold" : null,
+      "memory_threshold" : null
+   },
 
-      // Parameters to control what outputs to save.
-      "save_all_epoch" : false,
+   // Parameters to control what outputs to save.
+   "logging" : {
+      "save_all_iterations" : false,
       "save_summary" : false,
       "save_positional_entropy" : false,
       "save_pareto_front" : true,
       "save_cache" : false,
       "save_cache_r_min" : 0.9,
       "save_freq" : 1,
-      "save_token_count" : false
+      "save_token_count" : false,
+      // Size of the "hall of fame" (top performers during training) to save.
+      "hof" : 100
    },
+
    // The State Manager defines the inputs to the Controller
    "state_manager": {
-         "type" : "hierarchical",
-         // Observation hyperparameters
-         "observe_action" : false,
-         "observe_parent" : true,
-         "observe_sibling" : true,
-         "observe_dangling" : false,
-         "embedding" : false,
-         "embedding_size" : 8
+      "type" : "hierarchical",
+      // Observation hyperparameters
+      "observe_action" : false,
+      "observe_parent" : true,
+      "observe_sibling" : true,
+      "observe_dangling" : false,
+      "embedding" : false,
+      "embedding_size" : 8
    },
-   // Hyperparameters related to the RNN distribution over objects.
-   "controller" : {
-      // Maximum sequence length.
-      "max_length" : 256,
 
-      // RNN architectural hyperparameters.
+   // Hyperparameters related to the policy, i.e. parameterized distribution over objects.
+   "policy" : {
+      
+      // Type of policy
+      // "rnn" is equivalent to "dso.policy.rnn_policy:RNNPolicy"
+      "policy_type" : "rnn", 
+
+      // Maximum sequence length.
+      "max_length" : 64,
+      
+      // Policy parameters
       "cell" : "lstm",
       "num_layers" : 1,
       "num_units" : 32,
-      "initializer" : "zeros",
+      "initializer" : "zeros"
+   },
+
+   // Hyperparameters related to the discrete distribution model over objects.
+   "policy_optimizer" : {
+
+      // Type of policy optimizer
+      // "pg" is equivalent to "dso.policy_optimizer.pg_policy_optimizer:PGPolicyOptimizer"
+      "policy_optimizer_type" : "pg", 
+
+      // Whether to compute TensorBoard summaries.
+      "summary" : false,
 
       // Optimizer hyperparameters.
       "learning_rate" : 0.001,
@@ -103,17 +128,7 @@
 
       // Entropy regularizer hyperparameters.
       "entropy_weight" : 0.005,
-      "entropy_gamma" : 1.0,
-
-      // EXPERIMENTAL: Priority queue training hyperparameters.
-      "pqt" : false,
-      "pqt_k" : 10,
-      "pqt_batch_size" : 1,
-      "pqt_weight" : 200.0,
-      "pqt_use_pg" : false,
-
-      // Whether to compute TensorBoard summaries.
-      "summary" : false
+      "entropy_gamma" : 1.0
    },
 
    // Hyperparameters related to genetic programming hybrid methods.
@@ -125,8 +140,11 @@
       "p_mutate" : 0.5,
       "tournament_size" : 5,
       "train_n" : 50,
-      "mutate_tree_max" : 3
+      "mutate_tree_max" : 3,
+      // Speeds up processing when doing expensive evaluations.
+      "parallel_eval" : false
    },
+
 
    // Hyperparameters related to including in situ priors and constraints. Each
    // prior must explicitly be turned "on" or it will not be used.
@@ -192,12 +210,24 @@
          "on" : false
       },
 
+      // Prevents first token if its range does not contain X range
+      // and prevents input variable X if its parent's domain does not contain X domain
+      "domain_range" : {
+         "on" : false
+      },
+
       // EXPERIMENTAL: Language model to use as a prior.
       "language_model" : {
          "weight" : null,
          "on" : false
-      }
+      },
 
+      // Constraint on selection of multi-discrete actions
+      "multi_discrete" : {
+         "dense" : false,           // all action dims are filled
+         "ordered" : false,         // action dim in ascending order
+         "on" : false
+      }
    },
 
    // Postprocessing hyperparameters.

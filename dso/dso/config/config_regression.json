@@ -42,65 +42,81 @@
       // Set of thresholds (shared by all input variables) for building
       // decision trees. Note that no StateChecker will be added to Library
       // if decision_tree_threshold_set is an empty list or null.
-      "decision_tree_threshold_set" : []
-   },
-   
-   // Hyperparameters related to genetic programming hybrid methods.
-   "gp_meld" : {
-      "run_gp_meld" : true,
-      "verbose" : false,
-      // How many GP generations to run between each RNN step. 
-      "generations" : 20,
-      "p_crossover" : 0.5,
-      "p_mutate" : 0.5,
-      "tournament_size" : 5,
-      "train_n" : 50,
-      "mutate_tree_max" : 3
+      "decision_tree_threshold_set" : [],
+
+      // Parameters for optimizing the "poly" token.
+      // Note: poly_optimizer is turned on if and only if "poly" is in function_set.
+      "poly_optimizer_params" : {
+         // The (maximal) degree of the polynomials used to fit the data
+         "degree": 3,
+         // Cutoff value for the coefficients of polynomials. Coefficients
+         // with magnitude less than this value will be regarded as 0.
+         "coef_tol": 1e-6,
+         // linear models from sklearn: linear_regression, lasso,
+         // and ridge are currently supported, or our own implementation
+         // of least squares regressor "dso_least_squares".
+         "regressor": "dso_least_squares",
+         "regressor_params": {
+            // Cutoff value for p-value of coefficients. Coefficients with 
+            // larger p-values are forced to zero.
+            "cutoff_p_value": 1.0,
+            // Maximum number of terms in the polynomial. If more coefficients are nonzero,
+            // coefficients with larger p-values will be forced to zero.
+            "n_max_terms": null,
+            // Cutoff value for the coefficients of polynomials. Coefficients
+            // with magnitude less than this value will be regarded as 0.
+            "coef_tol": 1e-6
+         }
+      }
    },
 
    // Only the key training hyperparameters are listed here. See
    // config_common.json for the full list.
    "training" : {
       "n_samples" : 2000000,
-      "batch_size" : 500,
-      "epsilon" : 0.02,
+      "batch_size" : 1000,
+      "epsilon" : 0.05,
+
       // Recommended to set this to as many cores as you can use! Especially if
       // using the "const" token.
       "n_cores_batch" : 1
    },
 
-   // Only the key RNN controller hyperparameters are listed here. See
-   // config_common.json for the full list.
-   "controller" : {
-      "learning_rate": 0.0025,
+   // // Only the key Policy Optimizer hyperparameters are listed here. See
+   // // config_common.json for the full list.
+   "policy_optimizer" : {
+      "learning_rate" : 0.0005,
       "entropy_weight" : 0.03,
       "entropy_gamma" : 0.7,
-      // Priority queue training hyperparameters.
-      "pqt" : true,
-      "pqt_k" : 10,
-      "pqt_batch_size" : 1,
-      "pqt_weight" : 200.0,
-      "pqt_use_pg" : false
+
+      // EXPERIMENTAL: Proximal policy optimization hyperparameters.
+      // "policy_optimizer_type" : "ppo",
+      // "ppo_clip_ratio" : 0.2,
+      // "ppo_n_iters" : 10,
+      // "ppo_n_mb" : 4,
+
+      // EXPERIMENTAL: Priority queue training hyperparameters.
+      // "policy_optimizer_type" : "pqt",
+      // "pqt_k" : 10,
+      // "pqt_batch_size" : 1,
+      // "pqt_weight" : 200.0,
+      // "pqt_use_pg" : false
+
    },
 
    // Hyperparameters related to including in situ priors and constraints. Each
    // prior must explicitly be turned "on" or it will not be used. See
    // config_common.json for descriptions of each prior.
    "prior": {
-      // Memory sanity value. Limit strings to size 256
-      // This can be set very high, but it runs slower.
-      // Max value is 1000. 
       "length" : {
          "min_" : 4,
-         "max_" : 256,
+         "max_" : 64,
          "on" : true
       },
-      // Memory sanity value. Have at most 10 optimizable constants. 
-      // This can be set very high, but it runs rather slow. 
       "repeat" : {
          "tokens" : "const",
          "min_" : null,
-         "max_" : 10,
+         "max_" : 3,
          "on" : true
       },
       "inverse" : {
@@ -116,12 +132,15 @@
          "on" : true
       },
       "uniform_arity" : {
-         "on" : false
+         "on" : true
       },
       "soft_length" : {
          "loc" : 10,
          "scale" : 5,
          "on" : true
+      },
+      "domain_range" : {
+         "on" : false
       }
    }
 }

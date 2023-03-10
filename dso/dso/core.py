@@ -16,12 +16,16 @@ import tensorflow as tf
 import commentjson as json
 
 from dso.task import set_task
-from dso.controller import Controller
-from dso.train import learn
+from dso.train import Trainer
+from dso.checkpoint import Checkpoint
+from dso.train_stats import StatsLogger
 from dso.prior import make_prior
 from dso.program import Program
 from dso.config import load_config
-from dso.tf_state_manager import make_state_manager as manager_make_state_manager
+from dso.tf_state_manager import make_state_manager
+
+from dso.policy.policy import make_policy
+from dso.policy_optimizer import make_policy_optimizer
 
 class DeepSymbolicOptimizer():
     """
@@ -57,30 +61,84 @@ class DeepSymbolicOptimizer():
         # Generate objects needed for training and set seeds
         self.pool = self.make_pool_and_set_task()
         self.set_seeds() # Must be called _after_ resetting graph and _after_ setting task
-        self.sess = tf.Session()
 
-        # Save complete configuration file
+        # Limit TF to single thread to prevent "resource not available" errors in parallelized runs
+        session_config = tf.ConfigProto(intra_op_parallelism_threads=1,
+                                        inter_op_parallelism_threads=1)
+        self.sess = tf.Session(config=session_config)
+
+        # Setup logdirs and output files
         self.output_file = self.make_output_file()
         self.save_config()
 
         # Prepare training parameters
         self.prior = self.make_prior()
         self.state_manager = self.make_state_manager()
-        self.controller = self.make_controller()
+        self.policy = self.make_policy()
+        self.policy_optimizer = self.make_policy_optimizer()
         self.gp_controller = self.make_gp_controller()
+        self.logger = self.make_logger()
+        self.trainer = self.make_trainer()
+        self.checkpoint = self.make_checkpoint()
+
+    def train_one_step(self, override=None):
+        """
+        Train one iteration.
+        """
+
+        # Setup the model
+        if self.sess is None:
+            self.setup()
+
+        # Run one step
+        assert not self.trainer.done, "Training has already completed!"
+        self.trainer.run_one_step(override)
+        
+        # Maybe save next checkpoint
+        self.checkpoint.update()
+
+        # If complete, return summary
+        if self.trainer.done:
+            return self.finish()
 
     def train(self):
+        """
+        Train the model until completion.
+        """
+
         # Setup the model
         self.setup()
 
-        # Train the model
+        # Train the model until done
+        while not self.trainer.done:
+            result = self.train_one_step()
+
+        return result
+
+    def finish(self):
+        """
+        After training completes, finish up and return summary dict.
+        """
+
+        # Return statistics of best Program
+        p = self.trainer.p_r_best
         result = {"seed" : self.config_experiment["seed"]} # Seed listed first
-        result.update(learn(self.sess,
-                            self.controller,
-                            self.pool,
-                            self.gp_controller,
-                            self.output_file,
-                            **self.config_training))
+        result.update({"r" : p.r})
+        result.update(p.evaluate)
+        result.update({
+            "expression" : repr(p.sympy_expr),
+            "traversal" : repr(p),
+            "program" : p
+        })
+
+        # Save all results available only after all iterations are finished. Also return metrics to be added to the summary file
+        results_add = self.logger.save_results(self.pool, self.trainer.nevals)
+        result.update(results_add)
+
+        # Close the pool
+        if self.pool is not None:
+            self.pool.close()
+
         return result
 
     def set_config(self, config):
@@ -89,11 +147,14 @@ class DeepSymbolicOptimizer():
         self.config = defaultdict(dict, config)
         self.config_task = self.config["task"]
         self.config_prior = self.config["prior"]
+        self.config_logger = self.config["logging"]
         self.config_training = self.config["training"]
         self.config_state_manager = self.config["state_manager"]
-        self.config_controller = self.config["controller"]
+        self.config_policy = self.config["policy"]
+        self.config_policy_optimizer = self.config["policy_optimizer"]
         self.config_gp_meld = self.config["gp_meld"]
         self.config_experiment = self.config["experiment"]
+        self.config_checkpoint = self.config["checkpoint"]
 
     def save_config(self):
         # Save the config file
@@ -141,21 +202,48 @@ class DeepSymbolicOptimizer():
         return prior
 
     def make_state_manager(self):
-        return manager_make_state_manager(self.config_state_manager)
+        state_manager = make_state_manager(self.config_state_manager)
+        return state_manager
 
+    def make_trainer(self):
+        trainer = Trainer(self.sess,
+                          self.policy,
+                          self.policy_optimizer,
+                          self.gp_controller,
+                          self.logger,
+                          self.pool,
+                          **self.config_training)
+        return trainer
 
-    def make_controller(self):
-        controller = Controller(self.sess,
-                                self.prior,
-                                self.state_manager,
-                                **self.config_controller)
-        return controller
+    def make_logger(self):
+        logger = StatsLogger(self.sess,
+                             self.output_file,
+                             **self.config_logger)
+        return logger
+
+    def make_checkpoint(self):
+        checkpoint = Checkpoint(self,
+                                **self.config_checkpoint)
+        return checkpoint
+
+    def make_policy_optimizer(self):
+        policy_optimizer = make_policy_optimizer(self.sess,
+                                                 self.policy,
+                                                 **self.config_policy_optimizer)
+        return policy_optimizer
+
+    def make_policy(self):
+        policy = make_policy(self.sess,
+                             self.prior,
+                             self.state_manager,
+                             **self.config_policy)
+        return policy
 
     def make_gp_controller(self):
         if self.config_gp_meld.pop("run_gp_meld", False):
             from dso.gp.gp_controller import GPController
             gp_controller = GPController(self.prior,
-                                         self.pool,
+                                         self.config_prior,
                                          **self.config_gp_meld)
         else:
             gp_controller = None
@@ -195,6 +283,7 @@ class DeepSymbolicOptimizer():
 
         # If logdir is not provided (e.g. for pytest), results are not saved
         if self.config_experiment.get("logdir") is None:
+            self.save_path = None
             print("WARNING: logdir not provided. Results will not be saved to file.")
             return None
 
@@ -206,9 +295,15 @@ class DeepSymbolicOptimizer():
 
         # Generate save path
         task_name = Program.task.name
-        save_path = os.path.join(
-            self.config_experiment["logdir"],
-            '_'.join([task_name, timestamp]))
+        if self.config_experiment["exp_name"] is None:
+            save_path = os.path.join(
+                self.config_experiment["logdir"],
+                '_'.join([task_name, timestamp]))
+        else:
+            save_path = os.path.join(
+                self.config_experiment["logdir"],
+                self.config_experiment["exp_name"])
+
         self.config_experiment["task_name"] = task_name
         self.config_experiment["save_path"] = save_path
         os.makedirs(save_path, exist_ok=True)
@@ -217,16 +312,12 @@ class DeepSymbolicOptimizer():
         output_file = os.path.join(save_path,
                                    "dso_{}_{}.csv".format(task_name, seed))
 
+        self.save_path = save_path
+
         return output_file
 
-    def save(self, save_path):
-
-        saver = tf.train.Saver()
-        saver.save(self.sess, save_path)
+    def save(self, save_path=None):
+        self.checkpoint.save(save_path)
 
     def load(self, load_path):
-
-        if self.sess is None:
-            self.setup()
-        saver = tf.train.Saver()
-        saver.restore(self.sess, load_path)
+        self.checkpoint.load(load_path)

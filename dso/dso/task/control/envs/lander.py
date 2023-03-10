@@ -32,6 +32,7 @@ from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revolute
 import gym
 from gym import spaces
 from gym.utils import seeding, EzPickle
+from gym.envs.box2d import LunarLanderContinuous
 
 FPS = 50
 SCALE = 30.0   # affects how fast-paced the game is, forces should be adjusted as well
@@ -397,8 +398,25 @@ class CustomLunarLander(gym.Env, EzPickle):
             self.viewer = None
 
 
-#class LunarLanderContinuous(LunarLander):
-#    continuous = True
+class LunarLanderMultiDiscrete(LunarLanderContinuous):
+    """
+    Instead of the Box [-1.0, 1.0] X [-1.0, 1.0], action space is MultiDiscrete
+    with discrete actions 0, 1, 2 in each action dimension, which correspond to
+    -1.0, 0.0, 1.0 in the original continuous space in each action dimension.
+    """
+    def __init__(self):
+       super().__init__()
+       self.action_space = spaces.MultiDiscrete([3,3])
+
+    def step(self, action):
+        assert self.action_space.contains(action), "%r (%s) invalid " % (action, type(action))
+        action -= 1
+        return super().step(action)
+
+    def reset(self):
+        super().reset()
+        return super().step(np.array([0,0]))[0]
+
 
 def heuristic(env, s):
     """

@@ -51,3 +51,11 @@ register(
     max_episode_steps=1000,
     reward_threshold=200,
 )
+
+# Modified LunarLander with a MultiDiscrete action space instead of Box.
+register(
+    id='LunarLanderMultiDiscrete-v0',
+    entry_point='dso.task.control.envs.lander:LunarLanderMultiDiscrete',
+    max_episode_steps=1000,
+    reward_threshold=200,
+)

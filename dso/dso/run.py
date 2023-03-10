@@ -65,7 +65,8 @@ def print_summary(config, runs, messages):
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each independent run")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
-def main(config_template, runs, n_cores_task, seed, benchmark):
+@click.option('--exp_name', default=None, type=str, help="Name of experiment to manually generate log path")
+def main(config_template, runs, n_cores_task, seed, benchmark, exp_name):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
     messages = []
@@ -85,6 +86,10 @@ def main(config_template, runs, n_cores_task, seed, benchmark):
             config["task"]["env"] = benchmark
         else:
             raise ValueError("--b is not supported for task {}.".format(task_type))
+
+    # Update save dir if provided
+    if exp_name is not None:
+        config["experiment"]["exp_name"] = exp_name
 
     # Overwrite config seed, if specified
     if seed is not None:
@@ -118,6 +123,11 @@ def main(config_template, runs, n_cores_task, seed, benchmark):
         messages.append(
                 "INFO: Setting 'n_cores_batch' to 1 to avoid nested child processes.")
         config["training"]["n_cores_batch"] = 1
+    if config["gp_meld"]["run_gp_meld"] and n_cores_task > 1 and runs > 1:
+        messages.append(
+                "INFO: Setting 'parallel_eval' to 'False' as we are already parallelizing.")
+        config["gp_meld"]["parallel_eval"] = False
+
 
     # Start training
     print_summary(config, runs, messages)
@@ -146,8 +156,8 @@ def main(config_template, runs, n_cores_task, seed, benchmark):
     log = LogEval(config_path=os.path.dirname(summary_path))
     log.analyze_log(
         show_count=config["postprocess"]["show_count"],
-        show_hof=config["training"]["hof"] is not None and config["training"]["hof"] > 0,
-        show_pf=config["training"]["save_pareto_front"],
+        show_hof=config["logging"]["hof"] is not None and config["logging"]["hof"] > 0,
+        show_pf=config["logging"]["save_pareto_front"],
         save_plots=config["postprocess"]["save_plots"])
     print("== POST-PROCESS END ===================")
 

@@ -63,8 +63,9 @@
       // used.
       "reward_scale" : true,
 
-      // This sets whether or not to simultaneously train every action dimension in the environment at once.
-      "multiobject": false,
+      // If the action space is multi-discrete, this is the default action
+      // If null, ref_action will be set to 0 for all action dimensions
+      "ref_action": null,
 
       // Set of thresholds (shared by all state variables) for building
       // decision trees. Note that no StateChecker will be added to Library
@@ -81,8 +82,11 @@
 
       // Recommended to set this to as many cores as you can use!
       "n_cores_batch" : 1,
-
       "early_stopping" : false
+   },
+   "logging" : {
+      "hof" : null,
+      "save_pareto_front" : false
    },
 
    // Only the key RNN controller hyperparameters are listed here. See

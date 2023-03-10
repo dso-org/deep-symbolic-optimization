@@ -4,6 +4,7 @@ import random
 import copy
 from functools import wraps
 from collections import defaultdict
+import time
 
 import numpy as np
 from deap import gp
@@ -14,9 +15,63 @@ from dso.subroutines import jit_parents_siblings_at_once
 __type__ = object
 
 
+class Individual(gp.PrimitiveTree):
+    """ Class representing an individual in DEAP's framework. 
+        Besides gp.PrimitiveTree, it also contains other information
+        related to binding task, such as number and max mutations.
+        It can incorporate more information for future tasks. """
+
+    def __init__(self, actions, pset, max_mutations,
+                 ind_representation, master_sequence):
+        super().__init__(tokens_to_DEAP(actions, pset))
+
+        self.ind_representation = ind_representation
+        self.master_sequence = master_sequence
+        # work_repr is likely to be in a different representation
+        # then it cannot be "linked" to the same 'actions' object
+        # otherwise it will mess up with Program.cache
+        self.work_repr = actions.copy()
+
+        self.pset = pset
+        self.max_mutations = max_mutations
+        self.update_num_mutations()
+
+    def __deepcopy__(self, memo):
+        """ Override gp.PrimitiveTree's deepcopy. """
+        new = Individual(self.tokenized_repr, self.pset,
+                         self.max_mutations, self.ind_representation,
+                         self.master_sequence)
+        for k, v in self.__dict__.items():
+            setattr(new, k, copy.deepcopy(v, memo))
+        new.update_tree_repr()
+        return new
+
+    @property
+    def tokenized_repr(self):
+        """ Convert to the representation that one can 
+            compute rewards from. """
+        token_repr = self.work_repr.copy()
+
+        return token_repr
+  
+    def update_tree_repr(self):
+        """ Update gp.PrimitiveTree from the vector representation. """
+        self = tokens_to_DEAP(self.tokenized_repr, self.pset)
+
+    def update_num_mutations(self):
+        """ Update number of mutations performed wrt master sequence. """
+        self.num_mutations = sum(self.work_repr > 0)
+
+    def set_to_zero(self):
+        """ Set gp.PrimitiveTree and work_repr to zero. """
+        self.num_mutations = 0
+        self.work_repr *= 0
+        self.update_tree_repr()
+
+
 # Fix for https://github.com/DEAP/deap/issues/190
 # Proposed by https://github.com/EpistasisLab/tpot/pull/412/files
-def cxOnePoint(ind1, ind2):
+def cxOnePoint(ind1, ind2, **kwargs):
     """Randomly select crossover point in each individual and exchange each
     subtree with the point as root between each individual.
     :param ind1: First tree participating in the crossover.
@@ -59,6 +114,68 @@ def cxOnePoint(ind1, ind2):
     return ind1, ind2
 
 
+def cxModifiedPMX(ind1, ind2, **kwargs):
+    """Executes a modified two-point crossover on the input :term:`sequence` individuals,
+    so that the offsprings respect constraints on the allowed number of mutations.
+
+    :param ind1: The first individual participating in the crossover.
+    :param ind2: The second individual participating in the crossover.
+
+    :returns: A tuple with two new individuals.
+    """
+
+    offsp_1 = copy.deepcopy(ind1)
+    offsp_2 = copy.deepcopy(ind2)
+
+    # crossover is simpler if offsprings are all zero
+    offsp_1.set_to_zero()
+    offsp_2.set_to_zero()
+
+    size = min(len(offsp_1.work_repr), len(offsp_2.work_repr))
+    cxpoint1 = np.random.randint(1, size)
+    cxpoint2 = np.random.randint(1, size - 1)
+    if cxpoint2 >= cxpoint1:
+        cxpoint2 += 1
+    else:  # Swap the two cx points
+        cxpoint1, cxpoint2 = cxpoint2, cxpoint1
+
+    # copy parts of parents into offsprings
+    offsp_1.work_repr[cxpoint1:cxpoint2] = ind2.work_repr[cxpoint1:cxpoint2].copy()
+    offsp_2.work_repr[cxpoint1:cxpoint2] = ind1.work_repr[cxpoint1:cxpoint2].copy()
+
+    # update number of mutations
+    offsp_1.update_num_mutations()
+    offsp_2.update_num_mutations()
+
+    idx_notsel = [i for i in range(0, cxpoint1)] + \
+                    [i for i in range(cxpoint2, size)]
+
+    # fill offspring 1 - from left to right
+    for i in idx_notsel:
+        if offsp_1.num_mutations < offsp_1.max_mutations: 
+            offsp_1.work_repr[i] = int(ind1.work_repr[i])
+        else:
+            break
+        offsp_1.update_num_mutations()
+
+    # fill offspring 2 - from right to left
+    for i in idx_notsel[::-1]:
+        if offsp_2.num_mutations < offsp_2.max_mutations: 
+            offsp_2.work_repr[i] = int(ind2.work_repr[i])
+        else:
+            break
+        offsp_2.update_num_mutations()
+
+    # as work_repr has been modified, we need to update tree
+    offsp_1.update_tree_repr()
+    offsp_2.update_tree_repr()
+
+    # to enforce fitness computation for these individuals
+    del offsp_1.fitness.values, offsp_2.fitness.values
+
+    return offsp_1, offsp_2
+
+
 def staticLimit(key, max_value):
     """A fixed version of deap.gp.staticLimit that samples without replacement.
     This prevents returning identical objects, for example if both children of a
@@ -85,19 +202,84 @@ def staticLimit(key, max_value):
     return decorator
 
 
-def multi_mutate(individual, expr, pset):
+def multi_mutate(individual, expr, pset, indpb):
     """Randomly select one of four types of mutation."""
 
-    v = np.random.randint(0, 4)
+    # decide whether or not it will be mutated
+    if np.random.rand() <= indpb:
+        # choose mutation operator from the list
+        v = np.random.randint(0, 4)
+        if v == 0:
+            individual, = gp.mutUniform(individual, expr, pset)
+        elif v == 1:
+            individual, = gp.mutNodeReplacement(individual, pset)
+        elif v == 2:
+            individual, = gp.mutInsert(individual, pset)
+        elif v == 3:
+            individual, = gp.mutShrink(individual)
 
+    return individual,
+
+
+def mutConstrainedUniformInt(individual, low, up, indpb):
+    """Mutate an individual by replacing attributes, with probability *indpb*,
+    by a integer uniformly drawn between *low* and *up* inclusively.
+    :param individual: :term:`Sequence <sequence>` individual to be mutated.
+    :param low: The lower bound or a :term:`python:sequence` of
+                of lower bounds of the range from which to draw the new
+                integer.
+    :param up: The upper bound or a :term:`python:sequence` of
+               of upper bounds of the range from which to draw the new
+               integer.
+    :param indpb: Independent probability for each attribute to be mutated.
+    :returns: A tuple of one individual.
+    """
+    size = len(individual.work_repr)
+    for i in np.random.permutation(size):
+        if random.random() < indpb:
+            if individual.num_mutations < individual.max_mutations:
+                individual.work_repr[i] = np.random.randint(low, up)
+                # update number of mutations
+                individual.update_num_mutations()
+
+    return individual,
+
+
+def mutShuffleIndexes(individual, indpb):
+    """Shuffle the attributes of the input individual and return the mutant.
+    The *individual* is expected to be a :term:`sequence`. The *indpb* argument is the
+    probability of each attribute to be mutated. Usually this mutation is applied on
+    vector of indices.
+    :param individual: Individual to be mutated.
+    :param indpb: Independent probability for each attribute to be exchanged to
+                  another position.
+    :returns: A tuple of one individual.
+    This function uses the :func:`~random.random` and :func:`~random.randint`
+    functions from the python base :mod:`random` module.
+    """
+    size = len(individual)
+    # notice that mutation is performed at position level
+    for i in range(size):
+        if random.random() < indpb:
+            swap_indx = random.randint(0, size - 2)
+            if swap_indx >= i:
+                swap_indx += 1
+            individual.work_repr[i], individual.work_repr[swap_indx] = \
+                individual.work_repr[swap_indx], individual.work_repr[i]
+
+    return individual,
+
+
+def multi_constrained_mutate(individual, expr, pset, indpb):
+    """Randomly select one of two types of constrained mutation."""
+
+    # choose mutation operator from the list
+    v = np.random.randint(0, 2)
     if v == 0:
-        individual = gp.mutUniform(individual, expr, pset)
-    elif v == 1:
-        individual = gp.mutNodeReplacement(individual, pset)
-    elif v == 2:
-        individual = gp.mutInsert(individual, pset)
-    elif v == 3:
-        individual = gp.mutShrink(individual)
+        # the sequence is the difference relative to the master sequence
+        individual = mutShuffleIndexes(individual, indpb)
+    # update tree representation as work_repr might have been modified
+    individual[0].update_tree_repr()
 
     return individual
 
@@ -133,7 +315,6 @@ def create_primitive_set(lib):
         elif token.function is not None:
             # A zero-arity function, e.g. const or 3.14. This is a terminal, but not an input value like x1.
 
-        
             # We are forced to use a string. Add a t to make it easier to debug naming. 
             tname = "t{}".format(i)
             # We don't really care about what is in each terminal since they are place holders within deap.

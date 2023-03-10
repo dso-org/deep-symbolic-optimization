@@ -4,6 +4,9 @@ except ImportError:
     cyfunc = None
 import array
 
+from dso.library import StateChecker, Polynomial
+
+
 def python_execute(traversal, X):
     """
     Executes the program according to X using Python.
@@ -32,7 +35,12 @@ def python_execute(traversal, X):
             if token.input_var is not None:
                 intermediate_result = X[:, token.input_var]
             else:
-                intermediate_result = token(*terminals)
+                if isinstance(token, StateChecker):
+                    token.set_state_value(X[:, token.state_index])
+                if isinstance(token, Polynomial):
+                    intermediate_result = token(X)
+                else:
+                    intermediate_result = token(*terminals)
             if len(apply_stack) != 1:
                 apply_stack.pop()
                 apply_stack[-1].append(intermediate_result)
