@@ -21,10 +21,11 @@ This repository contains code supporting the following publications:
 3. Mundhenk et al. 2021 **Symbolic Regression via Neural-Guided Genetic Programming Population Seeding.** *NeurIPS 2021* [Paper](https://proceedings.neurips.cc/paper/2021/hash/d073bb8d0c47f317dd39de9c9f004e9d-Abstract.html)
 4. Landajuela et al. 2022 **A Unified Framework for Deep Symbolic Regression.** *NeurIPS 2022* [Paper](https://openreview.net/forum?id=2FNnBhwJsHK)  
 5. Landajuela et al. 2021 **Improving exploration in policy gradient search: Application to symbolic optimization.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_16_paper.pdf)
-6. Petersen et al. 2021 **Incorporating domain knowledge into neural-guided search via *in situ* priors and constraints** *AutoML @ ICML 2021.* [Paper]()
-7. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
-8. Silva et al. 2022 **Leveraging Language Models to Efficiently Learn Symbolic Optimization Solutions** *ALA Workshop 2022.* [Paper](https://ala2022.github.io/papers/ALA2022_paper_24.pdf)
-9. Glatt et al. 2022 **Deep Symbolic Optimization for Electric Component Sizing in Fixed Topology Power Converters** *AI for Design and Manufacturing (ADAM) @ AAAI 2022.* [Paper](https://openreview.net/forum?id=u_ghY9PnAyZ)
+6. Kim et al. 2020 **An interactive visualization platform for deep symbolic regression.** *IJCAI 2020.* [Paper](https://www.ijcai.org/Proceedings/2020/0763.pdf)
+7. Petersen et al. 2021 **Incorporating domain knowledge into neural-guided search via *in situ* priors and constraints** *AutoML @ ICML 2021.* [Paper]()
+8. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
+9. Silva et al. 2022 **Leveraging Language Models to Efficiently Learn Symbolic Optimization Solutions** *ALA Workshop 2022.* [Paper](https://ala2022.github.io/papers/ALA2022_paper_24.pdf)
+10. Glatt et al. 2022 **Deep Symbolic Optimization for Electric Component Sizing in Fixed Topology Power Converters** *AI for Design and Manufacturing (ADAM) @ AAAI 2022.* [Paper](https://openreview.net/forum?id=u_ghY9PnAyZ)
 
 # Installation
 
