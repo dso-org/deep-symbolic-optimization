@@ -2,6 +2,7 @@ from copy import deepcopy
 
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils.validation import check_is_fitted
+from numpy import ndarray
 
 from dso import DeepSymbolicOptimizer
 
@@ -21,6 +22,14 @@ class DeepSymbolicRegressor(DeepSymbolicOptimizer,
 
     def fit(self, X, y):
 
+        # Do some various input argument checking.
+        if not(isinstance(X, ndarray) and isinstance(y, ndarray)):
+            raise TypeError(f"Both functional arguments (X, y) are to be Numpy ndarray class objects. The given function objects where "+type(X).__name__ + " and "+type(y).__name__ +" class objects respectively.")
+        if X.ndim!=2:
+            raise ValueError(f"The first function argument, \'X', needs to be a two dimensional Numpy array and nothing else. The given argument is a {X.ndim} dimensional array.")
+        if y.ndim!=1:
+            raise ValueError(f"The second function arguement, \'y', needs to be a one dimensional Numpy array and nothing else. The given array is a {y.ndim} dimensional array.")
+        
         # Update the Task
         config = deepcopy(self.config)
         config["task"]["dataset"] = (X, y)
