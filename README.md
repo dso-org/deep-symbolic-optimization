@@ -26,7 +26,7 @@ This repository contains code supporting the following publications:
 8. Kim et al. 2021 **Distilling Wikipedia mathematical knowledge into neural network models.** *Math-AI @ ICLR 2021.* [Paper](https://mathai-iclr.github.io/papers/papers/MATHAI_15_paper.pdf)
 9. Silva et al. 2022 **Leveraging Language Models to Efficiently Learn Symbolic Optimization Solutions** *ALA Workshop 2022.* [Paper](https://ala2022.github.io/papers/ALA2022_paper_24.pdf)
 10. Glatt et al. 2022 **Deep Symbolic Optimization for Electric Component Sizing in Fixed Topology Power Converters** *AI for Design and Manufacturing (ADAM) @ AAAI 2022.* [Paper](https://openreview.net/forum?id=u_ghY9PnAyZ)
-11. Pettit et al. 2025 **DisCo-DSO: Coupling Discrete and Continuous Optimization for Efficient Generative Design in Hybrid Spaces.** *AAAI 2025* [Paper](https://arxiv.org/pdf/2412.11051)
+11. Pettit et al. 2025 **DisCo-DSO: Coupling Discrete and Continuous Optimization for Efficient Generative Design in Hybrid Spaces.** *AAAI 2025* [Paper](https://arxiv.org/pdf/2412.11051) [Blog Post](https://landajuela.github.io/discrete_continuous_autoregressive/)
 
 # Installation
 
