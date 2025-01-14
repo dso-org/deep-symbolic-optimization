@@ -124,6 +124,13 @@ class RegressionTask(HierarchicalTask):
             self.y_test = self.y_train
             self.y_test_noiseless = self.y_test
 
+        # Check that y training and testing data arrays are one dimensional numpy arrays
+        # Problems when they are not and almost exclusively seen with sklearn-like (X,y) data
+        if self.y_train.ndim!=1:
+            raise ValueError(f"The array containing the data set\'s function values at the training points, \'y_train', needs to be a one dimensional Numpy array and nothing else. The given array is a {self.y_train.ndim} dimensional.")
+        if self.y_test.ndim!=1:
+            raise ValueError(f"The array containing the data set\'s function values at the testing  points, \'y_test', needs to be a one dimensional Numpy array and nothing else. The given array is a {self.y_test.ndim} dimensional.")
+        
         # Save time by only computing data variances once
         self.var_y_test = np.var(self.y_test)
         self.var_y_test_noiseless = np.var(self.y_test_noiseless)
