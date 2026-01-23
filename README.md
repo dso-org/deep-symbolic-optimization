@@ -7,7 +7,7 @@
 Deep Symbolic Optimization (DSO) is a deep learning framework for symbolic optimization tasks. The package `dso` includes the core symbolic optimization algorithms, as well as support for two particular symbolic optimization tasks: (1) _symbolic regression_ (recovering tractable mathematical expressions from an input dataset) and (2) discovering _symbolic policies_ for reinforcement learning environments. In the code, these tasks are referred to as `regression` and `control`, respectively. We also include a simple interface for defining new tasks.
 
 > **Note**
-> Looking for a modern PyTorch-based codebase? See https://github.com/landajuelala1/deep-symbolic-optimization-pytorch — a refactor of DSO that replaces TensorFlow with PyTorch for all neural-network components.
+> Looking for a modern PyTorch-based codebase? See https://github.com/dso-org/deep-symbolic-optimization-pytorch — a refactor of DSO that replaces TensorFlow with PyTorch for all neural-network components.
 
 On symbolic regression, DSO was benchmarked against the SRBench benchmark set and achieves state-of-the-art in both symbolic solution rate and accuracy solution rate:
 
