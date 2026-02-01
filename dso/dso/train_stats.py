@@ -23,14 +23,11 @@ class StatsLogger():
     """ Class responsible for dealing with output files of training statistics.
         It encapsulates all outputs to files."""
 
-    def __init__(self, sess, output_file, save_summary=False, save_all_iterations=False, hof=100,
+    def __init__(self, output_file, save_summary=False, save_all_iterations=False, hof=100,
                  save_pareto_front=True, save_positional_entropy=False, save_top_samples_per_batch=0,
                  save_cache=False, save_cache_r_min=0.9, save_freq=1, save_token_count=False):
 
         """"
-        sess : tf.Session
-            TenorFlow Session object (used for generating summary files)
-
         output_file : str
             Filename to write results for each iteration.
 
@@ -64,7 +61,6 @@ class StatsLogger():
         save_token_count : bool
             Wether to count used tokens in each iteration
         """
-        self.sess = sess
         self.output_file = output_file
         self.save_summary = save_summary
         self.save_all_iterations = save_all_iterations
@@ -90,6 +86,7 @@ class StatsLogger():
         self.buffer_top_samples = StringIO() # Buffer for top samples per batch
         self.buffer_pos_entropy = BytesIO()  # Buffer for positional entropy
 
+        self.summary_writer = None
         self.setup_output_files()
 
     def setup_output_files(self):
@@ -163,14 +160,14 @@ class StatsLogger():
             self.cache_output_file = None
             self.token_counter_output_file = None
 
-        # Create summary writer
+        # Create summary writer (TF2 style)
         if self.save_summary:
             if self.output_file is not None:
                 summary_dir = "{}_summary".format(prefix)
             else:
                 timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
                 summary_dir = os.path.join("summary", timestamp)
-            self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
+            self.summary_writer = tf.summary.create_file_writer(summary_dir)
         else:
             self.summary_writer = None
 
@@ -196,7 +193,7 @@ class StatsLogger():
         :param r_best: reward from the all time best program so far
         :param r_max: reward from the best program in this iteration
         :param ewma: Exponentially Weighted Moving Average weight that might be used for baseline computation
-        :param summaries: Sumarries returned by the Controller this step
+        :param summaries: Summaries returned by the Controller this step (dict in TF2)
         :param iteration: This iteration id
         :param baseline: baseline value used for training
         :param iteration_walltime: time taken to process this iteration
@@ -205,7 +202,7 @@ class StatsLogger():
         :param positional_entropy: current positional_entropy
         :param top_samples_per_batch: list containing top solutions on the last batch
         """
-        iteration = iteration + 1 # Change from 0- to 1-based indexing
+        iteration = iteration + 1  # Change from 0- to 1-based indexing
         if self.output_file is not None:
             r_avg_full = np.mean(r_full)
 
@@ -250,15 +247,19 @@ class StatsLogger():
                               invalid_full
                               ]).transpose()
             df = pd.DataFrame(all_iteration_stats)
-            df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
+            df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, lineterminator='\n')
 
         # Collect stats about used tokens and write to buffer
         if self.save_token_count:
             self.write_token_count(programs)
 
-        # summary writers have their own buffer
-        if self.save_summary:
-            self.summary_writer.add_summary(summaries, iteration)
+        # TF2 summary writing
+        if self.save_summary and self.summary_writer is not None:
+            with self.summary_writer.as_default():
+                # Write loss summaries from the dict
+                if isinstance(summaries, dict):
+                    for key, value in summaries.items():
+                        tf.summary.scalar(key, value, step=iteration)
 
         # Should the buffer be saved now?
         if iteration % self.buffer_frequency == 0:
@@ -349,7 +350,7 @@ class StatsLogger():
             costs = np.array([(p.complexity, -p.r) for p in all_programs])
             pareto_efficient_mask = is_pareto_efficient(costs)  # List of bool
             pf = list(compress(all_programs, pareto_efficient_mask))
-            pf.sort(key=lambda p: p.complexity) # Sort by complexity
+            pf.sort(key=lambda p: p.complexity)  # Sort by complexity
 
             if pool is not None:
                 results = pool.map(pf_work, pf)
@@ -407,7 +408,7 @@ class StatsLogger():
                 token_counter[token.name] += 1
         stats = np.array([[
             token_counter[token] for token in token_counter.keys()
-        ]], dtype=np.int)
+        ]], dtype=np.int32)
         np.savetxt(self.buffer_token_stats, stats, fmt='%i', delimiter=',')
 
     def flush_buffers(self):

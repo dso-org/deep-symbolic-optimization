@@ -1,6 +1,7 @@
 """Utility functions used in deep symbolic optimization."""
 
 import collections
+import collections.abc
 import copy
 import functools
 import numpy as np
@@ -195,7 +196,7 @@ def safe_merge_dicts(base_dict, update_dict):
         return update_dict
     base_dict = copy.deepcopy(base_dict)
     for key, value in update_dict.items():
-        if isinstance(value, collections.Mapping):
+        if isinstance(value, collections.abc.Mapping):
             base_dict[key] = safe_merge_dicts(base_dict.get(key, {}), value)
         else:
             base_dict[key] = value
@@ -295,40 +296,43 @@ def pad_action_obs_priors(actions, obs, priors, pad_length):
     return actions, obs, priors
 
 
-def make_batch_ph(name : str, n_choices : int):
+def make_batch_spec(name : str, n_choices : int, obs_dim : int):
     """
-    Generates dictionary containing placeholders needed for a batch of sequences.
-    
+    Generates dictionary containing TensorSpecs for a batch of sequences.
+
+    In TF2, we use TensorSpec for defining input signatures instead of placeholders.
+    The actual tensors are passed directly as function arguments.
+
     Parameters
     ----------
-        names : str
-            Name of tensorflow scope for this batch
+        name : str
+            Name prefix for this batch (used for documentation)
 
         n_choices : int
             Number of choices in priors
 
+        obs_dim : int
+            Observation dimension from the task
+
     Returns
     -------
-        batch_ph : dict
-            Dictionary of placeholders
+        batch_spec : dict
+            Dictionary of TensorSpecs
     """
 
     # Lazy import
     import tensorflow as tf
     from dso.memory import Batch
-    from dso.program import Program
 
-    with tf.name_scope(name):
-        batch_ph = {
-            "actions": tf.placeholder(tf.int32, [None, None]),
-            "obs": tf.placeholder(tf.float32, [None, Program.task.OBS_DIM, None]),
-            "priors": tf.placeholder(tf.float32, [None, None, n_choices]),
-            "lengths": tf.placeholder(tf.int32, [None, ]),
-            "rewards": tf.placeholder(tf.float32, [None], name="r"),
-            "on_policy": tf.placeholder(tf.int32, [None, ])
-         }
-        batch_ph = Batch(**batch_ph)
-    return batch_ph
+    batch_spec = {
+        "actions": tf.TensorSpec(shape=[None, None], dtype=tf.int32, name=f"{name}_actions"),
+        "obs": tf.TensorSpec(shape=[None, obs_dim, None], dtype=tf.float32, name=f"{name}_obs"),
+        "priors": tf.TensorSpec(shape=[None, None, n_choices], dtype=tf.float32, name=f"{name}_priors"),
+        "lengths": tf.TensorSpec(shape=[None], dtype=tf.int32, name=f"{name}_lengths"),
+        "rewards": tf.TensorSpec(shape=[None], dtype=tf.float32, name=f"{name}_rewards"),
+        "on_policy": tf.TensorSpec(shape=[None], dtype=tf.int32, name=f"{name}_on_policy")
+    }
+    return batch_spec
 
 
 

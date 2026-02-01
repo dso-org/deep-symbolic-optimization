@@ -115,31 +115,60 @@ class HierarchicalStateManager(StateManager):
         self.embedding = embedding
         self.embedding_size = embedding_size
 
+        # Embedding layers will be created in setup_manager
+        self.action_embedding_layer = None
+        self.parent_embedding_layer = None
+        self.sibling_embedding_layer = None
+
     def setup_manager(self, policy):
         super().setup_manager(policy)
-        # Create embeddings if needed
+        # Create embedding layers if needed (TF2 Keras style)
         if self.embedding:
-            initializer = tf.random_uniform_initializer(minval=-1.0,
-                                                        maxval=1.0,
-                                                        seed=0)
-            with tf.variable_scope("embeddings", initializer=initializer):
-                if self.observe_action:
-                    self.action_embeddings = tf.get_variable("action_embeddings",
-                                                             [self.library.n_action_inputs, self.embedding_size],
-                                                             trainable=True)
-                if self.observe_parent:
-                    self.parent_embeddings = tf.get_variable("parent_embeddings",
-                                                             [self.library.n_parent_inputs, self.embedding_size],
-                                                             trainable=True)
-                if self.observe_sibling:
-                    self.sibling_embeddings = tf.get_variable("sibling_embeddings",
-                                                              [self.library.n_sibling_inputs, self.embedding_size],
-                                                              trainable=True)
+            initializer = tf.initializers.RandomUniform(minval=-1.0, maxval=1.0, seed=0)
+            if self.observe_action:
+                self.action_embedding_layer = tf.keras.layers.Embedding(
+                    input_dim=self.library.n_action_inputs,
+                    output_dim=self.embedding_size,
+                    embeddings_initializer=initializer,
+                    name="action_embeddings"
+                )
+            if self.observe_parent:
+                self.parent_embedding_layer = tf.keras.layers.Embedding(
+                    input_dim=self.library.n_parent_inputs,
+                    output_dim=self.embedding_size,
+                    embeddings_initializer=initializer,
+                    name="parent_embeddings"
+                )
+            if self.observe_sibling:
+                self.sibling_embedding_layer = tf.keras.layers.Embedding(
+                    input_dim=self.library.n_sibling_inputs,
+                    output_dim=self.embedding_size,
+                    embeddings_initializer=initializer,
+                    name="sibling_embeddings"
+                )
 
     def get_tensor_input(self, obs):
         observations = []
-        unstacked_obs = tf.unstack(obs, axis=1)
-        action, parent, sibling, dangling = unstacked_obs[:4]
+        # obs can have shape (batch, obs_dim) or (batch, time, obs_dim)
+        # We need to handle both cases
+        obs_rank = len(obs.shape)
+
+        if obs_rank == 2:
+            # Shape is (batch, obs_dim)
+            action = obs[:, 0]
+            parent = obs[:, 1]
+            sibling = obs[:, 2]
+            dangling = obs[:, 3]
+            additional_obs = obs[:, 4:] if (obs.shape[1] is None or obs.shape[1] > 4) else None
+        elif obs_rank == 3:
+            # Shape is (batch, time, obs_dim) - for training with full sequences
+            action = obs[:, :, 0]
+            parent = obs[:, :, 1]
+            sibling = obs[:, :, 2]
+            dangling = obs[:, :, 3]
+            additional_obs = obs[:, :, 4:] if (obs.shape[2] is None or obs.shape[2] > 4) else None
+        else:
+            raise ValueError(f"Unexpected obs rank: {obs_rank}")
 
         # Cast action, parent, sibling to int for embedding_lookup or one_hot
         action = tf.cast(action, tf.int32)
@@ -149,19 +178,19 @@ class HierarchicalStateManager(StateManager):
         # Action, parent, and sibling inputs are either one-hot or embeddings
         if self.observe_action:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.action_embeddings, action)
+                x = self.action_embedding_layer(action)
             else:
                 x = tf.one_hot(action, depth=self.library.n_action_inputs)
             observations.append(x)
         if self.observe_parent:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.parent_embeddings, parent)
+                x = self.parent_embedding_layer(parent)
             else:
                 x = tf.one_hot(parent, depth=self.library.n_parent_inputs)
             observations.append(x)
         if self.observe_sibling:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.sibling_embeddings, sibling)
+                x = self.sibling_embedding_layer(sibling)
             else:
                 x = tf.one_hot(sibling, depth=self.library.n_sibling_inputs)
             observations.append(x)
@@ -173,6 +202,20 @@ class HierarchicalStateManager(StateManager):
 
         input_ = tf.concat(observations, -1)
         # possibly concatenates additional observations (e.g., bert embeddings)
-        if len(unstacked_obs) > 4:
-            input_ = tf.concat([input_, tf.stack(unstacked_obs[4:], axis=-1)], axis=-1)
+        if additional_obs is not None:
+            # Check if there are actually additional features
+            additional_shape = additional_obs.shape
+            additional_dim = additional_shape[-1]
+            # Only concat if we actually have additional features
+            if additional_dim is None or (isinstance(additional_dim, int) and additional_dim > 0):
+                # Dynamically check if there's data
+                if not isinstance(additional_dim, int):
+                    # Dynamic shape - check at runtime
+                    def concat_additional():
+                        return tf.concat([input_, additional_obs], axis=-1)
+                    def no_concat():
+                        return input_
+                    input_ = tf.cond(tf.shape(additional_obs)[-1] > 0, concat_additional, no_concat)
+                else:
+                    input_ = tf.concat([input_, additional_obs], axis=-1)
         return input_

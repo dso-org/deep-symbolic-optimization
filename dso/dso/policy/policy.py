@@ -18,7 +18,7 @@ priors  = tf.TensorArray
 neglogp = tf.TensorArray
 entropy = tf.TensorArray
 
-def make_policy(sess, prior, state_manager, policy_type, **config_policy):
+def make_policy(prior, state_manager, policy_type, **config_policy):
     """Factory function for Policy object."""
 
     if policy_type == "rnn":
@@ -29,37 +29,33 @@ def make_policy(sess, prior, state_manager, policy_type, **config_policy):
         policy_class = import_custom_source(policy_type)
         assert issubclass(policy_class, Policy), \
                 "Custom policy {} must subclass dso.policy.Policy.".format(policy_class)
-        
-    policy = policy_class(sess,
-                          prior,
+
+    policy = policy_class(prior,
                           state_manager,
                           **config_policy)
 
     return policy
 
-class Policy(ABC):
-    """Abstract class for a policy. A policy is a parametrized probability 
-    distribution over discrete objects. DSO algorithms optimize the parameters 
+class Policy(ABC, tf.keras.Model):
+    """Abstract class for a policy. A policy is a parametrized probability
+    distribution over discrete objects. DSO algorithms optimize the parameters
     of this distribution to generate discrete objects with high rewards.
-    """    
+    """
 
-    def __init__(self, 
-            sess : tf.Session,
+    def __init__(self,
             prior : JointPrior,
             state_manager : StateManager,
-            debug : int = 0,  
-            max_length : int = 30) -> None:
+            debug : int = 0,
+            max_length : int = 30,
+            **kwargs) -> None:
         '''Parameters
         ----------
-        sess : tf.Session
-            TenorFlow Session object.
-    
         prior : dso.prior.JointPrior
             JointPrior object used to adjust probabilities during sampling.
-    
+
         state_manager: dso.tf_state_manager.StateManager
             Object that handles the state features to be used
-        
+
         debug : int
             Debug level, also used in learn(). 0: No debug. 1: Print shapes and
             number of parameters for each variable.
@@ -67,20 +63,20 @@ class Policy(ABC):
         max_length : int or None
             Maximum sequence length. This will be overridden if a LengthConstraint
             with a maximum length is part of the prior.
-        '''    
-        self.sess = sess
+        '''
+        super(Policy, self).__init__(**kwargs)
         self.prior = prior
         self.state_manager = state_manager
         self.debug = debug
 
-        # Set self.max_length depending on the Prior 
+        # Set self.max_length depending on the Prior
         self._set_max_length(max_length)
 
         # Samples produced during attempt to get novel samples.
         # Will be combined with checkpoint-loaded samples for next training step
         self.extended_batch = None
         self.valid_extended_batch = False
-        
+
     def _set_max_length(self, max_length : int) -> None:
         """Set the max legnth depending on the Prior
         """
@@ -117,18 +113,18 @@ class Policy(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def make_neglogp_and_entropy(self, 
+    def make_neglogp_and_entropy(self,
             B : Batch,
             entropy_gamma : float
             ) -> Tuple[neglogp, entropy]:
         """Computes the negative log-probabilities for a given
         batch of actions, observations and priors
         under the current policy.
-        
+
         Returns
         -------
-        neglogp, entropy : 
-            Tensorflow tensors        
+        neglogp, entropy :
+            Tensorflow tensors
         """
         raise NotImplementedError
 
@@ -138,7 +134,7 @@ class Policy(ABC):
 
         Returns
         -------
-        actions, obs, priors : 
+        actions, obs, priors :
             Or a batch
         """
         raise NotImplementedError
@@ -149,9 +145,8 @@ class Policy(ABC):
 
         Returns
         -------
-        probs : 
+        probs :
             Or a batch
         """
         raise NotImplementedError
-
 

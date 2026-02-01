@@ -52,8 +52,10 @@ class Checkpoint():
         else:
             self.checkpoint_dir = None
 
-        # Create the Saver
-        self.saver = tf.train.Saver()
+        # Create the TF2 Checkpoint object
+        # Note: We'll set this up properly once the model is fully initialized
+        self._checkpoint = None
+        self._checkpoint_manager = None
 
         # Load from existing checkpoint, if given
         if load_path is not None:
@@ -79,6 +81,14 @@ class Checkpoint():
             self.save_freq_iters = None
 
         self.save_on_done = save_on_done
+
+    def _setup_checkpoint(self):
+        """Setup TF2 checkpoint after model is initialized."""
+        if self._checkpoint is None and self.model.policy is not None:
+            self._checkpoint = tf.train.Checkpoint(
+                policy=self.model.policy,
+                optimizer=self.model.policy_optimizer.optimizer
+            )
 
     def update(self):
         """
@@ -110,6 +120,9 @@ class Checkpoint():
             <self.model.save_path>/checkpoint/checkpoint_<timestamp>.
         """
 
+        # Ensure checkpoint is set up
+        self._setup_checkpoint()
+
         # Determine the save path
         if save_path is None:
             assert self.checkpoint_dir is not None, "Cannot support automated checkpointing with model.save_dir=None."
@@ -122,26 +135,22 @@ class Checkpoint():
             save_path += "_{}".format(len(paths))
         os.makedirs(save_path, exist_ok=False)
 
-        # Save the TensorFlow graph
-        # print("Saving TensorFlow graph...")
-        tf_save_path = os.path.join(save_path, "tf")
-        self.saver.save(self.model.sess, tf_save_path)
+        # Save the TensorFlow checkpoint (TF2 style)
+        if self._checkpoint is not None:
+            tf_save_path = os.path.join(save_path, "tf", "ckpt")
+            self._checkpoint.save(tf_save_path)
 
         # Save the Trainer
-        # print("Saving Trainer...")
         trainer_save_path = os.path.join(save_path, "trainer.json")
         self.model.trainer.save(trainer_save_path)
 
         # Save the priority queue, if applicable
-        # TBD: This should be in self.model.trainer.save or self.model.trainer.policy_optimizer.save after refactoring PolicyOptimizers to handle their own bookkeeping
         if self.model.trainer.priority_queue is not None:
             priority_queue_save_path = os.path.join(save_path, "priority_queue.npz")
             self.model.trainer.priority_queue.save(priority_queue_save_path)
 
         # Save the cache
-        # print("Saving cache...")
-        # TBD: Abstract into cache saving function
-        cache_save_path = os.path.join(save_path, "cache.csv")        
+        cache_save_path = os.path.join(save_path, "cache.csv")
         cache_programs = Program.cache.values()
         cache_tokens = [",".join(map(str, p.tokens.tolist())) for p in cache_programs]
         cache_rewards = [p.r for p in cache_programs]
@@ -167,25 +176,30 @@ class Checkpoint():
             Checkpoint directory to load model state.
         """
 
-        # Load the TensorFlow graph
-        if self.model.sess is None:
+        # Make sure model is set up first
+        if self.model.policy is None:
             self.model.setup()
-        tf_load_path = os.path.join(load_path, "tf")
-        self.saver.restore(self.model.sess, tf_load_path)
+
+        # Ensure checkpoint is set up
+        self._setup_checkpoint()
+
+        # Load the TensorFlow checkpoint (TF2 style)
+        if self._checkpoint is not None:
+            tf_load_path = os.path.join(load_path, "tf")
+            latest_checkpoint = tf.train.latest_checkpoint(tf_load_path)
+            if latest_checkpoint:
+                self._checkpoint.restore(latest_checkpoint)
 
         # Load the Trainer
-        # print("Loading Trainer...")
         trainer_load_path = os.path.join(load_path, "trainer.json")
         self.model.trainer.load(trainer_load_path)
 
         # Load the priority queue, if applicable
-        # TBD: This should be in self.model.trainer.load or self.model.trainer.policy_optimizer.load after refactoring PolicyOptimizers to handle their own bookkeeping
         if self.model.trainer.priority_queue is not None:
             priority_queue_load_path = os.path.join(load_path, "priority_queue.npz")
             self.model.trainer.priority_queue.load(priority_queue_load_path)
 
         # Load the cache
-        # print("Loading cache...")
         cache_load_path = os.path.join(load_path, "cache.csv")
         cache_df = pd.read_csv(cache_load_path)
         cache_df["tokens"] = cache_df["tokens"].str.split(",")

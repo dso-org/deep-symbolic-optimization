@@ -23,6 +23,7 @@ from dso.prior import make_prior
 from dso.program import Program
 from dso.config import load_config
 from dso.tf_state_manager import make_state_manager
+from dso.tf_compat import configure_gpu_memory, set_seeds, limit_parallelism
 
 from dso.policy.policy import make_policy
 from dso.policy_optimizer import make_policy_optimizer
@@ -50,22 +51,22 @@ class DeepSymbolicOptimizer():
 
     def __init__(self, config=None):
         self.set_config(config)
-        self.sess = None
+        self.policy = None
 
     def setup(self):
 
-        # Clear the cache and reset the compute graph
+        # Clear the cache (no graph reset needed in TF2 with eager execution)
         Program.clear_cache()
-        tf.reset_default_graph()
 
         # Generate objects needed for training and set seeds
         self.pool = self.make_pool_and_set_task()
-        self.set_seeds() # Must be called _after_ resetting graph and _after_ setting task
+        self.set_seeds()  # Must be called _after_ setting task
 
-        # Limit TF to single thread to prevent "resource not available" errors in parallelized runs
-        session_config = tf.ConfigProto(intra_op_parallelism_threads=1,
-                                        inter_op_parallelism_threads=1)
-        self.sess = tf.Session(config=session_config)
+        # Limit TF parallelism to prevent "resource not available" errors in parallelized runs
+        limit_parallelism(intra_threads=1, inter_threads=1)
+
+        # Configure GPU memory growth
+        configure_gpu_memory()
 
         # Setup logdirs and output files
         self.output_file = self.make_output_file()
@@ -87,13 +88,13 @@ class DeepSymbolicOptimizer():
         """
 
         # Setup the model
-        if self.sess is None:
+        if self.policy is None:
             self.setup()
 
         # Run one step
         assert not self.trainer.done, "Training has already completed!"
         self.trainer.run_one_step(override)
-        
+
         # Maybe save next checkpoint
         self.checkpoint.update()
 
@@ -192,8 +193,8 @@ class DeepSymbolicOptimizer():
         task_name = Program.task.name
         shifted_seed = seed + zlib.adler32(task_name.encode("utf-8"))
 
-        # Set the seeds using the shifted seed
-        tf.set_random_seed(shifted_seed)
+        # Set the seeds using the shifted seed (TF2 style)
+        set_seeds(shifted_seed)
         np.random.seed(shifted_seed)
         random.seed(shifted_seed)
 
@@ -206,8 +207,7 @@ class DeepSymbolicOptimizer():
         return state_manager
 
     def make_trainer(self):
-        trainer = Trainer(self.sess,
-                          self.policy,
+        trainer = Trainer(self.policy,
                           self.policy_optimizer,
                           self.gp_controller,
                           self.logger,
@@ -216,8 +216,7 @@ class DeepSymbolicOptimizer():
         return trainer
 
     def make_logger(self):
-        logger = StatsLogger(self.sess,
-                             self.output_file,
+        logger = StatsLogger(self.output_file,
                              **self.config_logger)
         return logger
 
@@ -227,14 +226,12 @@ class DeepSymbolicOptimizer():
         return checkpoint
 
     def make_policy_optimizer(self):
-        policy_optimizer = make_policy_optimizer(self.sess,
-                                                 self.policy,
+        policy_optimizer = make_policy_optimizer(self.policy,
                                                  **self.config_policy_optimizer)
         return policy_optimizer
 
     def make_policy(self):
-        policy = make_policy(self.sess,
-                             self.prior,
+        policy = make_policy(self.prior,
                              self.state_manager,
                              **self.config_policy)
         return policy
