@@ -15,10 +15,7 @@ from dso.variance import quantile_variance
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-# Set TensorFlow seed
-tf.set_random_seed(0)
+tf.get_logger().setLevel('ERROR')
 
 
 # Work for multiprocessing pool: compute reward
@@ -28,7 +25,7 @@ def work(p):
     return p
 
 class Trainer():
-    def __init__(self, sess, policy, policy_optimizer, gp_controller, logger,
+    def __init__(self, policy, policy_optimizer, gp_controller, logger,
                  pool, n_samples=2000000, batch_size=1000, alpha=0.5,
                  epsilon=0.05, verbose=True, baseline="R_e",
                  b_jumpstart=False, early_stopping=True, debug=0,
@@ -40,9 +37,6 @@ class Trainer():
 
         Parameters
         ----------
-        sess : tf.Session
-            TensorFlow Session object.
-        
         policy : dso.policy.Policy
             Parametrized probability distribution over discrete objects.
             Used to generate programs and compute loglikelihoods.
@@ -127,10 +121,7 @@ class Trainer():
 
 
         """
-        self.sess = sess
-        # Initialize compute graph
-        self.sess.run(tf.global_variables_initializer())
-
+        # TF2: No session needed, variables are initialized automatically
         self.policy = policy
         self.policy_optimizer = policy_optimizer
         self.gp_controller = gp_controller
@@ -149,11 +140,9 @@ class Trainer():
         self.memory_threshold = memory_threshold
 
         if self.debug:
-            tvars = tf.trainable_variables()
             def print_var_means():
-                tvars_vals = self.sess.run(tvars)
-                for var, val in zip(tvars, tvars_vals):
-                    print(var.name, "mean:", val.mean(), "var:", val.var())
+                for var in self.policy.trainable_variables:
+                    print(var.name, "mean:", float(tf.reduce_mean(var)), "var:", float(tf.math.reduce_variance(var)))
             self.print_var_means = print_var_means
 
         # Create the priority_queue if needed
@@ -175,7 +164,6 @@ class Trainer():
                                            capacity=int(memory_capacity))
 
             # Warm start the queue
-            # TBD: Parallelize. Abstract sampling a Batch
             warm_start = warm_start if warm_start is not None else self.batch_size
             actions, obs, priors = policy.sample(warm_start)
             programs = [from_tokens(a) for a in actions]
@@ -188,8 +176,8 @@ class Trainer():
         else:
             self.memory_queue = None
 
-        self.nevals = 0 # Total number of sampled expressions (from RL or GP)
-        self.iteration = 0 # Iteration counter
+        self.nevals = 0  # Total number of sampled expressions (from RL or GP)
+        self.iteration = 0  # Iteration counter
         self.r_best = -np.inf
         self.p_r_best = None
         self.done = False
@@ -211,7 +199,7 @@ class Trainer():
             print("\nDEBUG: Policy parameter means:")
             self.print_var_means()
 
-        ewma = None if self.b_jumpstart else 0.0 # EWMA portion of baseline
+        ewma = None if self.b_jumpstart else 0.0  # EWMA portion of baseline
 
         start_time = time.time()
         if self.verbose:
@@ -231,7 +219,7 @@ class Trainer():
         if override is None:
             # Sample batch of Programs from the Controller
             actions, obs, priors = self.policy.sample(self.batch_size)
-            programs = [from_tokens(a) for a in actions]            
+            programs = [from_tokens(a) for a in actions]
         else:
             # Train on the given batch of Programs
             actions, obs, priors, programs = override
@@ -295,7 +283,7 @@ class Trainer():
 
         # Need for Vanilla Policy Gradient (epsilon = null)
         l           = np.array([len(p.traversal) for p in programs])
-        s           = [p.str for p in programs] # Str representations of Programs
+        s           = [p.str for p in programs]  # Str representations of Programs
         on_policy   = np.array([p.originally_on_policy for p in programs])
         invalid     = np.array([p.invalid for p in programs], dtype=bool)
 
@@ -323,7 +311,7 @@ class Trainer():
         """
         if self.epsilon is not None and self.epsilon < 1.0:
             # Compute reward quantile estimate
-            if self.use_memory: # Memory-augmented quantile
+            if self.use_memory:  # Memory-augmented quantile
                 # Get subset of Programs not in buffer
                 unique_programs = [p for p in programs \
                                    if p.str not in self.memory_queue.unique_items]
@@ -338,7 +326,7 @@ class Trainer():
                 memory_w = self.memory_queue.compute_probs()
                 if N == 0:
                     print("WARNING: Found no unique samples in batch!")
-                    combined_w = memory_w / memory_w.sum() # Renormalize
+                    combined_w = memory_w / memory_w.sum()  # Renormalize
                 else:
                     sample_w = np.repeat((1 - memory_w.sum()) / N, N)
                     combined_w = np.concatenate([memory_w, sample_w])
@@ -352,7 +340,7 @@ class Trainer():
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - self.epsilon)
 
-            else: # Empirical quantile
+            else:  # Empirical quantile
                 quantile = np.quantile(r, 1 - self.epsilon, interpolation="higher")
 
             # Filter quantities whose reward >= quantile
@@ -375,7 +363,7 @@ class Trainer():
         if self.baseline == "ewma_R":
             ewma = np.mean(r) if ewma is None else self.alpha*np.mean(r) + (1 - self.alpha)*ewma
             b = ewma
-        elif self.baseline == "R_e": # Default
+        elif self.baseline == "R_e":  # Default
             ewma = -1
             b = quantile
         elif self.baseline == "ewma_R_e":
@@ -398,11 +386,11 @@ class Trainer():
             self.priority_queue.push_best(sampled_batch, programs)
             pqt_batch = self.priority_queue.sample_batch(self.policy_optimizer.pqt_batch_size)
             # Train the policy
-            summaries = self.policy_optimizer.train_step(b, sampled_batch, pqt_batch)
+            summaries = self.policy_optimizer.train_step(b, sampled_batch, pqt_batch, iteration=self.iteration)
         else:
             pqt_batch = None
             # Train the policy
-            summaries = self.policy_optimizer.train_step(b, sampled_batch)
+            summaries = self.policy_optimizer.train_step(b, sampled_batch, iteration=self.iteration)
 
         # Walltime calculation for the iteration
         iteration_walltime = time.time() - start_time

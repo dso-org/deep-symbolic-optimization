@@ -7,24 +7,24 @@ from dso.program import _finish_tokens
 from dso.memory import Batch
 
 from dso.policy import Policy
-from dso.utils import make_batch_ph
 
-class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
-    """RNNCell wrapper that adds a linear layer to the output.
 
-    See: https://github.com/tensorflow/models/blob/master/research/brain_coder/single_task/pg_agent.py
+class LinearWrapper(tf.keras.layers.Layer):
+    """Layer wrapper that adds a linear (Dense) layer to an RNN cell's output.
+
+    This is a TF2/Keras replacement for the TF1 LayerRNNCell wrapper.
     """
 
-    def __init__(self, cell, output_size):
+    def __init__(self, cell, output_size, **kwargs):
+        super(LinearWrapper, self).__init__(**kwargs)
         self.cell = cell
         self._output_size = output_size
+        self.dense = tf.keras.layers.Dense(output_size, name="output_dense")
 
-    def __call__(self, inputs, state, scope=None):
-        with tf.variable_scope(type(self).__name__):
-            outputs, state = self.cell(inputs, state, scope=scope)
-            logits = tf.layers.dense(outputs, units=self._output_size)
-
-        return logits, state
+    def call(self, inputs, states, training=None):
+        outputs, new_states = self.cell(inputs, states, training=training)
+        logits = self.dense(outputs)
+        return logits, new_states
 
     @property
     def output_size(self):
@@ -34,8 +34,10 @@ class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
     def state_size(self):
         return self.cell.state_size
 
-    def zero_state(self, batch_size, dtype):
-        return self.cell.zero_state(batch_size, dtype)
+    def get_initial_state(self, inputs=None, batch_size=None, dtype=None):
+        # TF 2.17+ StackedRNNCells only accepts batch_size
+        return self.cell.get_initial_state(batch_size=batch_size)
+
 
 def safe_cross_entropy(p, logq, axis=-1):
     """Compute p * logq safely, by susbstituting
@@ -46,6 +48,7 @@ def safe_cross_entropy(p, logq, axis=-1):
     safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
     # Safely compute the product
     return - tf.reduce_sum(p * safe_logq, axis)
+
 
 class RNNPolicy(Policy):
     """Recurrent neural network (RNN) policy used to generate expressions.
@@ -70,7 +73,7 @@ class RNNPolicy(Policy):
 
     num_units : int or list of ints
         Number of RNN cell units in each of the RNN's layers. If int, the value
-        is repeated for each layer. 
+        is repeated for each layer.
 
     sample_novel_batch: bool
         if True, then a call to policy.sample(b) attempts to produce b samples
@@ -78,9 +81,9 @@ class RNNPolicy(Policy):
 
     initiailizer : str
         Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'.
-        
+
     """
-    def __init__(self, sess, prior, state_manager, 
+    def __init__(self, prior, state_manager,
                  debug = 0,
                  max_length = 30,
                  action_prob_lowerbound = 0.0,
@@ -91,16 +94,13 @@ class RNNPolicy(Policy):
                  num_layers=1,
                  num_units=32,
                  initializer='zeros'):
-        super().__init__(sess, prior, state_manager, debug, max_length)
-        
+        super().__init__(prior, state_manager, debug, max_length)
+
         assert 0 <= action_prob_lowerbound  and action_prob_lowerbound <= 1
         self.action_prob_lowerbound = action_prob_lowerbound
 
         # len(tokens) in library
         self.n_choices = Program.library.L
-
-        # Placeholders, computed after instantiating expressions
-        self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
 
         # setup model
         self._setup_tf_model(cell, num_layers, num_units, initializer)
@@ -109,7 +109,7 @@ class RNNPolicy(Policy):
         self.sample_novel_batch = sample_novel_batch
 
     def _setup_tf_model(
-            self, 
+            self,
             cell ='lstm',
             num_layers=1,
             num_units=32,
@@ -123,122 +123,132 @@ class RNNPolicy(Policy):
         max_length = self.max_length
 
         # Build RNN policy
-        with tf.name_scope("controller"):
+        def make_initializer(name):
+            if name == "zeros":
+                return tf.initializers.Zeros()
+            if name == "var_scale":
+                return tf.keras.initializers.VarianceScaling(
+                        scale=0.5, mode='fan_avg', distribution='uniform', seed=0)
+            raise ValueError("Did not recognize initializer '{}'".format(name))
 
-            def make_initializer(name):
-                if name == "zeros":
-                    return tf.zeros_initializer()
-                if name == "var_scale":
-                    return tf.contrib.layers.variance_scaling_initializer(
-                            factor=0.5, mode='FAN_AVG', uniform=True, seed=0)
-                raise ValueError("Did not recognize initializer '{}'".format(name))
+        def make_cell(name, num_units, initializer):
+            if name == 'lstm':
+                return tf.keras.layers.LSTMCell(num_units, kernel_initializer=initializer,
+                                                 recurrent_initializer=initializer)
+            if name == 'gru':
+                return tf.keras.layers.GRUCell(num_units, kernel_initializer=initializer,
+                                                bias_initializer=initializer,
+                                                recurrent_initializer=initializer)
+            raise ValueError("Did not recognize cell type '{}'".format(name))
 
-            def make_cell(name, num_units, initializer):
-                if name == 'lstm':
-                    return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
-                if name == 'gru':
-                    return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
-                raise ValueError("Did not recognize cell type '{}'".format(name))
+        # Create recurrent cell
+        if isinstance(num_units, int):
+            num_units = [num_units] * num_layers
+        init = make_initializer(initializer)
+        cells = [make_cell(cell, n, initializer=init) for n in num_units]
+        if len(cells) > 1:
+            stacked_cell = tf.keras.layers.StackedRNNCells(cells)
+        else:
+            stacked_cell = cells[0]
+        self.cell = LinearWrapper(cell=stacked_cell, output_size=n_choices)
 
-            # Create recurrent cell
-            if isinstance(num_units, int):
-                num_units = [num_units] * num_layers
-            initializer = make_initializer(initializer)
-            cell = tf.contrib.rnn.MultiRNNCell(
-                    [make_cell(cell, n, initializer=initializer) for n in num_units])
-            cell = LinearWrapper(cell=cell, output_size=n_choices)
+        # Store these for use in sampling and training
+        self.task = Program.task
+        state_manager.setup_manager(self)
+        self._initial_obs = self.task.reset_task(prior)
+        self._initial_prior = tf.constant(self.prior.initial_prior(), dtype=tf.float32)
 
-            # Set the cell attribute needed for make_neglog_probs_and_entropy
-            self.cell = cell
+        # For RNN layer used in make_neglogp_and_entropy
+        self.rnn_layer = tf.keras.layers.RNN(
+            self.cell,
+            return_sequences=True,
+            return_state=False
+        )
 
-            task = Program.task
-            initial_obs = task.reset_task(prior)
-            state_manager.setup_manager(self)
-            initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)]) # (?, obs_dim)
-            initial_obs = state_manager.process_state(initial_obs)
+    def _sample_step(self, batch_size):
+        """Sample a batch of sequences using eager execution.
 
-            # Get initial prior
-            initial_prior = self.prior.initial_prior()
-            initial_prior = tf.constant(initial_prior, dtype=tf.float32)
-            initial_prior = tf.broadcast_to(initial_prior, [self.batch_size, n_choices])
+        This is a TF2 replacement for tf.nn.raw_rnn.
+        """
+        n_choices = self.n_choices
+        max_length = self.max_length
+        task = self.task
+        state_manager = self.state_manager
 
-            def loop_fn(time, cell_output, cell_state, loop_state):
+        # Initialize lists for storing results
+        all_actions = []
+        all_obs = []
+        all_priors = []
 
-                if cell_output is None: # time == 0
-                    finished = tf.zeros(shape=[self.batch_size], dtype=tf.bool)
-                    obs = initial_obs
-                    next_input = state_manager.get_tensor_input(obs)
-                    next_cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)
-                    emit_output = None
-                    actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=False) # Read twice
-                    obs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
-                    priors_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
-                    prior = initial_prior
-                    #lengths = tf.ones(shape=[self.batch_size], dtype=tf.int32)
-                    next_loop_state = (
-                        actions_ta,
-                        obs_ta,
-                        priors_ta,
-                        obs,
-                        prior,
-                        finished)
-                else:
-                    actions_ta, obs_ta, priors_ta, obs, prior, finished = loop_state
-                    # apply bound to logits before applying prior, so that hard constraints
-                    # are respected
-                    if self.action_prob_lowerbound != 0.0:
-                        cell_output = self.apply_action_prob_lowerbound(cell_output)
-                    logits = cell_output + prior
-                    next_cell_state = cell_state
-                    emit_output = logits
+        # Get initial states - _initial_obs could be numpy or tensor
+        if hasattr(self._initial_obs, 'numpy'):
+            initial_obs_np = self._initial_obs.numpy()
+        else:
+            initial_obs_np = np.array(self._initial_obs)
+        initial_obs = np.broadcast_to(initial_obs_np, [batch_size, len(initial_obs_np)])
+        initial_obs = state_manager.process_state(tf.constant(initial_obs, dtype=tf.float32)).numpy()
 
-                    # Sample action
-                    action = tf.random.categorical(logits=logits, num_samples=1,
-                                                   dtype=tf.int32, seed=1)[:, 0]
-                    next_actions_ta = actions_ta.write(time - 1, action) # Write chosen actions
-                    actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
+        if hasattr(self._initial_prior, 'numpy'):
+            initial_prior_np = self._initial_prior.numpy()
+        else:
+            initial_prior_np = np.array(self._initial_prior)
+        initial_prior = np.broadcast_to(initial_prior_np, [batch_size, n_choices])
 
-                    # Compute obs and prior
-                    next_obs, next_prior, next_finished = tf.py_func(func=task.get_next_obs,
-                                                                     inp=[actions, obs, finished],
-                                                                     Tout=[tf.float32, tf.float32, tf.bool])
-                    next_prior.set_shape([None, n_choices])
-                    next_obs.set_shape([None, task.OBS_DIM])
-                    next_finished.set_shape([None])
-                    next_obs = state_manager.process_state(next_obs)
-                    next_input = state_manager.get_tensor_input(next_obs)
-                    next_obs_ta = obs_ta.write(time - 1, obs) # Write OLD obs
-                    next_priors_ta = priors_ta.write(time - 1, prior) # Write OLD prior
-                    finished = next_finished = tf.logical_or(
-                        next_finished,
-                        time >= max_length)
-                    next_loop_state = (next_actions_ta,
-                                       next_obs_ta,
-                                       next_priors_ta,
-                                       next_obs,
-                                       next_prior,
-                                       next_finished)
+        # Get initial cell state (TF 2.17+ only accepts batch_size)
+        cell_state = self.cell.get_initial_state(batch_size=batch_size)
 
-                return (finished, next_input, next_cell_state, emit_output, next_loop_state)
+        obs = initial_obs
+        prior_t = initial_prior
+        finished = np.zeros([batch_size], dtype=bool)
 
-            # Returns RNN emit outputs TensorArray (i.e. logits), final cell state, and final loop state
-            with tf.variable_scope('policy'):
-                _, _, loop_state = tf.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
-                actions_ta, obs_ta, priors_ta, _, _, _ = loop_state
+        for time in range(max_length):
+            if np.all(finished):
+                # Pad remaining timesteps with zeros
+                remaining = max_length - time
+                all_actions.extend([np.zeros(batch_size, dtype=np.int32)] * remaining)
+                all_obs.extend([np.zeros((batch_size, obs.shape[1]), dtype=np.float32)] * remaining)
+                all_priors.extend([np.zeros((batch_size, n_choices), dtype=np.float32)] * remaining)
+                break
 
-            self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0]) # (?, max_length)
-            self.obs = tf.transpose(obs_ta.stack(), perm=[1, 2, 0]) # (?, obs_dim, max_length)
-            self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2]) # (?, max_length, n_choices)
-            
-            # Memory batch
-            self.memory_batch_ph = make_batch_ph("memory_batch", n_choices)
-            memory_neglogp, _ = self.make_neglogp_and_entropy(self.memory_batch_ph, None)
+            # Get input from state manager
+            obs_tensor = tf.constant(obs, dtype=tf.float32)
+            input_t = state_manager.get_tensor_input(obs_tensor)
 
-            self.memory_probs = tf.exp(-memory_neglogp)
-            self.memory_logps = -memory_neglogp
-            
+            # Run cell
+            cell_output, cell_state = self.cell(input_t, cell_state)
 
-    def make_neglogp_and_entropy(self, B, entropy_gamma) :
+            # Apply action prob lower bound
+            if self.action_prob_lowerbound != 0.0:
+                cell_output = self.apply_action_prob_lowerbound(cell_output)
+
+            logits = cell_output.numpy() + prior_t
+
+            # Sample action
+            action = tf.random.categorical(logits=logits, num_samples=1, dtype=tf.int32)[:, 0].numpy()
+
+            # Store results
+            all_actions.append(action)
+            all_obs.append(obs.copy())
+            all_priors.append(prior_t.copy())
+
+            # Compute next obs and prior
+            actions_so_far = np.stack(all_actions, axis=1)  # (batch, time+1)
+            next_obs, next_prior, next_finished = task.get_next_obs(
+                actions_so_far, obs, finished
+            )
+
+            obs = state_manager.process_state(tf.constant(next_obs, dtype=tf.float32)).numpy()
+            prior_t = next_prior
+            finished = next_finished | (time + 1 >= max_length)
+
+        # Stack results
+        actions = np.stack(all_actions, axis=1)  # (batch, max_length)
+        obs_stacked = np.stack(all_obs, axis=2)  # (batch, obs_dim, max_length)
+        priors = np.stack(all_priors, axis=1)  # (batch, max_length, n_choices)
+
+        return actions, obs_stacked, priors
+
+    def make_neglogp_and_entropy(self, B, entropy_gamma):
         """Computes the negative log-probabilities for a given
         batch of actions, observations and priors
         under the current policy.
@@ -254,11 +264,13 @@ class RNNPolicy(Policy):
             entropy_gamma = 1.0
         entropy_gamma_decay = np.array([entropy_gamma**t for t in range(self.max_length)], dtype=np.float32)
 
-        with tf.variable_scope('policy', reuse=True):
-            logits, _ = tf.nn.dynamic_rnn(cell=self.cell,
-                                          inputs=self.state_manager.get_tensor_input(B.obs),
-                                          sequence_length=B.lengths, # Backpropagates only through sequence length
-                                          dtype=tf.float32)
+        # Prepare inputs - transpose obs from (batch, obs_dim, time) to (batch, time, obs_dim)
+        obs_transposed = tf.transpose(B.obs, perm=[0, 2, 1])
+        inputs = self.state_manager.get_tensor_input(obs_transposed)
+
+        # Run RNN with masking
+        mask = tf.sequence_mask(B.lengths, maxlen=tf.shape(B.actions)[1])
+        logits = self.rnn_layer(inputs, mask=mask)
 
         if self.action_prob_lowerbound != 0.0:
             logits = self.apply_action_prob_lowerbound(logits)
@@ -266,51 +278,38 @@ class RNNPolicy(Policy):
         logits += B.priors
         probs = tf.nn.softmax(logits)
         logprobs = tf.nn.log_softmax(logits)
-        B_max_length = tf.shape(B.actions)[1] # Maximum sequence length for this Batch
+        B_max_length = tf.shape(B.actions)[1]  # Maximum sequence length for this Batch
+
         # Generate mask from sequence lengths
-        # NOTE: Using this mask for neglogp and entropy actually does NOT
-        # affect training because gradients are zero outside the lengths.
-        # However, the mask makes tensorflow summaries accurate.
-        mask = tf.sequence_mask(B.lengths, maxlen=B_max_length, dtype=tf.float32)
+        mask_float = tf.sequence_mask(B.lengths, maxlen=B_max_length, dtype=tf.float32)
+
         # Negative log probabilities of sequences
         actions_one_hot = tf.one_hot(B.actions, depth=self.n_choices, axis=-1, dtype=tf.float32)
-        neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
-        neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
-        
-        # NOTE 1: The above implementation is the same as the one below:
-        # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
-        # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
-        # NOTE 2: The above implementation is also the same as the one below, with a few caveats:
-        #   Exactly equivalent when removing priors.
-        #   Equivalent up to precision when including clipped prior.
-        #   Crashes when prior is not clipped due to multiplying zero by -inf.
-        # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
-        # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
-        # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
-        
+        neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2)  # Sum over action dim
+        neglogp = tf.reduce_sum(neglogp_per_step * mask_float, axis=1)  # Sum over time dim
+
         # If entropy_gamma = 1, entropy_gamma_decay_mask == mask
         sliced_entropy_gamma_decay = tf.slice(entropy_gamma_decay, [0], [B_max_length])
-        entropy_gamma_decay_mask = sliced_entropy_gamma_decay * mask # ->(batch_size, max_length)
-        entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
-        entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )
-        
+        entropy_gamma_decay_mask = sliced_entropy_gamma_decay * mask_float  # ->(batch_size, max_length)
+        entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2)  # Sum over action dim -> (batch_size, max_length)
+        entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1)  # Sum over time dim -> (batch_size, )
+
         return neglogp, entropy
 
 
-    def sample(self, n : int) :
+    def sample(self, n : int):
         """Sample batch of n expressions
 
         Returns
         -------
-        actions, obs, priors : 
+        actions, obs, priors :
             Or a batch
         """
         if self.sample_novel_batch:
             actions, obs, priors = self.sample_novel(n)
         else:
-            feed_dict = {self.batch_size : n}
-            actions, obs, priors = self.sess.run(
-                [self.actions, self.obs, self.priors], feed_dict=feed_dict)
+            actions, obs, priors = self._sample_step(n)
+            # Already numpy arrays
 
         return actions, obs, priors
 
@@ -329,7 +328,6 @@ class RNNPolicy(Policy):
         -------
         unique_a, unique_o, unique_p: np.ndarrays
         """
-        feed_dict = {self.batch_size : n}
         n_novel = 0
         # Keep the samples that are produced by policy and already exist in cache,
         # so that DSO can train on everything
@@ -339,13 +337,12 @@ class RNNPolicy(Policy):
         n_attempts = 0
         while n_novel < n and n_attempts < self.max_attempts_at_novel_batch:
             # [batch, time], [batch, obs_dim, time], [batch, time, n_choices]
-            actions, obs, priors = self.sess.run(
-                [self.actions, self.obs, self.priors], feed_dict=feed_dict)
+            actions, obs, priors = self._sample_step(n)
+            # Already numpy arrays
             n_attempts += 1
-            new_indices = [] # indices of new and unique samples
-            old_indices = [] # indices of samples already in cache
+            new_indices = []  # indices of new and unique samples
+            old_indices = []  # indices of samples already in cache
             for idx, a in enumerate(actions):
-                # tokens = Program._finish_tokens(a)
                 tokens = _finish_tokens(a)
                 key = tokens.tostring()
                 if not key in Program.cache.keys() and n_novel < n:
@@ -409,17 +406,14 @@ class RNNPolicy(Policy):
 
     def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
-
-        feed_dict = {
-            self.memory_batch_ph : memory_batch
-        }
+        neglogp, _ = self.make_neglogp_and_entropy(memory_batch, None)
 
         if log:
-            fetch = self.memory_logps
+            probs = -neglogp
         else:
-            fetch = self.memory_probs
-        probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
-        return probs
+            probs = tf.exp(-neglogp)
+
+        return probs.numpy()
 
     def apply_action_prob_lowerbound(self, logits):
         """Applies a lower bound to probabilities of each action.
@@ -436,6 +430,6 @@ class RNNPolicy(Policy):
         probs_bounded = ((1-self.action_prob_lowerbound)*probs +
                          self.action_prob_lowerbound/
                          float(self.n_choices))
-        logits_bounded = tf.log(probs_bounded)
+        logits_bounded = tf.math.log(probs_bounded)
 
         return logits_bounded
